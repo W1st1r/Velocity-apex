@@ -18,7 +18,7 @@
       this.controls=document.getElementById('controls');this.leftBtn=document.getElementById('leftBtn');this.rightBtn=document.getElementById('rightBtn');
       this.gasBtn=document.getElementById('gasBtn');this.brakeBtn=document.getElementById('brakeBtn');this.wheel=document.getElementById('steeringWheel');
       this._orientationHandler=e=>this._onOrientation(e);this._orientationChange=()=>{this.tiltNeutral=null;this.tiltValue=0;};
-      this._hardenSteeringButton(this.leftBtn);this._hardenSteeringButton(this.rightBtn);
+      this._hardenRaceButton(this.leftBtn);this._hardenRaceButton(this.rightBtn);this._hardenRaceButton(this.gasBtn);this._hardenRaceButton(this.brakeBtn);
       this._bindHold(this.leftBtn,'left',()=>this.mode==='arrows');this._bindHold(this.rightBtn,'right',()=>this.mode==='arrows');
       this._bindHold(this.gasBtn,'gas');this._bindHold(this.brakeBtn,'brake');this._bindWheel();
       addEventListener('orientationchange',this._orientationChange,{passive:true});
@@ -26,13 +26,13 @@
       this.syncUI();
     }
 
-    _hardenSteeringButton(el){
+    _hardenRaceButton(el){
       if(!el)return;
       el.draggable=false;
       const suppress=e=>{if(e.cancelable)e.preventDefault();};
       // iOS Safari can still start selection/callout on very fast repeated taps even
-      // with user-select:none. Suppress only browser gestures on the steering buttons;
-      // pointer/touch state remains independent, so steering + GAS/BRAKE stays multitouch.
+      // with user-select:none. Suppress browser gestures on the critical race controls;
+      // each button keeps independent pointer/touch state, so steering + GAS/BRAKE stays multitouch.
       for(const type of ['selectstart','dragstart','contextmenu','dblclick','gesturestart'])el.addEventListener(type,suppress,{passive:false});
       el.addEventListener('touchstart',suppress,{passive:false});
       el.addEventListener('touchmove',suppress,{passive:false});

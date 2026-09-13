@@ -470,14 +470,20 @@ html,body,#app { touch-action: auto; }
 #miniMap { width:100%; height:100%; display:block; pointer-events:none; }
 
 .arrow-control,
-.arrow-control * {
+.arrow-control *,
+.gas,
+.gas *,
+.brake,
+.brake * {
   -webkit-user-select:none !important;
   user-select:none !important;
   -webkit-touch-callout:none !important;
   -webkit-tap-highlight-color:transparent !important;
   -webkit-user-drag:none;
 }
-.arrow-control {
+.arrow-control,
+.gas,
+.brake {
   touch-action:none !important;
   overscroll-behavior:none;
   cursor:default;
