@@ -235,20 +235,20 @@
     }
 
     _drawPitBuilding(ctx) {
-      const kind=this.theme.kind;if(kind!=='circuit'&&kind!=='neon')return;
+      const kind=this.theme.kind;if(kind!=='circuit'&&kind!=='neon'&&kind!=='aurora')return;
       const side=this.config.scenery?.pitSide||1,spot=this._scenerySpot(.055,side,118,42);if(!spot)return;
-      const width=kind==='circuit'?250:205,depth=58;ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle);
+      const width=kind==='circuit'?250:(kind==='aurora'?285:205),depth=kind==='aurora'?64:58;ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle);
       ctx.fillStyle='rgba(0,0,0,.24)';ctx.fillRect(-width*.52,-depth*.4,width*1.04,depth*1.2);
-      ctx.fillStyle=kind==='neon'?'#132238':'#d5dad5';ctx.fillRect(-width*.5,-depth*.5,width,depth);
-      ctx.fillStyle=kind==='neon'?'#223d5a':'#2d3637';ctx.fillRect(-width*.5,-depth*.5,width,13);
-      for(let x=-width*.43;x<width*.45;x+=30){ctx.fillStyle=kind==='neon'?'#63dff5':'#1e2728';ctx.globalAlpha=.72;ctx.fillRect(x,-7,17,17);}ctx.globalAlpha=1;
+      ctx.fillStyle=kind==='neon'?'#132238':kind==='aurora'?'#172427':'#d5dad5';ctx.fillRect(-width*.5,-depth*.5,width,depth);
+      ctx.fillStyle=kind==='neon'?'#223d5a':kind==='aurora'?'#26383c':'#2d3637';ctx.fillRect(-width*.5,-depth*.5,width,13);
+      for(let x=-width*.43;x<width*.45;x+=30){ctx.fillStyle=kind==='neon'?'#63dff5':kind==='aurora'?'#a7fff0':'#1e2728';ctx.globalAlpha=.72;ctx.fillRect(x,-7,17,17);}ctx.globalAlpha=1;
       ctx.fillStyle=this.theme.accent;ctx.globalAlpha=.65;ctx.fillRect(-width*.46,18,width*.92,4);ctx.globalAlpha=1;
       ctx.restore();
     }
 
     _drawServiceRoad(ctx) {
       const side=this.config.scenery?.pitSide||1,n=this.samples.length,offset=this.roadWidth*.5+this.barrierMargin+62;
-      ctx.save();ctx.strokeStyle=this.theme.kind==='coast'?'#d8e0d9':this.theme.kind==='desert'?'#9a6d4e':'#687477';ctx.lineWidth=this.theme.kind==='coast'?20:18;ctx.globalAlpha=.42;ctx.lineCap='round';ctx.beginPath();let drawing=false;
+      ctx.save();ctx.strokeStyle=this.theme.kind==='coast'?'#d8e0d9':this.theme.kind==='desert'?'#9a6d4e':this.theme.kind==='aurora'?'#506a6b':'#687477';ctx.lineWidth=this.theme.kind==='coast'?20:(this.theme.kind==='aurora'?16:18);ctx.globalAlpha=.42;ctx.lineCap='round';ctx.beginPath();let drawing=false;
       for(let q=-20;q<=50;q++){
         const i=(q+n)%n,p=this.samples[i],x=p.x+p.nx*offset*side,y=p.y+p.ny*offset*side,clear=this.nearest(x,y).distance>this.roadWidth*.5+this.barrierMargin+20;
         if(!clear){drawing=false;continue;}if(!drawing){ctx.moveTo(x,y);drawing=true;}else ctx.lineTo(x,y);
@@ -284,8 +284,36 @@
       for(let i=0;i<5;i++){const x=b.minX+75+i*78,y=b.minY+85+(i%2)*58;if(this.nearest(x,y).distance<this.roadWidth*.75)continue;ctx.save();ctx.translate(x,y);ctx.strokeStyle='#e8efed';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,17);ctx.lineTo(0,-16);ctx.stroke();ctx.fillStyle='#f7f7f0';ctx.beginPath();ctx.moveTo(2,-14);ctx.lineTo(23,8);ctx.lineTo(2,7);ctx.closePath();ctx.fill();ctx.restore();}
     }
 
+
+    _drawAuroraScenery(ctx) {
+      const b=this.bounds,w=b.maxX-b.minX,h=b.maxY-b.minY;
+      // Cold shoreline / water mass. It is baked into the static cache, so the richer
+      // scene has no per-frame gradient or blur cost on Safari.
+      ctx.save();
+      const water=ctx.createLinearGradient(b.minX,b.minY,b.maxX,b.maxY);water.addColorStop(0,'#0a343d');water.addColorStop(1,'#0d5660');
+      ctx.fillStyle=water;ctx.globalAlpha=.88;ctx.beginPath();ctx.moveTo(b.minX+w*.58,b.minY);ctx.lineTo(b.maxX,b.minY);ctx.lineTo(b.maxX,b.maxY);ctx.lineTo(b.minX+w*.70,b.maxY);ctx.quadraticCurveTo(b.minX+w*.62,b.minY+h*.72,b.minX+w*.69,b.minY+h*.50);ctx.quadraticCurveTo(b.minX+w*.76,b.minY+h*.26,b.minX+w*.58,b.minY);ctx.fill();
+      ctx.globalAlpha=.25;ctx.strokeStyle='#8de7e0';ctx.lineWidth=2;for(let i=0;i<18;i++){const y=b.minY+38+i*h/18;ctx.beginPath();ctx.moveTo(b.minX+w*.70,y);ctx.quadraticCurveTo(b.minX+w*.84,y+18,b.maxX-25,y-8);ctx.stroke();}ctx.restore();
+
+      // Forest belts: compact top-down crowns with tiny trunks, intentionally sparse.
+      const forest=[.08,.14,.22,.31,.48,.55,.69,.82,.90,.96];
+      for(let i=0;i<forest.length;i++){
+        const progress=forest[i],side=i%3===0?1:-1,spot=this._scenerySpot(progress,side,115+(i%3)*24,30);if(!spot)continue;
+        ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle*.08);
+        for(let k=0;k<5;k++){const ox=(k-2)*19+(i%2)*5,oy=((k*17+i*11)%43)-21,r=12+(k%3)*4;ctx.fillStyle=k&1?'#123f39':'#0b312f';ctx.beginPath();ctx.arc(ox,oy,r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.35;ctx.fillStyle='#64a986';ctx.beginPath();ctx.arc(ox-3,oy-4,r*.55,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}ctx.restore();
+      }
+
+      // Granite / retaining-rock zones near the tighter back section.
+      [.52,.58,.64,.72,.79].forEach((progress,i)=>{const spot=this._scenerySpot(progress,i&1?1:-1,145+(i%2)*24,40);if(!spot)return;ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(i*.47);for(let k=0;k<4;k++){const x=(k-1.5)*23,y=((k*19+i*13)%31)-15;ctx.fillStyle=k&1?'#4a5f60':'#344a4c';ctx.beginPath();ctx.moveTo(x-16,y+9);ctx.lineTo(x-9,y-13);ctx.lineTo(x+7,y-18);ctx.lineTo(x+17,y+3);ctx.lineTo(x+9,y+14);ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(211,235,230,.13)';ctx.lineWidth=1.3;ctx.stroke();}ctx.restore();});
+
+      // Service / paddock pads around pit/start with parked support vehicles.
+      const pad=this._scenerySpot(.035,this.config.scenery?.pitSide||-1,190,55);if(pad){ctx.save();ctx.translate(pad.x,pad.y);ctx.rotate(pad.angle);ctx.fillStyle='#1b292c';ctx.fillRect(-175,-62,350,124);ctx.strokeStyle='rgba(191,224,218,.22)';ctx.lineWidth=2;ctx.strokeRect(-175,-62,350,124);for(let x=-145;x<=135;x+=40){ctx.strokeStyle='rgba(221,240,236,.12)';ctx.beginPath();ctx.moveTo(x,-52);ctx.lineTo(x,-10);ctx.stroke();}for(let i=0;i<6;i++){const x=-137+i*48,y=23+(i%2)*16;ctx.fillStyle=i%3===0?'#9bff62':i%3===1?'#c6d4d2':'#4fb4c8';ctx.fillRect(x,y,23,10);ctx.fillStyle='#0b1113';ctx.fillRect(x+4,y+2,7,6);}ctx.restore();}
+
+      // Modern illuminated marshal / signal boards along the high-speed sections.
+      [.17,.28,.40,.86].forEach((progress,i)=>{const spot=this._scenerySpot(progress,i&1?1:-1,62,16);if(!spot)return;ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle);ctx.fillStyle='#111b1d';ctx.fillRect(-34,-8,68,16);ctx.strokeStyle='rgba(229,244,241,.35)';ctx.strokeRect(-34,-8,68,16);for(let k=0;k<5;k++){ctx.fillStyle=k===i%5?this.theme.accent:'#4d7778';ctx.globalAlpha=k===i%5?.9:.42;ctx.fillRect(-27+k*12,-3,7,6);}ctx.globalAlpha=1;ctx.restore();});
+    }
+
     _drawThemeScenery(ctx) {
-      const fn={circuit:'_drawCircuitScenery',neon:'_drawNeonScenery',desert:'_drawDesertScenery',alpine:'_drawAlpineScenery',coast:'_drawCoastScenery'}[this.theme.kind];
+      const fn={circuit:'_drawCircuitScenery',neon:'_drawNeonScenery',desert:'_drawDesertScenery',alpine:'_drawAlpineScenery',coast:'_drawCoastScenery',aurora:'_drawAuroraScenery'}[this.theme.kind];
       if(fn)this[fn](ctx);
       this._drawServiceRoad(ctx);this._drawPitBuilding(ctx);
       const s=this.config.scenery||{};(s.grandstands||[]).forEach(g=>this._drawGrandstand(ctx,g[0],g[1],g[2],!!g[3]));(s.spectators||[]).forEach(z=>this._drawSpectatorZone(ctx,z[0],z[1]));
@@ -310,8 +338,8 @@
     }
 
     _drawPitLane(ctx) {
-      if(this.theme.kind!=='circuit'&&this.theme.kind!=='neon')return;const side=this.config.scenery?.pitSide||1,n=this.samples.length,off=(this.roadWidth*.5+this.curbWidth+17)*side;
-      ctx.save();ctx.strokeStyle=this.theme.kind==='neon'?'#4a596f':'#626a69';ctx.lineWidth=34;ctx.lineCap='round';ctx.beginPath();for(let q=-8;q<=48;q++){const p=this.samples[(q+n)%n],x=p.x+p.nx*off,y=p.y+p.ny*off;if(q===-8)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.strokeStyle='#f1f2ea';ctx.lineWidth=2;ctx.setLineDash([12,9]);ctx.stroke();ctx.setLineDash([]);const wall=(this.roadWidth*.5+this.curbWidth+2)*side;ctx.strokeStyle=this.theme.kind==='neon'?'#83d9ea':'#e5e8e4';ctx.globalAlpha=.8;ctx.lineWidth=4;ctx.beginPath();for(let q=-5;q<=42;q++){const p=this.samples[(q+n)%n],x=p.x+p.nx*wall,y=p.y+p.ny*wall;if(q===-5)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.restore();
+      if(this.theme.kind!=='circuit'&&this.theme.kind!=='neon'&&this.theme.kind!=='aurora')return;const side=this.config.scenery?.pitSide||1,n=this.samples.length,off=(this.roadWidth*.5+this.curbWidth+17)*side;
+      ctx.save();ctx.strokeStyle=this.theme.kind==='neon'?'#4a596f':this.theme.kind==='aurora'?'#46585b':'#626a69';ctx.lineWidth=34;ctx.lineCap='round';ctx.beginPath();for(let q=-8;q<=48;q++){const p=this.samples[(q+n)%n],x=p.x+p.nx*off,y=p.y+p.ny*off;if(q===-8)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.strokeStyle='#f1f2ea';ctx.lineWidth=2;ctx.setLineDash([12,9]);ctx.stroke();ctx.setLineDash([]);const wall=(this.roadWidth*.5+this.curbWidth+2)*side;ctx.strokeStyle=this.theme.kind==='neon'?'#83d9ea':this.theme.kind==='aurora'?'#9bffdf':'#e5e8e4';ctx.globalAlpha=.8;ctx.lineWidth=4;ctx.beginPath();for(let q=-5;q<=42;q++){const p=this.samples[(q+n)%n],x=p.x+p.nx*wall,y=p.y+p.ny*wall;if(q===-5)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();ctx.restore();
     }
 
     _drawGroundDetails(ctx) {
@@ -330,6 +358,8 @@
           ctx.fillStyle=rand()>.42?'#dbe7e5':'#183b35';ctx.beginPath();ctx.moveTo(x,y-size*1.7);ctx.lineTo(x-size*.8,y+size);ctx.lineTo(x+size*.8,y+size);ctx.closePath();ctx.fill();
         }else if(kind==='coast'){
           ctx.strokeStyle=rand()>.5?'#bfe9df':'#0f5965';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x,y,size*1.6,.15,2.7);ctx.stroke();
+        }else if(kind==='aurora'){
+          ctx.fillStyle=rand()>.58?'#7ba79a':'#173d39';ctx.beginPath();ctx.arc(x,y,size*(.25+rand()*.35),0,Math.PI*2);ctx.fill();
         }else if(kind==='neon'){
           ctx.fillStyle=rand()>.55?'#2f8fa0':'#7550aa';ctx.fillRect(x-size*.5,y-size*.5,1.5+rand()*3,1.5+rand()*3);
         }else{
@@ -360,6 +390,17 @@
       ctx.restore();
     }
 
+    _drawAuroraRoadMarkings(ctx) {
+      if(this.theme.kind!=='aurora')return;
+      const n=this.samples.length;ctx.save();ctx.lineCap='round';
+      // Subtle center guidance on the longest high-speed sectors.
+      ctx.strokeStyle='rgba(214,241,235,.28)';ctx.lineWidth=2;ctx.setLineDash([18,20]);ctx.beginPath();let active=false;
+      for(let i=0;i<n;i++){const p=this.samples[i],progress=i/n,on=(progress>.055&&progress<.30)||(progress>.78&&progress<.97);if(on){if(!active){ctx.moveTo(p.x,p.y);active=true;}else ctx.lineTo(p.x,p.y);}else active=false;}ctx.stroke();ctx.setLineDash([]);
+      // Braking boards for the hard-stop zones.
+      for(const progress of [.31,.51,.74]){const p=this.samples[this._sampleIndex(progress)];for(const side of [-1,1]){const off=(this.roadWidth*.5+34)*side,x=p.x+p.nx*off,y=p.y+p.ny*off;ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(p.ty,p.tx));ctx.fillStyle='#ecf4f0';ctx.fillRect(-7,-11,14,22);ctx.fillStyle='#162226';ctx.font='900 7px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(progress<.4?'150':progress<.7?'100':'75',0,0);ctx.restore();}}
+      ctx.restore();
+    }
+
     _drawStatic(ctx) {
       const b=this.bounds,kind=this.theme.kind;ctx.fillStyle=this.theme.ground;ctx.fillRect(b.minX,b.minY,b.maxX-b.minX,b.maxY-b.minY);
       ctx.save();
@@ -373,24 +414,26 @@
         ctx.globalAlpha=.13;ctx.strokeStyle='#bfd1cd';ctx.lineWidth=6;for(let i=0;i<15;i++){const x=b.minX+((i*887)%(b.maxX-b.minX)),y=b.minY+((i*491)%(b.maxY-b.minY));ctx.beginPath();ctx.ellipse(x,y,88,42,i*.5,0,Math.PI*2);ctx.stroke();}
       }else if(kind==='coast'){
         ctx.strokeStyle='#79dde1';ctx.globalAlpha=.2;ctx.lineWidth=2;for(let y=b.minY;y<b.maxY;y+=92){ctx.beginPath();for(let x=b.minX;x<b.maxX;x+=40){const yy=y+Math.sin(x*.006+y)*10;if(x===b.minX)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);}ctx.stroke();}
+      }else if(kind==='aurora'){
+        ctx.globalAlpha=.14;ctx.strokeStyle='#7ed7c2';ctx.lineWidth=2;for(let y=b.minY+30;y<b.maxY;y+=120){ctx.beginPath();for(let x=b.minX;x<b.maxX;x+=55){const yy=y+Math.sin(x*.004+y*.008)*18;if(x===b.minX)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);}ctx.stroke();}
       }
       ctx.restore();
       this._drawGroundDetails(ctx);this._drawThemeScenery(ctx);
 
       // Theme-specific runoff sits between the curb and collision-aligned barriers.
-      const runoff={circuit:'#71806f',neon:'#38475a',desert:'#c28b59',alpine:'#697a76',coast:'#d5bf92'}[kind]||'#666';
+      const runoff={circuit:'#71806f',neon:'#38475a',desert:'#c28b59',alpine:'#697a76',coast:'#d5bf92',aurora:'#365557'}[kind]||'#666';
       ctx.save();ctx.lineJoin='round';ctx.lineCap='round';this._path(ctx);ctx.strokeStyle=runoff;ctx.globalAlpha=kind==='desert'||kind==='coast'?.78:.58;ctx.lineWidth=this.roadWidth+this.barrierMargin*1.55;ctx.stroke();
-      if(kind==='circuit'||kind==='neon'){this._path(ctx);ctx.strokeStyle=kind==='neon'?'#536174':'#596260';ctx.globalAlpha=.62;ctx.lineWidth=this.roadWidth+this.curbWidth*2+25;ctx.stroke();}ctx.restore();
+      if(kind==='circuit'||kind==='neon'||kind==='aurora'){this._path(ctx);ctx.strokeStyle=kind==='neon'?'#536174':kind==='aurora'?'#294548':'#596260';ctx.globalAlpha=.62;ctx.lineWidth=this.roadWidth+this.curbWidth*2+25;ctx.stroke();}ctx.restore();
 
       this._drawBarriers(ctx);
-      ctx.save();ctx.lineJoin='round';ctx.lineCap='round';this._path(ctx);ctx.lineWidth=this.roadWidth+8;ctx.strokeStyle='#202528';ctx.stroke();this._path(ctx);ctx.lineWidth=this.roadWidth;ctx.strokeStyle=this.theme.road;ctx.stroke();this._path(ctx);ctx.lineWidth=this.roadWidth-10;ctx.strokeStyle=kind==='neon'?'#293142':kind==='coast'?'#3b4649':'#373b3c';ctx.globalAlpha=.54;ctx.stroke();ctx.restore();
+      ctx.save();ctx.lineJoin='round';ctx.lineCap='round';this._path(ctx);ctx.lineWidth=this.roadWidth+8;ctx.strokeStyle='#202528';ctx.stroke();this._path(ctx);ctx.lineWidth=this.roadWidth;ctx.strokeStyle=this.theme.road;ctx.stroke();this._path(ctx);ctx.lineWidth=this.roadWidth-10;ctx.strokeStyle=kind==='neon'?'#293142':kind==='coast'?'#3b4649':kind==='aurora'?'#343f42':'#373b3c';ctx.globalAlpha=.54;ctx.stroke();ctx.restore();
       this._drawRacingRubber(ctx);this._drawAsphaltDetails(ctx);
 
       // Curbs follow the resampled centerline with a constant physical width.
       const edge=this.roadWidth*.505;ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#060708';ctx.lineWidth=this.curbWidth+5;ctx.lineCap='round';this._path(ctx,-edge);ctx.stroke();this._path(ctx,edge);ctx.stroke();ctx.restore();
       ctx.save();ctx.lineCap='butt';for(let side=-1;side<=1;side+=2)for(let i=0;i<this.samples.length;i+=4){const p=this.samples[i],q=this.samples[(i+4)%this.samples.length];ctx.beginPath();ctx.moveTo(p.x+p.nx*edge*side,p.y+p.ny*edge*side);ctx.lineTo(q.x+q.nx*edge*side,q.y+q.ny*edge*side);ctx.strokeStyle=((i/4)&1)?'#f4f4f0':this.theme.curb;ctx.lineWidth=this.curbWidth;ctx.stroke();ctx.globalAlpha=.25;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;}ctx.restore();
 
-      this._drawPitLane(ctx);this._drawStartFinish(ctx);
+      this._drawAuroraRoadMarkings(ctx);this._drawPitLane(ctx);this._drawStartFinish(ctx);
     }
   }
 

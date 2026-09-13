@@ -20,9 +20,9 @@
     setMuted(v){this.muted=!!v;if(this.master&&this.ctx)this.master.gain.setTargetAtTime(this.muted?0:.18,this.ctx.currentTime,.03);}
     updateEngine(speed,throttle,active){
       if(!this.ready||!this.ctx)return;const t=this.ctx.currentTime;
-      const freq=55+Math.min(1,speed/400)*215+throttle*28;
+      const top=window.Racing?.RACE_PHYSICS?.maxSpeed||510,freq=55+Math.min(1,speed/top)*215+throttle*28;
       this.engineOsc.frequency.setTargetAtTime(freq,t,.03);this.engineOsc2.frequency.setTargetAtTime(freq*.5,t,.04);
-      this.engineGain.gain.setTargetAtTime(active?(.07+Math.min(1,speed/400)*.09):0,t,.05);
+      this.engineGain.gain.setTargetAtTime(active?(.07+Math.min(1,speed/top)*.09):0,t,.05);
     }
     tone(freq=440,dur=.08,type='sine',gain=.12,slide=0){
       if(!this.ready||this.muted||!this.ctx)return;const t=this.ctx.currentTime,o=this.ctx.createOscillator(),g=this.ctx.createGain();

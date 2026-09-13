@@ -2,6 +2,7 @@
   'use strict';
   const R=window.Racing=window.Racing||{};
   const clamp=R.clamp;
+  const PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
   const TAU=Math.PI*2;
   const angleWrap=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a;};
   const moveToward=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
@@ -83,8 +84,8 @@
       this.id=opts.id||0;this.name=opts.name||('CAR '+this.id);this.player=!!opts.player;
       this.color=opts.color||'#ff4057';this.accent=opts.accent||'#ffffff';
       this.x=0;this.y=0;this.vx=0;this.vy=0;this.angle=0;this.speed=0;this.yawRate=0;this.gripDisturbance=0;this._surfaceDrag=1;this.surface='asphalt';
-      this.maxSpeed=opts.maxSpeed||338;this.baseMaxSpeed=this.maxSpeed;this.accel=opts.accel||174;this.brakePower=opts.brakePower||265;
-      this.turnRate=opts.turnRate||2.18;this.radius=18;this.length=62;this.width=31;
+      this.maxSpeed=opts.maxSpeed||PHYS.maxSpeed;this.baseMaxSpeed=this.maxSpeed;this.accel=opts.accel||PHYS.accel;this.brakePower=opts.brakePower||PHYS.brakePower;
+      this.turnRate=opts.turnRate||PHYS.turnRate;this.radius=18;this.length=62;this.width=31;
       // Collision footprint follows the already-drawn car, including wings/tyres.
       // The drawing spans about x=-34..37 and y=-22..22, whose visual centre is +1.5px.
       this.collisionLength=71;this.collisionWidth=44;this.collisionOffsetX=1.5;this.collisionOffsetY=0;
@@ -285,19 +286,38 @@
 
     drawExhaust(ctx,resolvedLength=0){
       const effect=R.EFFECTS[this.effect];
-      if(!effect||this.effect==='standard'||this.throttleVisual<=.65||this.brakeVisual>.1||this.speed<12)return;
-      const t=this.effectTime,flicker=1+.12*Math.sin(t*53)+.08*Math.sin(t*89),length=(18+this.speed*.055)*this.throttleVisual*flicker;
+      if(!effect||this.effect==='standard'||this.throttleVisual<=.58||this.brakeVisual>.16||this.speed<10)return;
+      const t=this.effectTime,throttle=Math.max(0,Math.min(1,this.throttleVisual));
+      const speedPulse=Math.max(0,Math.min(1,(this.speed-10)/300));
+      const flicker=1+.12*Math.sin(t*53)+.075*Math.sin(t*89)+.035*Math.sin(t*137);
+      const intensity=.72+throttle*.46+speedPulse*.20;
+      const length=(14+this.speed*.062)*throttle*flicker*intensity;
       const preview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
       const visualScale=this.spriteSpec?(preview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
       const fallbackLength=this.spriteSpec?(this.spriteSpec.maxVisualLength||this.spriteSpec.visualLength||this.spriteSpec.length||74)*visualScale:0;
+      const fallbackWidth=this.spriteSpec?(this.spriteSpec.visualWidth||this.spriteSpec.width||38)*visualScale:38;
       const rearX=this.spriteSpec?-(resolvedLength||fallbackLength)*.47+(this.spriteSpec.exhaustOffsetX||0):-32;
       const rearY=this.spriteSpec?.exhaustOffsetY||0;
-      ctx.save();ctx.translate(0,rearY);ctx.globalCompositeOperation='lighter';
-      for(let layer=0;layer<3;layer++){
-        const len=length*(1-layer*.22),width=6-layer*1.6;
-        ctx.globalAlpha=.55+layer*.17;
-        ctx.fillStyle=effect.rainbow?`hsl(${(t*135+layer*55)%360},100%,${55+layer*15}%)`:(layer===0?effect.outer:layer===1?effect.inner:'#ffffff');
-        ctx.beginPath();ctx.moveTo(rearX,-width);ctx.bezierCurveTo(rearX-10,-width*1.6,rearX-len*.8,-width,rearX-len,Math.sin(t*43+layer)*3);ctx.bezierCurveTo(rearX-len*.65,width*1.2,rearX-8,width*1.5,rearX,width);ctx.closePath();ctx.fill();
+      const spread=Math.max(5.2,Math.min(13,fallbackWidth*.235));
+      const nozzles=effect.twin===false?[rearY]:[rearY-spread,rearY+spread];
+      ctx.save();ctx.globalCompositeOperation='lighter';
+      for(let nozzleIndex=0;nozzleIndex<nozzles.length;nozzleIndex++){
+        const y=nozzles[nozzleIndex],phase=nozzleIndex?Math.PI*.72:0;
+        const localLen=length*(.96+.055*Math.sin(t*61+phase));
+        ctx.save();ctx.translate(0,y);
+        ctx.globalAlpha=.15+.12*throttle;ctx.fillStyle=effect.rainbow?`hsla(${(t*150+nozzleIndex*74)%360},100%,62%,.75)`:effect.outer;
+        ctx.beginPath();ctx.ellipse(rearX-2,0,8+throttle*3,5+throttle*2,0,0,Math.PI*2);ctx.fill();
+        for(let layer=0;layer<3;layer++){
+          const len=localLen*(1-layer*.21),width=(5.7-layer*1.35)*(1+throttle*.16);
+          ctx.globalAlpha=(.52+layer*.18)*(.82+throttle*.18);
+          ctx.fillStyle=effect.rainbow?`hsl(${(t*150+nozzleIndex*68+layer*58)%360},100%,${55+layer*15}%)`:(layer===0?effect.outer:layer===1?effect.inner:'#ffffff');
+          const wiggle=Math.sin(t*(43+layer*8)+phase+layer*.8)*2.5;
+          ctx.beginPath();ctx.moveTo(rearX,-width);
+          ctx.bezierCurveTo(rearX-8,-width*1.55,rearX-len*.76,-width*.92,rearX-len,wiggle);
+          ctx.bezierCurveTo(rearX-len*.66,width*1.14,rearX-7,width*1.48,rearX,width);
+          ctx.closePath();ctx.fill();
+        }
+        ctx.restore();
       }
       ctx.restore();
     }

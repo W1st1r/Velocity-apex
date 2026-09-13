@@ -9,7 +9,7 @@
     push(state,serverTime){
       if(!state||!Number.isFinite(serverTime))return;
       const item={...state,serverTime};if(this.last&&item.seq<=this.last.seq)return;
-      if(this.last&&Number.isFinite(item.x)&&Number.isFinite(item.y)&&Number.isFinite(this.last.x)&&Number.isFinite(this.last.y)&&Math.hypot(item.x-this.last.x,item.y-this.last.y)>550)this.items.length=0;
+      if(this.last&&Number.isFinite(item.x)&&Number.isFinite(item.y)&&Number.isFinite(this.last.x)&&Number.isFinite(this.last.y)&&Math.hypot(item.x-this.last.x,item.y-this.last.y)>720)this.items.length=0;
       this.last=item;this.items.push(item);if(this.items.length>16)this.items.splice(0,this.items.length-16);
     }
     sample(targetTime){
@@ -52,7 +52,7 @@
     onMessage(raw){
       let m;try{m=JSON.parse(raw);}catch{return;}if(!m||typeof m.type!=='string')return;
       if(m.type==='pong'&&Number.isFinite(m.clientTime)&&Number.isFinite(m.serverTime)){const recv=Date.now(),rtt=recv-m.clientTime,estimate=m.serverTime+rtt*.5;this.offset=this.offset*.7+(estimate-recv)*.3;}
-      if((m.type==='hello'||m.type==='room_state'||m.type==='race_finish')&&m.room)this.room=m.room;
+      if((m.type==='hello'||m.type==='room_state'||m.type==='race_finish'||m.type==='race_cancelled')&&m.room)this.room=m.room;
       if(m.type==='hello'&&Number.isFinite(m.serverTime))this.offset=m.serverTime-Date.now();
       if(m.type==='player_state'&&m.playerId!==this.session?.playerId){let b=this.buffers.get(m.playerId);if(!b){b=new SnapshotBuffer();this.buffers.set(m.playerId,b);}b.push(m.state,m.serverTime||Date.now());}
       this.dispatchEvent(new CustomEvent('message',{detail:m}));
