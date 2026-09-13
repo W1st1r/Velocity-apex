@@ -38,6 +38,7 @@ assert(JSON.stringify(save)===JSON.stringify(fresh),'reset player progress did n
 const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8'),game=fs.readFileSync(path.join(ROOT,'public/js/game.js'),'utf8');
 for(const token of ['id="rootOpenBtn"','id="rootAuth"','id="rootPassword"','inputmode="numeric"','id="rootConsole"','id="rootCars"','id="rootEffects"','id="rootDiagnostics"','js/root-console.js'])assert(html.includes(token),`missing ROOT UI token ${token}`);
 assert(css.includes('#app *:not(input)')&&css.includes('-webkit-touch-callout:none')&&css.includes('#app input,')&&css.includes('#app textarea,'),'central iOS interaction hardening missing');
-assert(game.includes("['selectstart','dragstart','contextmenu','dblclick']")&&game.includes('performance.now()-lastHandled<700'),'app gesture guard or bindTap synthetic-click guard missing');
+for(const type of ['selectstart','dragstart','contextmenu','dblclick','copy'])assert(game.includes(`'${type}'`),`app gesture guard missing ${type}`);
+assert(game.includes('performance.now()-lastHandled<700'),'bindTap synthetic-click guard missing');
 
 console.log(JSON.stringify({ok:true,cars:Object.keys(R.LIVERIES).length,effects:Object.keys(R.EFFECTS).length,maxCreditsTested:Number.MAX_SAFE_INTEGER},null,2));

@@ -550,6 +550,17 @@ html,body,#app { touch-action: auto; }
   -webkit-tap-highlight-color:transparent !important;
   -webkit-user-drag:none !important;
 }
+/* Media and vector artwork can still become a native drag/callout target in
+   Mobile Safari. This also covers SVG paths/circles nested outside buttons. */
+#app img,
+#app svg,
+#app svg * {
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  -webkit-tap-highlight-color:transparent !important;
+  -webkit-user-drag:none !important;
+}
 #app input,
 #app textarea,
 #app select,

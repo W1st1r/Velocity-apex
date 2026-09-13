@@ -173,11 +173,38 @@
     const app=$('app');if(!app)return;
     const editableSelector='input,textarea,select,[contenteditable="true"]';
     const isEditable=target=>!!(target&&target.closest&&target.closest(editableSelector));
-    const suppress=e=>{if(isEditable(e.target))return;if(e.cancelable)e.preventDefault();};
-    // Do not cancel touchstart/touchend here: race controls rely on independent
-    // pointers and settings/shop panels must keep native pan/scroll behavior.
-    for(const type of ['selectstart','dragstart','contextmenu','dblclick'])app.addEventListener(type,suppress,{capture:true,passive:false});
-    app.querySelectorAll('img,svg').forEach(el=>{el.setAttribute('draggable','false');});
+    const asElement=node=>node&&node.nodeType===1?node:node?.parentElement||null;
+    const clearProtectedSelection=()=>{
+      const selection=window.getSelection?.();if(!selection||selection.isCollapsed)return;
+      const anchor=asElement(selection.anchorNode),focus=asElement(selection.focusNode);
+      const protectedAnchor=anchor&&app.contains(anchor)&&!isEditable(anchor);
+      const protectedFocus=focus&&app.contains(focus)&&!isEditable(focus);
+      if(protectedAnchor||protectedFocus)selection.removeAllRanges();
+    };
+    const suppress=e=>{
+      if(isEditable(e.target))return;
+      if(e.cancelable)e.preventDefault();
+      if(e.type==='selectstart'||e.type==='dblclick'||e.type==='contextmenu'){
+        clearProtectedSelection();
+        requestAnimationFrame(clearProtectedSelection);
+      }
+    };
+    const hardenMedia=root=>{
+      if(!root||root.nodeType!==1)return;
+      if(root.matches?.('img,svg'))root.setAttribute('draggable','false');
+      root.querySelectorAll?.('img,svg').forEach(el=>el.setAttribute('draggable','false'));
+    };
+    // Never globally cancel touchstart/touchmove/touchend: race controls depend on
+    // independent pointers and shop/settings panels need their native pan/scroll.
+    for(const type of ['selectstart','dragstart','contextmenu','dblclick','copy'])app.addEventListener(type,suppress,{capture:true,passive:false});
+    hardenMedia(app);
+    // Shop/garage/track/ROOT markup is rendered dynamically. Keep newly inserted
+    // IMG/SVG nodes non-draggable instead of only hardening the initial DOM snapshot.
+    const observer=new MutationObserver(records=>records.forEach(record=>record.addedNodes.forEach(hardenMedia)));
+    observer.observe(app,{childList:true,subtree:true});
+    // WebKit can occasionally create a range after a rapid double tap despite the
+    // originating event being cancelled. Remove only ranges inside protected UI.
+    document.addEventListener('selectionchange',clearProtectedSelection,{passive:true});
   }
   installAppInteractionGuards();
   updateMenuStats();syncSetupUI();syncSettingsUI();writeSave();
