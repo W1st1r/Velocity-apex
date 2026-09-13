@@ -8,7 +8,7 @@ export const PLAYER_STATE_RATE_MS = 45;
 export const RECONNECT_GRACE_MS = 25000;
 export const EMPTY_ROOM_TTL_MS = 5 * 60 * 1000;
 export const ROOM_TTL_MS = 8 * 60 * 60 * 1000;
-export const TRACK_IDS = Object.freeze(['apexCircuit','neonHarbor','desertCanyon','alpineRing','coastlineGT']);
+export const TRACK_IDS = Object.freeze(['apexCircuit','neonHarbor','desertCanyon','alpineRing','coastlineGT','auroraGrandLoop']);
 
 export function generateRoomCode(randomByte = () => crypto.getRandomValues(new Uint8Array(1))[0]) {
   let out='';
@@ -35,8 +35,8 @@ export function finiteNumber(v,min=-Infinity,max=Infinity){ return typeof v==='n
 export function validPlayerState(s){
   if(!s||typeof s!=='object')return false;
   return Number.isInteger(s.seq)&&s.seq>=0&&s.seq<=Number.MAX_SAFE_INTEGER && finiteNumber(s.clientTime,0,Number.MAX_SAFE_INTEGER) &&
-    finiteNumber(s.x,-100000,100000)&&finiteNumber(s.y,-100000,100000)&&finiteNumber(s.vx,-1000,1000)&&finiteNumber(s.vy,-1000,1000)&&
-    finiteNumber(s.angle,-1000,1000)&&finiteNumber(s.speed,0,520)&&finiteNumber(s.yawRate,-20,20)&&finiteNumber(s.progress,0,1.0001)&&
+    finiteNumber(s.x,-100000,100000)&&finiteNumber(s.y,-100000,100000)&&finiteNumber(s.vx,-1200,1200)&&finiteNumber(s.vy,-1200,1200)&&
+    finiteNumber(s.angle,-1000,1000)&&finiteNumber(s.speed,0,650)&&finiteNumber(s.yawRate,-20,20)&&finiteNumber(s.progress,0,1.0001)&&
     Number.isInteger(s.laps)&&s.laps>=0&&s.laps<=100&&Number.isInteger(s.checkpoint)&&s.checkpoint>=0&&s.checkpoint<=10000&&
     finiteNumber(s.steer,-1,1)&&finiteNumber(s.throttle,0,1)&&finiteNumber(s.brake,0,1)&&typeof s.finished==='boolean';
 }

@@ -2,6 +2,8 @@
   'use strict';
   const R=window.Racing=window.Racing||{};
   const points=a=>a.map(([x,y])=>({x,y}));
+  // Shared world-space race physics. Keep player and AI on the same baseline.
+  R.RACE_PHYSICS=Object.freeze({maxSpeed:510,accel:268,brakePower:368,turnRate:2.40});
   R.TRACKS={
     apexCircuit:{id:'apexCircuit',name:'APEX CIRCUIT',type:'TECHNICAL',description:'Классический автодром · точность и темп',roadWidth:214,
       points:points([[-1240,55],[-1110,-575],[-585,-850],[55,-815],[670,-890],[1210,-555],[1370,-25],[1155,490],[625,775],[45,705],[-445,790],[-925,565],[-1305,300]]),
@@ -22,7 +24,11 @@
     coastlineGT:{id:'coastlineGT',name:'COASTLINE GT',type:'GRAND TOURING',description:'Морская дуга · быстрые связки и длинный разгон',targetLength:8400,roadWidth:222,
       points:points([[-1205,-650],[-300,-660],[745,-650],[1190,-415],[1440,25],[1255,525],[810,835],[225,900],[-290,735],[-385,410],[-760,390],[-1020,600],[-1360,420],[-1460,85],[-1235,-210]]),
       scenery:{grandstands:[[.006,1,.95,1],[.34,-1,.72,1]],spectators:[[.62,1]],pitSide:1},
-      theme:{kind:'coast',ground:'#227b8a',road:'#384144',curb:'#55c3cc',barrier:'#e2e9df',accent:'#5fe4da',surface:'sand',drag:1.25,dust:'#e4d4af'}}
+      theme:{kind:'coast',ground:'#227b8a',road:'#384144',curb:'#55c3cc',barrier:'#e2e9df',accent:'#5fe4da',surface:'sand',drag:1.25,dust:'#e4d4af'}},
+    auroraGrandLoop:{id:'auroraGrandLoop',name:'AURORA GRAND LOOP',type:'GRAND TOURING / HIGH SPEED / SCENIC',description:'Сумеречный гранд-тур · длинные прямые, S-секции и жесткие торможения',targetLength:15000,roadWidth:226,
+      points:points([[-2050,-610],[-1540,-815],[-790,-900],[80,-920],[900,-875],[1610,-690],[2020,-350],[2160,70],[1980,415],[1595,590],[1270,735],[1550,940],[1110,1110],[405,1125],[-170,1010],[-520,760],[-300,505],[-555,285],[-990,330],[-1370,585],[-1775,785],[-2140,610],[-2310,280],[-2285,-80],[-2180,-380]]),
+      scenery:{grandstands:[[.008,-1,1.18,1],[.18,1,.78,1],[.61,-1,.76,1]],spectators:[[.11,1],[.43,-1],[.76,1]],pitSide:-1},
+      theme:{kind:'aurora',ground:'#103f43',road:'#30383b',curb:'#80f0df',barrier:'#d7e7e4',accent:'#9bff62',surface:'grass',drag:1.08,dust:'#8dbbb3'}}
   };
   R.CAR_CATEGORY_ORDER=['all','basic','sport','premium','rare','legendary','lux'];
   R.CAR_CATEGORIES={

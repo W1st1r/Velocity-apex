@@ -89,7 +89,7 @@ Control mode is stored in the existing save and works in both modes:
 
 The existing Formula-style yaw/tyre model, fixed/substep physics, track surfaces, racing-line planner and AI remain the offline baseline. Online does not replace the physics implementation; only the local player runs `Car.update()` from input, while remote cars are positioned by interpolated snapshots and never receive `AIController`.
 
-The five existing tracks remain:
+The track roster now contains **six** circuits. The original five remain unchanged, and the new Aurora Grand Loop is the long-form scenic/high-speed venue:
 
 | Track | Length | Character |
 | --- | ---: | --- |
@@ -98,6 +98,14 @@ The five existing tracks remain:
 | DESERT CANYON | 9.60 km | High speed + hairpin |
 | ALPINE RING | 6.70 km | S-sections + hairpins |
 | COASTLINE GT | 8.40 km | Fast arcs + technical sector |
+| AURORA GRAND LOOP | 15.00 km | Grand touring / high speed / scenic |
+
+
+### Velocity Apex 2 physics target
+
+Shared player/AI race physics now uses `maxSpeed: 510`, `accel: 268`, `brakePower: 368`, and `turnRate: 2.40`. These are world-space physics values, not a HUD multiplier: the HUD displays actual `Car.speed`. A deterministic straight-line smoke check measures the upgraded car travelling **1.260×** the legacy distance over the same six-second full-throttle interval. AI racing-line braking envelopes, look-ahead, recovery speeds, camera look-ahead, engine pitch scaling and online validation were retuned for the higher velocity.
+
+`AURORA GRAND LOOP` uses ID `auroraGrandLoop`, `targetLength: 15000`, a 226-unit road width and the cached `aurora` Canvas theme with shoreline/water, forest belts, rock zones, paddock/service details, modern signal boards, pit-lane treatment and dedicated road/braking markings. Its generated centerline is 15.00 km with no centerline self-intersections in the geometry test.
 
 The 41-car garage/economy catalog still uses the original `ownedLiveries` / `selectedLivery` save fields. Online loadout synchronizes only `liveryId` and `effectId`; remote clients resolve those IDs through the same local catalog and fall back safely to `apexLime` for unknown IDs.
 

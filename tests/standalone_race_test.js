@@ -7,7 +7,7 @@ const R=global.Racing,clamp=R.clamp,FRAME=1/60,SUB=1/120;
 const hash=s=>{let h=2166136261;for(const ch of s)h=Math.imul(h^ch.charCodeAt(0),16777619)>>>0;return h;};
 const slipDeg=c=>c.speed<3?0:Math.abs(R.angleWrap(Math.atan2(c.vy,c.vx)-c.angle))*180/Math.PI;
 const laneOf=(c,t)=>{const p=t.samples[c.trackIndex];return (c.x-p.x)*p.nx+(c.y-p.y)*p.ny;};
-function makeCar(id){return new R.Car({id,maxSpeed:400,accel:210,brakePower:320,turnRate:2.32});}
+function makeCar(id){return new R.Car({id,...R.RACE_PHYSICS});}
 
 function apexLookup(track){
   const lookup=new Int16Array(track.samples.length);lookup.fill(-1);

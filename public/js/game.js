@@ -1,6 +1,7 @@
 (function(){
   'use strict';
   const R=window.Racing, clamp=R.clamp, lerp=R.lerp;
+  const PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
   const $=id=>document.getElementById(id);
   const canvas=$('game'),ctx=canvas.getContext('2d',{alpha:false,desynchronized:true});
 
@@ -51,7 +52,7 @@
 
   let W=innerWidth,H=innerHeight,DPR=1,last=performance.now(),state='menu',raceTime=0,lapTime=0,raceBestLap=0,score=0,scoreCarry=0;
   let cars=[],rankBuffer=[],finishOrder=[],finishCandidates=[],player=null,demoCars=[],demoT=0,prevRank=1,shake=0,impactCooldown=0,grassSoundCooldown=0,countdownToken=0;
-  let cam={x:0,y:0,rot:0,zoom:.65,screenY:.47,look:82};
+  let cam={x:0,y:0,rot:0,zoom:.65,screenY:.47,look:90};
   const input={left:false,right:false,gas:false,brake:false};
   const playerControl={steer:0,throttle:0,brake:0};
   const controlInput=new R.InputController({
@@ -114,6 +115,7 @@
     return `<button class="track-card" style="--track-accent:${config.theme.accent};--track-ground:${config.theme.ground};--track-road:${config.theme.road}" type="button" data-track="${config.id}" data-theme="${config.theme.kind}" aria-label="${config.name}, ${(t.length/1000).toFixed(1)} километра"><div class="track-visual"><svg viewBox="0 0 180 110" aria-hidden="true"><path d="M${t.samples.filter((_,i)=>i%3===0).map(xy).join('L')}Z"/><circle cx="${start[0]}" cy="${start[1]}" r="3"/></svg></div><div class="track-meta"><span>${config.name}</span><small>${config.type} · ${(t.length/1000).toFixed(1)} KM</small><p>${config.description}</p></div><div class="selected-pill">ВЫБРАНО</div></button>`;
   }).join('');
   $('trackCards').querySelectorAll('button').forEach(btn=>btn.addEventListener('click',()=>{raceSettings.trackId=btn.dataset.track;loadTrack();syncSetupUI();persistSettings();}));
+  const trackHint=document.querySelector('.track-hint');if(trackHint)trackHint.textContent=Object.keys(R.TRACKS).length+' ТРАСС · ЛИСТАЙТЕ →';
   const garage=new R.Garage(save,()=>{writeSave();updateMenuStats();syncSetupUI();});
   let rootConsole=null;
   function syncRootChange(reason){
@@ -218,7 +220,7 @@
       // produced by the driver model/racing line, never max-speed or acceleration cheats.
       const c=new R.Car({
         id:i,name:isPlayer?'YOU':names[botName++],player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],
-        maxSpeed:400,accel:210,brakePower:320,turnRate:2.32
+        maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate
       });
       const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;
       c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;
@@ -231,7 +233,7 @@
       cars.push(c);
     }
     rankBuffer=cars.slice();updateRanks();prevRank=player.rank;
-    cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=82;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;
+    cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;
     UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(s=>s.active=false);updateHUD();
   }
 
@@ -240,10 +242,10 @@
     const order=(room.gridOrder&&room.gridOrder.length?room.gridOrder:room.players.filter(p=>p.connected).map(p=>p.id)).slice(0,8);
     for(let i=0;i<order.length;i++){
       const pd=room.players.find(p=>p.id===order[i]);if(!pd)continue;const isPlayer=pd.id===localId;
-      const c=new R.Car({id:pd.id,name:pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:400,accel:210,brakePower:320,turnRate:2.32});
+      const c=new R.Car({id:pd.id,name:pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
       c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
     }
-    if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=82;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;
+    if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;
   }
   function onlineStateFor(c,finished=false){return{x:c.x,y:c.y,vx:c.vx,vy:c.vy,angle:c.angle,speed:c.speed,yawRate:c.yawRate||0,progress:Math.max(0,Math.min(1,c.progress||0)),laps:Math.max(0,Math.min(raceSettings.laps,c.laps||0)),checkpoint:c.checkpoint||0,steer:playerControl.steer||0,throttle:finished||onlineLocalPaused?0:(playerControl.throttle||0),brake:finished||onlineLocalPaused?0:(playerControl.brake||0),finished:!!finished,liveryId:c.liveryId||'apexLime',effectId:c.effect||'standard'};}
   function syncOnlineRoomCars(room){
@@ -486,18 +488,18 @@
 
   function setText(el,value){const text=String(value);if(el.textContent!==text)el.textContent=text;}
   function updateHUD(){
-    if(!player)return;setText(UI.pos,player.rank+' / '+cars.length);setText(UI.lap,Math.min(raceSettings.laps,player.laps+1)+' / '+raceSettings.laps);setText(UI.speed,Math.round(player.speed*.88));setText(UI.score,Math.floor(score).toLocaleString());setText(UI.lapTime,fmt(lapTime));setText(UI.bestLap,fmt(save.bestLap));
+    if(!player)return;setText(UI.pos,player.rank+' / '+cars.length);setText(UI.lap,Math.min(raceSettings.laps,player.laps+1)+' / '+raceSettings.laps);setText(UI.speed,Math.round(player.speed));setText(UI.score,Math.floor(score).toLocaleString());setText(UI.lapTime,fmt(lapTime));setText(UI.bestLap,fmt(save.bestLap));
   }
 
   function updateCamera(dt){
     if(!player)return;
-    const speedT=clamp(player.speed/400,0,1),targetLook=78+speedT*94;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.2));
+    const speedT=clamp(player.speed/PHYS.maxSpeed,0,1),targetLook=84+speedT*124;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
     const tx=player.x+Math.cos(player.angle)*cam.look,ty=player.y+Math.sin(player.angle)*cam.look;
     const follow=1-Math.pow(.0024,dt);cam.x=lerp(cam.x,tx,follow);cam.y=lerp(cam.y,ty,follow);
     let target=-Math.PI/2-player.angle,d=target-cam.rot;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;cam.rot+=d*Math.min(1,dt*7.2);
-    const base=clamp(Math.min(W/920,H/520)*.80,.52,.94),speedZoom=1-speedT*.13;cam.zoom=lerp(cam.zoom,base*speedZoom,Math.min(1,dt*3.8));
-    cam.screenY=lerp(cam.screenY,.47-speedT*.008,Math.min(1,dt*3.4));
-    shake*=Math.pow(.035,dt);if(player.speed>365)shake=Math.max(shake,.36*(player.speed-365)/35);
+    const base=clamp(Math.min(W/920,H/520)*.80,.52,.94),speedZoom=1-speedT*.145;cam.zoom=lerp(cam.zoom,base*speedZoom,Math.min(1,dt*3.8));
+    cam.screenY=lerp(cam.screenY,.47-speedT*.013,Math.min(1,dt*3.4));
+    shake*=Math.pow(.035,dt);if(player.speed>455)shake=Math.max(shake,.32*clamp((player.speed-455)/55,0,1));
   }
 
   function drawParticles(){
@@ -516,7 +518,7 @@
     for(const c of cars)if(c!==player)c.draw(ctx);if(player)player.draw(ctx);ctx.restore();drawSpeedLines();drawMiniMap();
   }
   function drawSpeedLines(){
-    if(!player||player.speed<230||state!=='racing')return;const t=clamp((player.speed-230)/170,0,1);ctx.save();ctx.globalAlpha=.105*t;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
+    if(!player||player.speed<275||state!=='racing')return;const t=clamp((player.speed-275)/(PHYS.maxSpeed-275),0,1);ctx.save();ctx.globalAlpha=.105*t;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
     const cx=W*.5,cy=Math.min(H*.68,H*cam.screenY+cam.look*cam.zoom);for(let i=0;i<16;i++){const a=(i*2.399+raceTime*.7)%6.283,r=90+((i*73+raceTime*330)%Math.max(120,W*.55)),len=16+38*t;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*(r+len),cy+Math.sin(a)*(r+len));ctx.stroke();}ctx.restore();
   }
   function drawMenu(dt){

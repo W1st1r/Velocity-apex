@@ -2,10 +2,10 @@
   'use strict';
   const R=window.Racing,clamp=R.clamp,angleWrap=R.angleWrap;
   const PROFILES={
-    easy:{aggression:.50,precision:.84,errorChance:.032,errorSize:18,lineUse:.88,pace:.62,gripUsage:.58,brakeUsage:.58,accelUsage:.60,reaction:.82,brakeMargin:11,laneRate:1.65,followGap:102,recoverySpeed:118,edgeUse:.68,trafficSkill:.56,driverVariance:.035,brakeConfidence:.61,curbAggression:.01,apexPreference:.08,consistency:.80},
-    medium:{aggression:.68,precision:.93,errorChance:.012,errorSize:10,lineUse:.97,pace:.79,gripUsage:.77,brakeUsage:.75,accelUsage:.82,reaction:.96,brakeMargin:6.5,laneRate:2.10,followGap:88,recoverySpeed:136,edgeUse:.86,trafficSkill:.76,driverVariance:.018,brakeConfidence:.76,curbAggression:.07,apexPreference:.32,consistency:.91},
-    hard:{aggression:.84,precision:.978,errorChance:.003,errorSize:5,lineUse:.992,pace:.92,gripUsage:.89,brakeUsage:.88,accelUsage:.91,reaction:1.03,brakeMargin:3.8,laneRate:2.45,followGap:81,recoverySpeed:148,edgeUse:.96,trafficSkill:.90,driverVariance:.010,brakeConfidence:.88,curbAggression:.58,apexPreference:.66,consistency:.97},
-    extreme:{aggression:.965,precision:.998,errorChance:.00035,errorSize:1.5,lineUse:1,pace:1,gripUsage:.997,brakeUsage:.992,accelUsage:.998,reaction:1.10,brakeMargin:1.2,laneRate:2.85,followGap:75,recoverySpeed:163,edgeUse:1,trafficSkill:.988,driverVariance:.003,brakeConfidence:.985,curbAggression:.96,apexPreference:.94,consistency:.995}
+    easy:{aggression:.50,precision:.84,errorChance:.032,errorSize:18,lineUse:.88,pace:.62,gripUsage:.58,brakeUsage:.58,accelUsage:.60,reaction:.82,brakeMargin:11,laneRate:1.65,followGap:102,recoverySpeed:148,edgeUse:.68,trafficSkill:.56,driverVariance:.035,brakeConfidence:.61,curbAggression:.01,apexPreference:.08,consistency:.80},
+    medium:{aggression:.68,precision:.93,errorChance:.012,errorSize:10,lineUse:.97,pace:.79,gripUsage:.77,brakeUsage:.75,accelUsage:.82,reaction:.96,brakeMargin:6.5,laneRate:2.10,followGap:88,recoverySpeed:170,edgeUse:.86,trafficSkill:.76,driverVariance:.018,brakeConfidence:.76,curbAggression:.07,apexPreference:.32,consistency:.91},
+    hard:{aggression:.84,precision:.978,errorChance:.003,errorSize:5,lineUse:.992,pace:.92,gripUsage:.89,brakeUsage:.88,accelUsage:.91,reaction:1.03,brakeMargin:3.8,laneRate:2.45,followGap:81,recoverySpeed:188,edgeUse:.96,trafficSkill:.90,driverVariance:.010,brakeConfidence:.88,curbAggression:.58,apexPreference:.66,consistency:.97},
+    extreme:{aggression:.965,precision:.998,errorChance:.00035,errorSize:1.5,lineUse:1,pace:1,gripUsage:.997,brakeUsage:.992,accelUsage:.998,reaction:1.10,brakeMargin:1.2,laneRate:2.85,followGap:75,recoverySpeed:208,edgeUse:1,trafficSkill:.988,driverVariance:.003,brakeConfidence:.985,curbAggression:.96,apexPreference:.94,consistency:.995}
   };
 
   const laneOf=(car,track)=>{const p=track.samples[car.trackIndex];return (car.x-p.x)*p.nx+(car.y-p.y)*p.ny;};
@@ -52,7 +52,7 @@
       // final envelope is tightened again after nearby density is known so a
       // three-wide pack cannot use both curb edges at the same time.
       const baseLimit=Math.min(plannedLimit,asphalt+(this.difficulty==='extreme'?1.5:.5),physicalSafe-1.5);
-      const trafficEdge=clamp(.88+.12*this.trafficSkill,.88,1),horizon=125+speed*.72,metric=c.raceMetric(),cForward=Math.max(0,forwardSpeed(c,track));
+      const trafficEdge=clamp(.88+.12*this.trafficSkill,.88,1),horizon=145+speed*.78,metric=c.raceMetric(),cForward=Math.max(0,forwardSpeed(c,track));
       let lead=null,leadGap=Infinity,leadLane=0,alongside=null,alongGap=Infinity,alongLane=0;const nearby=this._nearby;nearby.length=0;
       for(const o of cars){
         if(o===c||o.raceFinished)continue;
@@ -95,7 +95,7 @@
     }
 
     _futureBrakeDemand(track,profile,index,speed){
-      const seg=track.lineSegmentLengths?.[this.lineName],n=track.samples.length,maxDistance=clamp(120+speed*.48,140,285),step=Math.max(1,Math.round(18/track.spacing));
+      const seg=track.lineSegmentLengths?.[this.lineName],n=track.samples.length,maxDistance=clamp(150+speed*.58,170,430),step=Math.max(1,Math.round(18/track.spacing));
       let dist=0,best=0;
       for(let q=step;dist<maxDistance;q+=step){
         const prev=(index+q-step)%n,i=(index+q)%n;
@@ -114,11 +114,11 @@
       this.mistake*=Math.exp(-dt*(1.0+this.consistency));
 
       const local=track.samples[c.trackIndex],lateral=(c.x-local.x)*local.nx+(c.y-local.y)*local.ny;
-      const horizon=clamp(250+speed*.90,250,600),seq=this._futureSequence(track,c.trackIndex,horizon),curveFactor=clamp(Math.abs(seq.strongest)*205,0,1);
-      let look=58+speed*.20-curveFactor*(11+speed*.016);
+      const horizon=clamp(290+speed*1.02,290,790),seq=this._futureSequence(track,c.trackIndex,horizon),curveFactor=clamp(Math.abs(seq.strongest)*205,0,1);
+      let look=62+speed*.235-curveFactor*(14+speed*.020);
       if(seq.signChanges>0)look+=8+Math.min(12,seq.signChanges*4); // hold a calmer target through fast S transitions
       if(seq.firstSharpDistance<95)look-=8*curveFactor;
-      look=clamp(look,48,145);
+      look=clamp(look,52,188);
       const aimHit=track.indexAtDistance?track.indexAtDistance(c.trackIndex,look,this.lineName):{index:(c.trackIndex+Math.max(2,Math.round(look/track.spacing)))%n};
       const aimIndex=aimHit.index,baseLine=line[aimIndex]*this.lineUse+this.preference*(1-curveFactor*.80);
 
