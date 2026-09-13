@@ -1,10 +1,10 @@
-/* Deterministic AI benchmark: 6 tracks x 4 difficulties, clean air + 3/7/13-car traffic, two seeds. */
+/* Deterministic AI benchmark: 5 tracks x 4 difficulties, clean air + 3/7/13-car traffic, two seeds. */
 const fs=require('fs'),path=require('path'),vm=require('vm');
 const ROOT=path.resolve(__dirname,'..');global.window=global;window.Racing={};
 let rng=1;const seed=v=>rng=v>>>0||1;Math.random=()=>{rng=(Math.imul(rng,1664525)+1013904223)>>>0;return rng/4294967296;};
 for(const f of ['public/js/content.js','public/js/racing-line.js','public/js/track.js','public/js/car.js','public/js/ai.js'])vm.runInThisContext(fs.readFileSync(path.join(ROOT,f),'utf8'),{filename:f});
 const R=Racing,FRAME=1/60,SUB=1/120,DIFF=['easy','medium','hard','extreme'];
-const make=(id)=>new R.Car({id,...R.RACE_PHYSICS});
+const make=(id)=>new R.Car({id,maxSpeed:400,accel:210,brakePower:320,turnRate:2.32});
 const lane=(c,t)=>{const p=t.samples[c.trackIndex];return(c.x-p.x)*p.nx+(c.y-p.y)*p.ny;};
 function clean(cfg,d){seed((cfg.id.length*131+d.length*977)>>>0);const t=new R.Track(cfg),c=make(1);c.place(t,0,0);c.ai=new R.AIController(c,1,d);let time=0,lapStart=0,laps=[],sumV=0,n=0,minV=1e9,maxV=0,thr=0,full=0,br=0,coast=0,below=0,maxLane=0,imp=0;const sectors=Array.from({length:4},()=>({time:0,entry:0,min:1e9,exit:0}));let lastSector=0,sectorStart=0;
 while(c.laps<3&&time<240){const o=c.ai.think(FRAME,t,[c]),target=c.ai.speedProfile[c.trackIndex];thr+=o.throttle;full+=o.throttle>.95;br+=o.brake;coast+=o.throttle<.08&&o.brake<.08;below+=c.speed<target-12;sumV+=c.speed;minV=Math.min(minV,c.speed);maxV=Math.max(maxV,c.speed);maxLane=Math.max(maxLane,Math.abs(lane(c,t)));n++;for(let q=0;q<2;q++){const r=c.update(SUB,o,t);time+=SUB;if(r.impact>.04)imp++;const s=Math.min(3,Math.floor(c.progress*4));sectors[s].min=Math.min(sectors[s].min,c.speed);if(s!==lastSector){sectors[lastSector].time+=time-sectorStart;sectors[lastSector].exit=c.speed;sectors[s].entry=c.speed;sectorStart=time;lastSector=s;}if(c.finishedLap){laps.push(time-lapStart);lapStart=time;}}}

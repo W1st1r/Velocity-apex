@@ -19,5 +19,4 @@ for(const cfg of Object.values(R.TRACKS)){
   if(selfIntersections)fail(`${cfg.id}: centerline self-intersections ${selfIntersections}`);
   report.push({track:cfg.id,length:+t.length.toFixed(1),samples:n,minSegment:+minSeg.toFixed(2),maxTangentUnitError:+maxUnitError.toFixed(6),maxCurvatureJump:+maxCurvJump.toFixed(6),selfIntersections});
 }
-const aurora=report.find(x=>x.track==='auroraGrandLoop'),desert=report.find(x=>x.track==='desertCanyon');if(!aurora)fail('auroraGrandLoop missing');if(aurora.length<14000||aurora.length>16000)fail('auroraGrandLoop must be 14–16 km');if(!desert||aurora.length<=desert.length*1.4)fail('auroraGrandLoop must be substantially longer than Desert Canyon');
 console.log(JSON.stringify(report,null,2));

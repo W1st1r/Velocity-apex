@@ -9,7 +9,7 @@
     push(state,serverTime){
       if(!state||!Number.isFinite(serverTime))return;
       const item={...state,serverTime};if(this.last&&item.seq<=this.last.seq)return;
-      if(this.last&&Number.isFinite(item.x)&&Number.isFinite(item.y)&&Number.isFinite(this.last.x)&&Number.isFinite(this.last.y)&&Math.hypot(item.x-this.last.x,item.y-this.last.y)>720)this.items.length=0;
+      if(this.last&&Number.isFinite(item.x)&&Number.isFinite(item.y)&&Number.isFinite(this.last.x)&&Number.isFinite(this.last.y)&&Math.hypot(item.x-this.last.x,item.y-this.last.y)>550)this.items.length=0;
       this.last=item;this.items.push(item);if(this.items.length>16)this.items.splice(0,this.items.length-16);
     }
     sample(targetTime){

@@ -2,7 +2,6 @@
   'use strict';
   const R=window.Racing=window.Racing||{};
   const clamp=R.clamp;
-  const PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
   const TAU=Math.PI*2;
   const angleWrap=a=>{while(a>Math.PI)a-=TAU;while(a<-Math.PI)a+=TAU;return a;};
   const moveToward=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
@@ -84,8 +83,8 @@
       this.id=opts.id||0;this.name=opts.name||('CAR '+this.id);this.player=!!opts.player;
       this.color=opts.color||'#ff4057';this.accent=opts.accent||'#ffffff';
       this.x=0;this.y=0;this.vx=0;this.vy=0;this.angle=0;this.speed=0;this.yawRate=0;this.gripDisturbance=0;this._surfaceDrag=1;this.surface='asphalt';
-      this.maxSpeed=opts.maxSpeed||PHYS.maxSpeed;this.baseMaxSpeed=this.maxSpeed;this.accel=opts.accel||PHYS.accel;this.brakePower=opts.brakePower||PHYS.brakePower;
-      this.turnRate=opts.turnRate||PHYS.turnRate;this.radius=18;this.length=62;this.width=31;
+      this.maxSpeed=opts.maxSpeed||338;this.baseMaxSpeed=this.maxSpeed;this.accel=opts.accel||174;this.brakePower=opts.brakePower||265;
+      this.turnRate=opts.turnRate||2.18;this.radius=18;this.length=62;this.width=31;
       // Collision footprint follows the already-drawn car, including wings/tyres.
       // The drawing spans about x=-34..37 and y=-22..22, whose visual centre is +1.5px.
       this.collisionLength=71;this.collisionWidth=44;this.collisionOffsetX=1.5;this.collisionOffsetY=0;

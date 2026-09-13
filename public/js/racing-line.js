@@ -4,7 +4,6 @@
   if(typeof R.AI_DEBUG!=='boolean')R.AI_DEBUG=false;
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const lerp=(a,b,t)=>a+(b-a)*t;
-  const PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
   const smoothstep=t=>t*t*(3-2*t);
   const PLAN_CACHE=new Map();
 
@@ -214,7 +213,7 @@
         const shoulder=penetration>0;
         const grip=shoulder?(.955-.035*clamp(penetration/this.curbWidth,0,1)):1;
         const base=166*grip,aero=.00205*grip,k=Math.abs(curv[i]);
-        recommended[i]=k<=aero?PHYS.maxSpeed:Math.min(PHYS.maxSpeed,Math.sqrt(base/Math.max(.00010,k-aero)));
+        recommended[i]=k<=aero?400:Math.min(400,Math.sqrt(base/Math.max(.00010,k-aero)));
       }
       return {points,segmentLength:seg,curvature:curv,recommendedSpeed:recommended};
     }
@@ -231,7 +230,7 @@
       }
       if(invalid>0)return {score:1e6+invalid*100};
       const g=this._geometry(offsets),util={easy:{grip:.72,brake:.70,accel:.78},medium:{grip:.79,brake:.77,accel:.83},hard:{grip:.94,brake:.93,accel:.96},extreme:{grip:.997,brake:.992,accel:.998}}[mode];
-      const speed=g.recommendedSpeed.map(v=>v*Math.sqrt(util.grip)),brake=PHYS.brakePower*.80*util.brake,accel=PHYS.accel*.84*util.accel;
+      const speed=g.recommendedSpeed.map(v=>v*Math.sqrt(util.grip)),brake=320*.80*util.brake,accel=210*.84*util.accel;
       for(let pass=0;pass<6;pass++){
         for(let i=this.n-1;i>=0;i--){const next=(i+1)%this.n;speed[i]=Math.min(speed[i],Math.sqrt(speed[next]*speed[next]+2*brake*g.segmentLength[i]));}
         for(let i=0;i<this.n;i++){const prev=(i-1+this.n)%this.n;speed[i]=Math.min(speed[i],Math.sqrt(speed[prev]*speed[prev]+2*accel*g.segmentLength[prev]));}
@@ -300,7 +299,7 @@
         const al=Math.hypot(ax,ay)||1,bl=Math.hypot(bx,by)||1,cross=(ax*by-ay*bx)/(al*bl),dot=clamp((ax*bx+ay*by)/(al*bl),-1,1);
         const curvature=Math.abs(Math.atan2(cross,dot))/Math.max(1,(al+bl)*.5);
         const pen=Math.max(0,Math.abs(stateOffset[sb])-this.asphaltLimit),grip=pen>0?(.955-.035*clamp(pen/this.curbWidth,0,1)):1;
-        const aero=.00205*grip,k=Math.max(.00010,curvature-aero),v=curvature<=aero?PHYS.maxSpeed:Math.min(PHYS.maxSpeed,Math.sqrt(166*grip/k));
+        const aero=.00205*grip,k=Math.max(.00010,curvature-aero),v=curvature<=aero?400:Math.min(400,Math.sqrt(166*grip/k));
         const time=al/Math.max(72,v);
         const d1=stateOffset[sc]-stateOffset[sb],d0=stateOffset[sb]-stateOffset[sa],second=Math.abs(d1-d0);
         // The penalties are deliberately small compared with travel time: they

@@ -25,7 +25,7 @@ function webpSize(file){
   throw new Error(`${path.basename(file)} unsupported WebP header`);
 }
 function close(a,b,eps=1e-9){return Math.abs(a-b)<=eps;}
-const P=R.RACE_PHYSICS;function car(id,x=0,y=0,a=0){const c=new R.Car({maxSpeed:P.maxSpeed,accel:P.accel,brakePower:P.brakePower,turnRate:P.turnRate});c.setLoadout(id,'standard');c.x=x;c.y=y;c.angle=a;return c;}
+function car(id,x=0,y=0,a=0){const c=new R.Car({maxSpeed:400,accel:210,brakePower:320,turnRate:2.32});c.setLoadout(id,'standard');c.x=x;c.y=y;c.angle=a;return c;}
 function contact(a,b,msg){assert.ok(R.intersectCarOBBs(a,b),msg);}
 function clear(a,b,msg){assert.equal(R.intersectCarOBBs(a,b),null,msg);}
 
@@ -98,7 +98,7 @@ for(const id of R.REAL_CAR_IDS){
   assert.ok(collision.length>=race.length*.78&&collision.length<=race.length*1.12,`${id} collision length no longer follows visual body`);
   assert.ok(collision.width>=race.width*.70&&collision.width<=race.width*1.05,`${id} collision width no longer follows visual body`);
 
-  const c=car(id);assert.equal(c.maxSpeed,P.maxSpeed,`${id} loadout changed maxSpeed`);assert.equal(c.accel,P.accel,`${id} loadout changed accel`);assert.equal(c.brakePower,P.brakePower,`${id} loadout changed brake`);assert.equal(c.turnRate,P.turnRate,`${id} loadout changed turnRate`);
+  const c=car(id);assert.equal(c.maxSpeed,400,`${id} loadout changed maxSpeed`);assert.equal(c.accel,210,`${id} loadout changed accel`);assert.equal(c.brakePower,320,`${id} loadout changed brake`);assert.equal(c.turnRate,2.32,`${id} loadout changed turnRate`);
 }
 
 
