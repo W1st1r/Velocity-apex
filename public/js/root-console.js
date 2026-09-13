@@ -159,7 +159,7 @@
     itemCard(kind,id,item){
       const cars=kind==='car',owned=this.save[cars?'ownedLiveries':'ownedEffects'].includes(id),equipped=this.save[cars?'selectedLivery':'selectedEffect']===id,system=id===(cars?SYSTEM_CAR:SYSTEM_EFFECT);
       const preview=cars&&item.sprite&&item.sprite.thumbnail?`<img src="${esc(item.sprite.thumbnail)}" alt="" draggable="false">`:`<span class="root-swatch" style="--swatch:${esc(item.primary||item.outer||'#8dff49')};--swatch2:${esc(item.secondary||item.inner||'#eaffdf')}"></span>`;
-      const meta=cars?`${esc((R.CAR_CATEGORIES&&R.CAR_CATEGORIES[item.category||'regular'])||item.category||'regular')} · ${item.price?fmt(item.price)+' CR':'FREE'}`:(item.price?fmt(item.price)+' CR':'FREE');
+      const meta=cars?`${esc((R.CAR_CATEGORIES&&R.CAR_CATEGORIES[R.normalizeCarCategory?R.normalizeCarCategory(item.category):item.category]?.label)||item.category||'basic')} · ${item.price?fmt(item.price)+' CR':'FREE'}`:(item.price?fmt(item.price)+' CR':'FREE');
       let actions='';
       if(!owned)actions=`<button type="button" data-item-action="grant" data-item-id="${esc(id)}">GRANT</button>`;
       else{

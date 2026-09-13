@@ -80,17 +80,16 @@ node tests/ai_benchmark.js
 
 See `AI_BENCHMARK_REPORT.json` for the full deterministic benchmark output.
 
-## Garage categories / Porsche 911 regression (2026-09-13)
+## 40-car Shop / Garage catalog regression (2026-09-13)
 
-Additional validation after the garage update:
+Final catalog validation now covers all 40 requested real cars. The Shop exposes exactly those 40 cars across Basic (6), Sport (7), Premium (6), Rare (7), Legendary (7) and LUX (7). The four original starter/legacy liveries remain in `R.LIVERIES` for `velocityApex.v1` compatibility but are hidden from the new Shop and remain available in Garage when already owned.
 
-- `node tests/economy_smoke.js` — PASS, including Porsche exact-price purchase at 40,000 CR, insufficient-funds rejection at 39,999 CR, repeat-purchase protection and old-save normalization.
-- `node tests/porsche_shop_smoke.js` — PASS: four existing cars resolve to `regular`, `sport` is empty, `premium` contains only `porsche-911`, both Porsche WebP assets exist, purchase/selection survives normalization, and category/premium/sprite integration is present.
-- `node tests/physics_smoke.js` — PASS after sprite integration; physics/collision invariants remain unchanged.
-- `node tests/trajectory_sector_test.js` — PASS after garage changes.
-- `node tests/standalone_race_test.js` — PASS after garage changes; all deterministic race/traffic quality gates remain true.
-
-The project has no existing service worker or explicit precache list, so no cache manifest required modification. The manifest and static PWA layout remain intact.
+- `tests/car_catalog_smoke.js` — PASS: all 40 stable IDs, exact prices/categories, unique required prices, all 80 sprite/thumbnail files, `preserveAspectRatio`, per-car race/preview scales, LUX membership, brown Audi R8 metadata, Porsche `porsche-911` compatibility, old-save normalization, insufficient/exact-price purchase rules, repeat-purchase protection, Garage visibility and unknown Online loadout fallback.
+- `tests/economy_smoke.js` — PASS: starting 200 CR and existing race rewards are unchanged; the new car prices remain deliberately much higher than ordinary race payouts.
+- `tests/porsche_shop_smoke.js` — PASS: Porsche keeps stable ID `porsche-911`, is displayed as Porsche 911 Turbo S at 95,000 CR, and old ownership survives normalization.
+- `tests/shop_garage_smoke.js` — PASS: Shop shows the 40 real cars only, Garage shows owned cars/effects only, purchases immediately appear in Garage, and selection persists through save normalization.
+- All real-car assets are local transparent WebP files in `public/assets/cars/`; source sprites are prepared nose-right and thumbnails are used for Shop cards so an entire full-resolution 40-car catalog is not loaded at once.
+- Legendary and LUX cards use lightweight metallic/iridescent CSS treatments; LUX shimmer is disabled under `prefers-reduced-motion: reduce` and no fullscreen blur/filter effect was added.
 
 ## Online Multiplayer validation (2026-09-13)
 
@@ -154,3 +153,13 @@ Additional final checks covered:
 The separate deterministic AI benchmark completed 120 traffic runs and all quality flags were true (`hierarchy`, `cleanFinish`, `cleanNoBarrier`, `trafficFinish`, `stressNoPileup`, `stressOffroad`).
 
 Wrangler itself could not be installed in this isolated build container because the package-install network request timed out, so a live `wrangler dev`/edge deployment was not executed here. The checked-in `wrangler.jsonc` follows the current Cloudflare Workers Static Assets + declarative Durable Object `exports` configuration described in the project README. Production/mobile-network behavior should still be verified after the first Cloudflare deployment on two real browsers/iPhones.
+
+
+### Final verification for Shop/Garage split
+
+- `npm test` — PASS.
+- `npm run test:all` — PASS, including the deterministic AI benchmark.
+- `node --check` across `public/js`, `src` and `tests` — PASS.
+- Duplicate DOM ID scan — PASS.
+- Repository hygiene scan — PASS: no `node_modules`, `.DS_Store`, `.env*` or log files are included.
+- `wrangler deploy --dry-run` could not be executed in the build sandbox because the local Wrangler dependency is not installed there and dependency installation was unavailable; `package.json`, `wrangler.jsonc`, Worker, Static Assets and Durable Object wiring were left intact.

@@ -243,12 +243,16 @@
       const effect=R.EFFECTS[this.effect];
       if(!effect||this.effect==='standard'||this.throttleVisual<=.65||this.brakeVisual>.1||this.speed<12)return;
       const t=this.effectTime,flicker=1+.12*Math.sin(t*53)+.08*Math.sin(t*89),length=(18+this.speed*.055)*this.throttleVisual*flicker;
-      ctx.save();ctx.globalCompositeOperation='lighter';
+      const preview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
+      const visualScale=this.spriteSpec?(preview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
+      const rearX=this.spriteSpec?-(this.spriteSpec.length||74)*visualScale*.47+(this.spriteSpec.exhaustOffsetX||0):-32;
+      const rearY=this.spriteSpec?.exhaustOffsetY||0;
+      ctx.save();ctx.translate(0,rearY);ctx.globalCompositeOperation='lighter';
       for(let layer=0;layer<3;layer++){
         const len=length*(1-layer*.22),width=6-layer*1.6;
         ctx.globalAlpha=.55+layer*.17;
         ctx.fillStyle=effect.rainbow?`hsl(${(t*135+layer*55)%360},100%,${55+layer*15}%)`:(layer===0?effect.outer:layer===1?effect.inner:'#ffffff');
-        ctx.beginPath();ctx.moveTo(-32,-width);ctx.bezierCurveTo(-42,-width*1.6,-32-len*.8,-width,-32-len,Math.sin(t*43+layer)*3);ctx.bezierCurveTo(-32-len*.65,width*1.2,-40,width*1.5,-32,width);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.moveTo(rearX,-width);ctx.bezierCurveTo(rearX-10,-width*1.6,rearX-len*.8,-width,rearX-len,Math.sin(t*43+layer)*3);ctx.bezierCurveTo(rearX-len*.65,width*1.2,rearX-8,width*1.5,rearX,width);ctx.closePath();ctx.fill();
       }
       ctx.restore();
     }
@@ -271,7 +275,7 @@
 
       this.drawExhaust(ctx);
 
-      // Premium photo-sprite cars reuse the exact same physics/collision model. The
+      // Sprite-based catalog cars reuse the exact same physics/collision model. The
       // supplied top-down image is only a rendering layer, so selecting it cannot
       // change grip, acceleration, collision geometry or AI behavior.
       if(spriteReady){

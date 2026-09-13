@@ -24,7 +24,9 @@ The main menu now has two primary choices:
 - **ИГРАТЬ РЯДОМ** — the existing offline race setup with bots, difficulty, 3/5/7/10/15 laps and all existing controls/economy.
 - **ОНЛАЙН** — room creation/join, Lobby, READY, synchronized countdown and multiplayer race.
 
-Shop and Settings remain available from the main menu. The existing save key stays exactly `velocityApex.v1`; online nickname is stored separately under `velocityApex.onlineName` so legacy saves are not cleared or replaced.
+Shop, Garage and Settings remain available from the main menu. Shop is purchase-only; Garage shows only owned cars/effects and is the place to select the active loadout. The existing save key stays exactly `velocityApex.v1`; online nickname is stored separately under `velocityApex.onlineName` so legacy saves are not cleared or replaced.
+
+The car catalog now includes **40 real top-down cars** across Basic, Sport, Premium, Rare, Legendary and LUX. Every real car uses a local transparent WebP sprite plus a smaller thumbnail under `public/assets/cars/`, preserves source aspect ratio, and has independent race/preview visual scaling. The four original starter/legacy liveries remain valid for old saves; they stay available in Garage when owned but are hidden from the new Shop catalog. `porsche-911` is retained as the stable save/Online ID for Porsche 911 Turbo S.
 
 ## Online Multiplayer architecture
 
@@ -97,7 +99,7 @@ The five existing tracks remain:
 | ALPINE RING | 6.70 km | S-sections + hairpins |
 | COASTLINE GT | 8.40 km | Fast arcs + technical sector |
 
-The garage/economy and Porsche 911 still use the original `ownedLiveries` / `selectedLivery` save fields. Online loadout synchronizes `liveryId` and `effectId`, so remote cars use the same existing car/effect catalog.
+The 40-car garage/economy catalog still uses the original `ownedLiveries` / `selectedLivery` save fields. Online loadout synchronizes only `liveryId` and `effectId`; remote clients resolve those IDs through the same local catalog and fall back safely to `apexLime` for unknown IDs.
 
 ## Tests
 
@@ -109,7 +111,7 @@ npm test
 
 This runs the existing standalone suites plus Online protocol, interpolation, room/server and UI/static-asset simulations. For the full deterministic AI stress matrix, run `npm run test:ai` (or `npm run test:all` for both).
 
-Existing suites cover physics/camera invariants, economy, Porsche/shop, root tools, geometry, trajectory sectors and deterministic AI/traffic races.
+Existing suites cover physics/camera invariants, economy, the complete 40-car catalog/assets, Porsche save compatibility, Shop/Garage rarity filters, root tools, geometry, trajectory sectors and deterministic AI/traffic races.
 
 Online tests cover:
 

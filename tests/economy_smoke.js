@@ -5,7 +5,7 @@ vm.runInThisContext(fs.readFileSync(path.join(ROOT,'public/js/content.js'),'utf8
 const R=global.Racing,assert=(ok,msg)=>{if(!ok)throw new Error(msg);};
 
 const expectedPrices={
-  livery:{apexLime:0,crimsonVelocity:1400,iceVector:3200,auroraPulse:6500,'porsche-911':40000},
+  livery:{apexLime:0,crimsonVelocity:1400,iceVector:3200,auroraPulse:6500,'vw-golf-gti':3500,'porsche-911':95000,'koenigsegg-jesko':1850000},
   effect:{standard:0,blueFlame:1100,redFlame:2500,rainbowFlame:5200}
 };
 for(const [id,price] of Object.entries(expectedPrices.livery))assert(R.LIVERIES[id].price===price,`bad livery price ${id}`);
@@ -43,11 +43,12 @@ assert(old.selectedLivery==='crimsonVelocity'&&old.selectedEffect==='redFlame','
 assert(old.bestScore===99&&old.bestLap===1234&&old.maxLaps===8&&old.botCount===13&&old.raceLaps===15&&old.difficulty==='hard'&&old.trackId==='neonHarbor'&&old.controlMode==='wheel'&&old.tiltSensitivity==='high'&&old.muted===true,'old settings/records lost');
 
 
-assert(R.LIVERIES.apexLime.category==='regular'&&R.LIVERIES.crimsonVelocity.category==='regular'&&R.LIVERIES.iceVector.category==='regular'&&R.LIVERIES.auroraPulse.category==='regular','existing cars must be regular');
-assert(R.LIVERIES['porsche-911'].category==='premium'&&R.LIVERIES['porsche-911'].price===40000,'Porsche premium metadata incorrect');
-assert(Object.values(R.LIVERIES).filter(x=>(x.category||'regular')==='sport').length===0,'sport category must stay empty');
-let porsche=R.normalizeSave({credits:39999});assert(R.shopAction(porsche,'livery','porsche-911')==='insufficient','Porsche 39999 CR must fail');assert(porsche.credits===39999&&!porsche.ownedLiveries.includes('porsche-911'),'failed Porsche purchase changed state');
-porsche=R.normalizeSave({credits:40000});assert(R.shopAction(porsche,'livery','porsche-911')==='purchased','Porsche exact-price purchase failed');assert(porsche.credits===0&&porsche.ownedLiveries.includes('porsche-911'),'Porsche purchase did not deduct/own correctly');
+assert(R.LIVERIES.apexLime.category==='basic'&&R.LIVERIES.crimsonVelocity.category==='basic'&&R.LIVERIES.iceVector.category==='basic'&&R.LIVERIES.auroraPulse.category==='basic','existing cars must be basic');
+assert(R.LIVERIES['porsche-911'].category==='premium'&&R.LIVERIES['porsche-911'].price===95000,'Porsche premium metadata incorrect');
+assert(R.normalizeCarCategory('regular')==='basic','legacy regular category must normalize to basic');
+assert(R.REAL_CAR_IDS.filter(id=>R.LIVERIES[id].category==='sport').length===7,'sport category must contain seven real cars');
+let porsche=R.normalizeSave({credits:94999});assert(R.shopAction(porsche,'livery','porsche-911')==='insufficient','Porsche 94999 CR must fail');assert(porsche.credits===94999&&!porsche.ownedLiveries.includes('porsche-911'),'failed Porsche purchase changed state');
+porsche=R.normalizeSave({credits:95000});assert(R.shopAction(porsche,'livery','porsche-911')==='purchased','Porsche exact-price purchase failed');assert(porsche.credits===0&&porsche.ownedLiveries.includes('porsche-911'),'Porsche purchase did not deduct/own correctly');
 assert(R.shopAction(porsche,'livery','porsche-911')==='selected','owned Porsche must select');assert(porsche.credits===0&&porsche.selectedLivery==='porsche-911','repeat Porsche action deducted or did not select');
 const persisted=R.normalizeSave(JSON.parse(JSON.stringify(porsche)));assert(persisted.ownedLiveries.includes('porsche-911')&&persisted.selectedLivery==='porsche-911'&&persisted.credits===0,'Porsche state did not survive normalization');
 

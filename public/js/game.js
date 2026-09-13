@@ -42,7 +42,7 @@
   const raceSettings={bots:save.botCount,laps:save.raceLaps,difficulty:save.difficulty,trackId:save.trackId};
   const audio=new R.AudioSystem();audio.setMuted(save.muted);
   let track=new R.Track(R.TRACKS[raceSettings.trackId]);
-  let raceRewardClaimed=false,shopReturn='menu',settingsReturn='menu',settingsNotice='',settingsNoticeKind='';
+  let raceRewardClaimed=false,catalogReturn='menu',settingsReturn='menu',settingsNotice='',settingsNoticeKind='';
   let raceMode='offline',onlineRace=null,onlineLocalPaused=false,onlineFinishSent=false,onlineLocalFinished=false;
 
   let W=innerWidth,H=innerHeight,DPR=1,last=performance.now(),state='menu',raceTime=0,lapTime=0,raceBestLap=0,score=0,scoreCarry=0;
@@ -117,17 +117,22 @@
       raceSettings.bots=save.botCount;raceSettings.laps=save.raceLaps;raceSettings.difficulty=save.difficulty;raceSettings.trackId=save.trackId;loadTrack();
       controlInput.setMode(save.controlMode,{requestPermission:false});controlInput.setSensitivity(save.tiltSensitivity);
     }
-    garage.previewLivery=save.selectedLivery;garage.previewEffect=save.selectedEffect;garage.category=R.LIVERIES[save.selectedLivery]?.category||'regular';
-    writeSave();updateMenuStats();syncSetupUI();syncSettingsUI();garage.render();
+    writeSave();updateMenuStats();syncSetupUI();syncSettingsUI();garage.syncFromSave();
   }
   function returnFromRoot(){
     $('rootAuth').classList.add('hidden');$('rootConsole').classList.add('hidden');state='settings';UI.settings.classList.remove('hidden');syncSettingsUI();last=performance.now();
   }
   rootConsole=new R.RootConsole({save,onChange:syncRootChange,onBack:returnFromRoot,onView:()=>{last=performance.now();}});
   function openRoot(){if(state!=='settings')return;state='root';UI.settings.classList.add('hidden');rootConsole.open();last=performance.now();}
-  function openShop(){shopReturn=state==='setup'?'setup':'menu';state='shop';UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');$('shop').classList.remove('hidden');garage.open();}
-  function closeShop(){state=shopReturn;$('shop').classList.add('hidden');(state==='setup'?UI.setup:UI.menu).classList.remove('hidden');syncSetupUI();updateMenuStats();}
-  $('shopBtn').addEventListener('click',openShop);$('loadoutBtn').addEventListener('click',openShop);$('shopBackBtn').addEventListener('click',closeShop);
+  function openCatalog(mode){
+    catalogReturn=state==='setup'?'setup':'menu';state=mode;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');$(mode).classList.remove('hidden');garage.open(mode);
+  }
+  function closeCatalog(mode){
+    state=catalogReturn;$(mode).classList.add('hidden');(state==='setup'?UI.setup:UI.menu).classList.remove('hidden');syncSetupUI();updateMenuStats();
+  }
+  const openShop=()=>openCatalog('shop'),openGarage=()=>openCatalog('garage');
+  $('shopBtn').addEventListener('click',openShop);$('garageBtn').addEventListener('click',openGarage);$('loadoutBtn').addEventListener('click',openGarage);
+  $('shopBackBtn').addEventListener('click',()=>closeCatalog('shop'));$('garageBackBtn').addEventListener('click',()=>closeCatalog('garage'));
 
   function controlNotice(message,kind='warn'){
     settingsNotice=message;settingsNoticeKind=kind;syncSettingsUI();
@@ -213,8 +218,10 @@
       });
       const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;
       c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;
-      if(!isPlayer){c.ai=new R.AIController(c,i,raceSettings.difficulty);c._control=c.ai.output;}
-      else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);}
+      if(!isPlayer){
+        c.ai=new R.AIController(c,i,raceSettings.difficulty);c._control=c.ai.output;
+        const catalog=R.REAL_CAR_IDS||[];const botCar=catalog.length?catalog[(i*7+playerGrid)%catalog.length]:'apexLime';c.setLoadout(botCar,'standard');
+      }else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);}
       cars.push(c);
     }
     rankBuffer=cars.slice();updateRanks();prevRank=player.rank;
@@ -514,7 +521,7 @@
 
   function frame(now){
     let dt=(now-last)/1000;last=now;dt=Math.min(.033,Math.max(0,dt));
-    if(state==='menu'||state==='setup'||state==='shop'||(state==='settings'&&settingsReturn!=='paused')){drawMenu(dt);if(state==='shop')garage.draw(dt);}
+    if(state==='menu'||state==='setup'||state==='shop'||state==='garage'||(state==='settings'&&settingsReturn!=='paused')){drawMenu(dt);if(state==='shop'||state==='garage')garage.draw(dt);}
     else{if(state==='racing')updateRace(dt);else if(state==='countdown')updateCamera(dt);else if(state==='onlineCountdown')updateOnlineCountdown(dt);else if(state==='onlineRacing')updateOnlineRace(dt);else if(state==='onlineFinished'){updateRemoteCars();updateCamera(dt);}drawRace();}
     requestAnimationFrame(frame);
   }

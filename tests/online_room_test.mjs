@@ -15,12 +15,12 @@ const req=(path,body)=>new Request('https://room.internal'+path,{method:'POST',h
 const state=(seq,laps=0,progress=.1)=>({seq,clientTime:Date.now(),x:100+seq,y:50,vx:30,vy:0,angle:0,speed:120,yawRate:0,progress,laps,checkpoint:1,steer:0,throttle:1,brake:0,finished:false});
 
 const ctx=new Ctx(),room=new Room(ctx,{});
-let res=await room.fetch(req('/create',{code:'ABC234',name:'HOST',settings:{trackId:'apexCircuit',laps:3,maxPlayers:8,collisions:false},loadout:{liveryId:'apexLime',effectId:'standard'}}));assert.equal(res.status,201);let hostData=await res.json();
-const joins=[];for(let i=0;i<7;i++){res=await room.fetch(req('/join',{name:'P'+(i+2),loadout:{liveryId:'apexLime',effectId:'standard'}}));assert.equal(res.status,201);joins.push(await res.json());}
+let res=await room.fetch(req('/create',{code:'ABC234',name:'HOST',settings:{trackId:'apexCircuit',laps:3,maxPlayers:8,collisions:false},loadout:{liveryId:'koenigsegg-jesko',effectId:'rainbowFlame'}}));assert.equal(res.status,201);let hostData=await res.json();
+const joins=[];for(let i=0;i<7;i++){res=await room.fetch(req('/join',{name:'P'+(i+2),loadout:{liveryId:i===0?'mercedes-amg-one':'apexLime',effectId:'standard'}}));assert.equal(res.status,201);joins.push(await res.json());}
 res=await room.fetch(req('/join',{name:'P9',loadout:{}}));assert.equal(res.status,409);assert.equal((await res.json()).error,'ROOM_FULL');
 
 // Simulate two connected clients for lobby and permissions.
-const host=room.room.players[0],guest=room.room.players[1];host.connected=true;guest.connected=true;const hws=new FakeWS(host.id),gws=new FakeWS(guest.id);ctx.sockets=[hws,gws];
+const host=room.room.players[0],guest=room.room.players[1];assert.equal(host.liveryId,'koenigsegg-jesko');assert.equal(host.effectId,'rainbowFlame');assert.equal(guest.liveryId,'mercedes-amg-one');host.connected=true;guest.connected=true;const hws=new FakeWS(host.id),gws=new FakeWS(guest.id);ctx.sockets=[hws,gws];
 await room.webSocketMessage(gws,JSON.stringify({type:'settings_update',settings:{trackId:'neonHarbor',laps:5,maxPlayers:8,collisions:false}}));assert.equal(room.room.settings.trackId,'apexCircuit');assert.ok(gws.sent.some(m=>m.code==='HOST_ONLY'));
 await room.webSocketMessage(hws,JSON.stringify({type:'settings_update',settings:{trackId:'neonHarbor',laps:5,maxPlayers:8,collisions:false}}));assert.equal(room.room.settings.trackId,'neonHarbor');
 await room.webSocketMessage(hws,JSON.stringify({type:'ready',ready:true}));await room.webSocketMessage(gws,JSON.stringify({type:'ready',ready:true}));assert.equal(host.ready,true);assert.equal(guest.ready,true);
@@ -42,7 +42,7 @@ await room.webSocketMessage(gws,JSON.stringify({type:'race_finish',raceId,state:
 await room.webSocketMessage(hws,'{not json');assert.equal(room.room.status,'racing');await room.webSocketMessage(hws,JSON.stringify({type:'ready',v:999,ready:true}));assert.ok(hws.sent.some(m=>m.code==='PROTOCOL_VERSION'));
 
 // Host migration only after grace expiry/removal.
-room.room.status='lobby';host.connected=false;host.disconnectedUntil=Date.now()-1;guest.connected=true;guest.disconnectedUntil=0;for(const p of room.room.players.slice(2)){p.connected=false;p.disconnectedUntil=Date.now()-1;}await room.alarm();assert.equal(room.room.hostId,guest.id);assert.equal(room.room.players.length,1);
+room.room.status='lobby';host.connected=false;host.disconnectedUntil=Date.now()-1;guest.connected=true;guest.disconnectedUntil=0;for(const p of room.room.players.slice(2)){p.connected=false;p.disconnectedUntil=Date.now()-1;}await room.alarm();assert.equal(room.room.hostId,guest.id);assert.equal(room.room.players.length,1);assert.equal(room.room.players[0].liveryId,'mercedes-amg-one');
 // Reconnect stale-close protection: another live socket with same player means no duplicate/removal.
 const replacement=new FakeWS(guest.id);ctx.sockets=[gws,replacement];guest.connected=true;const countBefore=room.room.players.length;await room.handleDisconnect(gws);assert.equal(room.room.players.length,countBefore);assert.equal(guest.connected,true);
 // Empty-room cleanup after grace removes storage.

@@ -1,0 +1,27 @@
+/* Shop/Garage split and rarity smoke tests. */
+const assert=require('assert').strict,fs=require('fs'),path=require('path'),vm=require('vm');
+const ROOT=path.resolve(__dirname,'..');global.window=global;window.Racing={};
+vm.runInThisContext(fs.readFileSync(path.join(ROOT,'public/js/content.js'),'utf8'),{filename:'js/content.js'});
+const R=global.Racing;
+assert.deepEqual(R.CAR_CATEGORY_ORDER,['all','basic','sport','premium','rare','legendary','lux']);
+for(const id of ['basic','sport','premium','rare','legendary','lux'])assert.ok(R.CAR_CATEGORIES[id],`missing category ${id}`);
+assert.equal(R.normalizeCarCategory('regular'),'basic','regular compatibility failed');
+assert.equal(R.LIVERIES['porsche-911'].category,'premium','Porsche must remain premium');
+let save=R.normalizeSave({credits:50000,ownedLiveries:['apexLime','crimsonVelocity'],ownedEffects:['standard','redFlame'],selectedLivery:'apexLime',selectedEffect:'standard',bestScore:321,bestLap:4567,maxLaps:9,controlMode:'wheel'});
+assert.equal(R.getCatalogEntries(save,'shop','livery','all').length,40,'shop all must show the 40 real cars only');
+assert.deepEqual(R.getCatalogEntries(save,'garage','livery','all').map(([id])=>id).sort(),save.ownedLiveries.slice().sort(),'garage all must show owned cars only');
+assert.deepEqual(R.getCatalogEntries(save,'garage','effect','all').map(([id])=>id).sort(),save.ownedEffects.slice().sort(),'garage effects must show owned effects only');
+assert.ok(R.getCatalogEntries(save,'shop','livery','basic').every(([,x])=>R.normalizeCarCategory(x.category)==='basic'),'basic filter incorrect');
+assert.ok(R.getCatalogEntries(save,'shop','livery','premium').some(([id])=>id==='porsche-911'),'Porsche missing from premium');
+assert.equal(R.getCatalogEntries(save,'garage','livery','premium').length,0,'unowned Porsche leaked into garage');
+assert.equal(R.selectOwned(save,'livery','porsche-911'),'locked','garage must not select unowned car');
+save.credits=95000;const before=save.credits;assert.equal(R.shopAction(save,'livery','porsche-911'),'purchased','shop purchase failed');assert.equal(save.credits,before-95000);assert.ok(R.getCatalogEntries(save,'garage','livery','all').some(([id])=>id==='porsche-911'),'purchased car missing from garage');
+assert.equal(R.selectOwned(save,'livery','porsche-911'),'selected');assert.equal(save.selectedLivery,'porsche-911');
+assert.equal(R.selectOwned(save,'effect','redFlame'),'selected');assert.equal(save.selectedEffect,'redFlame');
+const persisted=R.normalizeSave(JSON.parse(JSON.stringify(save)));assert.equal(persisted.selectedLivery,'porsche-911');assert.equal(persisted.selectedEffect,'redFlame');assert.equal(persisted.bestScore,321);assert.equal(persisted.bestLap,4567);assert.equal(persisted.controlMode,'wheel');
+const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),js=fs.readFileSync(path.join(ROOT,'public/js/garage.js'),'utf8'),game=fs.readFileSync(path.join(ROOT,'public/js/game.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8');
+for(const id of ['shopBtn','garageBtn','shop','garage','shopBackBtn','garageBackBtn','shopItems','garageItems','shopPreview','garagePreview'])assert.ok(html.includes(`id="${id}"`),`missing UI ${id}`);
+assert.ok(js.includes("mode==='garage'")&&js.includes('R.selectOwned')&&js.includes('R.shopAction'),'shop/garage behavior split missing');
+assert.ok(game.includes("openCatalog('shop')")&&game.includes("openCatalog('garage')")&&game.includes("$('loadoutBtn').addEventListener('click',openGarage)"),'screen routing missing');
+assert.ok(css.includes('-webkit-overflow-scrolling:touch')&&css.includes('prefers-reduced-motion')&&css.includes('@keyframes luxShift'),'iPhone category strip/LUX safeguards missing');
+console.log('shop_garage_smoke: OK');
