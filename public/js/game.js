@@ -160,10 +160,13 @@
 
   function installAppInteractionGuards(){
     const app=$('app');if(!app)return;
-    const isEditable=target=>!!(target&&target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'));
+    const editableSelector='input,textarea,select,[contenteditable="true"]';
+    const isEditable=target=>!!(target&&target.closest&&target.closest(editableSelector));
     const suppress=e=>{if(isEditable(e.target))return;if(e.cancelable)e.preventDefault();};
-    for(const type of ['selectstart','dragstart','dblclick'])app.addEventListener(type,suppress,{capture:true,passive:false});
-    app.querySelectorAll('img').forEach(img=>{img.draggable=false;});
+    // Do not cancel touchstart/touchend here: race controls rely on independent
+    // pointers and settings/shop panels must keep native pan/scroll behavior.
+    for(const type of ['selectstart','dragstart','contextmenu','dblclick'])app.addEventListener(type,suppress,{capture:true,passive:false});
+    app.querySelectorAll('img,svg').forEach(el=>{el.setAttribute('draggable','false');});
   }
   installAppInteractionGuards();
   updateMenuStats();syncSetupUI();syncSettingsUI();writeSave();

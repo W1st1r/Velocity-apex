@@ -518,7 +518,7 @@ html,body,#app { touch-action: auto; }
   .hud-center .lap-times > span { font-size:16px; }
 }
 
-/* App-wide iOS interaction hardening. Text inputs deliberately opt back in. */
+/* App-wide iOS interaction hardening. Editable controls deliberately opt back in. */
 #app {
   -webkit-user-select:none;
   user-select:none;
@@ -533,7 +533,28 @@ html,body,#app { touch-action: auto; }
   -webkit-tap-highlight-color:transparent;
   -webkit-user-drag:none;
 }
-#app input,#app textarea,#app select,#app [contenteditable="true"] {
+/* iOS can target a nested span/strong/SVG node during rapid taps. Harden the
+   complete action surface, not only the outer button. Keep touch-action out of
+   this rule so race controls and scrollable panels retain their own gestures. */
+#app button,
+#app button *,
+#app [role="button"],
+#app [role="button"] *,
+#app [role="slider"],
+#app [role="slider"] *,
+#app [data-item],
+#app [data-item] * {
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  -webkit-tap-highlight-color:transparent !important;
+  -webkit-user-drag:none !important;
+}
+#app input,
+#app textarea,
+#app select,
+#app [contenteditable="true"],
+#app [contenteditable="true"] * {
   -webkit-user-select:text !important;
   user-select:text !important;
   -webkit-touch-callout:default;
