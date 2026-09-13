@@ -37,6 +37,18 @@ assert.ok(close(size.length,60)&&close(size.width,30),'width-bound contain faile
 size=R.resolveSpriteSize({visualLength:70,raceScale:1,preserveAspectRatio:true},350,140,false);
 assert.ok(close(size.length/size.width,2.5),'single-bound preserveAspectRatio fallback failed');
 
+const expectedPreviewLengthScales=Object.freeze({
+  'ferrari-laferrari':1.08,
+  'bugatti-chiron-super-sport':1.09,
+  'bugatti-divo':1.08,
+  'koenigsegg-jesko':1.09,
+  'pagani-huayra-bc':1.07,
+  'lamborghini-veneno':1.08,
+  'mclaren-p1':1.05,
+  'ferrari-enzo':1.06
+});
+assert.equal(Object.keys(expectedPreviewLengthScales).length,8,'preview length regression set must contain exactly 8 cars');
+
 for(const id of R.REAL_CAR_IDS){
   const g=R.CAR_GEOMETRY[id],meta=R.LIVERIES[id],sprite=meta?.sprite,collision=meta?.collision;
   assert.ok(g,`${id} missing CAR_GEOMETRY`);assert.ok(sprite,`${id} missing sprite`);assert.equal(sprite.preserveAspectRatio,true,`${id} must preserve source aspect ratio`);
@@ -52,6 +64,16 @@ for(const id of R.REAL_CAR_IDS){
   const race=R.resolveSpriteSize(sprite,full.width,full.height,false);
   const preview=R.resolveSpriteSize(sprite,full.width,full.height,true);
   const thumbnail=R.resolveSpriteSize(sprite,thumb.width,thumb.height,true);
+  const expectedLengthScale=expectedPreviewLengthScales[id]||1;
+  assert.equal(sprite.previewLengthScale??1,expectedLengthScale,`${id} previewLengthScale metadata mismatch`);
+  if(expectedPreviewLengthScales[id])assert.ok(sprite.previewLengthScale>1&&sprite.previewLengthScale>=1.05&&sprite.previewLengthScale<=1.10,`${id} previewLengthScale outside requested range`);
+  else assert.ok(sprite.previewLengthScale===undefined||sprite.previewLengthScale===1,`${id} must not receive preview length correction`);
+  const raceRender=R.resolveSpriteRenderSize(sprite,race,false);
+  const previewRender=R.resolveSpriteRenderSize(sprite,preview,true);
+  const thumbnailRender=R.resolveSpriteRenderSize(sprite,thumbnail,true);
+  assert.ok(close(raceRender.length,race.length)&&close(raceRender.width,race.width),`${id} preview correction leaked into race mode`);
+  assert.ok(close(previewRender.length,preview.length*expectedLengthScale)&&close(previewRender.width,preview.width),`${id} preview longitudinal correction mismatch`);
+  assert.ok(close(thumbnailRender.length,thumbnail.length*expectedLengthScale)&&close(thumbnailRender.width,thumbnail.width),`${id} thumbnail longitudinal correction mismatch`);
   for(const [mode,r] of [['race',race],['preview',preview],['thumbnail',thumbnail]]){
     assert.ok(Number.isFinite(r.length)&&r.length>0&&Number.isFinite(r.width)&&r.width>0,`${id} ${mode} size invalid`);
     assert.ok(r.length<=r.maxLength+1e-9&&r.width<=r.maxWidth+1e-9,`${id} ${mode} escapes contain bounds`);
@@ -60,7 +82,11 @@ for(const id of R.REAL_CAR_IDS){
   assert.ok(Math.abs(preview.length/preview.width-fullRatio)<1e-10,`${id} preview aspect ratio distorted`);
   assert.ok(Math.abs(thumbnail.length/thumbnail.width-thumbRatio)<1e-10,`${id} thumbnail aspect ratio distorted`);
   assert.ok(Math.abs(thumbnail.length/preview.length-1)<.015&&Math.abs(thumbnail.width/preview.width-1)<.015,`${id} thumbnail/full preview scale mismatch`);
-  // Catalog/garage previews fit one shared visual envelope while preserving each WebP ratio.
+  assert.ok(Math.abs(thumbnailRender.length/previewRender.length-1)<.015&&Math.abs(thumbnailRender.width/previewRender.width-1)<.015,`${id} corrected thumbnail/full preview scale mismatch`);
+  assert.ok(previewRender.length>=74&&previewRender.length<=88,`${id} corrected preview length escaped safe range: ${previewRender.length.toFixed(1)}`);
+  assert.ok(thumbnailRender.length>=74&&thumbnailRender.length<=88,`${id} corrected thumbnail length escaped safe range: ${thumbnailRender.length.toFixed(1)}`);
+  // Catalog/garage contain sizing keeps a shared visual envelope; the optional final
+  // longitudinal correction above intentionally affects length only for the 8 tuned cars.
   // Narrow/long bodies can stay longer and compact/wide hypercars can stay wider, but neither
   // dimension may become an outlier. Gameplay sizing is checked separately below.
   assert.ok(preview.length>=74&&preview.length<=81,`${id} preview length escaped normalized range: ${preview.length.toFixed(1)}`);
@@ -76,6 +102,14 @@ for(const id of R.REAL_CAR_IDS){
 }
 
 
+// Draw regression: the preview stretch is centered on previewOffsetX and leaves width unchanged.
+const drawProbe=car('ferrari-laferrari');drawProbe.spriteAssetMode='preview';drawProbe.spriteImage={complete:true,naturalWidth:512,naturalHeight:323};
+const drawCalls=[];const ctxProbe={save(){},restore(){},translate(){},rotate(){},scale(){},beginPath(){},ellipse(){},fill(){},drawImage(...args){drawCalls.push(args);}};
+drawProbe.draw(ctxProbe);assert.equal(drawCalls.length,1,'preview sprite draw probe failed');
+const probeBase=R.resolveSpriteSize(drawProbe.spriteSpec,512,323,true),probeScale=drawProbe.spriteSpec.previewLengthScale,probeCall=drawCalls[0];
+assert.ok(close(probeCall[1],(drawProbe.spriteSpec.previewOffsetX||0)-probeBase.length*probeScale*.5),'preview stretch must stay centered longitudinally');
+assert.ok(close(probeCall[3],probeBase.length*probeScale),'preview drawImage length mismatch');assert.ok(close(probeCall[4],probeBase.width),'preview drawImage width must stay unchanged');
+
 // Guard this preview-only calibration from accidentally modifying gameplay geometry.
 const gameplayGeometry=R.REAL_CAR_IDS.map(id=>{const g=R.CAR_GEOMETRY[id];return [id,g.raceScale,g.raceOffsetX,g.raceOffsetY,g.collisionLength,g.collisionWidth,g.collisionOffsetX,g.collisionOffsetY];});
 assert.equal(crypto.createHash('sha256').update(JSON.stringify(gameplayGeometry)).digest('hex'),'93d44953b0b9bd4b43a513bfefed193ae093c5c423e333ccce7b9f75f8829622','raceScale/collision geometry changed during preview calibration');
@@ -86,4 +120,4 @@ mary.x=(chiron.collisionLength+mary.collisionLength)*.5-.5;mary.y=0;contact(chir
 mary.x=45;mary.y=22;mary.angle=Math.PI/5;contact(chiron,mary,'angled body contact should collide');
 // 13 offline bots + player grid geometry: adjacent rows are 140 apart and paired lanes are 68 apart.
 const grid=[];for(let i=0;i<14;i++){const c=new R.Car();c.setLoadout('apexLime','standard');c.x=-65-Math.floor(i/2)*140;c.y=i%2===0?-34:34;c.angle=0;grid.push(c);}for(let i=0;i<grid.length;i++)for(let j=i+1;j<grid.length;j++)clear(grid[i],grid[j],`start grid overlap ${i}/${j}`);
-console.log('car_geometry_smoke: OK (41 WebP ratios + contain bounds + preview parity + collisions + invariants + 13-bot grid)');
+console.log('car_geometry_smoke: OK (41 WebP ratios + contain bounds + 8 preview length scales + centered draw + collisions + invariants + 13-bot grid)');

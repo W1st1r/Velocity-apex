@@ -131,12 +131,23 @@
     "aston-martin-valkyrie-mary":280000
   });
   // visualLength/visualWidth are per-car contain bounds. They are maxima, not
-  // independent stretch targets: preserveAspectRatio sprites always keep the WebP ratio.
-  // previewScale is calibrated per model for a stable catalog/garage visual footprint;
+  // independent stretch targets: resolveSpriteSize() preserves the source WebP ratio.
+  // previewScale sets the overall catalog/garage footprint; previewLengthScale is an
+  // optional preview-only longitudinal correction applied afterward, never in race mode.
   // raceScale and collision geometry remain independent and unchanged by preview tuning.
   const geo=(visualLength,visualWidth,raceScale,previewScale,collisionLength,collisionWidth,raceOffsetX=0,raceOffsetY=0,collisionOffsetX=0,collisionOffsetY=0)=>Object.freeze({
     visualLength,visualWidth,raceScale,previewScale,raceOffsetX,raceOffsetY,previewOffsetX:raceOffsetX,previewOffsetY:raceOffsetY,
     collisionLength,collisionWidth,collisionOffsetX,collisionOffsetY
+  });
+  const PREVIEW_LENGTH_SCALES=Object.freeze({
+    "ferrari-laferrari":1.08,
+    "bugatti-chiron-super-sport":1.09,
+    "bugatti-divo":1.08,
+    "koenigsegg-jesko":1.09,
+    "pagani-huayra-bc":1.07,
+    "lamborghini-veneno":1.08,
+    "mclaren-p1":1.05,
+    "ferrari-enzo":1.06
   });
   const CAR_GEOMETRY=Object.freeze({
     "vw-golf-gti":geo(59.3,31.2,1.14,1.349,66.2,29.4,0,0,0.0,0.0),
@@ -183,7 +194,8 @@
   });
   for(const car of REAL_CARS){
     const {id,...base}=car,g=CAR_GEOMETRY[id];
-    const sprite=Object.freeze({...base.sprite,visualLength:g.visualLength,visualWidth:g.visualWidth,raceScale:g.raceScale,previewScale:g.previewScale,raceOffsetX:g.raceOffsetX,raceOffsetY:g.raceOffsetY,previewOffsetX:g.previewOffsetX,previewOffsetY:g.previewOffsetY});
+    const previewLengthScale=PREVIEW_LENGTH_SCALES[id];
+    const sprite=Object.freeze({...base.sprite,visualLength:g.visualLength,visualWidth:g.visualWidth,raceScale:g.raceScale,previewScale:g.previewScale,raceOffsetX:g.raceOffsetX,raceOffsetY:g.raceOffsetY,previewOffsetX:g.previewOffsetX,previewOffsetY:g.previewOffsetY,...(previewLengthScale?{previewLengthScale}:{})});
     const collision=Object.freeze({length:g.collisionLength,width:g.collisionWidth,offsetX:g.collisionOffsetX,offsetY:g.collisionOffsetY});
     R.LIVERIES[id]={...base,price:CAR_PRICES[id],sprite,collision,currency:'CR',realCar:true};
   }

@@ -30,6 +30,13 @@
     return {length:maxLength,width:maxWidth,sourceRatio,maxLength,maxWidth};
   }
   R.resolveSpriteSize=resolveSpriteSize;
+  function resolveSpriteRenderSize(spriteSpec,resolvedSize,preview=false){
+    const size=resolvedSize||{};
+    const length=positive(size.length,74),width=positive(size.width,36);
+    const previewLengthScale=preview?positive(spriteSpec?.previewLengthScale,1):1;
+    return {length:length*previewLengthScale,width,previewLengthScale};
+  }
+  R.resolveSpriteRenderSize=resolveSpriteRenderSize;
 
   // SAT helper for two car-oriented bounding boxes. The four candidate axes are
   // the local forward/right axes of each car; the smallest overlap is the MTV.
@@ -306,7 +313,8 @@
       const spriteReady=this.spriteSpec&&this.spriteImage&&this.spriteImage.complete&&this.spriteImage.naturalWidth&&this.spriteImage.naturalHeight;
       const spritePreview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
       const spriteSize=spriteReady?this._getSpriteSize(spritePreview):null;
-      const spriteLength=spriteSize?.length||74,spriteWidth=spriteSize?.width||36;
+      const renderSpriteSize=resolveSpriteRenderSize(this.spriteSpec,spriteSize,spritePreview);
+      const spriteLength=renderSpriteSize.length,spriteWidth=renderSpriteSize.width;
 
       // Layered shadow follows each car's tuned visual envelope without expensive blur.
       ctx.save();ctx.translate(-1.5-brakeDive,2.2+lean*.55);ctx.fillStyle='#000';ctx.globalAlpha=.075;ctx.beginPath();ctx.ellipse(-1,0,spriteLength*.47,spriteWidth*.48,0,0,TAU);ctx.fill();ctx.globalAlpha=.11;ctx.beginPath();ctx.ellipse(-1,0,spriteLength*.40,spriteWidth*.39,0,0,TAU);ctx.fill();ctx.restore();
