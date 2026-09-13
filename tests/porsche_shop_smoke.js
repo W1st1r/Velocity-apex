@@ -1,0 +1,27 @@
+/* Porsche/category feature validation. Run: node tests/porsche_shop_smoke.js */
+const fs=require('fs'),path=require('path'),vm=require('vm');
+const ROOT=path.resolve(__dirname,'..');global.window=global;window.Racing={};
+vm.runInThisContext(fs.readFileSync(path.join(ROOT,'public/js/content.js'),'utf8'),{filename:'js/content.js'});
+const R=global.Racing,assert=(ok,msg)=>{if(!ok)throw new Error(msg);};
+const entries=Object.entries(R.LIVERIES),regular=entries.filter(([,x])=>(x.category||'regular')==='regular'),sport=entries.filter(([,x])=>(x.category||'regular')==='sport'),premium=entries.filter(([,x])=>(x.category||'regular')==='premium');
+assert(regular.length===4,'all four existing cars should be regular');
+assert(sport.length===0,'sport should be empty');
+assert(premium.length===1&&premium[0][0]==='porsche-911','premium should contain only Porsche 911');
+const p=R.LIVERIES['porsche-911'];assert(p.price===40000&&p.currency==='CR'&&p.sprite&&p.sprite.src&&p.sprite.thumbnail,'Porsche metadata/assets missing');
+assert(p.sprite.raceScale>=1.20&&p.sprite.raceScale<=1.35,'Porsche raceScale must stay in the tuned per-car range');
+assert(p.sprite.previewScale>=1.10&&p.sprite.previewScale<=1.35,'Porsche previewScale missing/out of range');
+assert(p.sprite.preserveAspectRatio===true,'Porsche sprite must preserve source aspect ratio');
+for(const rel of [p.sprite.src,p.sprite.thumbnail])assert(fs.existsSync(path.join(ROOT,'public',rel)),`missing asset ${rel}`);
+let s=R.normalizeSave({credits:39999});assert(R.shopAction(s,'livery','porsche-911')==='insufficient'&&s.credits===39999,'39999 CR scenario failed');
+s=R.normalizeSave({credits:40000});assert(R.shopAction(s,'livery','porsche-911')==='purchased'&&s.credits===0,'40000 CR purchase failed');
+assert(R.shopAction(s,'livery','porsche-911')==='selected'&&s.credits===0&&s.selectedLivery==='porsche-911','repeat purchase/select protection failed');
+s=R.normalizeSave(s);assert(s.ownedLiveries.includes('porsche-911')&&s.selectedLivery==='porsche-911','save persistence normalization failed');
+const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8'),garage=fs.readFileSync(path.join(ROOT,'public/js/garage.js'),'utf8'),car=fs.readFileSync(path.join(ROOT,'public/js/car.js'),'utf8');
+for(const cat of ['regular','sport','premium'])assert(html.includes(`data-category="${cat}"`),`missing ${cat} category tab`);
+assert(garage.includes("item.category||'regular'")&&garage.includes('Скоро здесь появятся новые автомобили'),'category fallback/empty state missing');
+assert(css.includes('.shop-item.premium')&&css.includes('.car-category-tabs'),'premium/category styles missing');
+assert(car.includes('this.spriteSpec')&&car.includes('drawImage(this.spriteImage'),'gameplay sprite renderer missing');
+assert(car.includes('spriteVisualScale')&&car.includes('raceScale')&&car.includes('previewScale'),'per-car visual scale renderer missing');
+assert(car.includes('collisionLength=71')&&car.includes('collisionWidth=44'),'visual scaling must not replace the fixed collision geometry');
+assert(garage.includes("'preview'"),'garage preview should use the independent preview scale');
+console.log(JSON.stringify({regular:regular.map(([id])=>id),sport:sport.map(([id])=>id),premium:premium.map(([id])=>id),porschePrice:p.price,saveVersion:s.saveVersion},null,2));

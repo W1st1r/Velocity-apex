@@ -1,0 +1,14 @@
+{
+  "name": "velocity-apex",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node tests/run_all.js && node tests/online_protocol_test.mjs && node tests/online_network_test.js && node tests/online_room_test.mjs && node tests/online_ui_smoke.js",
+    "test:ai": "node tests/ai_benchmark.js",
+    "test:all": "npm test && npm run test:ai"
+  },
+  "devDependencies": {
+    "wrangler": "4.131.1"
+  }
+}
