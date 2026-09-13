@@ -21,6 +21,10 @@
     ['#80ff44','#f5f5ed'],['#ff405f','#ffe45d'],['#3bb8ff','#f7f7f1'],['#9c63ff','#ff66c4'],['#ff8a34','#fff1d8'],['#21d7c5','#eaffff'],['#f5d94d','#20252b'],
     ['#e9edf2','#ec3c50'],['#ff5be7','#d7ff43'],['#6d7cff','#f2f2ff'],['#36dd6f','#13252b'],['#ff6548','#72e9ff'],['#d8ff4f','#4b2eff'],['#f0a4ff','#272a31']
   ];
+  const OFFLINE_BOT_PAINTS=Object.freeze([
+    ['#80ff44','#efffe7'],['#ff405f','#fff0f2'],['#3bb8ff','#eef9ff'],['#ff8a34','#fff1d8'],['#21d7c5','#eaffff'],['#ff5fbf','#ffe7f5'],['#f5d94d','#25262a'],
+    ['#9c63ff','#f3ecff'],['#e9edf2','#707983'],['#ff6548','#fff0ea'],['#6d7cff','#f2f2ff'],['#36dd6f','#13252b'],['#d8ff4f','#4b2eff']
+  ]);
 
   function loadSave(){
     try{return R.normalizeSave(JSON.parse(localStorage.getItem(STORAGE)||'{}'));}
@@ -207,7 +211,7 @@
     cars=[];finishOrder.length=0;finishCandidates.length=0;player=null;
     const names=['NOVA','VECTOR','PULSE','KITE','EMBER','VOLT','RIFT','ION','COMET','ARC','ZENITH','FLUX','NEON','APEX'];
     const total=raceSettings.bots+1,playerGrid=Math.floor(total/2);
-    let botName=0;
+    let botName=0,botPaint=0;
     for(let i=0;i<total;i++){
       const isPlayer=i===playerGrid;
       // Player and bots share exactly the same physical performance. Difficulty is
@@ -220,7 +224,9 @@
       c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;
       if(!isPlayer){
         c.ai=new R.AIController(c,i,raceSettings.difficulty);c._control=c.ai.output;
-        const catalog=R.REAL_CAR_IDS||[];const botCar=catalog.length?catalog[(i*7+playerGrid)%catalog.length]:'apexLime';c.setLoadout(botCar,'standard');
+        c.setLoadout('apexLime','standard');
+        const paint=OFFLINE_BOT_PAINTS[botPaint++%OFFLINE_BOT_PAINTS.length];
+        c.setPaintOverride({primary:paint[0],secondary:paint[1],accent:paint[1],stripe:paint[1]});
       }else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);}
       cars.push(c);
     }
@@ -345,7 +351,7 @@
       let contacts=0;
       for(let i=0;i<cars.length;i++)for(let j=i+1;j<cars.length;j++){
         const a=cars[i],b=cars[j],dx=b.x-a.x,dy=b.y-a.y;
-        const broad=a.collisionRadius+b.collisionRadius+Math.abs(a.collisionOffsetX||0)+Math.abs(b.collisionOffsetX||0);
+        const broad=a.collisionRadius+b.collisionRadius+Math.hypot(a.collisionOffsetX||0,a.collisionOffsetY||0)+Math.hypot(b.collisionOffsetX||0,b.collisionOffsetY||0);
         if(dx*dx+dy*dy>broad*broad)continue;
         const hit=R.intersectCarOBBs(a,b);if(!hit)continue;contacts++;
         const correction=(hit.depth+COLLISION_SEPARATION)*.5,nx=hit.nx,ny=hit.ny;

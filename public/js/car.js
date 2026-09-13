@@ -17,9 +17,9 @@
   // the local forward/right axes of each car; the smallest overlap is the MTV.
   function getCarOBB(car){
     const fx=Math.cos(car.angle),fy=Math.sin(car.angle),rx=-fy,ry=fx;
-    const offset=car.collisionOffsetX||0;
+    const longitudinal=car.collisionOffsetX||0,lateral=car.collisionOffsetY||0;
     return {
-      cx:car.x+fx*offset,cy:car.y+fy*offset,
+      cx:car.x+fx*longitudinal+rx*lateral,cy:car.y+fy*longitudinal+ry*lateral,
       fx,fy,rx,ry,halfL:car.collisionLength*.5,halfW:car.collisionWidth*.5
     };
   }
@@ -62,8 +62,9 @@
       this.turnRate=opts.turnRate||2.18;this.radius=18;this.length=62;this.width=31;
       // Collision footprint follows the already-drawn car, including wings/tyres.
       // The drawing spans about x=-34..37 and y=-22..22, whose visual centre is +1.5px.
-      this.collisionLength=71;this.collisionWidth=44;this.collisionOffsetX=1.5;
+      this.collisionLength=71;this.collisionWidth=44;this.collisionOffsetX=1.5;this.collisionOffsetY=0;
       this.collisionRadius=Math.hypot(this.collisionLength*.5,this.collisionWidth*.5);
+      this.paintOverride=null;
       this.trackIndex=0;this.progress=0;this.prevProgress=0;this.laps=0;this.checkpoint=0;
       this.onRoad=true;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.collisionThisLap=false;this.offroadThisLap=false;
       this.lastImpact=0;this.steerVisual=0;this.throttleVisual=0;this.brakeVisual=0;
@@ -232,11 +233,19 @@
     setLoadout(liveryId,effectId,assetMode='full'){
       this.liveryId=Object.prototype.hasOwnProperty.call(R.LIVERIES,liveryId)?liveryId:'apexLime';
       this.livery=R.LIVERIES[this.liveryId]||R.LIVERIES.apexLime;
-      this.color=this.livery.primary;this.accent=this.livery.secondary;
+      this.color=this.livery.primary;this.accent=this.livery.secondary;this.paintOverride=null;
       this.effect=Object.prototype.hasOwnProperty.call(R.EFFECTS,effectId)?effectId:'standard';
       this.spriteSpec=this.livery.sprite||null;this.spriteAssetMode=assetMode;
+      const collision=this.livery.collision;
+      this.collisionLength=collision?.length||71;this.collisionWidth=collision?.width||44;
+      this.collisionOffsetX=collision?.offsetX??1.5;this.collisionOffsetY=collision?.offsetY??0;
+      this.collisionRadius=Math.hypot(this.collisionLength*.5,this.collisionWidth*.5);
       const spriteSrc=this.spriteSpec&&(assetMode==='thumbnail'&&this.spriteSpec.thumbnail?this.spriteSpec.thumbnail:this.spriteSpec.src);
       this.spriteImage=getSpriteImage(spriteSrc);
+    }
+
+    setPaintOverride(paint=null){
+      this.paintOverride=paint&&typeof paint==='object'?{...paint}:null;
     }
 
     drawExhaust(ctx){
@@ -245,7 +254,7 @@
       const t=this.effectTime,flicker=1+.12*Math.sin(t*53)+.08*Math.sin(t*89),length=(18+this.speed*.055)*this.throttleVisual*flicker;
       const preview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
       const visualScale=this.spriteSpec?(preview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
-      const rearX=this.spriteSpec?-(this.spriteSpec.length||74)*visualScale*.47+(this.spriteSpec.exhaustOffsetX||0):-32;
+      const rearX=this.spriteSpec?-(this.spriteSpec.visualLength||this.spriteSpec.length||74)*visualScale*.47+(this.spriteSpec.exhaustOffsetX||0):-32;
       const rearY=this.spriteSpec?.exhaustOffsetY||0;
       ctx.save();ctx.translate(0,rearY);ctx.globalCompositeOperation='lighter';
       for(let layer=0;layer<3;layer++){
@@ -258,9 +267,9 @@
     }
 
     draw(ctx,scale=1){
-      const livery=this.livery;
-      const primary=livery?livery.primary:this.color,secondary=livery?livery.secondary:this.accent;
-      const stripe=livery?livery.stripe:secondary,detail=livery?livery.accent:secondary;
+      const livery=this.livery,paint=this.paintOverride||livery;
+      const primary=paint?paint.primary:this.color,secondary=paint?paint.secondary:this.accent;
+      const stripe=paint?.stripe||secondary,detail=paint?.accent||secondary;
       const speedLoad=clamp(this.speed/330,0,1),lean=this.steerVisual*speedLoad*1.35,brakeDive=this.brakeVisual*speedLoad*.8;
 
       ctx.save();ctx.translate(this.x,this.y);ctx.rotate(this.angle);ctx.scale(scale,scale);
@@ -268,25 +277,23 @@
       const spriteReady=this.spriteSpec&&this.spriteImage&&this.spriteImage.complete&&this.spriteImage.naturalWidth;
       const spritePreview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
       const spriteVisualScale=spriteReady?(spritePreview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
+      const sourceRatio=spriteReady?this.spriteImage.naturalWidth/Math.max(1,this.spriteImage.naturalHeight):0;
+      const baseLength=spriteReady?(this.spriteSpec.visualLength||this.spriteSpec.length||74):74;
+      const baseWidth=spriteReady?(this.spriteSpec.visualWidth||(this.spriteSpec.preserveAspectRatio&&sourceRatio?baseLength/sourceRatio:(this.spriteSpec.width||36.5))):36;
+      const spriteLength=baseLength*spriteVisualScale,spriteWidth=baseWidth*spriteVisualScale;
 
-      // Layered shadow: no per-frame blur, but enough falloff to lift the body off the asphalt.
-      // Sprite-only visual scaling deliberately never touches the collision footprint.
-      ctx.save();ctx.translate(-1.5-brakeDive,2.2+lean*.55);ctx.fillStyle='#000';ctx.globalAlpha=.075;ctx.beginPath();ctx.ellipse(-1,0,37*spriteVisualScale,18*spriteVisualScale,0,0,TAU);ctx.fill();ctx.globalAlpha=.11;ctx.beginPath();ctx.ellipse(-1,0,31.5*spriteVisualScale,14*spriteVisualScale,0,0,TAU);ctx.fill();ctx.restore();
+      // Layered shadow follows each car's tuned visual envelope without expensive blur.
+      ctx.save();ctx.translate(-1.5-brakeDive,2.2+lean*.55);ctx.fillStyle='#000';ctx.globalAlpha=.075;ctx.beginPath();ctx.ellipse(-1,0,spriteLength*.47,spriteWidth*.48,0,0,TAU);ctx.fill();ctx.globalAlpha=.11;ctx.beginPath();ctx.ellipse(-1,0,spriteLength*.40,spriteWidth*.39,0,0,TAU);ctx.fill();ctx.restore();
 
       this.drawExhaust(ctx);
 
-      // Sprite-based catalog cars reuse the exact same physics/collision model. The
-      // supplied top-down image is only a rendering layer, so selecting it cannot
-      // change grip, acceleration, collision geometry or AI behavior.
+      // Catalog cars use pre-tuned visual length/width independent of source WebP ratio.
+      // Physical performance remains shared; only the collision footprint follows the body.
       if(spriteReady){
-        const baseW=this.spriteSpec.length||74;
-        const sourceRatio=this.spriteImage.naturalWidth/Math.max(1,this.spriteImage.naturalHeight);
-        const baseH=this.spriteSpec.preserveAspectRatio&&sourceRatio?baseW/sourceRatio:(this.spriteSpec.width||36.5);
-        const w=baseW*spriteVisualScale,h=baseH*spriteVisualScale;
         const ox=spritePreview?(this.spriteSpec.previewOffsetX??this.spriteSpec.offsetX??0):(this.spriteSpec.raceOffsetX??this.spriteSpec.offsetX??0);
         const oy=spritePreview?(this.spriteSpec.previewOffsetY??this.spriteSpec.offsetY??0):(this.spriteSpec.raceOffsetY??this.spriteSpec.offsetY??0);
-        ctx.drawImage(this.spriteImage,ox-w*.5,oy-h*.5,w,h);
-        if(DEBUG_COLLIDERS){ctx.strokeStyle='#00ff9c';ctx.lineWidth=1.5;ctx.globalAlpha=.9;ctx.strokeRect(this.collisionOffsetX-this.collisionLength*.5,-this.collisionWidth*.5,this.collisionLength,this.collisionWidth);ctx.globalAlpha=1;}
+        ctx.drawImage(this.spriteImage,ox-spriteLength*.5,oy-spriteWidth*.5,spriteLength,spriteWidth);
+        if(DEBUG_COLLIDERS){ctx.strokeStyle='#00ff9c';ctx.lineWidth=1.5;ctx.globalAlpha=.9;ctx.strokeRect(this.collisionOffsetX-this.collisionLength*.5,this.collisionOffsetY-this.collisionWidth*.5,this.collisionLength,this.collisionWidth);ctx.globalAlpha=1;}
         ctx.restore();return;
       }
 
@@ -340,7 +347,7 @@
 
       if(DEBUG_COLLIDERS){
         ctx.strokeStyle='#00ff9c';ctx.lineWidth=1.5;ctx.globalAlpha=.9;
-        ctx.strokeRect(this.collisionOffsetX-this.collisionLength*.5,-this.collisionWidth*.5,this.collisionLength,this.collisionWidth);
+        ctx.strokeRect(this.collisionOffsetX-this.collisionLength*.5,this.collisionOffsetY-this.collisionWidth*.5,this.collisionLength,this.collisionWidth);
         ctx.globalAlpha=1;
       }
       ctx.restore();

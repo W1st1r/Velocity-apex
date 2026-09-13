@@ -26,7 +26,7 @@ The main menu now has two primary choices:
 
 Shop, Garage and Settings remain available from the main menu. Shop is purchase-only; Garage shows only owned cars/effects and is the place to select the active loadout. The existing save key stays exactly `velocityApex.v1`; online nickname is stored separately under `velocityApex.onlineName` so legacy saves are not cleared or replaced.
 
-The car catalog now includes **40 real top-down cars** across Basic, Sport, Premium, Rare, Legendary and LUX. Every real car uses a local transparent WebP sprite plus a smaller thumbnail under `public/assets/cars/`, preserves source aspect ratio, and has independent race/preview visual scaling. The four original starter/legacy liveries remain valid for old saves; they stay available in Garage when owned but are hidden from the new Shop catalog. `porsche-911` is retained as the stable save/Online ID for Porsche 911 Turbo S.
+The car catalog now includes **41 real top-down cars** across Basic, Sport, Premium, Rare, Legendary and LUX. Every real car uses a local transparent WebP sprite plus a smaller thumbnail under `public/assets/cars/`, uses per-model visual length/width plus independent race/preview scaling, so source WebP aspect ratio no longer dictates the in-race proportions. The four original starter/legacy liveries remain valid for old saves; they stay available in Garage when owned but are hidden from the new Shop catalog. `porsche-911` is retained as the stable save/Online ID for Porsche 911 Turbo S. The LUX catalog also includes the pink Aston Martin Valkyrie entry `aston-martin-valkyrie-mary`, displayed strictly as **Mary**. Offline AI uses only the base `apexLime` body with per-bot paint overrides; player and Online loadouts are unchanged.
 
 ## Online Multiplayer architecture
 
@@ -99,7 +99,7 @@ The five existing tracks remain:
 | ALPINE RING | 6.70 km | S-sections + hairpins |
 | COASTLINE GT | 8.40 km | Fast arcs + technical sector |
 
-The 40-car garage/economy catalog still uses the original `ownedLiveries` / `selectedLivery` save fields. Online loadout synchronizes only `liveryId` and `effectId`; remote clients resolve those IDs through the same local catalog and fall back safely to `apexLime` for unknown IDs.
+The 41-car garage/economy catalog still uses the original `ownedLiveries` / `selectedLivery` save fields. Online loadout synchronizes only `liveryId` and `effectId`; remote clients resolve those IDs through the same local catalog and fall back safely to `apexLime` for unknown IDs.
 
 ## Tests
 
@@ -111,7 +111,7 @@ npm test
 
 This runs the existing standalone suites plus Online protocol, interpolation, room/server and UI/static-asset simulations. For the full deterministic AI stress matrix, run `npm run test:ai` (or `npm run test:all` for both).
 
-Existing suites cover physics/camera invariants, economy, the complete 40-car catalog/assets, Porsche save compatibility, Shop/Garage rarity filters, root tools, geometry, trajectory sectors and deterministic AI/traffic races.
+Existing suites cover physics/camera invariants, economy, the complete 41-car catalog/assets, Porsche save compatibility, Shop/Garage rarity filters, root tools, geometry, trajectory sectors and deterministic AI/traffic races.
 
 Online tests cover:
 

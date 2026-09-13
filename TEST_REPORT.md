@@ -80,16 +80,17 @@ node tests/ai_benchmark.js
 
 See `AI_BENCHMARK_REPORT.json` for the full deterministic benchmark output.
 
-## 40-car Shop / Garage catalog regression (2026-09-13)
+## 41-car Shop / Garage / geometry regression (2026-09-13)
 
-Final catalog validation now covers all 40 requested real cars. The Shop exposes exactly those 40 cars across Basic (6), Sport (7), Premium (6), Rare (7), Legendary (7) and LUX (7). The four original starter/legacy liveries remain in `R.LIVERIES` for `velocityApex.v1` compatibility but are hidden from the new Shop and remain available in Garage when already owned.
+Final catalog validation covers all 41 real cars: Basic (6), Sport (7), Premium (6), Rare (7), Legendary (7) and LUX (8). `aston-martin-valkyrie-mary` is a local pink WebP/thumbnail pair, displays strictly as **Mary**, purchases normally, survives save normalization and appears in the LUX Garage after purchase.
 
-- `tests/car_catalog_smoke.js` — PASS: all 40 stable IDs, exact prices/categories, unique required prices, all 80 sprite/thumbnail files, `preserveAspectRatio`, per-car race/preview scales, LUX membership, brown Audi R8 metadata, Porsche `porsche-911` compatibility, old-save normalization, insufficient/exact-price purchase rules, repeat-purchase protection, Garage visibility and unknown Online loadout fallback.
-- `tests/economy_smoke.js` — PASS: starting 200 CR and existing race rewards are unchanged; the new car prices remain deliberately much higher than ordinary race payouts.
-- `tests/porsche_shop_smoke.js` — PASS: Porsche keeps stable ID `porsche-911`, is displayed as Porsche 911 Turbo S at 95,000 CR, and old ownership survives normalization.
-- `tests/shop_garage_smoke.js` — PASS: Shop shows the 40 real cars only, Garage shows owned cars/effects only, purchases immediately appear in Garage, and selection persists through save normalization.
-- All real-car assets are local transparent WebP files in `public/assets/cars/`; source sprites are prepared nose-right and thumbnails are used for Shop cards so an entire full-resolution 40-car catalog is not loaded at once.
-- Legendary and LUX cards use lightweight metallic/iridescent CSS treatments; LUX shimmer is disabled under `prefers-reduced-motion: reduce` and no fullscreen blur/filter effect was added.
+- `tests/car_catalog_smoke.js` — PASS: 41 stable IDs, local assets, Mary metadata/purchase/save/Garage behavior, per-car `visualLength` / `visualWidth`, per-car collision dimensions/offsets, Bugatti aspect checks, `setLoadout()` collision-radius recalculation, lateral OBB offsets, Online loadout fallback, and offline `apexLime` + distinct paint policy.
+- `tests/economy_smoke.js` — PASS: race rewards are unchanged; typical 7-bot / 5-lap / medium 4th–5th-place earnings are about 5,640 CR/hour. LUX is 245,000–310,000 CR; Mary at 280,000 CR is about 49.6 hours at that realistic average.
+- `tests/car_geometry_smoke.js` — PASS: side-by-side, nose-to-tail and angled OBB contacts, separation thresholds, per-model performance invariance, and a 13-bot start grid without initial overlap.
+- `tests/porsche_shop_smoke.js` — PASS: Porsche keeps stable ID `porsche-911`, is displayed as Porsche 911 Turbo S at 68,000 CR, and old ownership survives normalization.
+- `tests/shop_garage_smoke.js` — PASS: Shop shows 41 real cars only, Garage shows owned cars/effects only, purchases immediately appear in Garage, and selection persists.
+- All real-car assets remain local under `public/assets/cars/`; thumbnails are used in cards. Rendering uses predeclared model metadata, so no per-frame image analysis was added.
+- Offline AI no longer selects from `R.REAL_CAR_IDS`: every bot uses the base `apexLime` silhouette with a distinct temporary paint override. Player and Online loadouts remain unchanged.
 
 ## Online Multiplayer validation (2026-09-13)
 
