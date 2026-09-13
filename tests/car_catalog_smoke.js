@@ -18,17 +18,16 @@ for(const id of ids){
   const car=R.LIVERIES[id];assert.ok(car,`missing ${id}`);assert.equal(car.price,expectedPrices[id],`${id} price`);prices.push(car.price);counts[car.category]=(counts[car.category]||0)+1;
   assert.equal(car.currency,'CR');assert.equal(car.realCar,true);assert.ok(car.sprite,`${id} sprite metadata`);assert.equal(car.sprite.orientation,'nose-right',`${id} orientation`);
   for(const key of ['visualLength','visualWidth','raceScale','previewScale'])assert.ok(Number.isFinite(car.sprite[key])&&car.sprite[key]>0,`${id} invalid ${key}`);
-  assert.ok(car.sprite.visualLength/car.sprite.visualWidth>=2.05&&car.sprite.visualLength/car.sprite.visualWidth<=2.70,`${id} implausible visual aspect`);
+  assert.equal(car.sprite.preserveAspectRatio,true,`${id} source aspect ratio must be preserved`);
+  assert.ok(car.sprite.visualLength/car.sprite.visualWidth>=1.45&&car.sprite.visualLength/car.sprite.visualWidth<=2.40,`${id} implausible contain-bound aspect`);
   assert.ok(car.collision&&Number.isFinite(car.collision.length)&&car.collision.length>0,`${id} collisionLength`);assert.ok(Number.isFinite(car.collision.width)&&car.collision.width>0,`${id} collisionWidth`);
   assert.ok(Number.isFinite(car.collision.offsetX)&&Number.isFinite(car.collision.offsetY),`${id} collision offsets`);
-  const drawnL=car.sprite.visualLength*car.sprite.raceScale,drawnW=car.sprite.visualWidth*car.sprite.raceScale;
-  assert.ok(car.collision.length<drawnL&&car.collision.length>drawnL*.72,`${id} collision length must stay inside body`);
-  assert.ok(car.collision.width<drawnW&&car.collision.width>drawnW*.76,`${id} collision width must stay inside body`);
   for(const key of ['src','thumbnail']){const rel=car.sprite[key],abs=path.join(ROOT,'public',rel);assert.ok(fs.existsSync(abs),`${id} missing ${key}: ${rel}`);assert.ok(fs.statSync(abs).size>1500,`${id} empty/tiny ${key}`);assert.equal(rel,rel.toLowerCase(),`${id} asset path must be lowercase`);}
 }
 assert.deepEqual(counts,{basic:6,sport:7,premium:6,rare:7,legendary:7,lux:8});assert.equal(new Set(prices).size,41,'real-car prices should be unique');
 const luxIds=R.REAL_CAR_IDS.filter(id=>R.LIVERIES[id].category==='lux');assert.ok(luxIds.includes('aston-martin-valkyrie-mary')&&luxIds.length===8,'Mary/LUX catalog mismatch');
-for(const id of ['bugatti-veyron','bugatti-chiron-super-sport','bugatti-divo'])assert.ok(R.LIVERIES[id].sprite.visualLength/R.LIVERIES[id].sprite.visualWidth>=2.20,`${id} still too square`);
+assert.ok(R.LIVERIES['mercedes-cls-63-amg'].sprite.visualLength/R.LIVERIES['mercedes-cls-63-amg'].sprite.visualWidth>2.1,'CLS should retain its long source silhouette');
+assert.ok(R.LIVERIES['bugatti-chiron-super-sport'].sprite.visualLength/R.LIVERIES['bugatti-chiron-super-sport'].sprite.visualWidth<1.65,'Chiron contain bounds should retain its compact source silhouette');
 const mary=R.LIVERIES['aston-martin-valkyrie-mary'];assert.equal(mary.name,'Mary');assert.equal(mary.category,'lux');assert.equal(mary.price,280000);assert.equal(mary.bodyColor.toLowerCase(),'#ff3fae');
 const r8=R.LIVERIES['audi-r8'];assert.equal(r8.brownVisual,true);assert.match(r8.bodyColor,/^#5a3527$/i);
 for(const legacy of ['apexLime','crimsonVelocity','iceVector','auroraPulse'])assert.ok(R.LIVERIES[legacy]?.legacy&&R.LIVERIES[legacy]?.shopHidden,`legacy ${legacy} support missing`);

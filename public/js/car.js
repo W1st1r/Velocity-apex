@@ -13,6 +13,24 @@
     const img=new Image();img.decoding='async';img.src=src;spriteCache.set(src,img);return img;
   }
 
+  const positive=(value,fallback)=>Number.isFinite(value)&&value>0?value:fallback;
+  function resolveSpriteSize(spriteSpec,imageWidth,imageHeight,preview=false){
+    const spec=spriteSpec||{},iw=Number(imageWidth),ih=Number(imageHeight);
+    const hasNatural=Number.isFinite(iw)&&iw>0&&Number.isFinite(ih)&&ih>0;
+    const sourceRatio=hasNatural?iw/ih:0;
+    const visualScale=positive(preview?spec.previewScale:spec.raceScale,1);
+    const baseLength=positive(spec.maxVisualLength??spec.visualLength??spec.length,74);
+    const ratioWidth=sourceRatio?baseLength/sourceRatio:36.5;
+    const baseWidth=positive(spec.maxVisualWidth??spec.visualWidth??spec.width,ratioWidth);
+    const maxLength=baseLength*visualScale,maxWidth=baseWidth*visualScale;
+    if(spec.preserveAspectRatio&&hasNatural){
+      const containScale=Math.min(maxLength/iw,maxWidth/ih);
+      return {length:iw*containScale,width:ih*containScale,sourceRatio,maxLength,maxWidth};
+    }
+    return {length:maxLength,width:maxWidth,sourceRatio,maxLength,maxWidth};
+  }
+  R.resolveSpriteSize=resolveSpriteSize;
+
   // SAT helper for two car-oriented bounding boxes. The four candidate axes are
   // the local forward/right axes of each car; the smallest overlap is the MTV.
   function getCarOBB(car){
@@ -68,7 +86,7 @@
       this.trackIndex=0;this.progress=0;this.prevProgress=0;this.laps=0;this.checkpoint=0;
       this.onRoad=true;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.collisionThisLap=false;this.offroadThisLap=false;
       this.lastImpact=0;this.steerVisual=0;this.throttleVisual=0;this.brakeVisual=0;
-      this.ai=null;this.rank=1;this.finishedLap=false;this.steerInput=0;this.effect='standard';this.effectTime=0;this.livery=null;this.liveryId='apexLime';this.spriteSpec=null;this.spriteImage=null;this.spriteAssetMode='full';this.gridPending=false;
+      this.ai=null;this.rank=1;this.finishedLap=false;this.steerInput=0;this.effect='standard';this.effectTime=0;this.livery=null;this.liveryId='apexLime';this.spriteSpec=null;this.spriteImage=null;this.spriteAssetMode='full';this._raceSpriteSize=null;this._previewSpriteSize=null;this.gridPending=false;
     }
 
     place(track,progress,lane=0){
@@ -241,20 +259,31 @@
       this.collisionOffsetX=collision?.offsetX??1.5;this.collisionOffsetY=collision?.offsetY??0;
       this.collisionRadius=Math.hypot(this.collisionLength*.5,this.collisionWidth*.5);
       const spriteSrc=this.spriteSpec&&(assetMode==='thumbnail'&&this.spriteSpec.thumbnail?this.spriteSpec.thumbnail:this.spriteSpec.src);
-      this.spriteImage=getSpriteImage(spriteSrc);
+      this.spriteImage=getSpriteImage(spriteSrc);this._raceSpriteSize=null;this._previewSpriteSize=null;
+    }
+
+    _getSpriteSize(preview=false){
+      const image=this.spriteImage;
+      if(!(this.spriteSpec&&image&&image.complete&&image.naturalWidth&&image.naturalHeight))return null;
+      const cacheKey=preview?'_previewSpriteSize':'_raceSpriteSize',cached=this[cacheKey];
+      if(cached&&cached.image===image&&cached.width===image.naturalWidth&&cached.height===image.naturalHeight)return cached.size;
+      const size=resolveSpriteSize(this.spriteSpec,image.naturalWidth,image.naturalHeight,preview);
+      this[cacheKey]={image,width:image.naturalWidth,height:image.naturalHeight,size};
+      return size;
     }
 
     setPaintOverride(paint=null){
       this.paintOverride=paint&&typeof paint==='object'?{...paint}:null;
     }
 
-    drawExhaust(ctx){
+    drawExhaust(ctx,resolvedLength=0){
       const effect=R.EFFECTS[this.effect];
       if(!effect||this.effect==='standard'||this.throttleVisual<=.65||this.brakeVisual>.1||this.speed<12)return;
       const t=this.effectTime,flicker=1+.12*Math.sin(t*53)+.08*Math.sin(t*89),length=(18+this.speed*.055)*this.throttleVisual*flicker;
       const preview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
       const visualScale=this.spriteSpec?(preview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
-      const rearX=this.spriteSpec?-(this.spriteSpec.visualLength||this.spriteSpec.length||74)*visualScale*.47+(this.spriteSpec.exhaustOffsetX||0):-32;
+      const fallbackLength=this.spriteSpec?(this.spriteSpec.maxVisualLength||this.spriteSpec.visualLength||this.spriteSpec.length||74)*visualScale:0;
+      const rearX=this.spriteSpec?-(resolvedLength||fallbackLength)*.47+(this.spriteSpec.exhaustOffsetX||0):-32;
       const rearY=this.spriteSpec?.exhaustOffsetY||0;
       ctx.save();ctx.translate(0,rearY);ctx.globalCompositeOperation='lighter';
       for(let layer=0;layer<3;layer++){
@@ -274,21 +303,18 @@
 
       ctx.save();ctx.translate(this.x,this.y);ctx.rotate(this.angle);ctx.scale(scale,scale);
 
-      const spriteReady=this.spriteSpec&&this.spriteImage&&this.spriteImage.complete&&this.spriteImage.naturalWidth;
+      const spriteReady=this.spriteSpec&&this.spriteImage&&this.spriteImage.complete&&this.spriteImage.naturalWidth&&this.spriteImage.naturalHeight;
       const spritePreview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
-      const spriteVisualScale=spriteReady?(spritePreview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
-      const sourceRatio=spriteReady?this.spriteImage.naturalWidth/Math.max(1,this.spriteImage.naturalHeight):0;
-      const baseLength=spriteReady?(this.spriteSpec.visualLength||this.spriteSpec.length||74):74;
-      const baseWidth=spriteReady?(this.spriteSpec.visualWidth||(this.spriteSpec.preserveAspectRatio&&sourceRatio?baseLength/sourceRatio:(this.spriteSpec.width||36.5))):36;
-      const spriteLength=baseLength*spriteVisualScale,spriteWidth=baseWidth*spriteVisualScale;
+      const spriteSize=spriteReady?this._getSpriteSize(spritePreview):null;
+      const spriteLength=spriteSize?.length||74,spriteWidth=spriteSize?.width||36;
 
       // Layered shadow follows each car's tuned visual envelope without expensive blur.
       ctx.save();ctx.translate(-1.5-brakeDive,2.2+lean*.55);ctx.fillStyle='#000';ctx.globalAlpha=.075;ctx.beginPath();ctx.ellipse(-1,0,spriteLength*.47,spriteWidth*.48,0,0,TAU);ctx.fill();ctx.globalAlpha=.11;ctx.beginPath();ctx.ellipse(-1,0,spriteLength*.40,spriteWidth*.39,0,0,TAU);ctx.fill();ctx.restore();
 
-      this.drawExhaust(ctx);
+      this.drawExhaust(ctx,spriteLength);
 
-      // Catalog cars use pre-tuned visual length/width independent of source WebP ratio.
-      // Physical performance remains shared; only the collision footprint follows the body.
+      // Catalog cars fit proportionally inside their per-model visual bounds.
+      // Physical performance remains unchanged; collision geometry stays independently tuned.
       if(spriteReady){
         const ox=spritePreview?(this.spriteSpec.previewOffsetX??this.spriteSpec.offsetX??0):(this.spriteSpec.raceOffsetX??this.spriteSpec.offsetX??0);
         const oy=spritePreview?(this.spriteSpec.previewOffsetY??this.spriteSpec.offsetY??0):(this.spriteSpec.raceOffsetY??this.spriteSpec.offsetY??0);
