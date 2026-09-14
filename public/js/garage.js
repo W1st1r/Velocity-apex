@@ -173,10 +173,13 @@
       const ranked=box.rewards.slice().sort((a,b)=>b.price-a.price),pool=ranked.slice(0,Math.max(1,Math.ceil(ranked.length*.24)));return pool[Math.floor(Math.random()*pool.length)]||ranked[0];
     }
     buildVisualSequence(box,winningReward,targetIndex,total){
-      const sequence=[],nearMisses=new Set([targetIndex-1,targetIndex-2,targetIndex-7,targetIndex-13]);
+      // Visual-only tension reel. The real rewards are already resolved by R.openCases()
+      // before this sequence is built, so these showcase items never affect RNG or odds.
+      const sequence=[],showcaseOffsets=new Set([2,5,9,14,20,27,34]);
       for(let i=0;i<total;i++){
         if(i===targetIndex){sequence.push({reward:winningReward,showcase:false});continue;}
-        const showcase=i<targetIndex&&(nearMisses.has(i)||(i>6&&Math.random()<.17));sequence.push({reward:showcase?this.showcaseReward(box):this.randomReward(box),showcase});
+        const distance=targetIndex-i,showcase=i<targetIndex&&(showcaseOffsets.has(distance)||(i>8&&distance>3&&Math.random()<.09));
+        sequence.push({reward:showcase?this.showcaseReward(box):this.randomReward(box),showcase});
       }
       return sequence;
     }
@@ -186,11 +189,12 @@
       const batch=R.openCases?R.openCases(this.save,id,quantity):{status:'invalid',results:[]};if(batch.status!=='opened'||!batch.results.length){this.refreshCaseDialogInventory();return;}
       const results=batch.results,featured=results.reduce((best,item)=>!best||item.reward.price>best.reward.price?item:best,null);
       this.onChange();this.render();this.caseSpinning=true;this.refreshCaseDialogInventory();d.close.disabled=true;d.result.className='case-result hidden';d.result.innerHTML='';d.ready.classList.remove('hidden');d.ready.textContent=results.length>1?`СИНХРОНИЗАЦИЯ ${results.length} DROPS…`:'СИНХРОНИЗАЦИЯ DROP…';
+      d.roulette.classList.add('is-spinning');d.roulette.dataset.batchCount=String(results.length);
       const targetIndex=44,total=51,sequence=this.buildVisualSequence(box,featured.reward,targetIndex,total);
       d.strip.innerHTML=sequence.map(({reward,showcase},index)=>{const rarity=rewardRarity(reward);return `<div class="case-roll-item ${rarity.className}${showcase?' showcase':''}" data-roll-index="${index}" style="--rarity:${rarity.color}">${rewardVisual(reward)}<strong>${reward.name}</strong><span>${rarity.label}</span></div>`;}).join('');
       d.strip.style.transition='none';d.strip.style.transform='translate3d(0,0,0)';void d.strip.offsetWidth;
       const token=++this.caseSpinToken,reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches,duration=reduced?420:4700;
-      const finish=()=>{if(token!==this.caseSpinToken||!this.caseSpinning)return;this.caseSpinning=false;const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(target)target.classList.add('winner');d.close.disabled=false;this.showCaseResults(results);this.refreshCaseDialogInventory();};
+      const finish=()=>{if(token!==this.caseSpinToken||!this.caseSpinning)return;this.caseSpinning=false;d.roulette.classList.remove('is-spinning');const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(target)target.classList.add('winner');d.close.disabled=false;this.showCaseResults(results);this.refreshCaseDialogInventory();};
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(!target){finish();return;}const offset=Math.max(0,target.offsetLeft-(d.viewport.clientWidth-target.offsetWidth)/2);d.ready.textContent=results.length>1?`ОТКРЫВАЕМ ${results.length} КЕЙСОВ ОДНОВРЕМЕННО…`:'ОТКРЫВАЕМ КЕЙС…';d.strip.style.transition=`transform ${duration}ms cubic-bezier(.07,.72,.08,1)`;d.strip.style.transform=`translate3d(${-offset}px,0,0)`;d.strip.addEventListener('transitionend',finish,{once:true});setTimeout(finish,duration+180);
       }));
@@ -206,7 +210,7 @@
         this.view('shop').message.textContent=duplicate?`ДУБЛИКАТ · +${formatCredits(result.compensation)} CR`:`ПОЛУЧЕНО · ${reward.name}`;this.view('shop').message.classList.remove('warning');return;
       }
       const totalComp=results.reduce((sum,x)=>sum+(x.compensation||0),0),newCount=results.filter(x=>!x.duplicate).length;d.result.className='case-result batch';
-      d.result.innerHTML=`<div class="case-batch-summary"><span>MULTI DROP</span><strong>${results.length} КЕЙСОВ ОТКРЫТО</strong><small>${newCount} НОВЫХ · ${results.length-newCount} ДУБЛИКАТОВ${totalComp?` · +${formatCredits(totalComp)} CR`:''}</small></div><div class="case-result-grid">${results.map((result,index)=>{const reward=result.reward,rarity=rewardRarity(reward);return `<article class="case-result-mini ${result.duplicate?'duplicate':''}" style="--rarity:${rarity.color}"><span class="case-result-number">${String(index+1).padStart(2,'0')}</span>${rewardVisual(reward)}<div><strong>${reward.name}</strong><small>${rarity.label} · ${chanceText(result.chanceBps)}</small><b>${result.duplicate?`+${formatCredits(result.compensation)} CR`:'NEW'}</b></div></article>`;}).join('')}</div>`;
+      d.result.innerHTML=`<div class="case-batch-summary"><span>MULTI DROP</span><strong>${results.length} КЕЙСОВ ОТКРЫТО</strong><small>${newCount} НОВЫХ · ${results.length-newCount} ДУБЛИКАТОВ${totalComp?` · +${formatCredits(totalComp)} CR`:''}</small></div><div class="case-result-grid">${results.map((result,index)=>{const reward=result.reward,rarity=rewardRarity(reward);return `<article class="case-result-mini ${result.duplicate?'duplicate':''}" style="--rarity:${rarity.color};--delay:${Math.min(index,9)*55}ms"><span class="case-result-number">${String(index+1).padStart(2,'0')}</span>${rewardVisual(reward)}<div><strong>${reward.name}</strong><small>${rarity.label} · ${chanceText(result.chanceBps)}</small><b>${result.duplicate?`+${formatCredits(result.compensation)} CR`:'NEW'}</b></div></article>`;}).join('')}</div>`;
       this.view('shop').message.textContent=`MULTI DROP · ${results.length} КЕЙСОВ · ${newCount} НОВЫХ${totalComp?` · +${formatCredits(totalComp)} CR`:''}`;this.view('shop').message.classList.remove('warning');
     }
     draw(dt){

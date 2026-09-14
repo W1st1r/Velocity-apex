@@ -25,6 +25,7 @@ const legacy=R.normalizeSave({credits:777,ownedLiveries:['apexLime','porsche-911
 const persisted=R.normalizeSave(JSON.parse(JSON.stringify({...legacy,caseInventory:{...legacy.caseInventory,lux:3,effects:2}})));assert.equal(persisted.caseInventory.lux,3);assert.equal(persisted.caseInventory.effects,2);
 const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),garage=fs.readFileSync(path.join(ROOT,'public/js/garage.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8');
 for(const token of ['data-tab="case"','id="caseModal"','id="caseRewardList"','id="caseOpenBtn"','id="caseRollStrip"','id="caseQtyValue"','id="caseBuyBatchBtn"'])assert.ok(html.includes(token),`missing case UI ${token}`);
-for(const token of ['R.buyCase','R.openCase','R.openCases','spinActiveCase','buildVisualSequence','translate3d','caseRewardList'])assert.ok(garage.includes(token),`missing case behavior ${token}`);
-for(const token of ['.case-card','.case-modal','.case-roll-strip','@keyframes caseFloat','prefers-reduced-motion'])assert.ok(css.includes(token),`missing case styling ${token}`);
+for(const token of ['R.buyCase','R.openCase','R.openCases','spinActiveCase','buildVisualSequence','showcaseOffsets','showcaseReward','translate3d','caseRewardList'])assert.ok(garage.includes(token),`missing case behavior ${token}`);
+assert.ok(garage.indexOf('R.openCases')<garage.indexOf('buildVisualSequence(box,featured.reward'),'real case rewards must resolve before the visual tension reel is built');
+for(const token of ['.case-card','.case-modal','.case-roll-strip','@keyframes caseFloat','prefers-reduced-motion','overflow-x:hidden','caseMarkerPulse','caseResultPop','var(--safe-l)','var(--safe-r)'])assert.ok(css.includes(token),`missing case styling ${token}`);
 console.log(JSON.stringify({prices:Object.fromEntries(R.CASE_ORDER.map(id=>[id,R.CASES[id].price])),generalLuxOdds:allLux.map(x=>x.chanceBps/100),duplicateRate:0.35},null,2));

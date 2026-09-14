@@ -245,3 +245,9 @@ The Worker serves the PWA and Online backend from the same origin, so no API URL
 ## Legacy static hosting note
 
 `netlify.toml` remains only for backwards-compatible offline/static hosting and now points at `public/`. Online Multiplayer requires the Cloudflare Worker/Durable Object backend and therefore will not work on a static-only host.
+
+### iPhone case / Online Hub update
+- Case opening panel is constrained to the real safe-area viewport and hardened against horizontal overflow on small iPhones.
+- Case roulette uses display-only premium near-misses for tension; reward RNG is resolved before animation and probabilities are unchanged.
+- Case quantity supports 1–10 purchases and multi-open results.
+- Online opens into the Rooms / locked Free Mode hub with a lightweight animated night-city backdrop and reduced-motion fallback.

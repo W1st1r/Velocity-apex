@@ -62,3 +62,13 @@ The deterministic 6-track × 4-difficulty clean-air benchmark plus 3/7/13-car tr
 - stress off-road: PASS
 
 Aurora clean-air average laps were 58.37 s (Easy), 57.38 s (Medium), 44.36 s (Hard), and 42.46 s (Extreme) in the standalone suite, with zero barrier impacts and zero true off-road time.
+
+## iPhone cases / multi-open / Online Hub pass
+
+- Case modal is hard-constrained to the safe-area viewport with `min-width:0`, clipped horizontal overflow, compact rules for <=620 px landscape and <=430 px portrait layouts.
+- Quantity selector and batch purchase/open remain limited to 1–10. Multi-open resolves every real reward first, then animates a visual reel and renders all drops in a staggered result grid.
+- Premium/rare reel near-misses are display-only. `R.openCases()` executes before the visual sequence is built, so the reel cannot change the selected rewards or their existing `chanceBps` values.
+- Online opens on the Rooms / locked Free Mode hub. The night-city scene now has lightweight ambient motion plus a `prefers-reduced-motion` fallback.
+- Account/D1 files, save key, manifest, worker routes, Durable Object binding and existing gameplay modules are preserved.
+
+Validation: `npm test` PASS; JavaScript syntax checks PASS; manifest and `wrangler.jsonc` structural JSON checks PASS. A local Wrangler dry-run was not available in this isolated build container because Wrangler dependencies are not installed here; the deployment configuration itself was left unchanged from the already-working account build.

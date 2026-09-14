@@ -10,6 +10,8 @@ for(const endpoint of ['/api/auth/me','/api/auth/register','/api/auth/login','/a
 assert(auth.includes("HttpOnly"),'session cookie must be HttpOnly');
 assert(auth.includes("SameSite=Lax"),'session cookie must be SameSite=Lax');
 assert(auth.includes("PBKDF2")&&auth.includes("SHA-256"),'password hashing must use PBKDF2/SHA-256');
+const iterMatch=auth.match(/const PASSWORD_ITERATIONS=(\d+);/);
+assert(iterMatch&&Number(iterMatch[1])<=100000,'PBKDF2 iterations must stay within Cloudflare Workers Web Crypto limit');
 assert(auth.includes("token_hash"),'server must store hashed session token');
 assert(worker.includes('handleAuthRequest'),'worker must route account API');
 assert(html.includes('id="accountBtn"')&&html.includes('js/account.js'),'account UI must be loaded');
