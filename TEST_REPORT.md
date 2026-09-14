@@ -92,3 +92,11 @@ Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syn
 - Previewed and equipped items have separate, visible states (`ПРОСМОТР` / `АКТИВНО`) and selected buttons show `✓ АКТИВНО`.
 - Added broken-thumbnail fallback instead of showing a broken-image icon.
 - Added `garage_visual_smoke.js`; full `npm test` passes.
+
+## Garage/store catalog layout fix (v6)
+- Prevented CSS Grid auto rows from collapsing car/effect cards on short iPhone landscape viewports.
+- Added intrinsic/max-content catalog rows and compact minimum card heights with internal flex layout.
+- Kept car thumbnails/effect swatches contained inside each card instead of clipping into neighboring rows.
+- Fitted all seven rarity filters across the iPhone landscape catalog bar (no half-cut final chip).
+- Cache-bust bumped to `20260915-006`.
+- `npm test`: PASS, including `garage_visual_smoke.js` anti-collapse checks.

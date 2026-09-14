@@ -24,6 +24,7 @@ const css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8');
 const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8');
 for(const token of ['catalog-car-thumb','effect-swatch','previewing','item-preview-state','data-equipped'])assert.ok(garage.includes(token),`garage visual token missing: ${token}`);
 for(const token of ['.catalog-car-thumb','.effect-swatch','.shop-item.previewing','.item-preview-state','.select-btn.equipped'])assert.ok(css.includes(token),`garage CSS missing: ${token}`);
+for(const token of ['grid-auto-rows:max-content','min-height:104px','grid-template-columns:repeat(7,minmax(0,1fr))'])assert.ok(css.includes(token),`garage anti-collapse CSS missing: ${token}`);
 assert.ok(garage.includes("assetUrl(reward.thumbnail)"),'case reward car thumbnails must also use stable root URLs');
-assert.ok(html.includes('style.css?v=20260915-004')&&html.includes('garage.js?v=20260915-004')&&html.includes('car.js?v=20260915-004'),'garage cache-bust version not bumped');
+assert.ok(html.includes('style.css?v=20260915-006')&&html.includes('garage.js?v=20260915-006')&&html.includes('car.js?v=20260915-006'),'garage cache-bust version not bumped');
 console.log(`garage_visual_smoke: OK (${R.REAL_CAR_IDS.length} cars, ${carAssets} sprite assets, effect swatches + preview/equipped feedback)`);

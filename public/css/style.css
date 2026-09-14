@@ -2123,3 +2123,155 @@ button[data-category="lux"] .category-chip-icon::before { inset:0;clip-path:poly
 .select-btn.equipped{color:#dfffd2;background:linear-gradient(135deg,rgba(141,255,73,.10),rgba(56,168,255,.055));border-color:rgba(141,255,73,.28);box-shadow:inset 0 0 14px rgba(141,255,73,.04);}
 @media (max-height:560px){.item-preview{min-height:50px}.effect-swatch{height:54px}.catalog-car-visual{width:min(100%,180px)}.item-preview-state{font-size:5.2px;padding:2px 5px}}
 @media (prefers-reduced-motion:reduce){.item-preview{transition:none}.catalog-car-thumb{transform:none}}
+
+/* Garage/shop v6: keep catalog rows intrinsic instead of letting the iPhone landscape grid compress every card. */
+.shop-items{
+  align-content:start;
+  align-items:start;
+  grid-auto-flow:row;
+  grid-auto-rows:max-content;
+}
+.shop-item:not(.case-card){
+  display:flex;
+  flex-direction:column;
+  align-self:start;
+  height:auto;
+  min-height:152px;
+}
+.shop-item:not(.case-card) .item-preview{
+  flex:0 0 auto;
+  min-height:70px;
+  height:70px;
+  padding-top:3px;
+}
+.shop-item:not(.case-card) .catalog-car-visual{
+  width:min(100%,188px);
+  height:66px;
+  aspect-ratio:auto;
+}
+.shop-item:not(.case-card) .catalog-car-thumb{
+  width:100%;
+  height:100%;
+  max-height:66px;
+  object-fit:contain;
+  object-position:center;
+}
+.shop-item:not(.case-card) .effect-swatch{
+  width:min(100%,188px);
+  height:64px;
+}
+.shop-item:not(.case-card) .item-title{
+  flex:0 0 auto;
+  margin-top:2px;
+  min-height:14px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.shop-item:not(.case-card) .item-price{
+  flex:0 0 auto;
+}
+.shop-item:not(.case-card) .purchase-btn,
+.shop-item:not(.case-card) .select-btn{
+  flex:0 0 auto;
+  margin-top:auto;
+}
+
+/* All rarity tabs stay visible on iPhone landscape instead of leaving the last chip half cut off. */
+@media (orientation:landscape) and (max-height:560px){
+  .car-category-tabs{
+    display:grid;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:4px;
+    overflow:visible;
+    padding-right:0;
+    scroll-snap-type:none;
+  }
+  .car-category-tabs button{
+    min-width:0;
+    width:auto;
+    height:34px;
+    min-height:34px;
+    padding:0 3px;
+    gap:3px;
+    font-size:6.2px;
+    letter-spacing:.035em;
+    white-space:nowrap;
+  }
+  .category-chip-icon{
+    width:11px;
+    height:11px;
+    flex:0 0 11px;
+  }
+  .shop-items{
+    max-height:min(50dvh,220px);
+    grid-auto-rows:max-content;
+    align-content:start;
+  }
+  .shop-item:not(.case-card){
+    min-height:104px;
+    padding:5px;
+  }
+  .shop-item:not(.case-card) .item-preview{
+    min-height:45px;
+    height:45px;
+    padding-top:0;
+  }
+  .shop-item:not(.case-card) .catalog-car-visual{
+    width:min(100%,160px);
+    height:43px;
+  }
+  .shop-item:not(.case-card) .catalog-car-thumb{
+    max-height:43px;
+  }
+  .shop-item:not(.case-card) .effect-swatch{
+    width:min(100%,160px);
+    height:43px;
+  }
+  .shop-item:not(.case-card) .effect-swatch::before,
+  .shop-item:not(.case-card) .effect-swatch::after{
+    bottom:5px;
+    height:34px;
+    width:14px;
+  }
+  .shop-item:not(.case-card) .effect-swatch>i,
+  .shop-item:not(.case-card) .effect-swatch>b{
+    bottom:7px;
+    height:21px;
+  }
+  .shop-item:not(.case-card) .item-title{
+    min-height:10px;
+    margin-top:1px;
+    font-size:8px;
+  }
+  .shop-item:not(.case-card) .item-price{
+    margin:2px 0 1px;
+    font-size:7px;
+  }
+  .shop-item:not(.case-card) .item-price strong{font-size:8px;}
+  .shop-item:not(.case-card) .item-price span{font-size:6px;}
+  .shop-item:not(.case-card) .item-shortfall{
+    min-height:8px;
+    margin-bottom:2px;
+    font-size:5.8px;
+  }
+  .shop-item:not(.case-card) .purchase-btn,
+  .shop-item:not(.case-card) .select-btn{
+    min-height:25px;
+    border-radius:7px;
+    font-size:6.7px;
+  }
+  .item-preview-state{
+    left:4px;
+    bottom:3px;
+    padding:2px 4px;
+    font-size:4.8px;
+  }
+}
+
+@media (orientation:landscape) and (max-height:430px){
+  .shop-items{max-height:min(49dvh,205px);}
+  .shop-item:not(.case-card){min-height:98px;}
+  .car-category-tabs button{font-size:5.9px;padding-inline:2px;gap:2px;}
+  .category-chip-icon{width:10px;height:10px;flex-basis:10px;}
+}
