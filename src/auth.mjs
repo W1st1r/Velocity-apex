@@ -123,14 +123,18 @@ async function saveRow(env,userId){
   let save=null;try{save=JSON.parse(row.save_json);}catch{}
   return {save,revision:Number(row.revision)||0,updatedAt:Number(row.updated_at)||0};
 }
-async function writeSave(env,userId,raw){
+async function writeSave(env,userId,raw,expectedRevision=null){
   const text=safeSave(raw);if(!text)return {ok:false,error:'INVALID_SAVE'};
-  const t=now();
-  await env.DB.prepare(`INSERT INTO player_saves (user_id,save_json,revision,created_at,updated_at)
-    VALUES (?,?,1,?,?) ON CONFLICT(user_id) DO UPDATE SET save_json=excluded.save_json,revision=player_saves.revision+1,updated_at=excluded.updated_at`)
-    .bind(userId,text,t,t).run();
-  const row=await env.DB.prepare('SELECT revision,updated_at FROM player_saves WHERE user_id=?').bind(userId).first();
-  return {ok:true,revision:Number(row?.revision)||1,updatedAt:Number(row?.updated_at)||t};
+  const t=now(),current=await saveRow(env,userId),expected=Number.isInteger(expectedRevision)?expectedRevision:null;
+  if(expected!==null&&expected!==current.revision)return {ok:false,error:'SAVE_CONFLICT',save:current.save,revision:current.revision,updatedAt:current.updatedAt};
+  if(current.revision>0){
+    const result=await env.DB.prepare('UPDATE player_saves SET save_json=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?').bind(text,t,userId,current.revision).run();
+    if(Number(result?.meta?.changes||0)!==1){const latest=await saveRow(env,userId);return {ok:false,error:'SAVE_CONFLICT',save:latest.save,revision:latest.revision,updatedAt:latest.updatedAt};}
+  }else{
+    try{await env.DB.prepare('INSERT INTO player_saves (user_id,save_json,revision,created_at,updated_at) VALUES (?,?,1,?,?)').bind(userId,text,t,t).run();}
+    catch(e){const latest=await saveRow(env,userId);if(latest.revision>0)return {ok:false,error:'SAVE_CONFLICT',save:latest.save,revision:latest.revision,updatedAt:latest.updatedAt};throw e;}
+  }
+  const row=await saveRow(env,userId);return {ok:true,revision:row.revision||1,updatedAt:row.updatedAt||t};
 }
 async function requireAdmin(env,request,{unlocked=true}={}){
   const session=await currentSession(env,request);if(!session)return {error:json({error:'AUTH_REQUIRED'},401)};
@@ -154,10 +158,14 @@ async function accountDetail(env,id){
 }
 async function mutateTargetSave(env,id,mutator){
   const exists=await targetUser(env,id);if(!exists)return {error:'USER_NOT_FOUND'};
-  const row=await saveRow(env,id),save=row.save&&typeof row.save==='object'&&!Array.isArray(row.save)?row.save:defaultSave();
-  const result=mutator(save);if(result?.error)return result;
-  const written=await writeSave(env,id,save);if(!written.ok)return {error:written.error};
-  return {ok:true,result:result||{},detail:await accountDetail(env,id)};
+  for(let attempt=0;attempt<4;attempt++){
+    const row=await saveRow(env,id),save=row.save&&typeof row.save==='object'&&!Array.isArray(row.save)?structuredClone(row.save):defaultSave();
+    const result=mutator(save);if(result?.error)return result;
+    const written=await writeSave(env,id,save,row.revision);
+    if(written.ok)return {ok:true,result:result||{},revision:written.revision,updatedAt:written.updatedAt,detail:await accountDetail(env,id)};
+    if(written.error!=='SAVE_CONFLICT')return {error:written.error};
+  }
+  return {error:'SAVE_CONFLICT'};
 }
 async function handleAdminRequest(request,env,url){
   await ensureAdminSchema(env);
@@ -183,7 +191,7 @@ async function handleAdminRequest(request,env,url){
 
   const access=await requireAdmin(env,request);if(access.error)return access.error;
   if(url.pathname==='/api/admin/accounts'&&request.method==='GET'){
-    const q=normalizeUsername(url.searchParams.get('q')||'').slice(0,24),blocked=url.searchParams.get('blocked')==='1',like='%'+q+'%',t=now();
+    const q=normalizeUsername(url.searchParams.get('q')||'').replace(/^@/,'').slice(0,24),blocked=url.searchParams.get('blocked')==='1',like='%'+q+'%',t=now();
     let sql=`SELECT u.id,u.username,u.display_name,u.created_at,u.last_login_at,ps.revision,ps.updated_at AS save_updated_at,
       (SELECT b.reason FROM account_bans b WHERE b.user_id=u.id AND b.revoked_at IS NULL AND b.expires_at>? ORDER BY b.expires_at DESC,b.created_at DESC LIMIT 1) AS ban_reason,
       (SELECT b.expires_at FROM account_bans b WHERE b.user_id=u.id AND b.revoked_at IS NULL AND b.expires_at>? ORDER BY b.expires_at DESC,b.created_at DESC LIMIT 1) AS ban_expires_at
@@ -206,7 +214,7 @@ async function handleAdminRequest(request,env,url){
     if(action==='credits'){
       const b=await readBody(request),delta=Number(b?.delta);if(!Number.isSafeInteger(delta)||delta===0||Math.abs(delta)>ADMIN_MAX_CREDITS)return json({error:'INVALID_AMOUNT'},400);
       const changed=await mutateTargetSave(env,userId,save=>{const before=Math.max(0,Math.floor(Number(save.credits)||0)),after=Math.max(0,Math.min(ADMIN_MAX_CREDITS,before+delta));save.credits=after;return {before,after,delta:after-before};});
-      if(changed.error)return json({error:changed.error},400);await audit(env,access.session.user.id,userId,'credits',{requestedDelta:delta,...changed.result});return json(changed);
+      if(changed.error)return json({error:changed.error},changed.error==='SAVE_CONFLICT'?409:400);await audit(env,access.session.user.id,userId,'credits',{requestedDelta:delta,...changed.result,liveSync:true});return json(changed);
     }
     if(action==='resource'){
       const b=await readBody(request),kind=String(b?.kind||''),resourceId=safeResourceId(b?.id),op=String(b?.action||''),quantity=Math.max(1,Math.min(999,Math.floor(Number(b?.quantity)||1)));
@@ -223,7 +231,7 @@ async function handleAdminRequest(request,env,url){
         if(op==='revoke'&&save[selectedKey]===resourceId)save[selectedKey]=fallback;
         return {kind,id:resourceId,action:op,before,after:save[key].includes(resourceId)};
       });
-      if(changed.error)return json({error:changed.error},400);await audit(env,access.session.user.id,userId,'resource',changed.result);return json(changed);
+      if(changed.error)return json({error:changed.error},changed.error==='SAVE_CONFLICT'?409:400);await audit(env,access.session.user.id,userId,'resource',{...changed.result,liveSync:true});return json(changed);
     }
     if(action==='ban'){
       if(isAdminUsername(target.username))return json({error:'ADMIN_ACCOUNT_PROTECTED'},403);
@@ -231,7 +239,7 @@ async function handleAdminRequest(request,env,url){
       const t=now(),expiresAt=t+durationMs,id=crypto.randomUUID();
       await env.DB.prepare('UPDATE account_bans SET revoked_at=?,revoked_by=? WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').bind(t,access.session.user.id,userId,t).run();
       await env.DB.prepare('INSERT INTO account_bans (id,user_id,reason,created_at,expires_at,created_by) VALUES (?,?,?,?,?,?)').bind(id,userId,reason,t,expiresAt,access.session.user.id).run();
-      await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(userId).run();await audit(env,access.session.user.id,userId,'ban',{reason,expiresAt,durationMs});
+      await audit(env,access.session.user.id,userId,'ban',{reason,expiresAt,durationMs});
       return json({ok:true,ban:{id,reason,createdAt:t,expiresAt,remainingMs:durationMs},detail:await accountDetail(env,userId)});
     }
     if(action==='unban'){
@@ -250,7 +258,8 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     if(url.pathname==='/api/auth/me'&&request.method==='GET'){
       const session=await currentSession(env,request);if(!session)return json({authenticated:false});
       const banned=await banResponse(env,session.user);if(banned)return banned;
-      return json({authenticated:true,user:session.user});
+      const cloud=await saveRow(env,session.user.id);
+      return json({authenticated:true,user:session.user,saveRevision:cloud.revision,saveUpdatedAt:cloud.updatedAt});
     }
     if(url.pathname==='/api/auth/register'&&request.method==='POST'){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
@@ -295,8 +304,8 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     if(url.pathname==='/api/account/save'&&(request.method==='PUT'||request.method==='POST')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
       const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
-      const b=await readBody(request),result=await writeSave(env,session.user.id,b?.save);
-      if(!result.ok)return json({error:result.error},400);return json(result);
+      const b=await readBody(request),expectedRevision=Number.isInteger(b?.revision)?b.revision:null,result=await writeSave(env,session.user.id,b?.save,expectedRevision);
+      if(!result.ok)return json({error:result.error,save:result.save??null,revision:result.revision||0,updatedAt:result.updatedAt||0},result.error==='SAVE_CONFLICT'?409:400);return json(result);
     }
     return json({error:'NOT_FOUND'},404);
   }catch(e){

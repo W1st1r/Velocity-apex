@@ -100,3 +100,20 @@ Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syn
 - Fitted all seven rarity filters across the iPhone landscape catalog bar (no half-cut final chip).
 - Cache-bust bumped to `20260915-006`.
 - `npm test`: PASS, including `garage_visual_smoke.js` anti-collapse checks.
+
+## Admin panel + account moderation (v8)
+- ROOT entry is hidden by default and becomes visible only when `/api/auth/me` identifies the signed-in account as `@w1st1r`.
+- ROOT passcode validation moved off the client and is checked by the Worker. The existing passcode remains unchanged; the raw passcode is no longer embedded in browser JavaScript.
+- Added admin tabs: Money, Cars, Effects, Cases, Accounts, Blocked.
+- Added D1-backed account search and remote mutations for credits, cars, effects, and case inventory. Remote economy/resource changes invalidate the target's active sessions so a stale client cannot overwrite the admin change before reloading the cloud save.
+- Added timed account bans with reason, unblock action, active-ban search, and a dedicated startup restriction screen that shows remaining time, expiry time, and reason.
+- Added runtime-safe `CREATE TABLE IF NOT EXISTS` setup for `account_bans`, `admin_unlocks`, and `admin_audit`, plus `migrations/0002_admin.sql` for explicit schema tracking.
+- Added `admin_console_smoke.js`; full `npm test` passes and JS syntax checks pass. Local Wrangler dry-run was unavailable in this isolated container because Wrangler is not installed here; `wrangler.jsonc` was not changed.
+
+## Admin grant synchronization fix (2026-09-15)
+- Admin credit/resource changes use revision-safe compare-and-swap writes.
+- Player cloud saves now send the last known revision; stale saves cannot overwrite a newer admin update.
+- `/api/auth/me` exposes the current cloud save revision so active clients detect remote changes.
+- Active players poll account status every 20 seconds and reload a newer server save automatically (or immediately when the app returns to foreground).
+- Grant/revoke no longer destroys the target account session; bans remain enforced separately.
+- Added `tests/admin_grant_sync_smoke.js`; full `npm test` passes.

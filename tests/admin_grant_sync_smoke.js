@@ -1,0 +1,15 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.join(__dirname,'..');
+const auth=fs.readFileSync(path.join(root,'src','auth.mjs'),'utf8');
+const account=fs.readFileSync(path.join(root,'public','js','account.js'),'utf8');
+const rootJs=fs.readFileSync(path.join(root,'public','js','root-console.js'),'utf8');
+assert(auth.includes("error:'SAVE_CONFLICT'"),'server must expose save revision conflicts');
+assert(auth.includes('expectedRevision'),'server must use expected save revision');
+assert(auth.includes('saveRevision:cloud.revision'),'auth status must expose cloud revision');
+assert(!auth.includes("DELETE FROM sessions WHERE user_id=?').bind(userId).run();await audit(env,access.session.user.id,userId,'resource'"),'resource grant must not kick target session');
+assert(account.includes('revision:state.revision'),'client saves must carry cloud revision');
+assert(account.includes("e.code==='SAVE_CONFLICT'"),'client must apply server save on admin/client conflict');
+assert(account.includes('remoteRevision>state.revision'),'client must detect remote admin updates');
+assert(account.includes('setInterval(checkAccess,20000)'),'remote account updates must be polled promptly');
+assert(rootJs.includes('SERVER REV'),'admin UI should confirm persisted resource revision');
+console.log('admin grant sync smoke: OK');
