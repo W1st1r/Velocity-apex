@@ -72,3 +72,14 @@ Aurora clean-air average laps were 58.37 s (Easy), 57.38 s (Medium), 44.36 s (Ha
 - Account/D1 files, save key, manifest, worker routes, Durable Object binding and existing gameplay modules are preserved.
 
 Validation: `npm test` PASS; JavaScript syntax checks PASS; manifest and `wrangler.jsonc` structural JSON checks PASS. A local Wrangler dry-run was not available in this isolated build container because Wrangler dependencies are not installed here; the deployment configuration itself was left unchanged from the already-working account build.
+
+## Startup authorization gate update
+
+- The game menu is hidden on launch until account bootstrap completes and the player explicitly enters an authenticated profile.
+- If the Cloudflare HttpOnly session is still valid, the startup screen shows the active profile and a **ПРОДОЛЖИТЬ** action; the game does not auto-enter behind the player.
+- Previously used profiles on the same iPhone are remembered as username/display-name metadata only (maximum five). Selecting another remembered profile pre-fills its login and still requires the password.
+- Passwords and session tokens are never written to localStorage. The active server session remains the existing HttpOnly `va_session` cookie.
+- Logout returns to the startup authorization gate instead of leaving an unauthenticated player in the main menu.
+- Existing D1 schema, account endpoints, cloud save format, multiplayer, cases, PWA manifest and Worker/Durable Object bindings are unchanged.
+
+Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syntax checks PASS; manifest JSON parse PASS.

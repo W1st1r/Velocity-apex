@@ -15,6 +15,11 @@ assert(iterMatch&&Number(iterMatch[1])<=100000,'PBKDF2 iterations must stay with
 assert(auth.includes("token_hash"),'server must store hashed session token');
 assert(worker.includes('handleAuthRequest'),'worker must route account API');
 assert(html.includes('id="accountBtn"')&&html.includes('js/account.js'),'account UI must be loaded');
+assert(html.includes('id="authGate"')&&html.includes('id="menu" class="overlay menu-screen hidden"'),'startup auth gate must block the game menu until a profile is chosen');
+assert(html.includes('id="authGateSession"')&&html.includes('id="authGateKnownList"'),'startup auth gate must support active and remembered profiles');
+assert(account.includes("ACCOUNTS_KEY='velocityApex.accounts.v1'")&&account.includes('rememberAccount')&&account.includes('showGateChooser'),'remembered account chooser wiring missing');
+assert(account.includes('Пароли не сохраняются')===false,'password-storage warning belongs in HTML, not JS logic');
+assert(html.includes('Пароли не сохраняются'),'startup auth gate must state that passwords are not stored');
 assert(account.includes('velocity-account-save')&&game.includes('velocity-account-save'),'cloud save event wiring missing');
 assert(game.includes('VelocityAccount?.queueSave'),'game save must enqueue cloud sync');
 assert(wrangler.includes('"binding": "DB"')&&wrangler.includes('velocity-apex-db'),'D1 binding missing');
