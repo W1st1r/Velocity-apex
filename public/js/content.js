@@ -229,6 +229,68 @@
     orangeFlame:{name:'ORANGE TWIN FLAME',price:3800,outer:'#ff7a18',inner:'#fff1a6',twin:true},
     rainbowFlame:{name:'RAINBOW / IRIDESCENT',price:5200,rainbow:true,twin:true}
   };
+  const CASE_ORDER=['all','basic','sport','premium','rare','legendary','lux','effects'];
+  const CASE_META={
+    all:{name:'APEX OMNI',label:'ОБЩИЙ',subtitle:'МАШИНЫ + ЭФФЕКТЫ',accent:'#D9FFF0',description:'Все платные эффекты и 41 автомобиль. Топовые классы выпадают крайне редко.'},
+    basic:{name:'BASIC GRID',label:'BASIC',subtitle:'СТАРТОВЫЙ КЛАСС',accent:R.CAR_CATEGORIES.basic.color,description:'Автомобили BASIC. Более дорогие модели имеют меньший шанс.'},
+    sport:{name:'SPORT RUSH',label:'SPORT',subtitle:'СПОРТИВНЫЙ КЛАСС',accent:R.CAR_CATEGORIES.sport.color,description:'Только автомобили SPORT с шансами, рассчитанными по стоимости.'},
+    premium:{name:'PREMIUM VAULT',label:'PREMIUM',subtitle:'ПРЕМИАЛЬНЫЙ КЛАСС',accent:R.CAR_CATEGORIES.premium.color,description:'Только автомобили PREMIUM.'},
+    rare:{name:'REDLINE RARE',label:'RARE',subtitle:'РЕДКИЙ КЛАСС',accent:R.CAR_CATEGORIES.rare.color,description:'Только автомобили RARE.'},
+    legendary:{name:'LEGEND VAULT',label:'LEGENDARY',subtitle:'ЛЕГЕНДАРНЫЙ КЛАСС',accent:R.CAR_CATEGORIES.legendary.color,description:'Только автомобили LEGENDARY.'},
+    lux:{name:'LUX APEX',label:'LUX',subtitle:'ВЕРШИНА КОЛЛЕКЦИИ',accent:R.CAR_CATEGORIES.lux.color,description:'Только автомобили LUX. Самый дорогой кейс с самым ценным пулом.'},
+    effects:{name:'EFFECT LAB',label:'EFFECTS',subtitle:'ВИЗУАЛЬНЫЕ ЭФФЕКТЫ',accent:'#61E8FF',description:'Все платные эффекты выхлопа, включая RAINBOW / IRIDESCENT.'}
+  };
+  const caseReward=(kind,id,item)=>Object.freeze({kind,id,name:item.name,price:item.price,category:kind==='livery'?R.normalizeCarCategory(item.category):'effect',thumbnail:kind==='livery'&&item.sprite?item.sprite.thumbnail:null,outer:item.outer||null,inner:item.inner||null,rainbow:!!item.rainbow});
+  const carCaseRewards=category=>R.REAL_CAR_IDS.map(id=>[id,R.LIVERIES[id]]).filter(([,item])=>R.normalizeCarCategory(item.category)===category).map(([id,item])=>caseReward('livery',id,item));
+  const effectCaseRewards=()=>Object.entries(R.EFFECTS).filter(([,item])=>item.price>0).map(([id,item])=>caseReward('effect',id,item));
+  const allocateCaseBasisPoints=(rewards,weightFn)=>{
+    const weighted=rewards.map((reward,index)=>({index,weight:Math.max(Number.EPSILON,Number(weightFn(reward))||0)})),total=weighted.reduce((sum,x)=>sum+x.weight,0);
+    const rows=weighted.map(x=>{const exact=x.weight/total*10000,floor=Math.floor(exact);return {...x,exact,bps:floor,fraction:exact-floor};});
+    let remainder=10000-rows.reduce((sum,x)=>sum+x.bps,0);
+    [...rows].sort((a,b)=>b.fraction-a.fraction||a.index-b.index).slice(0,remainder).forEach(x=>rows[x.index].bps++);
+    return rewards.map((reward,index)=>Object.freeze({...reward,chanceBps:rows[index].bps}));
+  };
+  const niceRound=value=>{const v=Math.max(1,Number(value)||1),step=v<10000?100:v<100000?500:1000;return Math.max(step,Math.round(v/step)*step);};
+  const buildCase=(id,rewards)=>{
+    const general=id==='all';
+    const minPrice=Math.min(...rewards.map(x=>x.price));
+    const weighted=allocateCaseBasisPoints(rewards,reward=>general?Math.pow(2500/(reward.price+2500),1.2):Math.pow((minPrice+(id==='effects'?500:0))/(reward.price+(id==='effects'?500:0)),1.15));
+    const expectedValue=weighted.reduce((sum,reward)=>sum+reward.price*(reward.chanceBps/10000),0);
+    const maxPrice=Math.max(...weighted.map(x=>x.price)),markup=general?1.32:id==='effects'?1.22:1.18;
+    const ceiling=(!general&&id!=='effects')?maxPrice*.93:Infinity;
+    const price=niceRound(Math.min(expectedValue*markup,ceiling));
+    return Object.freeze({...CASE_META[id],id,price,expectedValue:Math.round(expectedValue),rewards:Object.freeze(weighted)});
+  };
+  const caseMap={};
+  for(const id of CASE_ORDER){
+    const rewards=id==='all'?[...R.REAL_CAR_IDS.map(carId=>caseReward('livery',carId,R.LIVERIES[carId])),...effectCaseRewards()]:id==='effects'?effectCaseRewards():carCaseRewards(id);
+    caseMap[id]=buildCase(id,rewards);
+  }
+  R.CASE_ORDER=Object.freeze(CASE_ORDER.slice());
+  R.CASES=Object.freeze(caseMap);
+  R.getCaseRewards=caseId=>R.CASES[caseId]?R.CASES[caseId].rewards:[];
+  R.caseDuplicateCompensation=price=>{const raw=Math.max(0,(Number(price)||0)*.35),step=raw<10000?50:100;return Math.max(step,Math.round(raw/step)*step);};
+  R.buyCase=function(save,caseId){
+    const box=R.CASES[caseId];if(!box||!save||typeof save!=='object')return 'invalid';
+    if(!Number.isFinite(save.credits)||save.credits<box.price)return 'insufficient';
+    if(!save.caseInventory||typeof save.caseInventory!=='object'||Array.isArray(save.caseInventory))save.caseInventory={};
+    save.credits-=box.price;save.caseInventory[caseId]=Math.max(0,Math.floor(Number(save.caseInventory[caseId])||0))+1;return 'purchased';
+  };
+  R.openCase=function(save,caseId,rng=Math.random){
+    const box=R.CASES[caseId];if(!box||!save||typeof save!=='object')return {status:'invalid'};
+    const inventory=save.caseInventory&&typeof save.caseInventory==='object'?save.caseInventory:null,count=inventory?Math.max(0,Math.floor(Number(inventory[caseId])||0)):0;
+    if(count<1)return {status:'empty'};
+    let roll;try{roll=Number(rng());}catch(e){roll=Math.random();}if(!Number.isFinite(roll))roll=Math.random();roll=Math.max(0,Math.min(.999999999999,roll));
+    let ticket=Math.floor(roll*10000),reward=box.rewards[box.rewards.length-1];
+    for(const candidate of box.rewards){if(ticket<candidate.chanceBps){reward=candidate;break;}ticket-=candidate.chanceBps;}
+    inventory[caseId]=count-1;
+    const ownedKey=reward.kind==='livery'?'ownedLiveries':'ownedEffects';
+    if(!Array.isArray(save[ownedKey]))save[ownedKey]=[];
+    const duplicate=save[ownedKey].includes(reward.id);let compensation=0;
+    if(duplicate){compensation=R.caseDuplicateCompensation(reward.price);save.credits=Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,Math.floor(Number(save.credits)||0))+compensation);}
+    else save[ownedKey].push(reward.id);
+    return {status:'opened',caseId,reward,duplicate,compensation,chanceBps:reward.chanceBps,remaining:inventory[caseId]};
+  };
   R.DIFFICULTY_LABELS={easy:'ЛЕГКО',medium:'СРЕДНЕ',hard:'СЛОЖНО',extreme:'ЭКСТРИМ'};
   const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
   const safeNumber=(v,fallback=0)=>typeof v==='number'&&Number.isFinite(v)?Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,v)):fallback;
@@ -238,11 +300,13 @@
     const ownedLiveries=own(d.ownedLiveries,R.LIVERIES,'apexLime'),ownedEffects=own(d.ownedEffects,R.EFFECTS,'standard');
     const controlMode=['arrows','tilt','wheel'].includes(d.controlMode)?d.controlMode:'arrows';
     const tiltSensitivity=['low','medium','high'].includes(d.tiltSensitivity)?d.tiltSensitivity:'medium';
-    return {saveVersion:5,bestScore:safeNumber(d.bestScore),bestLap:safeNumber(d.bestLap),bestDriftScore:Math.floor(safeNumber(d.bestDriftScore)),maxLaps:Math.floor(safeNumber(d.maxLaps)),muted:!!d.muted,
+    const rawCases=d.caseInventory&&typeof d.caseInventory==='object'&&!Array.isArray(d.caseInventory)?d.caseInventory:{};
+    const caseInventory=Object.fromEntries(R.CASE_ORDER.map(id=>[id,Math.max(0,Math.min(999,Math.floor(safeNumber(rawCases[id]))))]));
+    return {saveVersion:6,bestScore:safeNumber(d.bestScore),bestLap:safeNumber(d.bestLap),bestDriftScore:Math.floor(safeNumber(d.bestDriftScore)),maxLaps:Math.floor(safeNumber(d.maxLaps)),muted:!!d.muted,
       botCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.botCount,7)))),raceLaps:[3,5,7,10,15].includes(d.raceLaps)?d.raceLaps:5,
       difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',
       driftBotCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.driftBotCount,d.botCount??7)))),driftDifficulty:has(R.DIFFICULTY_LABELS,d.driftDifficulty)?d.driftDifficulty:'medium',driftTrackId:has(R.DRIFT_TRACKS,d.driftTrackId)?d.driftTrackId:'sierraFlow',
-      controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,
+      controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,caseInventory,
       selectedLivery:ownedLiveries.includes(d.selectedLivery)?d.selectedLivery:'apexLime',selectedEffect:ownedEffects.includes(d.selectedEffect)?d.selectedEffect:'standard'};
   };
   R.shopAction=function(save,kind,id){

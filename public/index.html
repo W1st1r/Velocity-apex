@@ -235,9 +235,40 @@
     <div id="shop" class="overlay shop-screen hidden">
       <section class="shop-panel glass catalog-panel" aria-labelledby="shopTitle">
         <header class="shop-header"><div><div class="eyebrow">VELOCITY APEX / STORE</div><h2 id="shopTitle">МАГАЗИН</h2></div><strong class="credits-pill" id="shopCredits">200 CR</strong><button id="shopBackBtn" class="secondary-btn" type="button">НАЗАД</button></header>
-        <div class="shop-body"><div class="garage-preview"><canvas id="shopPreview" width="560" height="360" aria-label="Предпросмотр автомобиля в магазине"></canvas><strong id="shopPreviewName"></strong><small id="shopPreviewEffect"></small><p>Предпросмотр коллекции. Покупка не меняет активный loadout.</p></div>
-          <div class="shop-catalog"><div id="shopTabs" class="segmented catalog-tabs" role="group" aria-label="Раздел магазина"><button type="button" data-tab="livery" class="selected">МАШИНЫ</button><button type="button" data-tab="effect">ЭФФЕКТЫ</button></div><div id="shopCategoryTabs" class="car-category-tabs" role="group" aria-label="Категория автомобилей магазина"><button type="button" data-category="all" class="selected"><span>ВСЕ</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="basic"><span>BASIC</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="sport"><span>SPORT</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="premium"><span>PREMIUM</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="rare"><span>RARE</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="legendary"><span>LEGENDARY</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="lux"><span>LUX</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button></div><div id="shopItems" class="shop-items"></div></div></div>
+        <div class="shop-body"><div class="garage-preview"><canvas id="shopPreview" width="560" height="360" aria-label="Предпросмотр автомобиля в магазине"></canvas><div id="shopCaseHero" class="shop-case-hero hidden" aria-hidden="true"><div class="case-crate case-crate-large"><i></i><b>VA</b><span></span></div></div><strong id="shopPreviewName"></strong><small id="shopPreviewEffect"></small><p id="shopPreviewCopy">Предпросмотр коллекции. Покупка не меняет активный loadout.</p></div>
+          <div class="shop-catalog"><div id="shopTabs" class="segmented catalog-tabs" role="group" aria-label="Раздел магазина"><button type="button" data-tab="livery" class="selected">МАШИНЫ</button><button type="button" data-tab="effect">ЭФФЕКТЫ</button><button type="button" data-tab="case">КЕЙСЫ</button></div><div id="shopCategoryTabs" class="car-category-tabs" role="group" aria-label="Категория автомобилей магазина"><button type="button" data-category="all" class="selected"><span>ВСЕ</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="basic"><span>BASIC</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="sport"><span>SPORT</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="premium"><span>PREMIUM</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="rare"><span>RARE</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="legendary"><span>LEGENDARY</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="lux"><span>LUX</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button></div><div id="shopItems" class="shop-items"></div></div></div>
         <div id="shopMessage" class="shop-message" aria-live="polite">Кредиты начисляются за завершённые гонки.</div>
+      </section>
+    </div>
+
+
+    <div id="caseModal" class="overlay case-modal hidden" role="dialog" aria-modal="true" aria-labelledby="caseModalTitle">
+      <section class="case-open-panel glass">
+        <header class="case-modal-header">
+          <div><div class="eyebrow">VELOCITY APEX / CASE OPENING</div><h2 id="caseModalTitle">APEX CASE</h2><small id="caseModalSubtitle">PREMIUM DROP</small></div>
+          <div class="case-modal-wallet"><span>БАЛАНС</span><strong id="caseModalCredits">0 CR</strong></div>
+          <button id="caseCloseBtn" class="secondary-btn case-close-btn" type="button" aria-label="Закрыть кейс">ЗАКРЫТЬ</button>
+        </header>
+        <div class="case-modal-body">
+          <div class="case-opening-zone">
+            <div class="case-hero-row">
+              <div id="caseModalCrate" class="case-crate case-crate-modal"><i></i><b>VA</b><span></span></div>
+              <div class="case-hero-copy"><span>КЕЙС В ИНВЕНТАРЕ</span><strong id="caseOwnedCount">x0</strong><small id="casePriceLabel">0 CR</small></div>
+            </div>
+            <div id="caseRoulette" class="case-roulette" aria-live="polite">
+              <div class="case-roulette-marker" aria-hidden="true"></div>
+              <div class="case-roulette-viewport"><div id="caseRollStrip" class="case-roll-strip"></div></div>
+              <div id="caseReadyLabel" class="case-ready-label">НАЖМИТЕ «ОТКРЫТЬ», ЧТОБЫ ЗАПУСТИТЬ РУЛЕТКУ</div>
+            </div>
+            <div id="caseResult" class="case-result hidden" aria-live="polite"></div>
+            <button id="caseOpenBtn" class="primary-btn case-open-btn" type="button">ОТКРЫТЬ</button>
+            <p class="case-fairness-note">Шансы фиксируются до запуска анимации. Дорогие предметы имеют меньшую вероятность выпадения.</p>
+          </div>
+          <aside class="case-rewards-panel">
+            <div class="case-rewards-head"><div><span>ВОЗМОЖНЫЕ НАГРАДЫ</span><strong id="caseRewardCount">0 ПРЕДМЕТОВ</strong></div><small>ТОЧНЫЙ ШАНС</small></div>
+            <div id="caseRewardList" class="case-reward-list"></div>
+          </aside>
+        </div>
       </section>
     </div>
 
