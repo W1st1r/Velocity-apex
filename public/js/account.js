@@ -3,12 +3,12 @@
   const $=id=>document.getElementById(id),SAVE_KEY='velocityApex.v1',ACCOUNTS_KEY='velocityApex.accounts.v1';
   const els={
     root:$('account'),button:$('accountBtn'),menuStatus:$('accountMenuStatus'),close:$('accountCloseBtn'),guest:$('accountGuestView'),profile:$('accountProfileView'),loginTab:$('accountLoginTab'),registerTab:$('accountRegisterTab'),form:$('accountForm'),displayWrap:$('accountDisplayNameWrap'),display:$('accountDisplayName'),username:$('accountUsername'),password:$('accountPassword'),confirmWrap:$('accountConfirmWrap'),confirm:$('accountPasswordConfirm'),message:$('accountMessage'),submit:$('accountSubmitBtn'),displayView:$('accountDisplayNameView'),usernameView:$('accountUsernameView'),avatar:$('accountAvatar'),sync:$('accountSyncStatus'),profileMessage:$('accountProfileMessage'),logout:$('accountLogoutBtn'),
-    gate:$('authGate'),gateChooser:$('authGateChooser'),gateSession:$('authGateSession'),gateAvatar:$('authGateAvatar'),gateDisplayName:$('authGateDisplayName'),gateUsername:$('authGateUsername'),gateKnownWrap:$('authGateKnownWrap'),gateKnownList:$('authGateKnownList'),gateEmpty:$('authGateEmpty'),gateOther:$('authGateOtherBtn'),gateCreate:$('authGateCreateBtn'),gateFormPanel:$('authGateFormPanel'),gateLoginTab:$('authGateLoginTab'),gateRegisterTab:$('authGateRegisterTab'),gateForm:$('authGateForm'),gateDisplayWrap:$('authGateDisplayWrap'),gateDisplay:$('authGateDisplay'),gateLogin:$('authGateLogin'),gatePassword:$('authGatePassword'),gateConfirmWrap:$('authGateConfirmWrap'),gateConfirm:$('authGateConfirm'),gateMessage:$('authGateMessage'),gateSubmit:$('authGateSubmit'),gateBack:$('authGateBack')
+    gate:$('authGate'),gateChooser:$('authGateChooser'),gateSession:$('authGateSession'),gateAvatar:$('authGateAvatar'),gateDisplayName:$('authGateDisplayName'),gateUsername:$('authGateUsername'),gateKnownWrap:$('authGateKnownWrap'),gateKnownList:$('authGateKnownList'),gateEmpty:$('authGateEmpty'),gateOther:$('authGateOtherBtn'),gateCreate:$('authGateCreateBtn'),gateFormPanel:$('authGateFormPanel'),gateLoginTab:$('authGateLoginTab'),gateRegisterTab:$('authGateRegisterTab'),gateForm:$('authGateForm'),gateDisplayWrap:$('authGateDisplayWrap'),gateDisplay:$('authGateDisplay'),gateLogin:$('authGateLogin'),gatePassword:$('authGatePassword'),gateConfirmWrap:$('authGateConfirmWrap'),gateConfirm:$('authGateConfirm'),gateMessage:$('authGateMessage'),gateSubmit:$('authGateSubmit'),gateBack:$('authGateBack'),gateBan:$('authGateBan'),banUsername:$('authBanUsername'),banRemaining:$('authBanRemaining'),banReason:$('authBanReason'),banUntil:$('authBanUntil'),banOther:$('authBanOtherBtn'),rootSettings:$('rootSettingsCard')
   };
   if(!els.root||!els.button||!els.gate)return;
 
-  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false};
-  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.'};
+  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null};
+  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
   function localSave(){try{const x=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');return normalizeSave(x);}catch{return normalizeSave({});}}
   function setMessage(text='',bad=false,profile=false){const el=profile?els.profileMessage:els.message;if(!el)return;el.textContent=text;el.classList.toggle('bad',!!bad);}
@@ -33,7 +33,9 @@
   function render(){
     const logged=!!state.user;els.guest.classList.toggle('hidden',logged);els.profile.classList.toggle('hidden',!logged);
     els.menuStatus.textContent=logged?String(state.user.displayName||state.user.username).slice(0,12).toUpperCase():'ГОСТЬ';els.button.classList.toggle('account-active',logged);
+    if(els.rootSettings)els.rootSettings.classList.toggle('hidden',!state.user?.isAdmin);
     if(logged){els.displayView.textContent=state.user.displayName;els.usernameView.textContent='@'+state.user.username;els.avatar.textContent=initials(state.user.displayName).toUpperCase();}
+    window.dispatchEvent(new CustomEvent('velocity-account-changed',{detail:{user:state.user}}));
   }
   function setMode(mode){state.mode=mode==='register'?'register':'login';const reg=state.mode==='register';els.loginTab.classList.toggle('active',!reg);els.registerTab.classList.toggle('active',reg);els.loginTab.setAttribute('aria-selected',String(!reg));els.registerTab.setAttribute('aria-selected',String(reg));els.displayWrap.classList.toggle('hidden',!reg);els.confirmWrap.classList.toggle('hidden',!reg);els.submit.textContent=reg?'СОЗДАТЬ АККАУНТ':'ВОЙТИ';els.password.autocomplete=reg?'new-password':'current-password';setMessage();}
   function setGateMode(mode){
@@ -43,7 +45,17 @@
   async function api(path,options={}){
     const init={credentials:'same-origin',headers:{...(options.body?{'content-type':'application/json'}:{}),...(options.headers||{})},...options};
     const res=await fetch(path,init);let data={};try{data=await res.json();}catch{}
-    if(!res.ok){const e=new Error(data.error||'SERVER_ERROR');e.code=data.error||'SERVER_ERROR';throw e;}return data;
+    if(!res.ok){const e=new Error(data.error||'SERVER_ERROR');e.code=data.error||'SERVER_ERROR';e.data=data;e.ban=data.ban||null;throw e;}return data;
+  }
+  function formatRemaining(ms){
+    const total=Math.max(0,Math.ceil(Number(ms)||0)),sec=Math.ceil(total/1000);if(sec<60)return sec+' сек';
+    const min=Math.ceil(sec/60);if(min<60)return min+' мин';const h=Math.ceil(min/60);if(h<48)return h+' ч';return Math.ceil(h/24)+' д';
+  }
+  function stopBanTimer(){if(state.banTimer){clearInterval(state.banTimer);state.banTimer=0;}}
+  function showBan(ban,user){
+    stopBanTimer();state.ban=ban||null;state.user=null;state.gameEntered=false;render();$('menu')?.classList.add('hidden');els.root.classList.add('hidden');els.root.setAttribute('aria-hidden','true');els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');els.gateChooser.classList.add('hidden');els.gateFormPanel.classList.add('hidden');els.gateBan.classList.remove('hidden');
+    const username=user?.username||'account';els.banUsername.textContent='@'+username;els.banReason.textContent=ban?.reason||'Причина не указана';
+    const update=()=>{const left=Math.max(0,(Number(ban?.expiresAt)||0)-Date.now());els.banRemaining.textContent=formatRemaining(left);els.banUntil.textContent=ban?.expiresAt?'Блокировка до '+new Date(Number(ban.expiresAt)).toLocaleString('ru-RU'):'';if(left<=0)stopBanTimer();};update();state.banTimer=setInterval(update,1000);
   }
 
   function open(){
@@ -60,13 +72,13 @@
     state.gameEntered=false;$('menu')?.classList.add('hidden');els.root.classList.add('hidden');els.root.setAttribute('aria-hidden','true');els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');renderGateChooser();if(message)setGateMessage(message,true);
   }
   function showGateForm(mode='login',username=''){
-    $('menu')?.classList.add('hidden');els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');els.gateChooser.classList.add('hidden');els.gateFormPanel.classList.remove('hidden');setGateMode(mode);
+    stopBanTimer();els.gateBan.classList.add('hidden');$('menu')?.classList.add('hidden');els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');els.gateChooser.classList.add('hidden');els.gateFormPanel.classList.remove('hidden');setGateMode(mode);
     if(username)els.gateLogin.value=username;else if(mode==='login')els.gateLogin.value='';
     els.gatePassword.value='';els.gateConfirm.value='';if(mode==='register'&&!username)els.gateDisplay.value='';
     setTimeout(()=>{(mode==='register'?els.gateDisplay:els.gateLogin)?.focus();},30);
   }
   function showGateChooser(){
-    els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');$('menu')?.classList.add('hidden');els.gateFormPanel.classList.add('hidden');els.gateChooser.classList.remove('hidden');setGateMessage();renderGateChooser();
+    stopBanTimer();els.gateBan.classList.add('hidden');els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');$('menu')?.classList.add('hidden');els.gateFormPanel.classList.add('hidden');els.gateChooser.classList.remove('hidden');setGateMessage();renderGateChooser();
   }
   function renderGateChooser(){
     const accounts=readAccounts(),current=state.user?.username?.toLowerCase()||'';
@@ -93,14 +105,16 @@
     catch(e){els.sync.textContent='ОШИБКА СИНХРОНИЗАЦИИ';setMessage(errors[e.code]||'Не удалось загрузить облачный прогресс.',true,true);}
   }
   async function bootstrap(){
+    let banned=null;
     try{const data=await api('/api/auth/me');if(data.authenticated){state.user=data.user;rememberAccount(state.user);render();await loadCloud();}else{state.user=null;render();}}
-    catch{state.user=null;render();}finally{state.bootstrapped=true;showGateChooser();if(!state.user&&readAccounts().length===0)showGateForm('login');}
+    catch(e){state.user=null;render();if(e.code==='ACCOUNT_BANNED')banned={ban:e.ban,user:e.data?.user};}
+    finally{state.bootstrapped=true;if(banned){if(banned.user)rememberAccount(banned.user);showBan(banned.ban,banned.user);}else{showGateChooser();if(!state.user&&readAccounts().length===0)showGateForm('login');}}
   }
   async function flushSave(){
     clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
     const snapshot=normalizeSave(state.lastSave);
     try{const data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({save:snapshot})});state.revision=data.revision||state.revision;els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;}
-    catch(e){if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;}
+    catch(e){if(e.code==='ACCOUNT_BANNED'){showBan(e.ban,e.data?.user);window.dispatchEvent(new CustomEvent('velocity-account-banned',{detail:e.data||{}}));}else if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;}
     finally{state.syncing=false;}
   }
   function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
@@ -117,7 +131,7 @@
         data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,save:localSave()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
       await finishAuth(data);els.password.value='';els.confirm.value='';setMessage('',false,true);
-    }catch(e){setMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.submit.disabled=false;}
+    }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.submit.disabled=false;}
   }
   async function onGateSubmit(event){
     event.preventDefault();const username=els.gateLogin.value.trim().toLowerCase(),password=els.gatePassword.value;setGateMessage();els.gateSubmit.disabled=true;
@@ -128,7 +142,7 @@
         data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,save:localSave()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
       await finishAuth(data);els.gatePassword.value='';els.gateConfirm.value='';enterGame();
-    }catch(e){setGateMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.gateSubmit.disabled=false;}
+    }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setGateMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.gateSubmit.disabled=false;}
   }
   async function logout(){
     els.logout.disabled=true;setMessage('Сохраняем прогресс…',false,true);try{await flushSave();await api('/api/auth/logout',{method:'POST',body:'{}'});}catch{}
@@ -136,9 +150,9 @@
   }
 
   els.button.addEventListener('click',open);els.close.addEventListener('click',close);els.loginTab.addEventListener('click',()=>setMode('login'));els.registerTab.addEventListener('click',()=>setMode('register'));els.form.addEventListener('submit',onSubmit);els.logout.addEventListener('click',logout);
-  els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
+  els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave}),keepalive:true}).catch(()=>{});});
-  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,open,enterGame};
+  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,open,enterGame};
   setMode('login');setGateMode('login');render();bootstrap();
 })();

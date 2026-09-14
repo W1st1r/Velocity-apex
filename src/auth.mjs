@@ -2,14 +2,17 @@ const SESSION_COOKIE='va_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
 const PASSWORD_ITERATIONS=100000;
 const SAVE_LIMIT_BYTES=64*1024;
+const ADMIN_USERNAME='w1st1r';
+const ADMIN_PASSWORD_SHA256='dxEnsDF2QSbEDOepP2HFM_okaUwBB-fBg8fC90XrmIA';
+const ADMIN_UNLOCK_TTL_MS=30*60*1000;
+const ADMIN_MAX_BAN_MS=365*24*60*60*1000;
+const ADMIN_MAX_CREDITS=999999999;
 const enc=new TextEncoder();
+let adminSchemaPromise=null;
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff',...headers}});
 const now=()=>Date.now();
-const b64url=bytes=>{
-  let s='';for(const b of bytes)s+=String.fromCharCode(b);
-  return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-};
+const b64url=bytes=>{let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
 const randomBytes=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return a;};
 const sha256=async value=>b64url(new Uint8Array(await crypto.subtle.digest('SHA-256',typeof value==='string'?enc.encode(value):value)));
 const normalizeUsername=v=>String(v||'').trim().toLowerCase();
@@ -17,6 +20,8 @@ const validUsername=v=>/^[a-z0-9_]{3,24}$/.test(v);
 const normalizeDisplayName=v=>String(v||'').trim().replace(/\s+/g,' ');
 const validDisplayName=v=>v.length>=2&&v.length<=24&&/^[\p{L}\p{N}_\- .]+$/u.test(v)&&!/[<>"'`\\/]/.test(v);
 const validPassword=v=>typeof v==='string'&&v.length>=8&&v.length<=128;
+const isAdminUsername=v=>normalizeUsername(v)===ADMIN_USERNAME;
+const adminUser=user=>({...user,isAdmin:isAdminUsername(user?.username)});
 
 function cookieValue(request,name){
   const raw=request.headers.get('cookie')||'';
@@ -27,14 +32,8 @@ function sessionCookie(request,value,maxAge=Math.floor(SESSION_TTL_MS/1000)){
   const secure=new URL(request.url).protocol==='https:'?'; Secure':'';
   return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly${secure}; SameSite=Lax; Max-Age=${maxAge}`;
 }
-function sameOrigin(request){
-  const origin=request.headers.get('origin');
-  return !origin||origin===new URL(request.url).origin;
-}
-async function readBody(request){
-  const len=Number(request.headers.get('content-length')||0);if(len>SAVE_LIMIT_BYTES+8192)throw new Error('REQUEST_TOO_LARGE');
-  return request.json();
-}
+function sameOrigin(request){const origin=request.headers.get('origin');return !origin||origin===new URL(request.url).origin;}
+async function readBody(request){const len=Number(request.headers.get('content-length')||0);if(len>SAVE_LIMIT_BYTES+8192)throw new Error('REQUEST_TOO_LARGE');return request.json();}
 async function passwordHash(password,salt,iterations=PASSWORD_ITERATIONS){
   const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,256);
@@ -51,6 +50,51 @@ function safeSave(raw){
   if(enc.encode(text).byteLength>SAVE_LIMIT_BYTES)return null;
   return text;
 }
+function defaultSave(){return {saveVersion:6,credits:200,ownedLiveries:['apexLime'],ownedEffects:['standard'],caseInventory:{},selectedLivery:'apexLime',selectedEffect:'standard'};}
+function safeResourceId(v){const s=String(v||'');return /^[a-zA-Z0-9_-]{1,64}$/.test(s)?s:'';}
+function normalizeReason(v){return String(v||'').trim().replace(/\s+/g,' ').slice(0,240);}
+
+async function ensureAdminSchema(env){
+  if(adminSchemaPromise)return adminSchemaPromise;
+  adminSchemaPromise=(async()=>{
+    await env.DB.batch([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS account_bans (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        created_by TEXT NOT NULL,
+        revoked_at INTEGER,
+        revoked_by TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_account_bans_user_active ON account_bans(user_id,revoked_at,expires_at)'),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_unlocks (
+        session_token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_admin_unlocks_expires ON admin_unlocks(expires_at)'),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS admin_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        admin_user_id TEXT NOT NULL,
+        target_user_id TEXT,
+        action TEXT NOT NULL,
+        details TEXT,
+        created_at INTEGER NOT NULL
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit(created_at)')
+    ]);
+  })().catch(e=>{adminSchemaPromise=null;throw e;});
+  return adminSchemaPromise;
+}
+async function audit(env,adminId,targetId,action,details={}){
+  let text='{}';try{text=JSON.stringify(details).slice(0,2000);}catch{}
+  await env.DB.prepare('INSERT INTO admin_audit (admin_user_id,target_user_id,action,details,created_at) VALUES (?,?,?,?,?)').bind(adminId,targetId||null,action,text,now()).run();
+}
 async function createSession(env,request,userId){
   const raw=b64url(randomBytes(32)),hash=await sha256(raw),t=now(),expires=t+SESSION_TTL_MS;
   await env.DB.prepare('INSERT INTO sessions (token_hash,user_id,created_at,expires_at,last_seen_at) VALUES (?,?,?,?,?)').bind(hash,userId,t,expires,t).run();
@@ -64,8 +108,15 @@ async function currentSession(env,request){
   if(!row)return null;
   if(Number(row.expires_at)<=t){await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(hash).run();return null;}
   if(t-Number(row.last_seen_at||0)>6*60*60*1000)await env.DB.prepare('UPDATE sessions SET last_seen_at=? WHERE token_hash=?').bind(t,hash).run();
-  return {hash,user:{id:row.user_id,username:row.username,displayName:row.display_name,createdAt:Number(row.created_at)||0}};
+  return {hash,user:adminUser({id:row.user_id,username:row.username,displayName:row.display_name,createdAt:Number(row.created_at)||0})};
 }
+async function activeBan(env,userId,t=now()){
+  const row=await env.DB.prepare(`SELECT id,reason,created_at,expires_at FROM account_bans
+    WHERE user_id=? AND revoked_at IS NULL AND expires_at>? ORDER BY expires_at DESC,created_at DESC LIMIT 1`).bind(userId,t).first();
+  if(!row)return null;
+  return {id:row.id,reason:row.reason,createdAt:Number(row.created_at)||0,expiresAt:Number(row.expires_at)||0,remainingMs:Math.max(0,Number(row.expires_at)-t)};
+}
+async function banResponse(env,user,status=423){const ban=await activeBan(env,user.id);return ban?json({error:'ACCOUNT_BANNED',user:adminUser(user),ban},status):null;}
 async function saveRow(env,userId){
   const row=await env.DB.prepare('SELECT save_json,revision,updated_at FROM player_saves WHERE user_id=? LIMIT 1').bind(userId).first();
   if(!row)return {save:null,revision:0,updatedAt:0};
@@ -81,13 +132,124 @@ async function writeSave(env,userId,raw){
   const row=await env.DB.prepare('SELECT revision,updated_at FROM player_saves WHERE user_id=?').bind(userId).first();
   return {ok:true,revision:Number(row?.revision)||1,updatedAt:Number(row?.updated_at)||t};
 }
+async function requireAdmin(env,request,{unlocked=true}={}){
+  const session=await currentSession(env,request);if(!session)return {error:json({error:'AUTH_REQUIRED'},401)};
+  if(!session.user.isAdmin)return {error:json({error:'ADMIN_REQUIRED'},403)};
+  const ban=await activeBan(env,session.user.id);if(ban)return {error:json({error:'ACCOUNT_BANNED',ban},423)};
+  if(unlocked){
+    const row=await env.DB.prepare('SELECT expires_at FROM admin_unlocks WHERE session_token_hash=? AND user_id=? LIMIT 1').bind(session.hash,session.user.id).first();
+    if(!row||Number(row.expires_at)<=now())return {error:json({error:'ADMIN_LOCKED'},403)};
+    return {session,unlockExpiresAt:Number(row.expires_at)||0};
+  }
+  return {session};
+}
+async function targetUser(env,id){
+  return env.DB.prepare('SELECT id,username,display_name,created_at,last_login_at FROM users WHERE id=? LIMIT 1').bind(id).first();
+}
+async function accountDetail(env,id){
+  const user=await targetUser(env,id);if(!user)return null;
+  const row=await saveRow(env,id),save=row.save&&typeof row.save==='object'?row.save:defaultSave(),ban=await activeBan(env,id);
+  const cases=save.caseInventory&&typeof save.caseInventory==='object'&&!Array.isArray(save.caseInventory)?save.caseInventory:{};
+  return {user:adminUser({id:user.id,username:user.username,displayName:user.display_name,createdAt:Number(user.created_at)||0,lastLoginAt:Number(user.last_login_at)||0}),save:{credits:Math.max(0,Math.floor(Number(save.credits)||0)),ownedLiveries:Array.isArray(save.ownedLiveries)?save.ownedLiveries:[],ownedEffects:Array.isArray(save.ownedEffects)?save.ownedEffects:[],caseInventory:cases,selectedLivery:String(save.selectedLivery||'apexLime'),selectedEffect:String(save.selectedEffect||'standard')},revision:row.revision,updatedAt:row.updatedAt,ban};
+}
+async function mutateTargetSave(env,id,mutator){
+  const exists=await targetUser(env,id);if(!exists)return {error:'USER_NOT_FOUND'};
+  const row=await saveRow(env,id),save=row.save&&typeof row.save==='object'&&!Array.isArray(row.save)?row.save:defaultSave();
+  const result=mutator(save);if(result?.error)return result;
+  const written=await writeSave(env,id,save);if(!written.ok)return {error:written.error};
+  return {ok:true,result:result||{},detail:await accountDetail(env,id)};
+}
+async function handleAdminRequest(request,env,url){
+  await ensureAdminSchema(env);
+  if(!sameOrigin(request)&&request.method!=='GET')return json({error:'ORIGIN_REJECTED'},403);
+
+  if(url.pathname==='/api/admin/status'&&request.method==='GET'){
+    const access=await requireAdmin(env,request,{unlocked:false});if(access.error)return access.error;
+    const row=await env.DB.prepare('SELECT expires_at FROM admin_unlocks WHERE session_token_hash=? AND user_id=? LIMIT 1').bind(access.session.hash,access.session.user.id).first();
+    const expiresAt=Number(row?.expires_at)||0;return json({ok:true,isAdmin:true,unlocked:expiresAt>now(),expiresAt});
+  }
+  if(url.pathname==='/api/admin/unlock'&&request.method==='POST'){
+    const access=await requireAdmin(env,request,{unlocked:false});if(access.error)return access.error;
+    const b=await readBody(request),digest=await sha256(String(b?.password||''));if(digest!==ADMIN_PASSWORD_SHA256)return json({error:'ADMIN_PASSWORD_INVALID'},403);
+    const t=now(),expiresAt=t+ADMIN_UNLOCK_TTL_MS;
+    await env.DB.prepare(`INSERT INTO admin_unlocks (session_token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)
+      ON CONFLICT(session_token_hash) DO UPDATE SET user_id=excluded.user_id,created_at=excluded.created_at,expires_at=excluded.expires_at`).bind(access.session.hash,access.session.user.id,t,expiresAt).run();
+    await audit(env,access.session.user.id,null,'admin_unlock',{expiresAt});return json({ok:true,expiresAt});
+  }
+  if(url.pathname==='/api/admin/lock'&&request.method==='POST'){
+    const access=await requireAdmin(env,request,{unlocked:false});if(access.error)return access.error;
+    await env.DB.prepare('DELETE FROM admin_unlocks WHERE session_token_hash=?').bind(access.session.hash).run();return json({ok:true});
+  }
+
+  const access=await requireAdmin(env,request);if(access.error)return access.error;
+  if(url.pathname==='/api/admin/accounts'&&request.method==='GET'){
+    const q=normalizeUsername(url.searchParams.get('q')||'').slice(0,24),blocked=url.searchParams.get('blocked')==='1',like='%'+q+'%',t=now();
+    let sql=`SELECT u.id,u.username,u.display_name,u.created_at,u.last_login_at,ps.revision,ps.updated_at AS save_updated_at,
+      (SELECT b.reason FROM account_bans b WHERE b.user_id=u.id AND b.revoked_at IS NULL AND b.expires_at>? ORDER BY b.expires_at DESC,b.created_at DESC LIMIT 1) AS ban_reason,
+      (SELECT b.expires_at FROM account_bans b WHERE b.user_id=u.id AND b.revoked_at IS NULL AND b.expires_at>? ORDER BY b.expires_at DESC,b.created_at DESC LIMIT 1) AS ban_expires_at
+      FROM users u LEFT JOIN player_saves ps ON ps.user_id=u.id
+      WHERE (lower(u.username) LIKE ? OR lower(u.display_name) LIKE ?)`;
+    const binds=[t,t,like,like];
+    if(blocked){sql+=` AND EXISTS (SELECT 1 FROM account_bans bx WHERE bx.user_id=u.id AND bx.revoked_at IS NULL AND bx.expires_at>?)`;binds.push(t);}
+    sql+=' ORDER BY COALESCE(u.last_login_at,u.created_at) DESC LIMIT 50';
+    const result=await env.DB.prepare(sql).bind(...binds).all();
+    const accounts=(result.results||[]).map(r=>({id:r.id,username:r.username,displayName:r.display_name,createdAt:Number(r.created_at)||0,lastLoginAt:Number(r.last_login_at)||0,revision:Number(r.revision)||0,saveUpdatedAt:Number(r.save_updated_at)||0,ban:r.ban_expires_at?{reason:r.ban_reason||'',expiresAt:Number(r.ban_expires_at)||0,remainingMs:Math.max(0,Number(r.ban_expires_at)-t)}:null,isAdmin:isAdminUsername(r.username)}));
+    return json({ok:true,accounts});
+  }
+  const detailMatch=url.pathname.match(/^\/api\/admin\/account\/([0-9a-f-]{16,64})$/i);
+  if(detailMatch&&request.method==='GET'){
+    const detail=await accountDetail(env,detailMatch[1]);if(!detail)return json({error:'USER_NOT_FOUND'},404);return json({ok:true,...detail});
+  }
+  const actionMatch=url.pathname.match(/^\/api\/admin\/account\/([0-9a-f-]{16,64})\/(credits|resource|ban|unban)$/i);
+  if(actionMatch&&request.method==='POST'){
+    const userId=actionMatch[1],action=actionMatch[2],target=await targetUser(env,userId);if(!target)return json({error:'USER_NOT_FOUND'},404);
+    if(action==='credits'){
+      const b=await readBody(request),delta=Number(b?.delta);if(!Number.isSafeInteger(delta)||delta===0||Math.abs(delta)>ADMIN_MAX_CREDITS)return json({error:'INVALID_AMOUNT'},400);
+      const changed=await mutateTargetSave(env,userId,save=>{const before=Math.max(0,Math.floor(Number(save.credits)||0)),after=Math.max(0,Math.min(ADMIN_MAX_CREDITS,before+delta));save.credits=after;return {before,after,delta:after-before};});
+      if(changed.error)return json({error:changed.error},400);await audit(env,access.session.user.id,userId,'credits',{requestedDelta:delta,...changed.result});return json(changed);
+    }
+    if(action==='resource'){
+      const b=await readBody(request),kind=String(b?.kind||''),resourceId=safeResourceId(b?.id),op=String(b?.action||''),quantity=Math.max(1,Math.min(999,Math.floor(Number(b?.quantity)||1)));
+      if(!['car','effect','case'].includes(kind)||!resourceId||!['grant','revoke'].includes(op))return json({error:'INVALID_RESOURCE_ACTION'},400);
+      const changed=await mutateTargetSave(env,userId,save=>{
+        if(kind==='case'){
+          if(!save.caseInventory||typeof save.caseInventory!=='object'||Array.isArray(save.caseInventory))save.caseInventory={};
+          const before=Math.max(0,Math.min(999,Math.floor(Number(save.caseInventory[resourceId])||0))),after=op==='grant'?Math.min(999,before+quantity):Math.max(0,before-quantity);save.caseInventory[resourceId]=after;return {kind,id:resourceId,action:op,before,after,quantity:Math.abs(after-before)};
+        }
+        const key=kind==='car'?'ownedLiveries':'ownedEffects',selectedKey=kind==='car'?'selectedLivery':'selectedEffect',fallback=kind==='car'?'apexLime':'standard';
+        if(resourceId===fallback&&op==='revoke')return {error:'SYSTEM_RESOURCE'};
+        if(!Array.isArray(save[key]))save[key]=[fallback];if(!save[key].includes(fallback))save[key].unshift(fallback);
+        const before=save[key].includes(resourceId);if(op==='grant'&&!before)save[key].push(resourceId);if(op==='revoke'&&before)save[key]=save[key].filter(x=>x!==resourceId);
+        if(op==='revoke'&&save[selectedKey]===resourceId)save[selectedKey]=fallback;
+        return {kind,id:resourceId,action:op,before,after:save[key].includes(resourceId)};
+      });
+      if(changed.error)return json({error:changed.error},400);await audit(env,access.session.user.id,userId,'resource',changed.result);return json(changed);
+    }
+    if(action==='ban'){
+      if(isAdminUsername(target.username))return json({error:'ADMIN_ACCOUNT_PROTECTED'},403);
+      const b=await readBody(request),durationMs=Math.floor(Number(b?.durationMs)),reason=normalizeReason(b?.reason);if(!Number.isFinite(durationMs)||durationMs<60*1000||durationMs>ADMIN_MAX_BAN_MS)return json({error:'INVALID_BAN_DURATION'},400);if(reason.length<3)return json({error:'INVALID_BAN_REASON'},400);
+      const t=now(),expiresAt=t+durationMs,id=crypto.randomUUID();
+      await env.DB.prepare('UPDATE account_bans SET revoked_at=?,revoked_by=? WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').bind(t,access.session.user.id,userId,t).run();
+      await env.DB.prepare('INSERT INTO account_bans (id,user_id,reason,created_at,expires_at,created_by) VALUES (?,?,?,?,?,?)').bind(id,userId,reason,t,expiresAt,access.session.user.id).run();
+      await env.DB.prepare('DELETE FROM sessions WHERE user_id=?').bind(userId).run();await audit(env,access.session.user.id,userId,'ban',{reason,expiresAt,durationMs});
+      return json({ok:true,ban:{id,reason,createdAt:t,expiresAt,remainingMs:durationMs},detail:await accountDetail(env,userId)});
+    }
+    if(action==='unban'){
+      const t=now();await env.DB.prepare('UPDATE account_bans SET revoked_at=?,revoked_by=? WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').bind(t,access.session.user.id,userId,t).run();await audit(env,access.session.user.id,userId,'unban',{});return json({ok:true,detail:await accountDetail(env,userId)});
+    }
+  }
+  return json({error:'NOT_FOUND'},404);
+}
 
 export async function handleAuthRequest(request,env,url=new URL(request.url)){
-  if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/'))return null;
+  if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/admin/'))return null;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{
+    await ensureAdminSchema(env);
+    if(url.pathname.startsWith('/api/admin/'))return handleAdminRequest(request,env,url);
     if(url.pathname==='/api/auth/me'&&request.method==='GET'){
       const session=await currentSession(env,request);if(!session)return json({authenticated:false});
+      const banned=await banResponse(env,session.user);if(banned)return banned;
       return json({authenticated:true,user:session.user});
     }
     if(url.pathname==='/api/auth/register'&&request.method==='POST'){
@@ -105,7 +267,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       }catch(e){if(String(e?.message||e).toLowerCase().includes('unique'))return json({error:'USERNAME_TAKEN'},409);throw e;}
       if(b?.save&&safeSave(b.save))await writeSave(env,id,b.save);
       const session=await createSession(env,request,id);
-      return json({ok:true,user:{id,username,displayName,createdAt:t}},201,{'set-cookie':sessionCookie(request,session.raw)});
+      return json({ok:true,user:adminUser({id,username,displayName,createdAt:t})},201,{'set-cookie':sessionCookie(request,session.raw)});
     }
     if(url.pathname==='/api/auth/login'&&request.method==='POST'){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
@@ -115,22 +277,24 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       if(!row)return json({error:'INVALID_CREDENTIALS'},401);
       const hash=await passwordHash(password,decodeB64url(row.password_salt),Number(row.password_iterations)||PASSWORD_ITERATIONS);
       if(hash!==row.password_hash)return json({error:'INVALID_CREDENTIALS'},401);
+      const user=adminUser({id:row.id,username:row.username,displayName:row.display_name,createdAt:Number(row.created_at)||0});
+      const banned=await banResponse(env,user);if(banned)return banned;
       const t=now();await env.DB.prepare('UPDATE users SET last_login_at=?,updated_at=? WHERE id=?').bind(t,t,row.id).run();
       const session=await createSession(env,request,row.id);
-      return json({ok:true,user:{id:row.id,username:row.username,displayName:row.display_name,createdAt:Number(row.created_at)||0}},200,{'set-cookie':sessionCookie(request,session.raw)});
+      return json({ok:true,user},200,{'set-cookie':sessionCookie(request,session.raw)});
     }
     if(url.pathname==='/api/auth/logout'&&request.method==='POST'){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
-      const session=await currentSession(env,request);if(session)await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();
+      const session=await currentSession(env,request);if(session){await env.DB.prepare('DELETE FROM admin_unlocks WHERE session_token_hash=?').bind(session.hash).run();await env.DB.prepare('DELETE FROM sessions WHERE token_hash=?').bind(session.hash).run();}
       return json({ok:true},200,{'set-cookie':sessionCookie(request,'',0)});
     }
     if(url.pathname==='/api/account/save'&&request.method==='GET'){
-      const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);
+      const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
       return json({ok:true,...await saveRow(env,session.user.id)});
     }
     if(url.pathname==='/api/account/save'&&(request.method==='PUT'||request.method==='POST')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
-      const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);
+      const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
       const b=await readBody(request),result=await writeSave(env,session.user.id,b?.save);
       if(!result.ok)return json({error:result.error},400);return json(result);
     }

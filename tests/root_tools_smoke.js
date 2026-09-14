@@ -31,6 +31,9 @@ assert(JSON.stringify(save.ownedEffects)===JSON.stringify(['standard']),'reset i
 assert(save.selectedLivery==='apexLime'&&save.selectedEffect==='standard','reset inventory selections failed');
 const credits=save.credits;assert(credits===Number.MAX_SAFE_INTEGER,'reset inventory changed credits');
 assert(!T.grant(save,'car','does-not-exist')&&!T.revoke(save,'effect','does-not-exist'),'unknown id accepted');
+assert(T.setCase(save,'basic',7)&&save.caseInventory.basic===7,'set case failed');
+assert(T.changeCase(save,'basic',3)&&save.caseInventory.basic===10,'change case failed');
+assert(T.changeCase(save,'basic',-20)&&save.caseInventory.basic===0,'case count must clamp at zero');
 
 save.bestScore=999;T.resetPlayerProgress(save);const fresh=R.normalizeSave({});
 assert(JSON.stringify(save)===JSON.stringify(fresh),'reset player progress did not restore normalized defaults');

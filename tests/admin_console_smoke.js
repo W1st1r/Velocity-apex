@@ -1,0 +1,22 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.join(__dirname,'..');
+const auth=fs.readFileSync(path.join(root,'src','auth.mjs'),'utf8');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+const account=fs.readFileSync(path.join(root,'public','js','account.js'),'utf8');
+const game=fs.readFileSync(path.join(root,'public','js','game.js'),'utf8');
+const rootJs=fs.readFileSync(path.join(root,'public','js','root-console.js'),'utf8');
+const migration=fs.readFileSync(path.join(root,'migrations','0002_admin.sql'),'utf8');
+
+assert(auth.includes("const ADMIN_USERNAME='w1st1r'"),'admin username gate missing');
+for(const endpoint of ['/api/admin/unlock','/api/admin/status','/api/admin/accounts','credits|resource|ban|unban'])assert(auth.includes(endpoint),`missing admin endpoint/router token ${endpoint}`);
+for(const table of ['account_bans','admin_unlocks','admin_audit'])assert(auth.includes(table)&&migration.includes(table),`missing admin D1 table ${table}`);
+assert(auth.includes("ACCOUNT_BANNED")&&auth.includes('expiresAt')&&auth.includes('reason'),'ban response payload missing');
+assert(auth.includes('DELETE FROM sessions WHERE user_id=?'),'ban must invalidate active target sessions');
+assert(!rootJs.includes('19832811'),'ROOT password must not be embedded in client JS');
+assert(rootJs.includes("/api/admin/unlock")&&rootJs.includes("/api/admin/accounts"),'admin console must use server-side admin API');
+assert(html.includes('id="rootSettingsCard" class="settings-section root-settings-card hidden"'),'ROOT settings entry must be hidden by default');
+for(const tab of ['money','cars','effects','cases','accounts','blocked'])assert(html.includes(`data-root-tab="${tab}"`),`missing admin tab ${tab}`);
+for(const id of ['rootAccountSearch','rootBlockedSearch','rootAccountDetail','rootBlockedDetail','authGateBan','authBanRemaining','authBanReason'])assert(html.includes(`id="${id}"`),`missing UI ${id}`);
+assert(account.includes("!state.user?.isAdmin")&&account.includes('showBan('),'account UI must gate ROOT and show bans');
+assert(game.includes("!window.VelocityAccount?.isAdmin"),'game ROOT open handler must reject non-admin accounts');
+console.log('admin_console_smoke: OK (server-gated @w1st1r admin panel + account bans + resources)');

@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-007" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-009" />
 </head>
 <body>
   <div id="app">
@@ -51,6 +51,19 @@
             <button id="authGateOtherBtn" class="secondary-btn" type="button">ДРУГОЙ АККАУНТ</button>
             <button id="authGateCreateBtn" class="primary-btn" type="button">СОЗДАТЬ АККАУНТ</button>
           </div>
+        </div>
+
+        <div id="authGateBan" class="auth-ban-panel hidden" role="alert">
+          <div class="auth-ban-icon" aria-hidden="true">!</div>
+          <div class="auth-ban-copy">
+            <div class="eyebrow">VELOCITY APEX / ACCOUNT RESTRICTION</div>
+            <h2>АККАУНТ ЗАБЛОКИРОВАН</h2>
+            <strong id="authBanUsername">@player</strong>
+            <div class="auth-ban-timer"><span>ОСТАЛОСЬ</span><b id="authBanRemaining">—</b></div>
+            <div class="auth-ban-reason"><span>ПРИЧИНА</span><p id="authBanReason">—</p></div>
+            <small id="authBanUntil">—</small>
+          </div>
+          <button id="authBanOtherBtn" class="secondary-btn" type="button">ВОЙТИ В ДРУГОЙ АККАУНТ</button>
         </div>
 
         <div id="authGateFormPanel" class="auth-gate-form-panel hidden">
@@ -424,7 +437,7 @@
             <button type="button" data-tilt-sensitivity="high">ВЫСОКАЯ</button>
           </div>
         </div>
-        <div class="settings-section root-settings-card">
+        <div id="rootSettingsCard" class="settings-section root-settings-card hidden">
           <div class="root-settings-head">
             <div><div class="section-label">ROOT ACCESS</div><strong>Developer tools</strong><small>Session-only authorization</small></div>
             <span class="root-led" aria-hidden="true"></span>
@@ -456,70 +469,102 @@
         <header class="root-console-header">
           <div>
             <div class="root-terminal-line"><span>VELOCITY APEX / ROOT CONSOLE</span><i></i></div>
-            <h2 id="rootConsoleTitle">DEVELOPER MODE</h2>
-            <div class="root-access-status"><span class="root-led active"></span> ROOT ACCESS: GRANTED</div>
+            <h2 id="rootConsoleTitle">ПАНЕЛЬ АДМИНИСТРАТОРА</h2>
+            <div class="root-access-status"><span class="root-led active"></span> ADMIN ACCESS: GRANTED</div>
           </div>
           <div class="root-header-actions">
             <button id="rootBackBtn" class="secondary-btn" type="button">НАЗАД</button>
-            <button id="rootLockBtn" class="secondary-btn danger-outline" type="button">LOCK ROOT</button>
+            <button id="rootLockBtn" class="secondary-btn danger-outline" type="button">ЗАБЛОКИРОВАТЬ ПАНЕЛЬ</button>
           </div>
         </header>
 
-        <div id="rootNotice" class="root-notice" aria-live="polite">ROOT // ACTIVE</div>
+        <div id="rootNotice" class="root-notice" aria-live="polite">ADMIN // ACTIVE</div>
 
-        <section class="root-module root-quick-module">
-          <div class="root-module-title"><span>QUICK ACTIONS</span><small>MASTER</small></div>
-          <div id="rootMasterActions" class="root-action-grid">
-            <button type="button" data-root-action="unlock">UNLOCK EVERYTHING</button>
-            <button type="button" class="danger" data-root-action="reset-inventory">RESET INVENTORY</button>
-          </div>
-        </section>
+        <nav id="rootTabs" class="root-tabs" aria-label="Панель администратора">
+          <button class="active" type="button" data-root-tab="money">ДЕНЬГИ</button>
+          <button type="button" data-root-tab="cars">МАШИНЫ</button>
+          <button type="button" data-root-tab="effects">ЭФФЕКТЫ</button>
+          <button type="button" data-root-tab="cases">КЕЙСЫ</button>
+          <button type="button" data-root-tab="accounts">АККАУНТЫ</button>
+          <button type="button" data-root-tab="blocked">ЗАБЛОКИРОВАННЫЕ</button>
+        </nav>
 
-        <section class="root-module">
-          <div class="root-module-title"><span>CREDITS</span><small>ECONOMY</small></div>
-          <div class="root-credit-layout">
-            <div class="root-balance"><small>CURRENT BALANCE</small><strong id="rootCurrentBalance">0 CR</strong></div>
-            <div class="root-credit-editor">
-              <label class="root-field-label" for="rootCreditInput">SET BALANCE</label>
-              <div class="root-input-row"><input id="rootCreditInput" class="root-input" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done"><button id="rootApplyCredits" type="button">APPLY</button></div>
+        <div id="rootPaneMoney" class="root-pane" data-root-pane="money">
+          <section class="root-module">
+            <div class="root-module-title"><span>ДЕНЬГИ</span><small>ВАШ АККАУНТ</small></div>
+            <div class="root-credit-layout">
+              <div class="root-balance"><small>ТЕКУЩИЙ БАЛАНС</small><strong id="rootCurrentBalance">0 CR</strong></div>
+              <div class="root-credit-editor">
+                <label class="root-field-label" for="rootCreditInput">УСТАНОВИТЬ БАЛАНС</label>
+                <div class="root-input-row"><input id="rootCreditInput" class="root-input" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done"><button id="rootApplyCredits" type="button">APPLY</button></div>
+              </div>
             </div>
-          </div>
-          <div class="root-credit-actions" aria-label="Quick credit actions">
-            <button type="button" data-root-action="add-credits" data-amount="1000">+1 000</button>
-            <button type="button" data-root-action="add-credits" data-amount="10000">+10 000</button>
-            <button type="button" data-root-action="add-credits" data-amount="100000">+100 000</button>
-            <button type="button" data-root-action="add-credits" data-amount="1000000">+1 000 000</button>
-            <button type="button" data-root-action="set-zero">SET 0</button>
-            <button type="button" data-root-action="max-cr">MAX CR</button>
-          </div>
-        </section>
+            <div class="root-credit-actions" aria-label="Быстрые действия с балансом">
+              <button type="button" data-root-action="add-credits" data-amount="1000">+1 000</button>
+              <button type="button" data-root-action="add-credits" data-amount="10000">+10 000</button>
+              <button type="button" data-root-action="add-credits" data-amount="100000">+100 000</button>
+              <button type="button" data-root-action="add-credits" data-amount="1000000">+1 000 000</button>
+              <button type="button" data-root-action="set-zero">SET 0</button>
+              <button type="button" data-root-action="max-cr">MAX CR</button>
+            </div>
+          </section>
+          <section class="root-module root-quick-module">
+            <div class="root-module-title"><span>БЫСТРЫЕ ДЕЙСТВИЯ</span><small>ВАШ ПРОФИЛЬ</small></div>
+            <div id="rootMasterActions" class="root-action-grid">
+              <button type="button" data-root-action="unlock">ВЫДАТЬ ВСЁ</button>
+              <button type="button" class="danger" data-root-action="reset-inventory">СБРОСИТЬ ИНВЕНТАРЬ</button>
+            </div>
+          </section>
+          <section class="root-module">
+            <div class="root-module-title"><span>ДИАГНОСТИКА</span><small>READ ONLY</small></div>
+            <div id="rootDiagnostics" class="root-diagnostics"></div>
+            <div class="root-diagnostic-actions">
+              <button id="rootCopySave" type="button">COPY SAVE JSON</button>
+              <button id="rootResetProgress" class="danger" type="button">RESET PLAYER PROGRESS</button>
+            </div>
+          </section>
+        </div>
 
-        <section class="root-module">
-          <div class="root-module-title"><span>CARS</span><small>R.LIVERIES</small></div>
-          <div class="root-bulk-actions">
-            <button type="button" data-root-action="grant-cars">GRANT ALL CARS</button>
-            <button type="button" class="danger" data-root-action="revoke-cars">REVOKE ALL PAID CARS</button>
-          </div>
-          <div id="rootCars" class="root-items"></div>
-        </section>
+        <div id="rootPaneCars" class="root-pane hidden" data-root-pane="cars">
+          <section class="root-module">
+            <div class="root-module-title"><span>МАШИНЫ</span><small>ВАШ АККАУНТ</small></div>
+            <div class="root-bulk-actions"><button type="button" data-root-action="grant-cars">ВЫДАТЬ ВСЕ МАШИНЫ</button><button type="button" class="danger" data-root-action="revoke-cars">ЗАБРАТЬ ПЛАТНЫЕ</button></div>
+            <div id="rootCars" class="root-items"></div>
+          </section>
+        </div>
 
-        <section class="root-module">
-          <div class="root-module-title"><span>EFFECTS</span><small>R.EFFECTS</small></div>
-          <div class="root-bulk-actions">
-            <button type="button" data-root-action="grant-effects">GRANT ALL EFFECTS</button>
-            <button type="button" class="danger" data-root-action="revoke-effects">REVOKE ALL EXTRA EFFECTS</button>
-          </div>
-          <div id="rootEffects" class="root-items"></div>
-        </section>
+        <div id="rootPaneEffects" class="root-pane hidden" data-root-pane="effects">
+          <section class="root-module">
+            <div class="root-module-title"><span>ЭФФЕКТЫ</span><small>ВАШ АККАУНТ</small></div>
+            <div class="root-bulk-actions"><button type="button" data-root-action="grant-effects">ВЫДАТЬ ВСЕ ЭФФЕКТЫ</button><button type="button" class="danger" data-root-action="revoke-effects">ЗАБРАТЬ ДОП. ЭФФЕКТЫ</button></div>
+            <div id="rootEffects" class="root-items"></div>
+          </section>
+        </div>
 
-        <section class="root-module">
-          <div class="root-module-title"><span>SAVE &amp; DIAGNOSTICS</span><small>READ ONLY</small></div>
-          <div id="rootDiagnostics" class="root-diagnostics"></div>
-          <div class="root-diagnostic-actions">
-            <button id="rootCopySave" type="button">COPY SAVE JSON</button>
-            <button id="rootResetProgress" class="danger" type="button">RESET PLAYER PROGRESS</button>
-          </div>
-        </section>
+        <div id="rootPaneCases" class="root-pane hidden" data-root-pane="cases">
+          <section class="root-module">
+            <div class="root-module-title"><span>КЕЙСЫ</span><small>ВАШ АККАУНТ</small></div>
+            <div id="rootCases" class="root-items root-case-items"></div>
+          </section>
+        </div>
+
+        <div id="rootPaneAccounts" class="root-pane hidden" data-root-pane="accounts">
+          <section class="root-module root-account-module">
+            <div class="root-module-title"><span>АККАУНТЫ</span><small>D1 USERS</small></div>
+            <div class="root-search-row"><input id="rootAccountSearch" class="root-input" type="search" autocomplete="off" placeholder="Поиск по @нику"><button id="rootAccountSearchBtn" type="button">НАЙТИ</button></div>
+            <div id="rootAccountList" class="root-account-list"></div>
+          </section>
+          <section id="rootAccountDetail" class="root-module root-account-detail hidden"></section>
+        </div>
+
+        <div id="rootPaneBlocked" class="root-pane hidden" data-root-pane="blocked">
+          <section class="root-module root-account-module">
+            <div class="root-module-title"><span>ЗАБЛОКИРОВАННЫЕ</span><small>ACTIVE BANS</small></div>
+            <div class="root-search-row"><input id="rootBlockedSearch" class="root-input" type="search" autocomplete="off" placeholder="Поиск заблокированного @ника"><button id="rootBlockedSearchBtn" type="button">НАЙТИ</button></div>
+            <div id="rootBlockedList" class="root-account-list"></div>
+          </section>
+          <section id="rootBlockedDetail" class="root-module root-account-detail hidden"></section>
+        </div>
       </section>
     </div>
 
@@ -633,18 +678,18 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260915-007"></script>
-  <script src="js/racing-line.js?v=20260915-007"></script>
-  <script src="js/track.js?v=20260915-007"></script>
-  <script src="js/audio.js?v=20260915-007"></script>
-  <script src="js/car.js?v=20260915-007"></script>
-  <script src="js/ai.js?v=20260915-007"></script>
-  <script src="js/garage.js?v=20260915-007"></script>
-  <script src="js/root-console.js?v=20260915-007"></script>
-  <script src="js/controls.js?v=20260915-007"></script>
-  <script src="js/network.js?v=20260915-007"></script>
-  <script src="js/account.js?v=20260915-007"></script>
-  <script src="js/online.js?v=20260915-007"></script>
-  <script src="js/game.js?v=20260915-007"></script>
+  <script src="js/content.js?v=20260915-009"></script>
+  <script src="js/racing-line.js?v=20260915-009"></script>
+  <script src="js/track.js?v=20260915-009"></script>
+  <script src="js/audio.js?v=20260915-009"></script>
+  <script src="js/car.js?v=20260915-009"></script>
+  <script src="js/ai.js?v=20260915-009"></script>
+  <script src="js/garage.js?v=20260915-009"></script>
+  <script src="js/root-console.js?v=20260915-009"></script>
+  <script src="js/controls.js?v=20260915-009"></script>
+  <script src="js/network.js?v=20260915-009"></script>
+  <script src="js/account.js?v=20260915-009"></script>
+  <script src="js/online.js?v=20260915-009"></script>
+  <script src="js/game.js?v=20260915-009"></script>
 </body>
 </html>

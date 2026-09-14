@@ -172,7 +172,7 @@
     $('rootAuth').classList.add('hidden');$('rootConsole').classList.add('hidden');state='settings';UI.settings.classList.remove('hidden');syncSettingsUI();last=performance.now();
   }
   rootConsole=new R.RootConsole({save,onChange:syncRootChange,onBack:returnFromRoot,onView:()=>{last=performance.now();}});
-  function openRoot(){if(state!=='settings')return;state='root';UI.settings.classList.add('hidden');rootConsole.open();last=performance.now();}
+  function openRoot(){if(state!=='settings'||!window.VelocityAccount?.isAdmin)return;state='root';UI.settings.classList.add('hidden');rootConsole.open();last=performance.now();}
   function openCatalog(mode){
     catalogReturn=state==='setup'?'setup':'menu';state=mode;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');$(mode).classList.remove('hidden');garage.open(mode);
   }
