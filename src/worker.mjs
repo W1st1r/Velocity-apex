@@ -1,3 +1,4 @@
+import {handleAuthRequest} from './auth.mjs';
 import {PROTOCOL_VERSION,generateRoomCode,normalizeRoomCode,validRoomCode,sanitizeNickname,validNickname,validSettings,normalizeSettings,validWager,validPlayerState,parseClientMessage,PLAYER_STATE_RATE_MS,RECONNECT_GRACE_MS,EMPTY_ROOM_TTL_MS,ROOM_TTL_MS} from './protocol.mjs';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store'}});
@@ -11,6 +12,7 @@ export default {
   async fetch(request,env){
     const url=new URL(request.url);
     if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION});
+    const authResponse=await handleAuthRequest(request,env,url);if(authResponse)return authResponse;
     if(url.pathname==='/api/rooms/create'&&request.method==='POST'){
       let body;try{body=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
       if(!validNickname(body?.name))return json({error:'INVALID_NAME'},400);

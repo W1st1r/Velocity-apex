@@ -33,7 +33,11 @@
     catch(e){return R.normalizeSave({});}
   }
   let saveWarningShown=false;
-  function writeSave(){try{localStorage.setItem(STORAGE,JSON.stringify(save));}catch(e){if(!saveWarningShown){saveWarningShown=true;toast('СОХРАНЕНИЕ НЕДОСТУПНО · проверьте хранилище браузера','bad');}}}
+  function writeSave(options={}){
+    try{localStorage.setItem(STORAGE,JSON.stringify(save));}
+    catch(e){if(!saveWarningShown){saveWarningShown=true;toast('СОХРАНЕНИЕ НЕДОСТУПНО · проверьте хранилище браузера','bad');}}
+    if(options.sync!==false)window.VelocityAccount?.queueSave?.(save);
+  }
   function claimDriftCreditsOnce(claimId,reward){
     const amount=Math.max(0,Math.floor(Number(reward)||0));if(!claimId||!amount)return false;
     try{
@@ -147,6 +151,16 @@
     const trackHint=document.querySelector('.track-hint');if(trackHint)trackHint.textContent=Object.keys(catalog).length+' ТРАСС · ЛИСТАЙТЕ →';
   }
   const garage=new R.Garage(save,()=>{writeSave();updateMenuStats();syncSetupUI();});
+  let deferredAccountSave=null;
+  function applyAccountSave(raw){
+    if(!raw||typeof raw!=='object')return;
+    if(['countdown','racing','paused','onlineCountdown','onlineRacing','onlineFinished'].includes(state)){deferredAccountSave=raw;return;}
+    const next=R.normalizeSave(raw);for(const key of Object.keys(save))delete save[key];Object.assign(save,next);
+    audio.setMuted(save.muted);controlInput.setMode(save.controlMode,{requestPermission:false});controlInput.setSensitivity(save.tiltSensitivity);
+    loadLocalSettings(localMode);loadTrack();renderTrackCards();writeSave({sync:false});updateMenuStats();syncSetupUI();syncSettingsUI();garage.syncFromSave();
+  }
+  window.addEventListener('velocity-account-save',e=>applyAccountSave(e.detail?.save));
+  if(window.VelocityAccount?.pendingSave)applyAccountSave(window.VelocityAccount.pendingSave);
   let rootConsole=null;
   function syncRootChange(reason){
     if(reason==='reset-progress'){
@@ -386,7 +400,7 @@
   }
   function restartRace(){if(raceMode==='online')return;countdownToken++;resetInput();audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.finish.classList.add('hidden');startRace();}
   function mainMenu(){
-    countdownToken++;resetInput();persistRecords();if(raceMode==='online'&&window.VelocityOnline){window.VelocityOnline.leave();resetOnlineMode();}state='menu';audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.add('hidden');UI.countdown.classList.add('hidden');UI.menu.classList.remove('hidden');UI.toasts.replaceChildren();showRaceUI(false);loadLocalSettings('normal');loadTrack();controlInput.setDriftMode(false);updateMenuStats();last=performance.now();
+    countdownToken++;resetInput();persistRecords();if(raceMode==='online'&&window.VelocityOnline){window.VelocityOnline.leave();resetOnlineMode();}state='menu';audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.add('hidden');UI.countdown.classList.add('hidden');UI.menu.classList.remove('hidden');UI.toasts.replaceChildren();showRaceUI(false);loadLocalSettings('normal');loadTrack();controlInput.setDriftMode(false);updateMenuStats();if(deferredAccountSave){const pending=deferredAccountSave;deferredAccountSave=null;applyAccountSave(pending);}last=performance.now();
   }
 
   bindTap(UI.play,openModeSelect);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>chooseLocalMode('normal'));bindTap(UI.driftMode,()=>chooseLocalMode('drift'));bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,mainMenu);bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);

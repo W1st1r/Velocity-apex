@@ -10,7 +10,7 @@
   const errText={INVALID_NAME:'Имя: 2–12 символов, без опасных спецсимволов.',INVALID_CODE:'Неверный код комнаты.',ROOM_NOT_FOUND:'Комната не существует.',ROOM_FULL:'Комната заполнена.',RACE_ALREADY_STARTED:'Гонка уже началась.',SESSION_INVALID:'Сессия истекла. Войдите в комнату снова.',WAGER_MISMATCH:'Ставка комнаты изменилась. Подтвердите её снова.',WAGER_CONFIRM_REQUIRED:'Сначала подтвердите ставку.',WAGER_NOT_CONFIRMED:'Все игроки должны подтвердить ставку.',INSUFFICIENT_CR:'Недостаточно CR для этой ставки.',TIMEOUT:'Тайм-аут подключения.',SERVER_ERROR:'Сервер недоступен.'};
   const fmtCR=value=>Math.max(0,Math.floor(Number(value)||0)).toLocaleString('ru-RU')+' CR';
   const readSave=()=>{try{return R.normalizeSave(JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'));}catch{return R.normalizeSave({});}};
-  const writeSave=s=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));return true;}catch{return false;}};
+  const writeSave=s=>{try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));window.VelocityAccount?.queueSave?.(s);return true;}catch{return false;}};
   const readLedger=()=>{try{const x=JSON.parse(localStorage.getItem(LEDGER_KEY)||'{}');return x&&typeof x==='object'&&!Array.isArray(x)?x:{};}catch{return{};}};
   const writeLedger=ledger=>{try{const keys=Object.keys(ledger);if(keys.length>40)keys.sort((a,b)=>(ledger[a]?.updatedAt||0)-(ledger[b]?.updatedAt||0)).slice(0,keys.length-30).forEach(k=>delete ledger[k]);localStorage.setItem(LEDGER_KEY,JSON.stringify(ledger));}catch{}};
   function walletBalance(){return readSave().credits;}
@@ -39,7 +39,7 @@
   function validName(v){return v.length>=2&&v.length<=12&&/^[\p{L}\p{N}_\- .]+$/u.test(v)&&!/[<>"'`\\/]/.test(v);}
   function message(text,kind=''){els.message.textContent=text||'';els.message.className='online-message '+kind;}
   function show(which){for(const el of [els.modeSelect,els.landing,els.create,els.join,els.lobby])el.classList.add('hidden');which.classList.remove('hidden');state.screen=which.id;els.root.dataset.view=which.id;if(els.panel)els.panel.scrollTop=0;}
-  function open(){state.active=true;els.root.classList.remove('hidden');$('menu').classList.add('hidden');show(els.modeSelect);message('');$('onlineRetry').classList.add('hidden');if(navigator.onLine===false){message('НЕТ СОЕДИНЕНИЯ С СЕРВЕРОМ','bad');$('onlineRetry').classList.remove('hidden');}let saved='';try{saved=localStorage.getItem('velocityApex.onlineName')||'';}catch{}if(saved)els.name.value=saved;}
+  function open(){state.active=true;els.root.classList.remove('hidden');$('menu').classList.add('hidden');show(els.modeSelect);message('');$('onlineRetry').classList.add('hidden');if(navigator.onLine===false){message('НЕТ СОЕДИНЕНИЯ С СЕРВЕРОМ','bad');$('onlineRetry').classList.remove('hidden');}let saved='';try{saved=localStorage.getItem('velocityApex.onlineName')||'';}catch{}if(saved)els.name.value=saved;else if(window.VelocityAccount?.user?.displayName)els.name.value=window.VelocityAccount.user.displayName;}
   function close(){refundLockedBeforeLeave();els.root.classList.add('hidden');state.active=false;client.leave();state.room=null;state.playerId=null;$('menu').classList.remove('hidden');}
   function saveName(){const n=cleanName();if(!validName(n)){message(errText.INVALID_NAME,'bad');return null;}try{localStorage.setItem('velocityApex.onlineName',n);}catch{}return n;}
   function loadout(){const s=readSave();return{liveryId:s.selectedLivery,effectId:s.selectedEffect};}

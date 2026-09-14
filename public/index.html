@@ -42,6 +42,7 @@
         <div class="menu-action-row">
           <button id="shopBtn" class="secondary-btn shop-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg><span>МАГАЗИН</span><strong id="menuCredits">200 CR</strong></button>
           <button id="garageBtn" class="secondary-btn garage-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg><span>ГАРАЖ</span></button>
+          <button id="accountBtn" class="secondary-btn account-menu-btn" type="button"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></button>
           <button id="settingsBtn" class="secondary-btn settings-menu-btn" type="button">НАСТРОЙКИ</button>
         </div>
         <div class="menu-stats" aria-label="Статистика игрока">
@@ -51,6 +52,41 @@
         </div>
         <button id="menuMute" class="sound-btn" type="button" aria-label="Переключить звук"><span class="sound-dot" aria-hidden="true"></span><strong>SOUND ON</strong></button>
       </div>
+    </div>
+
+
+    <div id="account" class="overlay account-screen hidden" aria-hidden="true">
+      <section class="account-card glass enter-panel" aria-labelledby="accountTitle">
+        <header class="account-header">
+          <div><div class="eyebrow">VELOCITY APEX / CLOUD PROFILE</div><h2 id="accountTitle">АККАУНТ</h2></div>
+          <button id="accountCloseBtn" class="account-close" type="button" aria-label="Закрыть">×</button>
+        </header>
+
+        <div id="accountGuestView">
+          <div class="account-tabs" role="tablist" aria-label="Авторизация">
+            <button id="accountLoginTab" class="active" type="button" role="tab" aria-selected="true">ВХОД</button>
+            <button id="accountRegisterTab" type="button" role="tab" aria-selected="false">РЕГИСТРАЦИЯ</button>
+          </div>
+          <form id="accountForm" class="account-form" autocomplete="on">
+            <label id="accountDisplayNameWrap" class="account-field hidden"><span>ИМЯ ИГРОКА</span><input id="accountDisplayName" maxlength="24" autocomplete="nickname" placeholder="Например: Max" /></label>
+            <label class="account-field"><span>ЛОГИН</span><input id="accountUsername" maxlength="24" autocapitalize="none" autocomplete="username" spellcheck="false" placeholder="3–24: a-z, 0-9, _" /></label>
+            <label class="account-field"><span>ПАРОЛЬ</span><input id="accountPassword" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Минимум 8 символов" /></label>
+            <label id="accountConfirmWrap" class="account-field hidden"><span>ПОВТОРИТЕ ПАРОЛЬ</span><input id="accountPasswordConfirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Повторите пароль" /></label>
+            <div id="accountMessage" class="account-message" aria-live="polite"></div>
+            <button id="accountSubmitBtn" class="primary-btn" type="submit">ВОЙТИ</button>
+          </form>
+          <p class="account-note">После регистрации текущий прогресс этого браузера будет привязан к аккаунту. На других устройствах прогресс загрузится из Cloudflare D1.</p>
+        </div>
+
+        <div id="accountProfileView" class="account-profile hidden">
+          <div class="account-profile-badge"><span id="accountAvatar">VA</span><div><small>CLOUD PROFILE</small><strong id="accountDisplayNameView">PLAYER</strong><em id="accountUsernameView">@player</em></div></div>
+          <div class="account-cloud-state"><span><i></i>СЕССИЯ АКТИВНА</span><strong id="accountSyncStatus">СИНХРОНИЗИРОВАНО</strong></div>
+          <div class="account-feature-grid"><div><small>ПРОГРЕСС</small><strong>В ОБЛАКЕ</strong></div><div><small>СЕССИЯ</small><strong>30 ДНЕЙ</strong></div><div><small>УСТРОЙСТВА</small><strong>СИНХРОНИЗАЦИЯ</strong></div></div>
+          <p class="account-note">CR, гараж, рекорды и настройки автоматически синхронизируются с аккаунтом. Локальное сохранение остаётся резервной копией для PWA.</p>
+          <div id="accountProfileMessage" class="account-message" aria-live="polite"></div>
+          <button id="accountLogoutBtn" class="secondary-btn account-logout" type="button">ВЫЙТИ ИЗ АККАУНТА</button>
+        </div>
+      </section>
     </div>
 
     <div id="localMode" class="overlay local-mode-screen hidden">
@@ -564,6 +600,7 @@
   <script src="js/root-console.js"></script>
   <script src="js/controls.js"></script>
   <script src="js/network.js"></script>
+  <script src="js/account.js"></script>
   <script src="js/online.js"></script>
   <script src="js/game.js"></script>
 </body>
