@@ -144,7 +144,80 @@
       this.gripDisturbance=Math.max(this.gripDisturbance||0,clamp(strength,0,1));
     }
 
+    _updateDrift(dt,input,track){
+      const requestedSteer=clamp(input.steer||0,-1,1),throttle=clamp(input.throttle||0,0,1),brake=clamp(input.brake||0,0,1),handbrake=clamp(input.handbrake||0,0,1);
+      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*18));
+      this.effectTime+=dt;this.gripDisturbance=Math.max(0,(this.gripDisturbance||0)-dt*1.7);
+      const steer=this.steerInput;this.steerVisual+=(steer-this.steerVisual)*Math.min(1,dt*12);this.throttleVisual=throttle;this.brakeVisual=Math.max(brake,handbrake*.42);
+
+      const nearest=track.nearest(this.x,this.y,this.trackIndex);this.trackIndex=nearest.index;
+      const roadHalf=track.roadWidth*.5,surfaceExtent=this._surfaceLateralExtent(nearest.nx,nearest.ny);
+      const surfaceInfo=track.surfaceAtOffset?track.surfaceAtOffset(nearest.signed,surfaceExtent):{type:Math.abs(nearest.signed)<roadHalf+4?'asphalt':'offroad'};
+      this.surface=surfaceInfo.type;this.onRoad=this.surface!=='offroad';
+      this._surfaceDrag=this.surface==='offroad'?(track.theme.drag||1):(this.surface==='shoulder'?1.08:1);
+      if(this.surface==='shoulder')this.controlledShoulderTime+=dt;
+      else if(this.surface==='offroad'){this.offroadTime+=dt;this.trueOffroadTime+=dt;this.offroadThisLap=true;}
+
+      let mag=Math.hypot(this.vx,this.vy),speedRatio=clamp(mag/Math.max(1,this.maxSpeed),0,1.12);
+      const hx0=Math.cos(this.angle),hy0=Math.sin(this.angle),rx0=-hy0,ry0=hx0;
+      let longitudinal=this.vx*hx0+this.vy*hy0,lateral=this.vx*rx0+this.vy*ry0;
+      const velocityAngle=mag>8?Math.atan2(this.vy,this.vx):this.angle,slip=angleWrap(velocityAngle-this.angle),absSlip=Math.abs(slip);
+
+      // Drift steering deliberately has slower yaw response than the race tyre model.
+      // Handbrake unlocks additional yaw only while the car is moving, while the
+      // slip-angle self-align term prevents effortless 180-degree spins.
+      const rolling=clamp(mag/62,0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55);
+      let requestedYaw=steer*this.turnRate*(.25+.53*rolling)*(1+.22*handbrake)*surfaceTurn;
+      const alignRate=(handbrake>.05?1.05:2.65)+(absSlip>.68?2.2:0);
+      requestedYaw+=slip*alignRate;
+      const yawCap=(1.20+.42*rolling+.24*handbrake)*surfaceTurn;
+      const targetYaw=clamp(requestedYaw,-yawCap,yawCap),yawResponse=handbrake>.05?8.5:10.5;
+      this.yawRate=(this.yawRate||0)+(targetYaw-(this.yawRate||0))*(1-Math.exp(-dt*yawResponse));
+      if(Math.abs(steer)<.02&&handbrake<.02)this.yawRate*=Math.exp(-dt*2.4);
+      this.angle=angleWrap(this.angle+this.yawRate*dt);
+
+      const hx=Math.cos(this.angle),hy=Math.sin(this.angle),rx=-hy,ry=hx;
+      longitudinal=this.vx*hx+this.vy*hy;lateral=this.vx*rx+this.vy*ry;
+      const forwardRatio=clamp(Math.max(0,longitudinal)/Math.max(1,this.maxSpeed),0,1),torqueCurve=Math.max(.50,1-.50*Math.pow(forwardRatio,1.35));
+      const traction=this.surface==='asphalt'?.86:(this.surface==='shoulder'?.74:.22/Math.max(.7,track.theme.drag||1));
+      longitudinal+=this.accel*throttle*torqueCurve*traction*dt;
+      if(brake>0){longitudinal=moveToward(longitudinal,0,this.brakePower*.72*brake*dt);lateral=moveToward(lateral,0,this.brakePower*.045*brake*dt);}
+      if(handbrake>0&&mag>38)longitudinal=moveToward(longitudinal,0,(42+mag*.055)*handbrake*dt);
+
+      const absLong=Math.abs(longitudinal);let dragDecel=2.1+.00029*absLong*absLong;
+      if(this.surface==='shoulder')dragDecel+=3.5+.00010*mag*mag;else if(this.surface==='offroad')dragDecel+=(20+.00078*mag*mag)*(track.theme.drag||1);
+      longitudinal=moveToward(longitudinal,0,dragDecel*dt);
+
+      // Lower lateral relaxation creates a controllable slip window. Counter-steer,
+      // throttle and handbrake can sustain it, but grip ramps up outside ~45 degrees
+      // so the car naturally catches instead of feeling like it is on ice.
+      const driftIntent=clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
+      let gripRate=this.surface==='asphalt'?(7.8-4.9*driftIntent):(this.surface==='shoulder'?5.2:1.8/Math.max(.75,track.theme.drag||1));
+      gripRate*=1-.30*(this.gripDisturbance||0);
+      const currentSlip=Math.abs(Math.atan2(lateral,Math.abs(longitudinal)+18));
+      if(currentSlip>.76)gripRate+=8*(currentSlip-.76)/.55;
+      lateral*=Math.exp(-Math.max(1.15,gripRate)*dt);
+      const scrub=(this.surface==='asphalt'?2.2:(this.surface==='shoulder'?3.4:5.5))*(.25+currentSlip*currentSlip*2.8);
+      longitudinal=moveToward(longitudinal,0,scrub*dt);
+
+      this.vx=hx*longitudinal+rx*lateral;this.vy=hy*longitudinal+ry*lateral;mag=Math.hypot(this.vx,this.vy);
+      if(mag>this.maxSpeed){const sc=this.maxSpeed/mag;this.vx*=sc;this.vy*=sc;mag=this.maxSpeed;}
+      this.x+=this.vx*dt;this.y+=this.vy*dt;this.speed=mag;
+
+      const after=track.nearest(this.x,this.y,this.trackIndex);this.trackIndex=after.index;
+      const afterExtent=this._lateralExtent(after.nx,after.ny),barrier=roadHalf+(track.barrierMargin||20);
+      const centerLimit=track.barrierCenterLimit?track.barrierCenterLimit(afterExtent):Math.max(8,barrier-afterExtent-1.5);
+      let impact=0;
+      if(Math.abs(after.signed)>centerLimit){
+        const side=Math.sign(after.signed)||1,target=centerLimit*side,excess=after.signed-target;this.x-=after.nx*excess;this.y-=after.ny*excess;
+        const vn=this.vx*after.nx+this.vy*after.ny;if(vn*side>0){const hit=Math.abs(vn),restitution=.08;this.vx-=after.nx*vn*(1+restitution);this.vy-=after.ny*vn*(1+restitution);const loss=.94-.30*clamp(hit/180,0,1);this.vx*=loss;this.vy*=loss;impact=Math.min(1,hit/125);this.markImpact(.45+impact*.5);}
+        this.collisionThisLap=true;this.lastImpact=impact;this.speed=Math.hypot(this.vx,this.vy);
+      }else this.lastImpact=0;
+      this._updateRaceProgress(after);return{nearest:after,impact};
+    }
+
     update(dt,input,track){
+      if(input&&input.drift)return this._updateDrift(dt,input,track);
       const requestedSteer=clamp(input.steer||0,-1,1);
       this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*(this.player?22:26)));
       this.effectTime+=dt;

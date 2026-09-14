@@ -26,12 +26,12 @@ assert.ok(game.includes("document.addEventListener('selectionchange',clearProtec
 assert.ok(game.includes('selection.removeAllRanges()'), 'protected selection must be cleared');
 assert.ok(game.includes("editableSelector='input,textarea,select,[contenteditable=\"true\"]'"), 'editable controls exemption missing');
 assert.ok(controls.includes("['selectstart','dragstart','contextmenu','dblclick','gesturestart']"), 'race-control iOS gesture guard missing');
-for(const button of ['leftBtn','rightBtn','gasBtn','brakeBtn'])
+for(const button of ['leftBtn','rightBtn','gasBtn','brakeBtn','handbrakeBtn'])
   assert.ok(controls.includes(`this._hardenRaceButton(this.${button})`),`iOS race-control hardening missing for ${button}`);
 for(const selector of ['.arrow-control *',' .gas *',' .brake *'])
   assert.ok(css.includes(selector.trim()),`critical control CSS hardening missing: ${selector.trim()}`);
 assert.ok(css.includes('.arrow-control,\n.gas,\n.brake {')&&css.includes('touch-action:none !important;'), 'arrows/GAS/BRAKE must share touch-action:none hardening');
 assert.ok(online.includes('navigator.clipboard.writeText'), 'ONLINE room-code programmatic copy must remain intact');
-for(const id of ['leftBtn','rightBtn','gasBtn','brakeBtn','steeringWheel','pauseBtn','continueBtn','onlineCopyCode','onlineRoomCode'])
+for(const id of ['leftBtn','rightBtn','gasBtn','brakeBtn','handbrakeBtn','steeringWheel','pauseBtn','continueBtn','onlineCopyCode','onlineRoomCode'])
   assert.ok(html.includes(`id="${id}"`),`missing protected UI element ${id}`);
 console.log('interaction_guard_smoke: OK');

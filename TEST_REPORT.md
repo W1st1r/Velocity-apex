@@ -1,6 +1,6 @@
 # Velocity Apex 2 — Validation Report
 
-Date: 2026-09-13
+Date: 2026-09-14
 
 ## Scope
 
@@ -30,6 +30,13 @@ AI braking horizon, racing-line speed envelopes, look-ahead, traffic horizon and
 ## UI / iPhone landscape
 
 Menu and Online panels now use a compact premium graphite/teal treatment with a clearer primary-action hierarchy, subtle highlights, controlled lime glow, modern fields/selects/toggles, dedicated connection pill, richer room-code card, player status badges, separated Host Settings, copy feedback, pressed/focus states and 120–180 ms micro-transitions. Compact landscape rules preserve the same layout hierarchy down to 375–430 px viewport heights, retain safe-area insets and respect `prefers-reduced-motion`.
+
+
+## Drift mode update
+
+Local **ИГРАТЬ РЯДОМ** now branches into **ОБЫЧНЫЙ** and **ДРИФТ**. The normal catalog/physics/reward path remains unchanged. Drift adds `SIERRA FLOW` (10.4 km) and `MIDNIGHT SWITCHBACKS` (11.8 km), an iPhone multitouch handbrake, separate slip/yaw tuning, smoke/skid feedback, forward-progress-gated drift score/combo, independent bot/difficulty/track save fields, and capped score contribution to CR rewards.
+
+`tests/drift_smoke.js` validates both map lengths, catalog isolation, handbrake slip/recovery, AI completion on all four difficulties, reward scaling/capping, persisted drift settings and the anti-stationary-farm scoring gate. Both drift routes completed in the deterministic AI check with zero barrier impacts.
 
 ## Automated validation
 

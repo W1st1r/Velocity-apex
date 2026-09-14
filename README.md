@@ -21,7 +21,7 @@ On iPhone, use landscape orientation. For Home Screen installation, deploy over 
 
 The main menu now has two primary choices:
 
-- **ИГРАТЬ РЯДОМ** — the existing offline race setup with bots, difficulty, 3/5/7/10/15 laps and all existing controls/economy.
+- **ИГРАТЬ РЯДОМ** — first opens **ОБЫЧНЫЙ / ДРИФТ**. ОБЫЧНЫЙ keeps the existing offline race setup, physics, tracks, bots, 3/5/7/10/15 laps and economy unchanged. ДРИФТ uses two exclusive long routes, an independent handbrake/drift physics path, drift score/combo and its own balanced CR reward calculation.
 - **ОНЛАЙН** — room creation/join, Lobby, READY, synchronized countdown and multiplayer race.
 
 Shop, Garage and Settings remain available from the main menu. Shop is purchase-only; Garage shows only owned cars/effects and is the place to select the active loadout. The existing save key stays exactly `velocityApex.v1`; online nickname is stored separately under `velocityApex.onlineName` so legacy saves are not cleared or replaced.
@@ -83,6 +83,7 @@ Control mode is stored in the existing save and works in both modes:
 - **ARROWS** — touch arrows plus independent GAS/BRAKE; desktop A/D/W/S and arrow keys.
 - **TILT** — DeviceOrientation analog steering with iOS permission flow.
 - **WHEEL** — analog virtual wheel with independent GAS/BRAKE.
+- **HANDBRAKE** — appears only in local ДРИФТ mode and supports independent multitouch alongside steering/GAS/BRAKE.
 - `P` / `Escape` — pause; in Online this opens only a local menu.
 
 ## Formula-style physics and AI

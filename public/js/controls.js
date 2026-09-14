@@ -12,15 +12,15 @@
       this.onModeChange=typeof opts.onModeChange==='function'?opts.onModeChange:()=>{};
       this.onSensitivityChange=typeof opts.onSensitivityChange==='function'?opts.onSensitivityChange:()=>{};
       this.onNotice=typeof opts.onNotice==='function'?opts.onNotice:()=>{};
-      this.active=false;this.left=false;this.right=false;this.gas=false;this.brake=false;
+      this.active=false;this.left=false;this.right=false;this.gas=false;this.brake=false;this.handbrake=false;this.driftMode=false;
       this.steer=0;this.wheelTarget=0;this.tiltValue=0;this.tiltNeutral=null;this.tiltReady=false;this.tiltListening=false;
       this.wheelPointer=null;this.wheelStartAngle=0;this.wheelStartValue=0;
       this.controls=document.getElementById('controls');this.leftBtn=document.getElementById('leftBtn');this.rightBtn=document.getElementById('rightBtn');
-      this.gasBtn=document.getElementById('gasBtn');this.brakeBtn=document.getElementById('brakeBtn');this.wheel=document.getElementById('steeringWheel');
+      this.gasBtn=document.getElementById('gasBtn');this.brakeBtn=document.getElementById('brakeBtn');this.handbrakeBtn=document.getElementById('handbrakeBtn');this.wheel=document.getElementById('steeringWheel');
       this._orientationHandler=e=>this._onOrientation(e);this._orientationChange=()=>{this.tiltNeutral=null;this.tiltValue=0;};
-      this._hardenRaceButton(this.leftBtn);this._hardenRaceButton(this.rightBtn);this._hardenRaceButton(this.gasBtn);this._hardenRaceButton(this.brakeBtn);
+      this._hardenRaceButton(this.leftBtn);this._hardenRaceButton(this.rightBtn);this._hardenRaceButton(this.gasBtn);this._hardenRaceButton(this.brakeBtn);this._hardenRaceButton(this.handbrakeBtn);
       this._bindHold(this.leftBtn,'left',()=>this.mode==='arrows');this._bindHold(this.rightBtn,'right',()=>this.mode==='arrows');
-      this._bindHold(this.gasBtn,'gas');this._bindHold(this.brakeBtn,'brake');this._bindWheel();
+      this._bindHold(this.gasBtn,'gas');this._bindHold(this.brakeBtn,'brake');this._bindHold(this.handbrakeBtn,'handbrake',()=>this.driftMode);this._bindWheel();
       addEventListener('orientationchange',this._orientationChange,{passive:true});
       if(screen.orientation&&screen.orientation.addEventListener)screen.orientation.addEventListener('change',this._orientationChange);
       this.syncUI();
@@ -134,13 +134,14 @@
       if(this.wheel)this.wheel.setAttribute('aria-hidden',this.mode==='wheel'?'false':'true');
     }
 
+    setDriftMode(active){this.driftMode=!!active;if(!this.driftMode)this.handbrake=false;if(this.controls)this.controls.dataset.raceMode=this.driftMode?'drift':'normal';}
     setActive(active){this.active=!!active;if(!this.active)this.reset();}
-    reset(){this.left=this.right=this.gas=this.brake=false;this.wheelPointer=null;this.wheelTarget=0;this.tiltValue=0;this.steer=0;this._renderWheel();}
+    reset(){this.left=this.right=this.gas=this.brake=this.handbrake=false;this.wheelPointer=null;this.wheelTarget=0;this.tiltValue=0;this.steer=0;this._renderWheel();}
     update(dt){
       let target=0;if(this.active){if(this.mode==='arrows')target=(this.right?1:0)-(this.left?1:0);else if(this.mode==='wheel')target=this.wheelTarget;else if(this.mode==='tilt')target=this.tiltValue;}
       const rate=this.mode==='tilt'?11:this.mode==='wheel'?18:26;this.steer+=(target-this.steer)*(1-Math.exp(-Math.max(0,dt)*rate));if(Math.abs(this.steer)<.002&&target===0)this.steer=0;
     }
-    getControl(){return {steer:clamp(this.steer,-1,1),throttle:this.active&&this.gas?1:0,brake:this.active&&this.brake?1:0};}
+    getControl(){return {steer:clamp(this.steer,-1,1),throttle:this.active&&this.gas?1:0,brake:this.active&&this.brake?1:0,handbrake:this.active&&this.driftMode&&this.handbrake?1:0};}
   }
 
   R.CONTROL_MODES=MODES;R.TILT_SENSITIVITY_LABELS={low:'НИЗКАЯ',medium:'СРЕДНЯЯ',high:'ВЫСОКАЯ'};R.InputController=InputController;

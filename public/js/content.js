@@ -30,6 +30,18 @@
       scenery:{grandstands:[[.008,-1,1.18,1],[.18,1,.78,1],[.61,-1,.76,1]],spectators:[[.11,1],[.43,-1],[.76,1]],pitSide:-1},
       theme:{kind:'aurora',ground:'#103f43',road:'#30383b',curb:'#80f0df',barrier:'#d7e7e4',accent:'#9bff62',surface:'grass',drag:1.08,dust:'#8dbbb3'}}
   };
+  // Drift-only events live in a separate catalog so the existing Solo/Online
+  // track lists and their saved settings remain byte-for-byte compatible.
+  R.DRIFT_TRACKS={
+    sierraFlow:{id:'sierraFlow',name:'SIERRA FLOW',type:'DRIFT / MOUNTAIN',description:'10.4 км · длинные дуги, S-связки и техничные шпильки',targetLength:10400,roadWidth:244,curbWidth:11,barrierMargin:42,
+      points:points([[-1810,-420],[-1650,-790],[-1320,-1030],[-930,-1080],[-620,-870],[-365,-570],[-40,-760],[310,-1040],[720,-1090],[1090,-930],[1420,-650],[1640,-315],[1650,55],[1430,330],[1190,470],[1420,735],[1210,1010],[800,1120],[390,1025],[110,790],[-205,1000],[-610,965],[-930,720],[-1240,850],[-1540,650],[-1740,340],[-1570,65],[-1830,-170]]),
+      scenery:{grandstands:[[.01,1,.72,1],[.52,-1,.58,0]],spectators:[[.20,-1],[.67,1]],pitSide:1},
+      theme:{kind:'alpine',ground:'#344d48',road:'#343b3e',curb:'#c8d9d5',barrier:'#eef5f2',accent:'#8dff49',surface:'grass',drag:1.08,dust:'#aec8bc'}},
+    midnightSwitchbacks:{id:'midnightSwitchbacks',name:'MIDNIGHT SWITCHBACKS',type:'DRIFT / NIGHT',description:'11.8 км · скоростные перекладки, затяжные дуги и hairpin-секции',targetLength:11800,roadWidth:238,curbWidth:10,barrierMargin:42,
+      points:points([[-1910,-520],[-1530,-835],[-1110,-920],[-760,-760],[-505,-490],[-215,-690],[120,-970],[520,-1030],[900,-870],[1170,-590],[1510,-720],[1770,-455],[1850,-80],[1680,230],[1350,360],[1580,650],[1390,945],[1030,1080],[650,1015],[375,770],[85,1005],[-295,1060],[-640,900],[-825,620],[-1160,790],[-1515,675],[-1760,410],[-1640,120],[-1910,-105],[-1710,-315]]),
+      scenery:{grandstands:[[.012,-1,.78,1],[.45,1,.62,0]],spectators:[[.28,1],[.73,-1]],pitSide:-1},
+      theme:{kind:'neon',ground:'#101a2b',road:'#252c3a',curb:'#36dff2',barrier:'#8866ec',accent:'#b06cff',surface:'runoff',drag:.68,dust:'#819bb7'}}
+  };
   R.CAR_CATEGORY_ORDER=['all','basic','sport','premium','rare','legendary','lux'];
   R.CAR_CATEGORIES={
     all:{id:'all',label:'ВСЕ',className:'rarity-all',color:'#DDE9E2'},
@@ -226,10 +238,11 @@
     const ownedLiveries=own(d.ownedLiveries,R.LIVERIES,'apexLime'),ownedEffects=own(d.ownedEffects,R.EFFECTS,'standard');
     const controlMode=['arrows','tilt','wheel'].includes(d.controlMode)?d.controlMode:'arrows';
     const tiltSensitivity=['low','medium','high'].includes(d.tiltSensitivity)?d.tiltSensitivity:'medium';
-    return {saveVersion:5,bestScore:safeNumber(d.bestScore),bestLap:safeNumber(d.bestLap),maxLaps:Math.floor(safeNumber(d.maxLaps)),muted:!!d.muted,
+    return {saveVersion:5,bestScore:safeNumber(d.bestScore),bestLap:safeNumber(d.bestLap),bestDriftScore:Math.floor(safeNumber(d.bestDriftScore)),maxLaps:Math.floor(safeNumber(d.maxLaps)),muted:!!d.muted,
       botCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.botCount,7)))),raceLaps:[3,5,7,10,15].includes(d.raceLaps)?d.raceLaps:5,
-      difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',controlMode,tiltSensitivity,
-      credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,
+      difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',
+      driftBotCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.driftBotCount,d.botCount??7)))),driftDifficulty:has(R.DIFFICULTY_LABELS,d.driftDifficulty)?d.driftDifficulty:'medium',driftTrackId:has(R.DRIFT_TRACKS,d.driftTrackId)?d.driftTrackId:'sierraFlow',
+      controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,
       selectedLivery:ownedLiveries.includes(d.selectedLivery)?d.selectedLivery:'apexLime',selectedEffect:ownedEffects.includes(d.selectedEffect)?d.selectedEffect:'standard'};
   };
   R.shopAction=function(save,kind,id){
@@ -271,5 +284,23 @@
     const gridReward=safeBots*4;
     const placementReward=safeLaps*30*rankFactor*(.75+safeBots/20);
     return Math.max(1,Math.round((lapReward+gridReward+placementReward)*difficultyMultiplier));
+  };
+  R.driftReward=function(settings={},place=1,driftScore=0,trackLength=10000){
+    const cfg=settings&&typeof settings==='object'?settings:{};
+    const rawBots=Number(cfg.bots),rawPlace=Number(place),rawScore=Number(driftScore),rawLength=Number(trackLength);
+    const safeBots=Math.max(1,Math.min(13,Number.isFinite(rawBots)?Math.round(rawBots):7));
+    const safePlace=Math.max(1,Math.min(safeBots+1,Number.isFinite(rawPlace)?Math.round(rawPlace):safeBots+1));
+    const safeScore=Math.max(0,Number.isFinite(rawScore)?rawScore:0),safeLength=Math.max(8000,Math.min(14000,Number.isFinite(rawLength)?rawLength:10000));
+    const rankFactor=(safeBots+1-safePlace)/safeBots,lengthFactor=safeLength/10000;
+    const difficultyMultiplier={easy:.9,medium:1,hard:1.15,extreme:1.35}[cfg.difficulty]||1;
+    // Kept close to the existing race economy: an average medium drift run lands
+    // around a normal event payout, while a clean high-score win earns a premium.
+    const completionReward=78+48*lengthFactor,gridReward=safeBots*3;
+    const placementReward=80*rankFactor*(.75+safeBots/24);
+    // Score contribution is deliberately capped: completing the route and racing well
+    // matter more than farming a single corner. The runtime scorer also requires
+    // forward track progress, so stationary donuts cannot generate this bonus.
+    const scoreReward=Math.min(95,safeScore/90);
+    return Math.max(1,Math.round((completionReward+gridReward+placementReward+scoreReward)*difficultyMultiplier));
   };
 })();

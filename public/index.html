@@ -53,6 +53,23 @@
       </div>
     </div>
 
+    <div id="localMode" class="overlay local-mode-screen hidden">
+      <section class="local-mode-card glass enter-panel" aria-labelledby="localModeTitle">
+        <div class="eyebrow">VELOCITY APEX / SOLO</div>
+        <h2 id="localModeTitle">ВЫБЕРИТЕ РЕЖИМ</h2>
+        <p class="local-mode-lead">Обычная гонка сохраняет прежнюю механику. Drift — отдельные трассы, ручник и очки за контролируемый занос.</p>
+        <div class="local-mode-grid">
+          <button id="normalModeBtn" class="local-mode-choice normal-choice" type="button">
+            <span class="mode-index">01</span><strong>ОБЫЧНЫЙ</strong><small>Текущие трассы · прежняя физика · стандартные выплаты</small><b aria-hidden="true">›</b>
+          </button>
+          <button id="driftModeBtn" class="local-mode-choice drift-choice" type="button">
+            <span class="mode-index">02</span><strong>ДРИФТ</strong><small>2 длинные карты · ручник · Drift Score / Combo</small><b aria-hidden="true">›</b>
+          </button>
+        </div>
+        <button id="localModeBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button>
+      </section>
+    </div>
+
     <div id="online" class="overlay online-screen hidden" data-view="onlineLanding">
       <section id="onlinePanel" class="online-panel glass enter-panel" aria-labelledby="onlineTitle">
         <header class="online-header">
@@ -149,10 +166,10 @@
       <section class="setup-card glass enter-panel" aria-labelledby="setupTitle">
         <header class="setup-header">
           <div>
-            <div class="eyebrow">RACE EVENT</div>
+            <div id="setupEyebrow" class="eyebrow">RACE EVENT</div>
             <h2 id="setupTitle">НАСТРОЙКА ЗАЕЗДА</h2>
           </div>
-          <div class="event-badge"><span>VA</span><strong>01</strong></div>
+          <div class="event-badge"><span>VA</span><strong id="setupEventBadge">01</strong></div>
         </header>
 
         <div class="setup-grid">
@@ -172,7 +189,7 @@
               </div>
             </div>
 
-            <div class="option-block">
+            <div id="setupLapsBlock" class="option-block">
               <div class="section-label">КРУГИ</div>
               <div id="lapsSelector" class="segmented laps-segmented" role="group" aria-label="Количество кругов">
                 <button type="button" data-laps="3">3</button>
@@ -199,14 +216,15 @@
         <div class="event-summary" aria-label="Выбранные параметры">
           <div><span>EVENT</span><strong id="setupTrackSummary">APEX CIRCUIT</strong></div>
           <div><span>БОТЫ</span><strong id="setupBotsSummary">7</strong></div>
-          <div><span>КРУГИ</span><strong id="setupLapsSummary">5</strong></div>
+          <div id="setupLapsSummaryBlock"><span id="setupLapsSummaryLabel">КРУГИ</span><strong id="setupLapsSummary">5</strong></div>
           <div><span>СЛОЖНОСТЬ</span><strong id="setupDifficultySummary">СРЕДНЕ</strong></div>
         </div>
         <div class="reward-estimate" aria-live="polite"><span>НАГРАДА</span><strong id="setupRewardEstimate">178–343 CR</strong></div>
+        <div id="driftSetupHint" class="drift-setup-hint hidden">DRIFT SCORE начисляется только при движении вперёд по трассе — вращение на месте не приносит очков.</div>
 
         <div class="setup-actions">
           <button id="setupBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button>
-          <button id="startRaceBtn" class="primary-btn start-btn" type="button">НАЧАТЬ ГОНКУ <span aria-hidden="true">→</span></button>
+          <button id="startRaceBtn" class="primary-btn start-btn" type="button"><span id="startRaceText">НАЧАТЬ ГОНКУ</span> <span aria-hidden="true">→</span></button>
         </div>
       </section>
     </div>
@@ -376,11 +394,11 @@
         </div>
       </div>
       <div class="hud-center">
-        <div class="lap-times"><span id="lapTime">00:00.000</span><small>BEST <b id="bestLap">--:--.---</b></small></div><div id="raceNetStatus" class="race-net-status hidden" aria-live="polite">ПЕРЕПОДКЛЮЧЕНИЕ…</div>
+        <div class="lap-times"><span id="lapTime">00:00.000</span><small><span id="bestMetricLabel">BEST</span> <b id="bestLap">--:--.---</b></small></div><div id="raceNetStatus" class="race-net-status hidden" aria-live="polite">ПЕРЕПОДКЛЮЧЕНИЕ…</div>
       </div>
       <div class="hud-right">
         <div class="speed"><strong id="speedText">0</strong><span>KM/H</span></div>
-        <div class="score"><span>SCORE</span><strong id="scoreText">0</strong></div>
+        <div class="score"><span id="scoreLabel">SCORE</span><strong id="scoreText">0</strong></div>
         <button id="pauseBtn" class="pause-btn hidden" type="button" aria-label="Pause race" aria-hidden="true" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <rect x="5" y="4" width="5" height="16" rx="1.5"></rect>
@@ -405,6 +423,7 @@
         </div>
       </div>
       <div class="pedal-zone">
+        <button id="handbrakeBtn" class="control-btn handbrake" type="button" aria-label="Ручник">HANDBRAKE</button>
         <button id="brakeBtn" class="control-btn brake" type="button">BRAKE</button>
         <button id="gasBtn" class="control-btn gas" type="button">GAS</button>
       </div>
@@ -436,7 +455,7 @@
 
     <div id="finish" class="overlay finish-screen hidden">
       <section class="finish-card glass enter-panel" aria-labelledby="finishTitle">
-        <div class="finish-topline"><span class="eyebrow">OFFICIAL RESULT</span><span id="finishDifficultyBadge" class="difficulty-badge">СРЕДНЕ</span></div>
+        <div class="finish-topline"><span id="finishEyebrow" class="eyebrow">OFFICIAL RESULT</span><span id="finishDifficultyBadge" class="difficulty-badge">СРЕДНЕ</span></div>
         <div class="finish-hero">
           <div id="finishPlace" class="finish-place">1ST</div>
           <div>
@@ -446,12 +465,12 @@
         </div>
         <div class="finish-stats">
           <div><span>ПОЗИЦИЯ</span><strong id="finishPosition">1 / 8</strong></div>
-          <div><span>КРУГИ</span><strong id="finishLaps">5 / 5</strong></div>
+          <div><span id="finishLapsLabel">КРУГИ</span><strong id="finishLaps">5 / 5</strong></div>
           <div><span>ВРЕМЯ</span><strong id="finishTime">00:00.000</strong></div>
-          <div><span>ЛУЧШИЙ КРУГ</span><strong id="finishBestLap">--:--.---</strong></div>
-          <div><span>SCORE</span><strong id="finishScore">0</strong></div>
+          <div><span id="finishBestLabel">ЛУЧШИЙ КРУГ</span><strong id="finishBestLap">--:--.---</strong></div>
+          <div><span id="finishScoreLabel">SCORE</span><strong id="finishScore">0</strong></div>
         </div>
-        <div class="reward-panel"><span>RACE REWARD<strong id="finishReward">+0 CR</strong></span><span>BALANCE<strong id="finishBalance">200 CR</strong></span></div>
+        <div class="reward-panel"><span><b id="finishRewardLabel">RACE REWARD</b><strong id="finishReward">+0 CR</strong></span><span>BALANCE<strong id="finishBalance">200 CR</strong></span></div>
         <div class="finish-actions">
           <button id="finishMenuBtn" class="secondary-btn" type="button">ГЛАВНОЕ МЕНЮ</button>
           <button id="againBtn" class="primary-btn" type="button">ЕЩЁ РАЗ <span aria-hidden="true">↻</span></button>
