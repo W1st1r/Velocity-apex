@@ -110,6 +110,7 @@
               <label class="online-field online-setting-card"><span>КРУГИ</span><select id="onlineLaps" aria-label="Количество кругов"><option>3</option><option selected>5</option><option>7</option><option>10</option><option>15</option></select></label>
               <label class="online-field online-setting-card"><span>МАКС. ИГРОКОВ</span><select id="onlineMaxPlayers" aria-label="Максимум игроков"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option selected>8</option></select></label>
               <label class="online-field online-setting-card wager-setting"><span>СТАВКА / ИГРОК</span><select id="onlineWager" aria-label="Ставка CR"><option value="0">БЕЗ СТАВКИ</option><option value="100">100 CR</option><option value="250">250 CR</option><option value="500">500 CR</option><option value="1000">1 000 CR</option><option value="2500">2 500 CR</option><option value="5000">5 000 CR</option></select></label>
+              <label class="online-toggle online-setting-card"><span class="online-toggle-copy"><small>ДРИФТ</small><b>DRIFT MODE</b></span><input id="onlineDrift" type="checkbox" aria-label="Режим дрифта"><i class="online-switch" aria-hidden="true"></i></label>
               <label class="online-toggle online-setting-card"><span class="online-toggle-copy"><small>СТОЛКНОВЕНИЯ</small><b>CONTACT MODE</b></span><input id="onlineCollisions" type="checkbox" aria-label="Столкновения"><i class="online-switch" aria-hidden="true"></i></label>
             </div>
             <div class="online-action-row"><button id="onlineCreateBack" class="secondary-btn" type="button">НАЗАД</button><button id="onlineCreateConfirm" class="primary-btn" type="button">СОЗДАТЬ КОМНАТУ</button></div>
@@ -133,6 +134,7 @@
               </div>
               <div class="lobby-summary" aria-label="Параметры комнаты">
                 <div><span>ТРАССА</span><strong id="lobbyTrackName">—</strong></div>
+                <div><span>РЕЖИМ</span><strong id="lobbyModeName">RACE</strong></div>
                 <div><span>КРУГИ</span><strong id="lobbyLaps">—</strong></div>
                 <div><span>ИГРОКИ</span><strong id="onlinePlayerCount">0 / 8</strong></div>
                 <div><span>СТАВКА</span><strong id="lobbyWager">0 CR</strong></div>
@@ -151,6 +153,7 @@
                   <label><span>КРУГИ</span><select id="lobbyLapsSelect"><option>3</option><option>5</option><option>7</option><option>10</option><option>15</option></select></label>
                   <label><span>MAX</span><select id="lobbyMaxSelect"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
                   <label><span>СТАВКА</span><select id="lobbyWagerSelect"><option value="0">0 CR</option><option value="100">100</option><option value="250">250</option><option value="500">500</option><option value="1000">1K</option><option value="2500">2.5K</option><option value="5000">5K</option></select></label>
+                  <label class="host-check"><span>DRIFT</span><input id="lobbyDrift" type="checkbox" aria-label="Режим дрифта"><i class="online-switch" aria-hidden="true"></i></label>
                   <label class="host-check"><span>COLLISIONS</span><input id="lobbyCollisions" type="checkbox" aria-label="Столкновения"><i class="online-switch" aria-hidden="true"></i></label>
                 </div>
               </section>
@@ -446,8 +449,8 @@
       <section class="finish-card glass enter-panel winner">
         <div class="finish-topline"><span class="eyebrow">ONLINE RESULT</span><span class="difficulty-badge">MULTIPLAYER</span></div>
         <div class="finish-hero"><div id="onlineFinishPlace" class="finish-place">—</div><div><h2>RACE FINISHED</h2><p>VELOCITY APEX / ONLINE</p></div></div>
-        <div class="finish-stats online-finish-stats"><div><span>ПОЗИЦИЯ</span><strong id="onlineFinishPosition">—</strong></div><div><span>ВРЕМЯ</span><strong id="onlineFinishTime">—</strong></div><div><span>ЛУЧШИЙ КРУГ</span><strong id="onlineFinishBestLap">—</strong></div></div>
-        <div class="reward-panel online-wager-result"><span>СТАВКА<strong id="onlineFinishWager">0 CR</strong></span><span>ОБЩИЙ БАНК<strong id="onlineFinishPot">0 CR</strong></span><span>ВЫИГРЫШ<strong id="onlineFinishWin">0 CR</strong></span><span>БАЛАНС<strong id="onlineFinishBalance">0 CR</strong></span></div>
+        <div class="finish-stats online-finish-stats"><div><span>ПОЗИЦИЯ</span><strong id="onlineFinishPosition">—</strong></div><div><span>ВРЕМЯ</span><strong id="onlineFinishTime">—</strong></div><div><span id="onlineFinishMetricLabel">ЛУЧШИЙ КРУГ</span><strong id="onlineFinishBestLap">—</strong></div></div>
+        <div class="reward-panel online-wager-result"><span>СТАВКА<strong id="onlineFinishWager">0 CR</strong></span><span>ОБЩИЙ БАНК<strong id="onlineFinishPot">0 CR</strong></span><span>ВЫИГРЫШ<strong id="onlineFinishWin">0 CR</strong></span><span id="onlineDriftRewardWrap" class="hidden">DRIFT REWARD<strong id="onlineFinishDriftReward">0 CR</strong></span><span>БАЛАНС<strong id="onlineFinishBalance">0 CR</strong></span></div>
         <div id="onlineFinishResults" class="online-results"></div>
         <div class="finish-actions"><button id="onlineFinishMenu" class="secondary-btn" type="button">ГЛАВНОЕ МЕНЮ</button><button id="onlineFinishLobby" class="primary-btn hidden" type="button">ВЕРНУТЬСЯ В ЛОББИ</button></div>
       </section>

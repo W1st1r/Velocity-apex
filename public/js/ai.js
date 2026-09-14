@@ -21,7 +21,7 @@
       this.curbAggression=clamp(this.curbAggression+(Math.random()-.5)*this.driverVariance*2,0,1);
       this.preference=(index%3-1)*(this.difficulty==='extreme'?1.2:this.difficulty==='hard'?2.0:3.5);
       this.lane=this.preference;this.targetLane=this.lane;this.mistake=0;this.mistakeTimer=4+Math.random()*5;this.overtakeSide=index%2?1:-1;
-      this.output={steer:0,throttle:0,brake:0};this.raceTime=0;this.launchDelay=this.difficulty==='extreme'?.01:(this.difficulty==='hard'?.04:(this.difficulty==='medium'?.10:.20));this.speedProfile=null;this.profileTrack=null;this.debugAim=null;this.debugTrail=[];this._nearby=[];this._sequence={strongest:0,first:0,signChanges:0,firstSharpDistance:0};
+      this.output={steer:0,throttle:0,brake:0,handbrake:0,drift:false};this.driftMode=false;this._driftPulse=0;this._driftCooldown=0;this.raceTime=0;this.launchDelay=this.difficulty==='extreme'?.01:(this.difficulty==='hard'?.04:(this.difficulty==='medium'?.10:.20));this.speedProfile=null;this.profileTrack=null;this.debugAim=null;this.debugTrail=[];this._nearby=[];this._sequence={strongest:0,first:0,signChanges:0,firstSharpDistance:0};
     }
 
     _profile(track){
@@ -122,7 +122,7 @@
       const aimHit=track.indexAtDistance?track.indexAtDistance(c.trackIndex,look,this.lineName):{index:(c.trackIndex+Math.max(2,Math.round(look/track.spacing)))%n};
       const aimIndex=aimHit.index,baseLine=line[aimIndex]*this.lineUse+this.preference*(1-curveFactor*.80);
 
-      const traffic=this._trafficChoice(track,cars,baseLine,lateral,speed);this.targetLane=traffic.lane;
+      const traffic=this._trafficChoice(track,cars,baseLine,lateral,speed);this.targetLane=this.driftMode?traffic.lane*.42:traffic.lane;
       if(c.surface==='offroad')this.targetLane=0;
       const plannedLimit=track.lineLimits?.[this.lineName]?.max??(track.roadWidth*.5-28),targetEdge=(traffic.lead||traffic.sideBySide)?Math.max(this.edgeUse,.88+.12*this.trafficSkill):this.edgeUse;
       this.targetLane=clamp(this.targetLane,-plannedLimit*targetEdge,plannedLimit*targetEdge);
@@ -136,7 +136,7 @@
       const velocityAngle=speed>10?Math.atan2(c.vy,c.vx):c.angle,slip=angleWrap(velocityAngle-c.angle);
       let desiredYaw=2*Math.max(46,speed)*Math.sin(diff)/distance-slip*(.43+.20*this.precision);
       if(c.surface==='offroad')desiredYaw+=clamp(-lateral/(track.roadWidth*.30),-1,1)*.32;
-      out.steer=clamp(desiredYaw/Math.max(.12,c.steeringAuthority(speed,c.surface)),-1,1);
+      out.steer=clamp(desiredYaw/Math.max(.12,c.steeringAuthority(speed,c.surface)),-1,1);if(this.driftMode)out.steer=clamp(out.steer,-.82,.82);
 
       let desired=profile[c.trackIndex],sampleStep=Math.max(1,Math.round(18/track.spacing));
       for(let k=1;k<=3;k++)desired=Math.min(desired,profile[(c.trackIndex+k*sampleStep)%n]+k*(2.2+1.2*this.brakeConfidence));
@@ -179,6 +179,24 @@
       }
       if(this.raceTime<this.launchDelay&&speed<18)targetThrottle=0;
       const throttleRate=targetThrottle>out.throttle?10:18;out.throttle+=(targetThrottle-out.throttle)*(1-Math.exp(-dt*throttleRate));if(out.brake>.07)out.throttle*=Math.exp(-dt*28);
+
+      if(this.driftMode){
+        // Bots use the exact same drift physics as the player. Short handbrake pulses
+        // initiate the slide; throttle and steering then carry it through the corner.
+        this._driftPulse=Math.max(0,this._driftPulse-dt);this._driftCooldown=Math.max(0,this._driftCooldown-dt);
+        const absSlip=Math.abs(slip),entryDistance=clamp(105+speed*.24,120,205),driftCorner=cornerSeverity>.13&&seq.firstSharpDistance<entryDistance;
+        const centered=Math.abs(lateral)<track.roadWidth*.30,driftTarget=(165+82*this.pace)*(1-.18*cornerSeverity);
+        if(driftCorner&&centered&&speed>92&&absSlip<.20&&this._driftCooldown<=0){this._driftPulse=.13+.09*cornerSeverity;this._driftCooldown=.82+.52*(1-cornerSeverity);}
+        out.drift=true;out.handbrake=this._driftPulse>0&&absSlip<.70?clamp(.42+.30*cornerSeverity,0,.72):0;
+        if(c.surface==='offroad'){out.handbrake=0;out.drift=speed>48;out.brake=speed>155?Math.min(out.brake,.16):0;out.throttle=Math.max(out.throttle,speed<118?.92:.68);}
+        else{
+          out.brake*=cornerSeverity>.18?.28:.46;
+          if(speed<driftTarget)out.throttle=Math.max(out.throttle,driftCorner?.76+.14*this.aggression:.66+.18*this.aggression);
+          if(absSlip>.30&&absSlip<.78&&speed<driftTarget+24)out.throttle=Math.max(out.throttle,.74);
+          if(speed>driftTarget+16){out.handbrake=0;out.throttle=Math.min(out.throttle,.32);out.brake=Math.max(out.brake,clamp((speed-driftTarget)/180,0,.16));}
+          if(absSlip>.84){out.handbrake=0;out.throttle=Math.min(out.throttle,.48);out.steer*=.72;}
+        }
+      }else{out.drift=false;out.handbrake=0;}
       return out;
     }
   }

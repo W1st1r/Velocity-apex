@@ -16,7 +16,7 @@
     finish:$('finish'),finishCard:document.querySelector('#finish .finish-card'),finishEyebrow:$('finishEyebrow'),finishTitle:$('finishTitle'),finishPlace:$('finishPlace'),finishPosition:$('finishPosition'),finishLaps:$('finishLaps'),finishLapsLabel:$('finishLapsLabel'),finishTime:$('finishTime'),finishBestLap:$('finishBestLap'),finishBestLabel:$('finishBestLabel'),finishScore:$('finishScore'),finishScoreLabel:$('finishScoreLabel'),finishRewardLabel:$('finishRewardLabel'),finishDifficulty:$('finishDifficultyBadge'),again:$('againBtn'),finishMenu:$('finishMenuBtn')
   };
 
-  const STORAGE='velocityApex.v1';
+  const STORAGE='velocityApex.v1',DRIFT_REWARD_CLAIMS='velocityApex.driftRewardClaims.v1';
   const LAP_OPTIONS=[3,5,7,10,15];
   const DIFFICULTY_LABELS=R.DIFFICULTY_LABELS;
   const palette=[
@@ -34,6 +34,16 @@
   }
   let saveWarningShown=false;
   function writeSave(){try{localStorage.setItem(STORAGE,JSON.stringify(save));}catch(e){if(!saveWarningShown){saveWarningShown=true;toast('СОХРАНЕНИЕ НЕДОСТУПНО · проверьте хранилище браузера','bad');}}}
+  function claimDriftCreditsOnce(claimId,reward){
+    const amount=Math.max(0,Math.floor(Number(reward)||0));if(!claimId||!amount)return false;
+    try{
+      const ledger=JSON.parse(localStorage.getItem(DRIFT_REWARD_CLAIMS)||'{}');if(ledger&&ledger[claimId])return false;
+      save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+amount);writeSave();
+      const next=ledger&&typeof ledger==='object'&&!Array.isArray(ledger)?ledger:{};next[claimId]={reward:amount,at:Date.now()};
+      const keys=Object.keys(next);if(keys.length>50)keys.sort((a,b)=>(next[a]?.at||0)-(next[b]?.at||0)).slice(0,keys.length-40).forEach(k=>delete next[k]);
+      localStorage.setItem(DRIFT_REWARD_CLAIMS,JSON.stringify(next));return true;
+    }catch(e){save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+amount);writeSave();return true;}
+  }
   function fmt(ms){
     if(!ms||!isFinite(ms))return'--:--.---';
     const m=Math.floor(ms/60000),s=Math.floor(ms/1000)%60,x=Math.floor(ms%1000);
@@ -49,7 +59,7 @@
   let localMode='normal';
   const audio=new R.AudioSystem();audio.setMuted(save.muted);
   let track=new R.Track(R.TRACKS[raceSettings.trackId]);
-  let raceRewardClaimed=false,catalogReturn='menu',settingsReturn='menu',settingsNotice='',settingsNoticeKind='';
+  let raceRewardClaimed=false,currentRaceRewardKey='',modeSelectReadyAt=0,catalogReturn='menu',settingsReturn='menu',settingsNotice='',settingsNoticeKind='';
   let raceMode='offline',onlineRace=null,onlineLocalPaused=false,onlineFinishSent=false,onlineLocalFinished=false;
 
   let W=innerWidth,H=innerHeight,DPR=1,last=performance.now(),state='menu',raceTime=0,lapTime=0,raceBestLap=0,score=0,scoreCarry=0;
@@ -67,7 +77,7 @@
   let pCursor=0;
   const skid=Array.from({length:220},()=>({active:false,x1:0,y1:0,x2:0,y2:0,life:0}));let skidCursor=0,skidTick=0;
   let miniMapState=null;
-  let driftCombo=1,driftChainDistance=0,driftIdleTime=0,driftLastProgress=0,driftLastValid=false,driftPeakCombo=1;
+  let driftCombo=1,driftChainDistance=0,driftChainTime=0,driftIdleTime=0,driftLastProgress=0,driftLastValid=false,driftPeakCombo=1;
 
   function resize(){
     W=Math.max(1,innerWidth);H=Math.max(1,innerHeight);DPR=Math.min(window.devicePixelRatio||1,2);
@@ -111,7 +121,7 @@
     UI.botCount.textContent=raceSettings.bots;UI.botsInline.textContent=raceSettings.bots;UI.setupBots.textContent=raceSettings.bots;UI.setupLaps.textContent=localMode==='drift'?'1 MAP':raceSettings.laps;
     UI.setupDifficulty.textContent=DIFFICULTY_LABELS[raceSettings.difficulty];
     if(localMode==='drift'){
-      const minReward=R.driftReward(raceSettings,raceSettings.bots+1,0,track.length),maxReward=R.driftReward(raceSettings,1,9000,track.length);
+      const minReward=R.driftReward(raceSettings,raceSettings.bots+1,0,track.length),maxReward=R.driftReward(raceSettings,1,20000,track.length);
       UI.setupReward.textContent=minReward.toLocaleString('ru-RU')+'–'+maxReward.toLocaleString('ru-RU')+' CR';UI.setupEyebrow.textContent='DRIFT EVENT';UI.setupTitle.textContent='НАСТРОЙКА ДРИФТА';UI.setupEventBadge.textContent='DR';UI.setupLapsBlock.classList.add('hidden');UI.setupLapsSummaryLabel.textContent='ФОРМАТ';UI.startRaceText.textContent='НАЧАТЬ ДРИФТ';UI.driftSetupHint.classList.remove('hidden');
     }else{
       const minReward=R.raceReward(raceSettings,raceSettings.bots+1),maxReward=R.raceReward(raceSettings,1);
@@ -271,7 +281,7 @@
       const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;
       c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;
       if(!isPlayer){
-        c.ai=new R.AIController(c,i,raceSettings.difficulty);c._control=c.ai.output;
+        c.ai=new R.AIController(c,i,raceSettings.difficulty);c.ai.driftMode=localMode==='drift';c._control=c.ai.output;
         c.setLoadout('apexLime','standard');
         const paint=OFFLINE_BOT_PAINTS[botPaint++%OFFLINE_BOT_PAINTS.length];
         c.setPaintOverride({primary:paint[0],secondary:paint[1],accent:paint[1],stripe:paint[1]});
@@ -279,7 +289,7 @@
       cars.push(c);
     }
     rankBuffer=cars.slice();updateRanks();prevRank=player.rank;
-    cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftIdleTime=0;driftLastProgress=player.progress;driftLastValid=false;driftPeakCombo=1;
+    cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftChainTime=0;driftIdleTime=0;driftLastProgress=player.progress;driftLastValid=false;driftPeakCombo=1;
     UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(s=>s.active=false);updateHUD();
   }
 
@@ -291,9 +301,9 @@
       const c=new R.Car({id:pd.id,name:pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
       c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
     }
-    if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;
+    if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftChainTime=0;driftIdleTime=0;driftLastProgress=player.progress;driftLastValid=false;driftPeakCombo=1;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;
   }
-  function onlineStateFor(c,finished=false){return{x:c.x,y:c.y,vx:c.vx,vy:c.vy,angle:c.angle,speed:c.speed,yawRate:c.yawRate||0,progress:Math.max(0,Math.min(1,c.progress||0)),laps:Math.max(0,Math.min(raceSettings.laps,c.laps||0)),checkpoint:c.checkpoint||0,steer:playerControl.steer||0,throttle:finished||onlineLocalPaused?0:(playerControl.throttle||0),brake:finished||onlineLocalPaused?0:(playerControl.brake||0),finished:!!finished,liveryId:c.liveryId||'apexLime',effectId:c.effect||'standard'};}
+  function onlineStateFor(c,finished=false){return{x:c.x,y:c.y,vx:c.vx,vy:c.vy,angle:c.angle,speed:c.speed,yawRate:c.yawRate||0,progress:Math.max(0,Math.min(1,c.progress||0)),laps:Math.max(0,Math.min(raceSettings.laps,c.laps||0)),checkpoint:c.checkpoint||0,steer:playerControl.steer||0,throttle:finished||onlineLocalPaused?0:(playerControl.throttle||0),brake:finished||onlineLocalPaused?0:Math.max(playerControl.brake||0,(playerControl.handbrake||0)*.42),driftScore:localMode==='drift'?Math.floor(score):0,finished:!!finished,liveryId:c.liveryId||'apexLime',effectId:c.effect||'standard'};}
   function syncOnlineRoomCars(room){
     if(!room)return;onlineRace.room=room;for(const c of cars){const pd=room.players.find(p=>p.id===c.networkId);if(!pd)continue;c.finishPlace=pd.finishPlace||0;c.finishTime=pd.finishTime||0;if(pd.finishPlace)c.raceFinished=true;}
   }
@@ -301,11 +311,13 @@
     if(!onlineRace||!window.VelocityOnline)return;for(const c of cars){if(c===player)continue;const snap=window.VelocityOnline.sampleRemote(c.networkId);if(!snap)continue;if(!Number.isFinite(snap.x)||!Number.isFinite(snap.y)||!Number.isFinite(snap.angle))continue;c.x=snap.x;c.y=snap.y;c.vx=Number.isFinite(snap.vx)?snap.vx:0;c.vy=Number.isFinite(snap.vy)?snap.vy:0;c.angle=snap.angle;c.speed=Number.isFinite(snap.speed)?snap.speed:Math.hypot(c.vx,c.vy);c.yawRate=Number.isFinite(snap.yawRate)?snap.yawRate:0;c.progress=Math.max(0,Math.min(1,snap.progress||0));c.laps=Math.max(0,Math.min(raceSettings.laps,snap.laps||0));c.checkpoint=snap.checkpoint||0;c.steerVisual=snap.steer||0;c.throttleVisual=snap.throttle||0;c.brakeVisual=snap.brake||0;if(snap.finished)c.raceFinished=true;}
   }
   function handleOnlinePlayerLap(){
-    const lapMs=lapTime;lapTime=0;if(!raceBestLap||lapMs<raceBestLap)raceBestLap=lapMs;if(!save.bestLap||lapMs<save.bestLap){save.bestLap=lapMs;writeSave();toast('NEW BEST LAP','good');}else toast('LAP '+Math.min(player.laps,raceSettings.laps),'good');player.collisionThisLap=false;player.offroadThisLap=false;player.offroadTime=0;audio.lap(false);
+    const lapMs=lapTime;lapTime=0;
+    if(localMode==='drift'){toast('DRIFT ROUTE COMPLETE','good');player.collisionThisLap=false;player.offroadThisLap=false;player.offroadTime=0;audio.lap(false);return;}
+    if(!raceBestLap||lapMs<raceBestLap)raceBestLap=lapMs;if(!save.bestLap||lapMs<save.bestLap){save.bestLap=lapMs;writeSave();toast('NEW BEST LAP','good');}else toast('LAP '+Math.min(player.laps,raceSettings.laps),'good');player.collisionThisLap=false;player.offroadThisLap=false;player.offroadTime=0;audio.lap(false);
   }
   async function startOnlineRace(detail){
     if(!detail?.room||!detail.playerId)return;let tiltFallback=false;if(save.controlMode==='tilt')tiltFallback=!(await controlInput.prepareForRace());
-    localMode='normal';controlInput.setDriftMode(false);raceMode='online';onlineLocalPaused=false;onlineFinishSent=false;onlineLocalFinished=false;document.body.classList.add('online-race');onlineRace={room:detail.room,raceId:detail.raceId,raceStartAt:detail.raceStartAt,playerId:detail.playerId};raceSettings.trackId=detail.room.settings.trackId;raceSettings.laps=detail.room.settings.laps;loadTrack();resetInput();if(!createOnlineCars(detail.room,detail.playerId)){mainMenu();return;}if(tiltFallback)toast('НАКЛОН недоступен · включены СТРЕЛКИ','warn');state='onlineCountdown';
+    localMode=detail.room.settings?.drift?'drift':'normal';controlInput.setDriftMode(localMode==='drift');raceMode='online';onlineLocalPaused=false;onlineFinishSent=false;onlineLocalFinished=false;document.body.classList.add('online-race');onlineRace={room:detail.room,raceId:detail.raceId,raceStartAt:detail.raceStartAt,playerId:detail.playerId};raceSettings.trackId=detail.room.settings.trackId;raceSettings.laps=localMode==='drift'?1:detail.room.settings.laps;loadTrack();resetInput();if(!createOnlineCars(detail.room,detail.playerId)){mainMenu();return;}if(tiltFallback)toast('НАКЛОН недоступен · включены СТРЕЛКИ','warn');state='onlineCountdown';
     UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');$('onlineFinish').classList.add('hidden');showRaceUI(true);controlInput.setActive(false);setPauseButton(false,false);UI.countdown.classList.remove('hidden');last=performance.now();
   }
   function updateOnlineCountdown(dt){
@@ -313,10 +325,11 @@
   }
   function updateOnlineRace(dt){
     if(!onlineRace||!player||!window.VelocityOnline)return;raceTime=Math.max(0,(window.VelocityOnline.client.serverNow()-onlineRace.raceStartAt)/1000);if(!onlineLocalFinished)lapTime+=dt*1000;impactCooldown-=dt;grassSoundCooldown-=dt;skidTick-=dt;updateRemoteCars();
-    if(!onlineLocalPaused&&!onlineLocalFinished){controlInput.update(dt);const tc=controlInput.getControl(),ks=(input.right?1:0)-(input.left?1:0);playerControl.steer=ks||tc.steer;playerControl.throttle=input.gas?1:tc.throttle;playerControl.brake=input.brake?1:tc.brake;playerControl.handbrake=0;playerControl.drift=false;}else {playerControl.steer=playerControl.throttle=playerControl.brake=playerControl.handbrake=0;playerControl.drift=false;}
-    const steps=Math.min(MAX_PHYSICS_STEPS,Math.max(1,Math.ceil(dt/PHYSICS_STEP))),stepDt=dt/steps;let playerTrackImpact=0;
-    for(let step=0;step<steps&&!onlineLocalFinished;step++){const r=player.update(stepDt,playerControl,track);playerTrackImpact=Math.max(playerTrackImpact,r.impact);if(onlineRace.room.settings.collisions)resolveCarCollisions();if(player.finishedLap){handleOnlinePlayerLap();if(player.laps>=raceSettings.laps){player.laps=raceSettings.laps;player.raceFinished=true;onlineLocalFinished=true;onlineFinishSent=true;window.VelocityOnline.finish(onlineRace.raceId,onlineStateFor(player,true));break;}}}
+    if(!onlineLocalPaused&&!onlineLocalFinished){controlInput.update(dt);const tc=controlInput.getControl(),ks=(input.right?1:0)-(input.left?1:0);playerControl.steer=ks||tc.steer;playerControl.throttle=input.gas?1:tc.throttle;playerControl.brake=input.brake?1:tc.brake;playerControl.handbrake=localMode==='drift'?(input.handbrake?1:tc.handbrake):0;playerControl.drift=localMode==='drift';}else {playerControl.steer=playerControl.throttle=playerControl.brake=playerControl.handbrake=0;playerControl.drift=false;}
+    const steps=Math.min(MAX_PHYSICS_STEPS,Math.max(1,Math.ceil(dt/PHYSICS_STEP))),stepDt=dt/steps;let playerTrackImpact=0,carImpact=0;
+    for(let step=0;step<steps&&!onlineLocalFinished;step++){const r=player.update(stepDt,playerControl,track);playerTrackImpact=Math.max(playerTrackImpact,r.impact);if(onlineRace.room.settings.collisions){const hit=resolveCarCollisions();carImpact=Math.max(carImpact,hit.playerImpact||0);}if(player.finishedLap){handleOnlinePlayerLap();if(player.laps>=raceSettings.laps){player.laps=raceSettings.laps;player.raceFinished=true;onlineLocalFinished=true;onlineFinishSent=true;window.VelocityOnline.finish(onlineRace.raceId,onlineStateFor(player,true));break;}}}
     if(playerTrackImpact>.05&&impactCooldown<=0){impactCooldown=.16;shake=Math.max(shake,3+playerTrackImpact*10);audio.collision(playerTrackImpact);}
+    if(localMode==='drift'&&!onlineLocalFinished){updateDriftScore(dt,playerTrackImpact>.05||carImpact>3);save.bestDriftScore=Math.max(save.bestDriftScore||0,Math.floor(score));}
     updateEffects(dt);updateRanks();updateCamera(dt);updateHUD();window.VelocityOnline.sendState(onlineRace.raceId,onlineStateFor(player,onlineLocalFinished));audio.updateEngine(player.speed,onlineLocalPaused||onlineLocalFinished?0:playerControl.throttle,true);
   }
   function resetOnlineMode(){raceMode='offline';onlineRace=null;onlineLocalPaused=false;onlineFinishSent=false;onlineLocalFinished=false;document.body.classList.remove('online-race');$('onlineFinish').classList.add('hidden');$('raceNetStatus').classList.add('hidden');UI.countdown.classList.add('hidden');showRaceUI(false);resetInput();}
@@ -324,17 +337,18 @@
   window.addEventListener('velocity-online-room',e=>{if(!onlineRace||!e.detail?.room)return;const room=e.detail.room;onlineRace.room=room;const ids=new Set(room.players.map(p=>p.id));cars=cars.filter(c=>c===player||ids.has(c.networkId));rankBuffer=cars.slice();syncOnlineRoomCars(room);});
   window.addEventListener('velocity-online-network-status',e=>{const el=$('raceNetStatus');if(raceMode!=='online'||!onlineRace||e.detail?.status==='connected'){el.classList.add('hidden');return;}const s=e.detail?.status;el.dataset.status=s||'';el.textContent=s==='disconnected'?'СОЕДИНЕНИЕ ПОТЕРЯНО':'ПЕРЕПОДКЛЮЧЕНИЕ…';el.classList.remove('hidden');});
   window.addEventListener('velocity-online-wallet',e=>{const balance=Number(e.detail?.balance);if(!Number.isFinite(balance))return;save.credits=Math.max(0,Math.min(Number.MAX_SAFE_INTEGER,Math.floor(balance)));writeSave();updateMenuStats();syncSetupUI();garage.syncFromSave();});
-  window.addEventListener('velocity-online-finish-update',e=>{if(!onlineRace)return;syncOnlineRoomCars(e.detail.room);updateRanks();if(e.detail.playerId===onlineRace.playerId){onlineLocalFinished=true;player.raceFinished=true;player.finishPlace=e.detail.finishPlace;player.finishTime=(e.detail.finishTime||0)/1000;state='onlineFinished';resetInput();controlInput.setActive(false);setPauseButton(false,false);UI.controls.classList.add('hidden');window.VelocityOnline.showFinish({place:e.detail.finishPlace,time:fmt(e.detail.finishTime||raceTime*1000),bestLap:fmt(raceBestLap)});}});
+  window.addEventListener('velocity-online-finish-update',e=>{if(!onlineRace)return;syncOnlineRoomCars(e.detail.room);updateRanks();if(e.detail.playerId===onlineRace.playerId){onlineLocalFinished=true;player.raceFinished=true;player.finishPlace=e.detail.finishPlace;player.finishTime=(e.detail.finishTime||0)/1000;state='onlineFinished';resetInput();controlInput.setActive(false);setPauseButton(false,false);UI.controls.classList.add('hidden');let driftReward=0;if(localMode==='drift'){const total=Math.max(2,onlineRace.room?.gridOrder?.length||cars.length);driftReward=R.driftReward({bots:total-1,difficulty:'medium'},e.detail.finishPlace,score,track.length);claimDriftCreditsOnce('online:'+onlineRace.raceId,driftReward);writeSave();updateMenuStats();}window.VelocityOnline.showFinish({place:e.detail.finishPlace,time:fmt(e.detail.finishTime||raceTime*1000),bestLap:fmt(raceBestLap),drift:localMode==='drift',driftScore:Math.floor(score),driftReward});}});
   window.addEventListener('velocity-online-lobby',e=>{if(!onlineRace)return;resetOnlineMode();state='menu';last=performance.now();});
   window.addEventListener('velocity-online-exit',()=>{resetOnlineMode();state='menu';last=performance.now();});
 
   function resetInput(){input.left=input.right=input.gas=input.brake=input.handbrake=false;controlInput.reset();playerControl.steer=playerControl.throttle=playerControl.brake=playerControl.handbrake=0;playerControl.drift=false;if(player)player.throttleVisual=player.brakeVisual=0;}
   function setPauseButton(enabled,visible=true){UI.pauseBtn.disabled=!enabled;UI.pauseBtn.classList.toggle('hidden',!visible);UI.pauseBtn.setAttribute('aria-hidden',visible?'false':'true');}
-  function showRaceUI(show){UI.hud.classList.toggle('hidden',!show);UI.controls.classList.toggle('hidden',!show);UI.controls.dataset.raceMode=raceMode==='offline'&&localMode==='drift'?'drift':'normal';if(show)prepareMiniMap();else{controlInput.setActive(false);setPauseButton(false,false);}}
+  function showRaceUI(show){UI.hud.classList.toggle('hidden',!show);UI.controls.classList.toggle('hidden',!show);UI.controls.dataset.raceMode=localMode==='drift'?'drift':'normal';if(show)prepareMiniMap();else{controlInput.setActive(false);setPauseButton(false,false);}}
 
   function openModeSelect(){
-    audio.init();state='localMode';UI.menu.classList.add('hidden');UI.localMode.classList.remove('hidden');UI.finish.classList.add('hidden');last=performance.now();
+    audio.init();state='localMode';modeSelectReadyAt=performance.now()+420;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.remove('hidden');UI.finish.classList.add('hidden');last=performance.now();
   }
+  function chooseLocalMode(mode){if(state!=='localMode'||performance.now()<modeSelectReadyAt)return;openSetup(mode);}
   function backToMenuFromMode(){state='menu';UI.localMode.classList.add('hidden');UI.menu.classList.remove('hidden');updateMenuStats();last=performance.now();}
   function openSetup(mode='normal'){
     audio.init();loadLocalSettings(mode);loadTrack();renderTrackCards();state='setup';UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.setup.classList.remove('hidden');UI.finish.classList.add('hidden');syncSetupUI();$('trackCards').querySelector('.selected')?.scrollIntoView?.({block:'nearest',inline:'center'});last=performance.now();
@@ -345,7 +359,7 @@
   async function startRace(){
     raceMode='offline';
     let tiltFallback=false;if(save.controlMode==='tilt')tiltFallback=!(await controlInput.prepareForRace());
-    countdownToken++;audio.init();persistSettings();loadTrack();raceRewardClaimed=false;resetInput();createCars();if(tiltFallback)toast('НАКЛОН недоступен · включены СТРЕЛКИ','warn');state='countdown';
+    countdownToken++;audio.init();persistSettings();loadTrack();raceRewardClaimed=false;currentRaceRewardKey='offline:'+Date.now().toString(36)+':'+Math.random().toString(36).slice(2,9);resetInput();createCars();if(tiltFallback)toast('НАКЛОН недоступен · включены СТРЕЛКИ','warn');state='countdown';
     UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.setup.classList.add('hidden');UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');$('rootAuth').classList.add('hidden');$('rootConsole').classList.add('hidden');$('rootConfirm').classList.add('hidden');UI.finish.classList.add('hidden');UI.finishCard.classList.remove('winner');
     controlInput.setDriftMode(localMode==='drift');showRaceUI(true);controlInput.setActive(false);setPauseButton(false,false);runCountdown();last=performance.now();
   }
@@ -358,7 +372,7 @@
     };step();
   }
   function persistRecords(){
-    if(localMode==='drift'&&raceMode==='offline')save.bestDriftScore=Math.max(save.bestDriftScore||0,Math.floor(score));
+    if(localMode==='drift')save.bestDriftScore=Math.max(save.bestDriftScore||0,Math.floor(score));
     else {save.bestScore=Math.max(save.bestScore,Math.floor(score));if(player)save.maxLaps=Math.max(save.maxLaps,Math.min(player.laps,raceSettings.laps));}
     writeSave();updateMenuStats();
   }
@@ -375,11 +389,11 @@
     countdownToken++;resetInput();persistRecords();if(raceMode==='online'&&window.VelocityOnline){window.VelocityOnline.leave();resetOnlineMode();}state='menu';audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.add('hidden');UI.countdown.classList.add('hidden');UI.menu.classList.remove('hidden');UI.toasts.replaceChildren();showRaceUI(false);loadLocalSettings('normal');loadTrack();controlInput.setDriftMode(false);updateMenuStats();last=performance.now();
   }
 
-  bindTap(UI.play,openModeSelect);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>openSetup('normal'));bindTap(UI.driftMode,()=>openSetup('drift'));bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,mainMenu);bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);
+  bindTap(UI.play,openModeSelect);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>chooseLocalMode('normal'));bindTap(UI.driftMode,()=>chooseLocalMode('drift'));bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,mainMenu);bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);
   UI.controlModeSelector.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>selectControlMode(btn.dataset.controlMode)));
   UI.tiltSensitivitySelector.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>{controlInput.setSensitivity(btn.dataset.tiltSensitivity);settingsNotice='';settingsNoticeKind='';syncSettingsUI();}));
   const keyMap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'gas',KeyW:'gas',ArrowDown:'brake',KeyS:'brake',Space:'handbrake'};
-  addEventListener('keydown',e=>{const key=keyMap[e.code],allowed=key&&((state==='racing'&&(key!=='handbrake'||localMode==='drift'))||(state==='onlineRacing'&&!onlineLocalPaused&&!onlineLocalFinished&&key!=='handbrake'));if(allowed){input[key]=true;e.preventDefault();}if((e.code==='Escape'||e.code==='KeyP')&&!e.repeat){if(raceMode==='online'&&state==='onlineRacing'){onlineLocalPaused?continueRace():pauseRace();}else state==='racing'?pauseRace():state==='paused'&&continueRace();}});
+  addEventListener('keydown',e=>{const key=keyMap[e.code],allowed=key&&((state==='racing'&&(key!=='handbrake'||localMode==='drift'))||(state==='onlineRacing'&&!onlineLocalPaused&&!onlineLocalFinished&&(key!=='handbrake'||localMode==='drift')));if(allowed){input[key]=true;e.preventDefault();}if((e.code==='Escape'||e.code==='KeyP')&&!e.repeat){if(raceMode==='online'&&state==='onlineRacing'){onlineLocalPaused?continueRace():pauseRace();}else state==='racing'?pauseRace():state==='paused'&&continueRace();}});
   addEventListener('keyup',e=>{if(keyMap[e.code]){input[keyMap[e.code]]=false;e.preventDefault();}});
   document.addEventListener('touchmove',e=>{if(state==='racing'||state==='countdown'||state==='onlineRacing'||state==='onlineCountdown')e.preventDefault();},{passive:false});
   document.addEventListener('contextmenu',e=>e.preventDefault());
@@ -448,23 +462,24 @@
     const p=player.progress;let delta=p-driftLastProgress;if(delta<-.5)delta+=1;else if(delta>.5)delta-=1;driftLastProgress=p;
     const sample=track.samples[player.trackIndex]||track.samples[0],forward=player.vx*sample.tx+player.vy*sample.ty;
     let slip=Math.atan2(player.vy,player.vx)-player.angle;while(slip>Math.PI)slip-=Math.PI*2;while(slip<-Math.PI)slip+=Math.PI*2;
-    const slipDeg=Math.abs(slip)*180/Math.PI,progressMeters=delta>0&&delta<.035?delta*track.length:0,meters=Math.min(progressMeters,Math.max(0,player.speed*dt*1.35));
-    const valid=!collision&&player.onRoad&&player.speed>90&&forward>48&&slipDeg>=10&&slipDeg<=52&&meters>.03;
+    const slipDeg=Math.abs(slip)*180/Math.PI,progressMeters=delta>0&&delta<.035?delta*track.length:0,meters=Math.min(progressMeters,Math.max(0,player.speed*dt*1.38));
+    const valid=!collision&&player.onRoad&&player.speed>78&&forward>42&&slipDeg>=9&&slipDeg<=58&&meters>.025;
     if(valid){
-      driftIdleTime=0;driftChainDistance+=meters;
-      driftCombo=driftChainDistance>520?3:driftChainDistance>320?2.5:driftChainDistance>180?2:driftChainDistance>80?1.5:1;driftPeakCombo=Math.max(driftPeakCombo,driftCombo);
-      const slipQuality=clamp(1-Math.abs(slipDeg-31)/28,.35,1),speedQuality=clamp(player.speed/250,.48,1.45);scoreCarry+=meters*(.72+1.55*slipQuality)*speedQuality*driftCombo;
+      driftIdleTime=0;driftChainDistance+=meters;driftChainTime+=dt;
+      driftCombo=driftChainDistance>760?5:driftChainDistance>520?4:driftChainDistance>330?3:driftChainDistance>190?2.5:driftChainDistance>95?2:driftChainDistance>40?1.5:1;driftPeakCombo=Math.max(driftPeakCombo,driftCombo);
+      const angleQuality=clamp(1-Math.abs(slipDeg-32)/29,.30,1),speedQuality=clamp(player.speed/235,.45,1.62),durationQuality=1+Math.min(.48,driftChainTime*.032);
+      scoreCarry+=meters*(.64+1.58*angleQuality)*speedQuality*driftCombo*durationQuality;
       if(scoreCarry>=1){const add=Math.floor(scoreCarry);score+=add;scoreCarry-=add;}
       if(skidTick<=0){addSkid(player);skidTick=.042;if(Math.random()<.78)spawnParticle(player.x-player.vx*.045,player.y-player.vy*.045,'smoke',playerControl.handbrake?.9:1);}
       driftLastValid=true;
     }else{
-      driftIdleTime+=dt;if(collision||driftIdleTime>.68){if(driftLastValid&&driftCombo>=2.5&&collision)toast('COMBO LOST','warn');driftCombo=1;driftChainDistance=0;driftLastValid=false;}
+      driftIdleTime+=dt;if(collision||player.speed<24||forward<5||driftIdleTime>.82){if(driftLastValid&&driftCombo>=2.5&&collision)toast('COMBO LOST','warn');driftCombo=1;driftChainDistance=0;driftChainTime=0;driftLastValid=false;}
     }
   }
   function finishRace(){
     if(state!=='racing'||!player||!player.raceFinished||player.laps<raceSettings.laps||raceRewardClaimed)return;
     raceRewardClaimed=true;const drift=localMode==='drift';
-    const reward=drift?R.driftReward(raceSettings,player.finishPlace,score,track.length):R.raceReward(raceSettings,player.finishPlace);save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+reward);writeSave();
+    const reward=drift?R.driftReward(raceSettings,player.finishPlace,score,track.length):R.raceReward(raceSettings,player.finishPlace);if(drift)claimDriftCreditsOnce(currentRaceRewardKey||('offline:'+Date.now()),reward);else{save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+reward);writeSave();}
     $('finishReward').textContent='+'+reward.toLocaleString()+' CR';$('finishBalance').textContent=save.credits.toLocaleString()+' CR';$('finishTrack').textContent=track.config.name;
     state='finished';resetInput();audio.updateEngine(0,0,false);setPauseButton(false,false);showRaceUI(false);persistRecords();
     const place=player.finishPlace||player.rank||cars.length;
@@ -560,7 +575,7 @@
   function setText(el,value){const text=String(value);if(el.textContent!==text)el.textContent=text;}
   function updateHUD(){
     if(!player)return;
-    const driftHud=raceMode==='offline'&&localMode==='drift';
+    const driftHud=localMode==='drift';
     setText(UI.pos,player.rank+' / '+cars.length);
     setText(UI.lap,driftHud?'1 / 1':Math.min(raceSettings.laps,player.laps+1)+' / '+raceSettings.laps);
     setText(UI.speed,Math.round(player.speed));

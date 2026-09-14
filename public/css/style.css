@@ -1055,7 +1055,7 @@ html,body,#app { touch-action: auto; }
 }
 .online-grid-settings {
   display:grid;
-  grid-template-columns:minmax(150px,1.45fr) minmax(66px,.6fr) minmax(86px,.78fr) minmax(112px,.92fr) minmax(118px,.96fr);
+  grid-template-columns:minmax(142px,1.42fr) minmax(60px,.58fr) minmax(78px,.72fr) minmax(104px,.88fr) minmax(94px,.82fr) minmax(104px,.9fr);
   gap:8px;
 }
 .online-setting-card {
@@ -1234,7 +1234,7 @@ html,body,#app { touch-action: auto; }
 .lobby-summary {
   min-width:0;
   display:grid;
-  grid-template-columns:minmax(0,1.45fr) minmax(54px,.5fr) minmax(62px,.58fr) minmax(66px,.62fr) minmax(68px,.65fr);
+  grid-template-columns:minmax(0,1.35fr) minmax(52px,.52fr) minmax(50px,.48fr) minmax(58px,.56fr) minmax(62px,.60fr) minmax(64px,.62fr);
   gap:6px;
 }
 .lobby-summary>div {
@@ -1366,7 +1366,7 @@ html,body,#app { touch-action: auto; }
 .host-control-grid {
   min-width:0;
   display:grid;
-  grid-template-columns:minmax(96px,1.35fr) minmax(48px,.55fr) minmax(48px,.55fr) minmax(62px,.66fr) minmax(76px,.72fr);
+  grid-template-columns:minmax(92px,1.28fr) minmax(46px,.52fr) minmax(46px,.52fr) minmax(58px,.62fr) minmax(66px,.66fr) minmax(72px,.7fr);
   gap:6px;
 }
 .host-control-grid label { min-width:0; }
@@ -1477,7 +1477,7 @@ html,body,#app { touch-action: auto; }
 .online-results>div strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .online-results span { flex:0 0 auto; color:#9aff70; }
 .online-finish-stats { grid-template-columns:repeat(3,1fr); }
-.online-wager-result { grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:8px; }
+.online-wager-result { grid-template-columns:repeat(auto-fit,minmax(82px,1fr)); margin-top:8px; }
 .online-wager-result span { min-width:0; }
 .online-wager-result strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .online-finish-screen .finish-card {
@@ -1557,7 +1557,7 @@ html,body,#app { touch-action: auto; }
   .online-card { padding:9px 10px; }
   .online-choice { padding-left:10px; padding-right:10px; }
   .online-choice-copy strong { font-size:9px; }
-  .online-grid-settings { grid-template-columns:minmax(120px,1.4fr) minmax(52px,.55fr) minmax(68px,.68fr) minmax(92px,.82fr) minmax(96px,.85fr); gap:5px; }
+  .online-grid-settings { grid-template-columns:minmax(114px,1.35fr) minmax(48px,.52fr) minmax(62px,.64fr) minmax(84px,.78fr) minmax(78px,.74fr) minmax(88px,.8fr); gap:5px; }
   .lobby-top { grid-template-columns:minmax(185px,.72fr) minmax(0,1.28fr); gap:6px; }
   .room-code-box { padding-left:8px; padding-right:8px; column-gap:6px; }
   .room-code-box button { min-width:76px; padding:0 7px; }
@@ -1565,7 +1565,7 @@ html,body,#app { touch-action: auto; }
   .lobby-summary { gap:4px; }
   .lobby-summary>div { padding-left:7px; padding-right:7px; }
   .lobby-body { grid-template-columns:minmax(0,.92fr) minmax(270px,1.08fr); gap:6px; margin-top:6px; }
-  .host-control-grid { grid-template-columns:minmax(82px,1.28fr) minmax(42px,.52fr) minmax(42px,.52fr) minmax(52px,.62fr) minmax(64px,.68fr); gap:4px; }
+  .host-control-grid { grid-template-columns:minmax(88px,1.3fr) repeat(2,minmax(54px,.72fr)); gap:4px; }
   .host-control-grid select { padding-left:6px; padding-right:5px; }
 }
 
@@ -1662,7 +1662,7 @@ html,body,#app { touch-action: auto; }
   .online-choice-copy strong { font-size:7.5px; }
   .online-secure-note { display:none; }
   .online-footer-row { justify-content:flex-end; }
-  .online-grid-settings { grid-template-columns:minmax(104px,1.35fr) minmax(46px,.52fr) minmax(58px,.66fr) minmax(78px,.76fr) minmax(82px,.8fr); gap:3px; }
+  .online-grid-settings { grid-template-columns:minmax(96px,1.28fr) minmax(42px,.48fr) minmax(52px,.58fr) minmax(70px,.70fr) minmax(68px,.68fr) minmax(72px,.72fr); gap:3px; }
   .online-setting-card { padding-left:5px; padding-right:5px; }
   .online-toggle-copy small { font-size:6px; }
   .online-toggle-copy b { display:none; }
@@ -1674,7 +1674,7 @@ html,body,#app { touch-action: auto; }
   .room-code-box button { min-width:66px; }
   .room-code-box button span { display:none; }
   .room-code-box button b { font-size:14px; }
-  .lobby-summary { grid-template-columns:minmax(0,1.2fr) minmax(40px,.48fr) minmax(46px,.54fr) minmax(50px,.58fr) minmax(50px,.58fr); }
+  .lobby-summary { grid-template-columns:minmax(0,1.08fr) minmax(40px,.44fr) minmax(38px,.42fr) minmax(44px,.48fr) minmax(48px,.52fr) minmax(48px,.52fr); }
   .lobby-summary span { font-size:5.6px; }
   .lobby-summary strong { font-size:7.5px; }
   .lobby-body { grid-template-columns:minmax(0,.9fr) minmax(235px,1.1fr); gap:4px; }
@@ -1682,7 +1682,7 @@ html,body,#app { touch-action: auto; }
   .player-ident { gap:4px; }
   .player-dot { width:5px; height:5px; }
   .player-badge.host { display:none; }
-  .host-control-grid { grid-template-columns:minmax(70px,1.2fr) minmax(38px,.5fr) minmax(38px,.5fr) minmax(46px,.58fr) minmax(56px,.64fr); gap:3px; }
+  .host-control-grid { grid-template-columns:minmax(74px,1.2fr) repeat(2,minmax(44px,.66fr)); gap:3px; }
   .lobby-actions { grid-template-columns:minmax(54px,.48fr) minmax(92px,.8fr) minmax(68px,.62fr) minmax(104px,1.08fr); }
   .lobby-actions button { font-size:7.5px; }
 }

@@ -146,7 +146,7 @@
 
     _updateDrift(dt,input,track){
       const requestedSteer=clamp(input.steer||0,-1,1),throttle=clamp(input.throttle||0,0,1),brake=clamp(input.brake||0,0,1),handbrake=clamp(input.handbrake||0,0,1);
-      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*18));
+      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*15));
       this.effectTime+=dt;this.gripDisturbance=Math.max(0,(this.gripDisturbance||0)-dt*1.7);
       const steer=this.steerInput;this.steerVisual+=(steer-this.steerVisual)*Math.min(1,dt*12);this.throttleVisual=throttle;this.brakeVisual=Math.max(brake,handbrake*.42);
 
@@ -166,14 +166,16 @@
       // Drift steering deliberately has slower yaw response than the race tyre model.
       // Handbrake unlocks additional yaw only while the car is moving, while the
       // slip-angle self-align term prevents effortless 180-degree spins.
-      const rolling=clamp(mag/62,0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55);
-      let requestedYaw=steer*this.turnRate*(.25+.53*rolling)*(1+.22*handbrake)*surfaceTurn;
-      const alignRate=(handbrake>.05?1.05:2.65)+(absSlip>.68?2.2:0);
+      const rolling=clamp(mag/62,0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55),driftIntent=clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
+      let requestedYaw=steer*this.turnRate*(.23+.50*rolling)*(1+.35*handbrake)*surfaceTurn;
+      // Gentle self-alignment keeps a long controllable slide; once the angle gets too
+      // large the recovery rises sharply so a small steering input cannot cause a 180°.
+      const alignRate=(handbrake>.05?.78:(2.25-.95*driftIntent))+(absSlip>.72?2.1:0)+(absSlip>.98?5.2:0);
       requestedYaw+=slip*alignRate;
-      const yawCap=(1.20+.42*rolling+.24*handbrake)*surfaceTurn;
-      const targetYaw=clamp(requestedYaw,-yawCap,yawCap),yawResponse=handbrake>.05?8.5:10.5;
+      const yawCap=(1.12+.37*rolling+.18*handbrake)*surfaceTurn;
+      const targetYaw=clamp(requestedYaw,-yawCap,yawCap),yawResponse=handbrake>.05?8.2:9.2;
       this.yawRate=(this.yawRate||0)+(targetYaw-(this.yawRate||0))*(1-Math.exp(-dt*yawResponse));
-      if(Math.abs(steer)<.02&&handbrake<.02)this.yawRate*=Math.exp(-dt*2.4);
+      if(Math.abs(steer)<.02&&handbrake<.02)this.yawRate*=Math.exp(-dt*1.85);
       this.angle=angleWrap(this.angle+this.yawRate*dt);
 
       const hx=Math.cos(this.angle),hy=Math.sin(this.angle),rx=-hy,ry=hx;
@@ -181,8 +183,10 @@
       const forwardRatio=clamp(Math.max(0,longitudinal)/Math.max(1,this.maxSpeed),0,1),torqueCurve=Math.max(.50,1-.50*Math.pow(forwardRatio,1.35));
       const traction=this.surface==='asphalt'?.86:(this.surface==='shoulder'?.74:.22/Math.max(.7,track.theme.drag||1));
       longitudinal+=this.accel*throttle*torqueCurve*traction*dt;
-      if(brake>0){longitudinal=moveToward(longitudinal,0,this.brakePower*.72*brake*dt);lateral=moveToward(lateral,0,this.brakePower*.045*brake*dt);}
-      if(handbrake>0&&mag>38)longitudinal=moveToward(longitudinal,0,(42+mag*.055)*handbrake*dt);
+      if(brake>0){longitudinal=moveToward(longitudinal,0,this.brakePower*.68*brake*dt);lateral=moveToward(lateral,0,this.brakePower*.040*brake*dt);}
+      // Handbrake primarily releases rear grip instead of acting like a hidden foot brake.
+      // This lets the car initiate a drift at speed without immediately killing momentum.
+      if(handbrake>0&&mag>38)longitudinal=moveToward(longitudinal,0,(15+mag*.018)*handbrake*dt);
 
       const absLong=Math.abs(longitudinal);let dragDecel=2.1+.00029*absLong*absLong;
       if(this.surface==='shoulder')dragDecel+=3.5+.00010*mag*mag;else if(this.surface==='offroad')dragDecel+=(20+.00078*mag*mag)*(track.theme.drag||1);
@@ -191,14 +195,18 @@
       // Lower lateral relaxation creates a controllable slip window. Counter-steer,
       // throttle and handbrake can sustain it, but grip ramps up outside ~45 degrees
       // so the car naturally catches instead of feeling like it is on ice.
-      const driftIntent=clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
-      let gripRate=this.surface==='asphalt'?(7.8-4.9*driftIntent):(this.surface==='shoulder'?5.2:1.8/Math.max(.75,track.theme.drag||1));
+      let gripRate=this.surface==='asphalt'?(4.20-3.70*driftIntent):(this.surface==='shoulder'?4.55:1.65/Math.max(.75,track.theme.drag||1));
       gripRate*=1-.30*(this.gripDisturbance||0);
-      const currentSlip=Math.abs(Math.atan2(lateral,Math.abs(longitudinal)+18));
-      if(currentSlip>.76)gripRate+=8*(currentSlip-.76)/.55;
-      lateral*=Math.exp(-Math.max(1.15,gripRate)*dt);
-      const scrub=(this.surface==='asphalt'?2.2:(this.surface==='shoulder'?3.4:5.5))*(.25+currentSlip*currentSlip*2.8);
+      const currentSlip=Math.abs(Math.atan2(lateral,Math.abs(longitudinal)+18)),beforeTyreSpeed=Math.hypot(longitudinal,lateral);
+      if(currentSlip>.82)gripRate+=7.5*(currentSlip-.82)/.48;
+      lateral*=Math.exp(-Math.max(.88,gripRate)*dt);
+      // Drift scrub is intentionally light. Speed should bleed gradually from tyre load,
+      // not disappear the moment the rear steps out. A controlled part of lateral tyre
+      // energy is carried forward, which makes long powered slides possible on mobile.
+      const scrub=(this.surface==='asphalt'?.92:(this.surface==='shoulder'?1.55:4.6))*(.18+currentSlip*currentSlip*1.65);
       longitudinal=moveToward(longitudinal,0,scrub*dt);
+      const afterTyreSpeed=Math.hypot(longitudinal,lateral),energyReturn=clamp(.86+throttle*.08+handbrake*.03,.86,.97),keptSpeed=afterTyreSpeed+(beforeTyreSpeed-afterTyreSpeed)*energyReturn;
+      if(afterTyreSpeed>1&&keptSpeed>afterTyreSpeed){const keep=keptSpeed/afterTyreSpeed;longitudinal*=keep;lateral*=keep;}
 
       this.vx=hx*longitudinal+rx*lateral;this.vy=hy*longitudinal+ry*lateral;mag=Math.hypot(this.vx,this.vy);
       if(mag>this.maxSpeed){const sc=this.maxSpeed/mag;this.vx*=sc;this.vy*=sc;mag=this.maxSpeed;}

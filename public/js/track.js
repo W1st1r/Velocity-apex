@@ -418,7 +418,9 @@
         ctx.globalAlpha=.14;ctx.strokeStyle='#7ed7c2';ctx.lineWidth=2;for(let y=b.minY+30;y<b.maxY;y+=120){ctx.beginPath();for(let x=b.minX;x<b.maxX;x+=55){const yy=y+Math.sin(x*.004+y*.008)*18;if(x===b.minX)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);}ctx.stroke();}
       }
       ctx.restore();
-      this._drawGroundDetails(ctx);this._drawThemeScenery(ctx);
+      // Drift layouts intentionally keep the road surround clean: no triangular trees,
+      // service-road stubs or pit geometry can visually protrude into long slides.
+      if(!this.config.cleanDrift){this._drawGroundDetails(ctx);this._drawThemeScenery(ctx);}
 
       // Theme-specific runoff sits between the curb and collision-aligned barriers.
       const runoff={circuit:'#71806f',neon:'#38475a',desert:'#c28b59',alpine:'#697a76',coast:'#d5bf92',aurora:'#365557'}[kind]||'#666';
@@ -433,7 +435,7 @@
       const edge=this.roadWidth*.505;ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#060708';ctx.lineWidth=this.curbWidth+5;ctx.lineCap='round';this._path(ctx,-edge);ctx.stroke();this._path(ctx,edge);ctx.stroke();ctx.restore();
       ctx.save();ctx.lineCap='butt';for(let side=-1;side<=1;side+=2)for(let i=0;i<this.samples.length;i+=4){const p=this.samples[i],q=this.samples[(i+4)%this.samples.length];ctx.beginPath();ctx.moveTo(p.x+p.nx*edge*side,p.y+p.ny*edge*side);ctx.lineTo(q.x+q.nx*edge*side,q.y+q.ny*edge*side);ctx.strokeStyle=((i/4)&1)?'#f4f4f0':this.theme.curb;ctx.lineWidth=this.curbWidth;ctx.stroke();ctx.globalAlpha=.25;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;}ctx.restore();
 
-      this._drawAuroraRoadMarkings(ctx);this._drawPitLane(ctx);this._drawStartFinish(ctx);
+      this._drawAuroraRoadMarkings(ctx);if(!this.config.cleanDrift)this._drawPitLane(ctx);this._drawStartFinish(ctx);
     }
   }
 
