@@ -83,3 +83,12 @@ Validation: `npm test` PASS; JavaScript syntax checks PASS; manifest and `wrangl
 - Existing D1 schema, account endpoints, cloud save format, multiplayer, cases, PWA manifest and Worker/Durable Object bindings are unchanged.
 
 Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syntax checks PASS; manifest JSON parse PASS.
+
+## Garage visual repair — 2026-09-15
+- Verified all 41 real cars have both full-size and thumbnail WebP assets (82/82 files present).
+- Garage/shop car cards now use direct thumbnail images instead of relying on dozens of continuously redrawn canvases; legacy cars retain a canvas fallback.
+- Sprite URLs are normalized to root-relative `/assets/...` paths so installed PWA/navigation routes cannot break car artwork.
+- Effect cards now have dedicated visual flame swatches, including STANDARD and RAINBOW/IRIDESCENT states.
+- Previewed and equipped items have separate, visible states (`ПРОСМОТР` / `АКТИВНО`) and selected buttons show `✓ АКТИВНО`.
+- Added broken-thumbnail fallback instead of showing a broken-image icon.
+- Added `garage_visual_smoke.js`; full `npm test` passes.

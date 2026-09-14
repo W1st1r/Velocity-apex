@@ -4,12 +4,28 @@
   const formatCredits=value=>Math.max(0,Math.floor(Number(value)||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
   const categoryOf=item=>R.normalizeCarCategory(item&&item.category);
   const chanceText=bps=>(Math.max(0,Number(bps)||0)/100).toFixed(2).replace(/\.00$/,'')+'%';
+  const assetUrl=src=>{
+    if(typeof src!=='string'||!src)return '';
+    if(/^(?:https?:|data:|blob:|\/)/i.test(src))return src;
+    return '/'+src.replace(/^\.\//,'').replace(/^\/+/, '');
+  };
+  const effectVisualMarkup=(id,item)=>{
+    if(id==='standard')return `<span class="effect-swatch standard" aria-hidden="true"><i>STD</i></span>`;
+    const a=item.rainbow?'#70ff9d':(item.outer||'#61e8ff'),b=item.rainbow?'#ff58ce':(item.inner||'#efffff');
+    return `<span class="effect-swatch ${item.rainbow?'rainbow':''}" style="--effect-a:${a};--effect-b:${b}" aria-hidden="true"><i></i><b></b><em></em></span>`;
+  };
+  const catalogVisualMarkup=(id,item,isCars)=>{
+    if(!isCars)return effectVisualMarkup(id,item);
+    const src=item?.sprite?.thumbnail||item?.sprite?.src;
+    if(src)return `<span class="catalog-car-visual"><img class="catalog-car-thumb" src="${assetUrl(src)}" alt="" loading="lazy" decoding="async"><span class="catalog-car-fallback" aria-hidden="true">VA</span></span>`;
+    return `<canvas class="catalog-fallback-canvas" width="280" height="112" aria-hidden="true"></canvas>`;
+  };
   const badgeMarkup=id=>{
     const meta=R.CAR_CATEGORIES[id]||R.CAR_CATEGORIES.basic;
     return `<span class="rarity-badge ${meta.className}" data-rarity="${id}"><span class="rarity-icon" aria-hidden="true"><i></i></span><b>${meta.label}</b></span>`;
   };
   const rewardVisual=reward=>{
-    if(reward.kind==='livery'&&reward.thumbnail)return `<span class="case-reward-visual car"><img src="${reward.thumbnail}" alt="" loading="lazy" decoding="async"></span>`;
+    if(reward.kind==='livery'&&reward.thumbnail)return `<span class="case-reward-visual car"><img src="${assetUrl(reward.thumbnail)}" alt="" loading="lazy" decoding="async"></span>`;
     const a=reward.rainbow?'#70ff9d':(reward.outer||'#61e8ff'),b=reward.rainbow?'#ff58ce':(reward.inner||'#efffff');
     return `<span class="case-reward-visual effect" style="--effect-a:${a};--effect-b:${b}" aria-hidden="true"><i></i><b></b></span>`;
   };
@@ -102,7 +118,7 @@
       this.renderCatalog(v,s,isCars,mode);
     }
     renderCatalog(v,s,isCars,mode){
-      const catalog=isCars?R.LIVERIES:R.EFFECTS,owned=this.save[isCars?'ownedLiveries':'ownedEffects'],selected=this.save[isCars?'selectedLivery':'selectedEffect'];
+      const owned=this.save[isCars?'ownedLiveries':'ownedEffects'],selected=this.save[isCars?'selectedLivery':'selectedEffect'];
       let entries=R.getCatalogEntries(this.save,mode,s.tab,s.category);
       this.categoryEmpty=isCars&&entries.length===0;
       const previewKey=isCars?'previewLivery':'previewEffect';
@@ -112,17 +128,25 @@
         v.items.innerHTML=`<div class="shop-empty ${cat.className}" role="status">${badgeMarkup(s.category==='all'?'basic':s.category)}<strong>${title}</strong><span>${copy}</span></div>`;
       }else{
         v.items.innerHTML=entries.map(([id,item])=>{
-          const isOwned=owned.includes(id),isSelected=selected===id,cat=isCars?categoryOf(item):null,status=isSelected?'ВЫБРАНО':isOwned?'КУПЛЕНО':'ЗАКРЫТО';
+          const isOwned=owned.includes(id),isSelected=selected===id,isPreview=s[previewKey]===id,cat=isCars?categoryOf(item):null,status=isSelected?'ВЫБРАНО':isOwned?'КУПЛЕНО':'ЗАКРЫТО';
           const priceText=mode==='shop'?(item.price?formatCredits(item.price)+' CR':'FREE'):(isSelected?'АКТИВНО':'В КОЛЛЕКЦИИ');
           const shortfall=Math.max(0,(item.price||0)-this.save.credits),shortfallText=mode==='shop'&&!isOwned&&shortfall>0?`<div class="item-shortfall">ЕЩЁ ${formatCredits(shortfall)} CR</div>`:'';
-          let button='';if(mode==='shop')button=isOwned?`<button type="button" class="purchase-btn owned" disabled>КУПЛЕНО</button>`:`<button type="button" class="purchase-btn">КУПИТЬ — ${formatCredits(item.price)} CR</button>`;else button=`<button type="button" class="select-btn ${isSelected?'equipped':''}" ${isSelected?'disabled':''}>${isSelected?'ВЫБРАНО':'ВЫБРАТЬ'}</button>`;
-          return `<article class="shop-item ${isSelected?'selected':''} ${isCars?'car-card '+R.CAR_CATEGORIES[cat].className:''}" data-item="${id}">${isCars?badgeMarkup(cat):''}<button type="button" class="item-preview" aria-label="Предпросмотр ${item.name}"><canvas width="280" height="112"></canvas></button><div class="item-title">${item.name}</div><div class="item-price"><strong>${priceText}</strong><span>${status}</span></div>${shortfallText}${button}</article>`;
+          let button='';if(mode==='shop')button=isOwned?`<button type="button" class="purchase-btn owned" disabled>КУПЛЕНО</button>`:`<button type="button" class="purchase-btn">КУПИТЬ — ${formatCredits(item.price)} CR</button>`;else button=`<button type="button" class="select-btn ${isSelected?'equipped':''}" ${isSelected?'disabled':''}>${isSelected?'✓ АКТИВНО':'ВЫБРАТЬ'}</button>`;
+          const classes=['shop-item',isSelected?'selected equipped-card':'',isPreview?'previewing':'',isCars?'car-card '+R.CAR_CATEGORIES[cat].className:'effect-card'].filter(Boolean).join(' ');
+          const effectStyle=!isCars?` style="--effect-a:${item.rainbow?'#70ff9d':(item.outer||'#61e8ff')};--effect-b:${item.rainbow?'#ff58ce':(item.inner||'#efffff')}"`:'';
+          const stateChip=isSelected?'<span class="item-preview-state active">АКТИВНО</span>':isPreview?'<span class="item-preview-state">ПРОСМОТР</span>':'';
+          return `<article class="${classes}" data-item="${id}" data-equipped="${isSelected?'true':'false'}" data-previewed="${isPreview?'true':'false'}"${effectStyle}>${isCars?badgeMarkup(cat):''}<button type="button" class="item-preview" aria-label="Предпросмотр ${item.name}" aria-pressed="${isPreview?'true':'false'}">${catalogVisualMarkup(id,item,isCars)}${stateChip}</button><div class="item-title">${item.name}</div><div class="item-price"><strong>${priceText}</strong><span>${status}</span></div>${shortfallText}${button}</article>`;
         }).join('');
       }
-      this.cards=Array.from(v.items.querySelectorAll('.shop-item[data-item]')).map(el=>{const car=new R.Car();car.x=140;car.y=56;car.speed=280;car.throttleVisual=1;car.setLoadout(isCars?el.dataset.item:s.previewLivery,isCars?s.previewEffect:el.dataset.item,'thumbnail');return {car,canvas:el.querySelector('canvas')};});
+      v.items.querySelectorAll('.catalog-car-thumb').forEach(img=>{
+        const visual=img.closest('.catalog-car-visual');
+        const mark=()=>visual&&visual.classList.add('asset-error');
+        if(img.complete&&!img.naturalWidth)mark();else img.addEventListener('error',mark,{once:true});
+      });
+      this.cards=Array.from(v.items.querySelectorAll('.shop-item[data-item] canvas.catalog-fallback-canvas')).map(canvas=>{const el=canvas.closest('.shop-item[data-item]'),car=new R.Car();car.x=140;car.y=56;car.speed=280;car.throttleVisual=1;car.setLoadout(el.dataset.item,s.previewEffect,'thumbnail');return {car,canvas};});
       if(!this.categoryEmpty)this.car.setLoadout(s.previewLivery,s.previewEffect,'preview');
       if(this.categoryEmpty){const meta=R.CAR_CATEGORIES[s.category]||R.CAR_CATEGORIES.all;v.previewName.textContent=meta.label;v.previewEffect.textContent=mode==='shop'?'НОВЫЕ МОДЕЛИ ГОТОВЯТСЯ':'ПОПОЛНИТЕ КОЛЛЕКЦИЮ В МАГАЗИНЕ';}
-      else {v.previewName.textContent=R.LIVERIES[s.previewLivery].name;v.previewEffect.textContent=R.EFFECTS[s.previewEffect].name;}
+      else {v.previewName.textContent=R.LIVERIES[s.previewLivery].name;v.previewEffect.textContent=R.EFFECTS[s.previewEffect].name+(mode==='garage'?' · '+(s[previewKey]===selected?'АКТИВНО':'ПРЕДПРОСМОТР'):'');}
     }
     renderCases(v,s){
       this.cards=[];this.categoryEmpty=false;v.preview.classList.add('hidden');v.caseHero.classList.remove('hidden');

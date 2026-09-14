@@ -8,11 +8,18 @@
   const moveToward=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
   const DEBUG_COLLIDERS=false;
   const spriteCache=new Map();
+  function normalizeSpriteSrc(src){
+    if(typeof src!=='string'||!src)return '';
+    if(/^(?:https?:|data:|blob:|\/)/i.test(src))return src;
+    return '/'+src.replace(/^\.\//,'').replace(/^\/+/, '');
+  }
   function getSpriteImage(src){
     if(!src||typeof Image==='undefined')return null;
-    if(spriteCache.has(src))return spriteCache.get(src);
-    const img=new Image();img.decoding='async';img.src=src;spriteCache.set(src,img);return img;
+    const resolved=normalizeSpriteSrc(src);
+    if(spriteCache.has(resolved))return spriteCache.get(resolved);
+    const img=new Image();img.decoding='async';img.src=resolved;spriteCache.set(resolved,img);return img;
   }
+  R.normalizeSpriteSrc=normalizeSpriteSrc;
 
   const positive=(value,fallback)=>Number.isFinite(value)&&value>0?value:fallback;
   function resolveSpriteSize(spriteSpec,imageWidth,imageHeight,preview=false){
