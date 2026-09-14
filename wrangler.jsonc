@@ -3,17 +3,34 @@
   "name": "velocity-apex",
   "main": "src/worker.mjs",
   "compatibility_date": "2026-09-13",
+
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "velocity-apex-db",
+      "database_id": "dee1721c-9730-4780-9185-7b23666333b2"
+    }
+  ],
+
   "durable_objects": {
     "bindings": [
-      { "name": "ROOMS", "class_name": "Room" }
+      {
+        "name": "ROOMS",
+        "class_name": "Room"
+      }
     ]
   },
+
   "exports": {
-    "Room": { "type": "durable-object", "storage": "sqlite" }
+    "Room": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
   }
 }
