@@ -1,6 +1,6 @@
 const SESSION_COOKIE='va_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
-const PASSWORD_ITERATIONS=210000;
+const PASSWORD_ITERATIONS=100000;
 const SAVE_LIMIT_BYTES=64*1024;
 const enc=new TextEncoder();
 
