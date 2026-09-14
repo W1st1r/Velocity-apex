@@ -17,7 +17,7 @@
 
   class Garage{
     constructor(save,onChange){
-      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;
+      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;
       this.state={
         shop:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect,previewCase:'all'},
         garage:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect}
@@ -34,7 +34,7 @@
       };
     }
     caseDialog(){
-      return {modal:$('caseModal'),title:$('caseModalTitle'),subtitle:$('caseModalSubtitle'),credits:$('caseModalCredits'),close:$('caseCloseBtn'),crate:$('caseModalCrate'),owned:$('caseOwnedCount'),price:$('casePriceLabel'),roulette:$('caseRoulette'),viewport:document.querySelector('#caseRoulette .case-roulette-viewport'),strip:$('caseRollStrip'),ready:$('caseReadyLabel'),result:$('caseResult'),open:$('caseOpenBtn'),rewardCount:$('caseRewardCount'),rewardList:$('caseRewardList')};
+      return {modal:$('caseModal'),title:$('caseModalTitle'),subtitle:$('caseModalSubtitle'),credits:$('caseModalCredits'),close:$('caseCloseBtn'),crate:$('caseModalCrate'),owned:$('caseOwnedCount'),price:$('casePriceLabel'),qtyMinus:$('caseQtyMinus'),qtyValue:$('caseQtyValue'),qtyPlus:$('caseQtyPlus'),buyBatch:$('caseBuyBatchBtn'),roulette:$('caseRoulette'),viewport:document.querySelector('#caseRoulette .case-roulette-viewport'),strip:$('caseRollStrip'),ready:$('caseReadyLabel'),result:$('caseResult'),open:$('caseOpenBtn'),rewardCount:$('caseRewardCount'),rewardList:$('caseRewardList')};
     }
     bindView(mode){
       const v=this.view(mode);if(!v.tabs||!v.categories||!v.items)return;
@@ -46,6 +46,9 @@
       const d=this.caseDialog();if(!d.modal)return;
       d.close.addEventListener('click',()=>this.closeCaseDialog());
       d.open.addEventListener('click',()=>this.spinActiveCase());
+      d.buyBatch.addEventListener('click',()=>this.buyCaseBatch());
+      d.qtyMinus.addEventListener('click',()=>this.setCaseQuantity(this.caseQuantity-1));
+      d.qtyPlus.addEventListener('click',()=>this.setCaseQuantity(this.caseQuantity+1));
       d.modal.addEventListener('click',e=>{if(e.target===d.modal)this.closeCaseDialog();});
       document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!d.modal.classList.contains('hidden'))this.closeCaseDialog();});
     }
@@ -54,7 +57,7 @@
       if(caseCard&&mode==='shop'&&this.state.shop.tab==='case'){
         const id=caseCard.dataset.case;this.state.shop.previewCase=id;
         const buy=e.target.closest('.case-buy-btn'),open=e.target.closest('.case-owned-open-btn');
-        if(buy)this.buyCase(id);else if(open)this.openCaseDialog(id);else this.render();
+        if(buy||open)this.openCaseDialog(id);else this.render();
         return;
       }
       const card=e.target.closest('[data-item]');if(!card)return;
@@ -128,23 +131,37 @@
       v.previewName.textContent=selected.name;v.previewEffect.textContent=`${selected.label} · ${formatCredits(selected.price)} CR`;v.previewCopy.textContent=selected.description;
       v.items.innerHTML=R.CASE_ORDER.map(id=>{
         const box=R.CASES[id],count=Math.max(0,Math.floor(Number(this.save.caseInventory?.[id])||0)),shortfall=Math.max(0,box.price-this.save.credits),maxReward=Math.max(...box.rewards.map(x=>x.price));
-        return `<article class="shop-item case-card ${id===s.previewCase?'selected':''}" data-case="${id}" style="--case:${box.accent}"><div class="case-card-art"><div class="case-crate"><i></i><b>VA</b><span></span></div><em>${box.label}</em>${count?`<mark>x${count}</mark>`:''}</div><div class="case-card-title"><strong>${box.name}</strong><span>${box.subtitle}</span></div><div class="case-card-stats"><span>${box.rewards.length} НАГРАД</span><span>ДО ${formatCredits(maxReward)} CR</span></div><div class="item-price case-price"><strong>${formatCredits(box.price)} CR</strong><span>${id==='all'?'УЛЬТРА-РЕДКИЙ LUX':'ШАНСЫ ПО ЦЕНЕ'}</span></div>${shortfall?`<div class="item-shortfall">ЕЩЁ ${formatCredits(shortfall)} CR</div>`:''}<button type="button" class="purchase-btn case-buy-btn">КУПИТЬ КЕЙС</button>${count?`<button type="button" class="case-owned-open-btn">ОТКРЫТЬ · x${count}</button>`:''}</article>`;
+        return `<article class="shop-item case-card ${id===s.previewCase?'selected':''}" data-case="${id}" style="--case:${box.accent}"><div class="case-card-art"><div class="case-crate"><i></i><b>VA</b><span></span></div><em>${box.label}</em>${count?`<mark>x${count}</mark>`:''}</div><div class="case-card-title"><strong>${box.name}</strong><span>${box.subtitle}</span></div><div class="case-card-stats"><span>${box.rewards.length} НАГРАД</span><span>ДО ${formatCredits(maxReward)} CR</span></div><div class="item-price case-price"><strong>${formatCredits(box.price)} CR</strong><span>${id==='all'?'УЛЬТРА-РЕДКИЙ LUX':'ШАНСЫ ПО ЦЕНЕ'}</span></div>${shortfall?`<div class="item-shortfall">ЕЩЁ ${formatCredits(shortfall)} CR</div>`:''}<button type="button" class="purchase-btn case-buy-btn">КУПИТЬ · 1–10</button>${count?`<button type="button" class="case-owned-open-btn">ОТКРЫТЬ · x${count}</button>`:''}</article>`;
       }).join('');
     }
     buyCase(id){
-      const box=R.CASES[id],v=this.view('shop');if(!box)return;
-      const result=R.buyCase(this.save,id);v.message.textContent=result==='insufficient'?`НЕДОСТАТОЧНО CR · НУЖНО ${formatCredits(box.price)} CR`:result==='purchased'?`${box.name} КУПЛЕН · ГОТОВ К ОТКРЫТИЮ`:'Кейс недоступен';v.message.classList.toggle('warning',result!=='purchased');
-      if(result==='purchased'){this.onChange();this.render();this.openCaseDialog(id);}else this.render();
+      this.openCaseDialog(id);
+    }
+    setCaseQuantity(value){
+      this.caseQuantity=Math.max(1,Math.min(10,Math.floor(Number(value)||1)));this.refreshCaseDialogInventory();
+    }
+    buyCaseBatch(){
+      const id=this.activeCaseId,box=R.CASES[id],d=this.caseDialog();if(!box||this.caseSpinning)return;
+      const result=R.buyCases?R.buyCases(this.save,id,this.caseQuantity):{status:'invalid'};
+      const v=this.view('shop');
+      if(result.status==='purchased'){
+        v.message.textContent=`${box.name} · КУПЛЕНО x${result.quantity} · ${formatCredits(result.cost)} CR`;v.message.classList.remove('warning');this.onChange();this.render();this.refreshCaseDialogInventory();d.ready.classList.remove('hidden');d.ready.textContent=`КУПЛЕНО x${result.quantity} · МОЖНО ОТКРЫТЬ ОДНИМ НАЖАТИЕМ`;
+      }else{
+        v.message.textContent=result.status==='insufficient'?`НЕДОСТАТОЧНО CR · НУЖНО ${formatCredits(box.price*this.caseQuantity)} CR`:result.status==='limit'?'ЛИМИТ ИНВЕНТАРЯ КЕЙСОВ':'Кейс недоступен';v.message.classList.add('warning');this.refreshCaseDialogInventory();
+      }
     }
     openCaseDialog(id){
       const box=R.CASES[id],d=this.caseDialog();if(!box||!d.modal)return;
-      this.activeCaseId=id;this.caseSpinning=false;this.caseSpinToken++;d.modal.classList.remove('hidden');d.modal.style.setProperty('--case',box.accent);d.crate.style.setProperty('--case',box.accent);d.crate.dataset.case=id;
+      this.activeCaseId=id;this.caseSpinning=false;this.caseSpinToken++;this.caseQuantity=1;d.modal.classList.remove('hidden');d.modal.style.setProperty('--case',box.accent);d.crate.style.setProperty('--case',box.accent);d.crate.dataset.case=id;
       d.title.textContent=box.name;d.subtitle.textContent=box.subtitle;d.price.textContent=`ЦЕНА ${formatCredits(box.price)} CR`;d.rewardCount.textContent=`${box.rewards.length} ПРЕДМЕТОВ`;
       d.rewardList.innerHTML=box.rewards.slice().sort((a,b)=>b.price-a.price).map(reward=>{const rarity=rewardRarity(reward);return `<div class="case-reward-row ${rarity.className}" style="--rarity:${rarity.color}">${rewardVisual(reward)}<div><strong>${reward.name}</strong><span>${rarity.label} · ${formatCredits(reward.price)} CR</span></div><b>${chanceText(reward.chanceBps)}</b></div>`;}).join('');
-      d.strip.innerHTML='';d.result.classList.add('hidden');d.result.innerHTML='';d.ready.classList.remove('hidden');d.ready.textContent='НАЖМИТЕ «ОТКРЫТЬ», ЧТОБЫ ЗАПУСТИТЬ РУЛЕТКУ';d.close.disabled=false;this.refreshCaseDialogInventory();
+      d.strip.innerHTML='';d.result.className='case-result hidden';d.result.innerHTML='';d.ready.classList.remove('hidden');d.ready.textContent='НАЖМИТЕ «ОТКРЫТЬ», ЧТОБЫ ЗАПУСТИТЬ РУЛЕТКУ';d.close.disabled=false;this.refreshCaseDialogInventory();
     }
     refreshCaseDialogInventory(){
-      if(!this.activeCaseId)return;const d=this.caseDialog(),count=Math.max(0,Math.floor(Number(this.save.caseInventory?.[this.activeCaseId])||0));d.credits.textContent=formatCredits(this.save.credits)+' CR';d.owned.textContent='x'+count;d.open.disabled=count<1||this.caseSpinning;d.open.textContent=count>0?(this.caseSpinning?'ОТКРЫВАЕМ…':`ОТКРЫТЬ · x${count}`):'НЕТ КЕЙСОВ';
+      if(!this.activeCaseId)return;const d=this.caseDialog(),box=R.CASES[this.activeCaseId],count=Math.max(0,Math.floor(Number(this.save.caseInventory?.[this.activeCaseId])||0)),qty=Math.max(1,Math.min(10,this.caseQuantity)),openQty=Math.min(qty,count),cost=box.price*qty;
+      d.credits.textContent=formatCredits(this.save.credits)+' CR';d.owned.textContent='x'+count;d.qtyValue.textContent=String(qty);d.qtyMinus.disabled=this.caseSpinning||qty<=1;d.qtyPlus.disabled=this.caseSpinning||qty>=10;
+      d.buyBatch.disabled=this.caseSpinning||this.save.credits<cost||count+qty>999;d.buyBatch.textContent=`КУПИТЬ ×${qty} · ${formatCredits(cost)} CR`;
+      d.open.disabled=count<1||this.caseSpinning;d.open.textContent=count>0?(this.caseSpinning?'ОТКРЫВАЕМ…':`ОТКРЫТЬ ×${openQty}${qty>count?' · ДОСТУПНО '+count:''}`):'НЕТ КЕЙСОВ';
     }
     closeCaseDialog(){
       const d=this.caseDialog();if(!d.modal||this.caseSpinning)return;d.modal.classList.add('hidden');this.activeCaseId=null;this.caseSpinToken++;this.render();
@@ -152,24 +169,45 @@
     randomReward(box){
       let ticket=Math.floor(Math.random()*10000);for(const reward of box.rewards){if(ticket<reward.chanceBps)return reward;ticket-=reward.chanceBps;}return box.rewards[box.rewards.length-1];
     }
+    showcaseReward(box){
+      const ranked=box.rewards.slice().sort((a,b)=>b.price-a.price),pool=ranked.slice(0,Math.max(1,Math.ceil(ranked.length*.24)));return pool[Math.floor(Math.random()*pool.length)]||ranked[0];
+    }
+    buildVisualSequence(box,winningReward,targetIndex,total){
+      const sequence=[],nearMisses=new Set([targetIndex-1,targetIndex-2,targetIndex-7,targetIndex-13]);
+      for(let i=0;i<total;i++){
+        if(i===targetIndex){sequence.push({reward:winningReward,showcase:false});continue;}
+        const showcase=i<targetIndex&&(nearMisses.has(i)||(i>6&&Math.random()<.17));sequence.push({reward:showcase?this.showcaseReward(box):this.randomReward(box),showcase});
+      }
+      return sequence;
+    }
     spinActiveCase(){
       const id=this.activeCaseId,box=R.CASES[id],d=this.caseDialog();if(!box||this.caseSpinning)return;
-      const result=R.openCase(this.save,id);if(result.status!=='opened'){this.refreshCaseDialogInventory();return;}
-      this.onChange();this.render();this.caseSpinning=true;this.refreshCaseDialogInventory();d.close.disabled=true;d.result.classList.add('hidden');d.result.innerHTML='';d.ready.classList.remove('hidden');d.ready.textContent='СИНХРОНИЗАЦИЯ DROP…';
-      const targetIndex=44,total=51,sequence=[];for(let i=0;i<total;i++)sequence.push(i===targetIndex?result.reward:this.randomReward(box));
-      d.strip.innerHTML=sequence.map((reward,index)=>{const rarity=rewardRarity(reward);return `<div class="case-roll-item ${rarity.className}" data-roll-index="${index}" style="--rarity:${rarity.color}">${rewardVisual(reward)}<strong>${reward.name}</strong><span>${rarity.label}</span></div>`;}).join('');
+      const available=Math.max(0,Math.floor(Number(this.save.caseInventory?.[id])||0)),quantity=Math.min(this.caseQuantity,available,10);if(quantity<1){this.refreshCaseDialogInventory();return;}
+      const batch=R.openCases?R.openCases(this.save,id,quantity):{status:'invalid',results:[]};if(batch.status!=='opened'||!batch.results.length){this.refreshCaseDialogInventory();return;}
+      const results=batch.results,featured=results.reduce((best,item)=>!best||item.reward.price>best.reward.price?item:best,null);
+      this.onChange();this.render();this.caseSpinning=true;this.refreshCaseDialogInventory();d.close.disabled=true;d.result.className='case-result hidden';d.result.innerHTML='';d.ready.classList.remove('hidden');d.ready.textContent=results.length>1?`СИНХРОНИЗАЦИЯ ${results.length} DROPS…`:'СИНХРОНИЗАЦИЯ DROP…';
+      const targetIndex=44,total=51,sequence=this.buildVisualSequence(box,featured.reward,targetIndex,total);
+      d.strip.innerHTML=sequence.map(({reward,showcase},index)=>{const rarity=rewardRarity(reward);return `<div class="case-roll-item ${rarity.className}${showcase?' showcase':''}" data-roll-index="${index}" style="--rarity:${rarity.color}">${rewardVisual(reward)}<strong>${reward.name}</strong><span>${rarity.label}</span></div>`;}).join('');
       d.strip.style.transition='none';d.strip.style.transform='translate3d(0,0,0)';void d.strip.offsetWidth;
       const token=++this.caseSpinToken,reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches,duration=reduced?420:4700;
-      const finish=()=>{if(token!==this.caseSpinToken||!this.caseSpinning)return;this.caseSpinning=false;const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(target)target.classList.add('winner');d.close.disabled=false;this.showCaseResult(result);this.refreshCaseDialogInventory();};
+      const finish=()=>{if(token!==this.caseSpinToken||!this.caseSpinning)return;this.caseSpinning=false;const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(target)target.classList.add('winner');d.close.disabled=false;this.showCaseResults(results);this.refreshCaseDialogInventory();};
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(!target){finish();return;}const offset=Math.max(0,target.offsetLeft-(d.viewport.clientWidth-target.offsetWidth)/2);d.ready.textContent='ОТКРЫВАЕМ КЕЙС…';d.strip.style.transition=`transform ${duration}ms cubic-bezier(.07,.72,.08,1)`;d.strip.style.transform=`translate3d(${-offset}px,0,0)`;d.strip.addEventListener('transitionend',finish,{once:true});setTimeout(finish,duration+180);
+        const target=d.strip.querySelector(`[data-roll-index="${targetIndex}"]`);if(!target){finish();return;}const offset=Math.max(0,target.offsetLeft-(d.viewport.clientWidth-target.offsetWidth)/2);d.ready.textContent=results.length>1?`ОТКРЫВАЕМ ${results.length} КЕЙСОВ ОДНОВРЕМЕННО…`:'ОТКРЫВАЕМ КЕЙС…';d.strip.style.transition=`transform ${duration}ms cubic-bezier(.07,.72,.08,1)`;d.strip.style.transform=`translate3d(${-offset}px,0,0)`;d.strip.addEventListener('transitionend',finish,{once:true});setTimeout(finish,duration+180);
       }));
     }
     showCaseResult(result){
-      const d=this.caseDialog(),reward=result.reward,rarity=rewardRarity(reward),duplicate=result.duplicate;
-      d.ready.classList.add('hidden');d.result.classList.remove('hidden');d.result.style.setProperty('--rarity',rarity.color);
-      d.result.innerHTML=`${rewardVisual(reward)}<div class="case-result-copy"><span class="case-result-kicker ${duplicate?'duplicate':'new'}">${duplicate?'ДУБЛИКАТ · КОМПЕНСАЦИЯ':'НОВЫЙ ПРЕДМЕТ'}</span><strong>${reward.name}</strong><small>${rarity.label} · ШАНС ${chanceText(result.chanceBps)} · ЦЕННОСТЬ ${formatCredits(reward.price)} CR</small>${duplicate?`<b>+${formatCredits(result.compensation)} CR</b>`:'<b>ДОБАВЛЕНО В ГАРАЖ</b>'}</div>`;
-      this.view('shop').message.textContent=duplicate?`ДУБЛИКАТ · +${formatCredits(result.compensation)} CR`:`ПОЛУЧЕНО · ${reward.name}`;this.view('shop').message.classList.remove('warning');
+      this.showCaseResults([result]);
+    }
+    showCaseResults(results){
+      const d=this.caseDialog();if(!Array.isArray(results)||!results.length)return;d.ready.classList.add('hidden');d.result.classList.remove('hidden');
+      if(results.length===1){
+        const result=results[0],reward=result.reward,rarity=rewardRarity(reward),duplicate=result.duplicate;d.result.className='case-result';d.result.style.setProperty('--rarity',rarity.color);
+        d.result.innerHTML=`${rewardVisual(reward)}<div class="case-result-copy"><span class="case-result-kicker ${duplicate?'duplicate':'new'}">${duplicate?'ДУБЛИКАТ · КОМПЕНСАЦИЯ':'НОВЫЙ ПРЕДМЕТ'}</span><strong>${reward.name}</strong><small>${rarity.label} · ШАНС ${chanceText(result.chanceBps)} · ЦЕННОСТЬ ${formatCredits(reward.price)} CR</small>${duplicate?`<b>+${formatCredits(result.compensation)} CR</b>`:'<b>ДОБАВЛЕНО В ГАРАЖ</b>'}</div>`;
+        this.view('shop').message.textContent=duplicate?`ДУБЛИКАТ · +${formatCredits(result.compensation)} CR`:`ПОЛУЧЕНО · ${reward.name}`;this.view('shop').message.classList.remove('warning');return;
+      }
+      const totalComp=results.reduce((sum,x)=>sum+(x.compensation||0),0),newCount=results.filter(x=>!x.duplicate).length;d.result.className='case-result batch';
+      d.result.innerHTML=`<div class="case-batch-summary"><span>MULTI DROP</span><strong>${results.length} КЕЙСОВ ОТКРЫТО</strong><small>${newCount} НОВЫХ · ${results.length-newCount} ДУБЛИКАТОВ${totalComp?` · +${formatCredits(totalComp)} CR`:''}</small></div><div class="case-result-grid">${results.map((result,index)=>{const reward=result.reward,rarity=rewardRarity(reward);return `<article class="case-result-mini ${result.duplicate?'duplicate':''}" style="--rarity:${rarity.color}"><span class="case-result-number">${String(index+1).padStart(2,'0')}</span>${rewardVisual(reward)}<div><strong>${reward.name}</strong><small>${rarity.label} · ${chanceText(result.chanceBps)}</small><b>${result.duplicate?`+${formatCredits(result.compensation)} CR`:'NEW'}</b></div></article>`;}).join('')}</div>`;
+      this.view('shop').message.textContent=`MULTI DROP · ${results.length} КЕЙСОВ · ${newCount} НОВЫХ${totalComp?` · +${formatCredits(totalComp)} CR`:''}`;this.view('shop').message.classList.remove('warning');
     }
     draw(dt){
       const s=this.state[this.mode];if(this.mode==='shop'&&s.tab==='case')return;

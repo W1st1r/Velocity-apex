@@ -4,7 +4,7 @@ assert.match(html,/ИГРАТЬ РЯДОМ/);assert.match(html,/id="onlineBtn"[\
 for(const f of ['js/network.js','js/online.js','manifest.webmanifest'])assert.ok(html.includes(f),`index must reference ${f}`);
 const ids=new Set([...html.matchAll(/\bid=["']([^"']+)/g)].map(m=>m[1]));for(const m of online.matchAll(/\$\(['"]([^'"]+)['"]\)/g))assert.ok(ids.has(m[1]),`missing DOM id ${m[1]}`);
 assert.ok(online.includes('R.DRIFT_TRACKS')&&online.includes('R.TRACKS'),'online track list must separate normal and drift catalogs');
-for(const id of ['onlineDrift','lobbyDrift','lobbyModeName','onlineFinishMetricLabel','onlineFinishDriftReward'])assert.ok(ids.has(id),`missing online drift UI ${id}`);
+for(const id of ['onlineDrift','lobbyDrift','lobbyModeName','onlineFinishMetricLabel','onlineFinishDriftReward'])assert.ok(ids.has(id),`missing online drift UI ${id}`);for(const id of ['onlineModeSelect','onlineRoomsModeBtn','onlineFreeModeBtn','onlineModeBack'])assert.ok(ids.has(id),`missing online mode hub UI ${id}`);assert.match(html,/id="onlineFreeModeBtn"[\s\S]*?disabled/);assert.match(html,/СВОБОДНЫЙ РЕЖИМ/);assert.match(html,/СКОРО · В РАЗРАБОТКЕ/);
 assert.ok(online.includes('drift?1:+els.laps.value')&&online.includes('drift?1:+els.lobbyLapsSelect.value'),'online drift rooms must use one route completion');
 assert.ok(!online.includes('.innerHTML'),'online nickname/player rendering must not use innerHTML');
 const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'public/manifest.webmanifest'),'utf8'));for(const i of manifest.icons||[])assert.ok(fs.existsSync(path.join(ROOT,'public',String(i.src).replace(/^\//,''))),`missing manifest icon ${i.src}`);

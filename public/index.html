@@ -82,7 +82,38 @@
         </header>
 
         <div class="online-stage">
-          <div id="onlineLanding" class="online-view">
+          <div id="onlineModeSelect" class="online-view online-mode-select">
+            <div class="online-city-scene" aria-hidden="true">
+              <span class="city-moon"></span>
+              <div class="city-glow city-glow-a"></div>
+              <div class="city-glow city-glow-b"></div>
+              <div class="city-skyline city-skyline-back"></div>
+              <div class="city-skyline city-skyline-front"></div>
+              <div class="city-road"><i></i><i></i><i></i></div>
+            </div>
+            <div class="online-mode-hero">
+              <span class="online-mode-kicker">SELECT ONLINE EXPERIENCE</span>
+              <strong>ВЫБЕРИТЕ РЕЖИМ</strong>
+              <small>Комнаты уже доступны. Свободный город появится в одном из следующих обновлений.</small>
+            </div>
+            <div class="online-mode-grid">
+              <button id="onlineRoomsModeBtn" class="online-mode-tile rooms-mode" type="button">
+                <span class="online-mode-index">01</span>
+                <span class="online-mode-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span class="online-mode-copy"><small>MULTIPLAYER ROOMS</small><strong>КОМНАТЫ</strong><em>Создавайте приватные заезды или подключайтесь по коду.</em></span>
+                <b aria-hidden="true">›</b>
+              </button>
+              <button id="onlineFreeModeBtn" class="online-mode-tile free-mode locked" type="button" disabled aria-disabled="true">
+                <span class="online-mode-index">02</span>
+                <span class="online-lock-badge" aria-hidden="true">🔒</span>
+                <span class="online-mode-copy"><small>OPEN CITY</small><strong>СВОБОДНЫЙ РЕЖИМ</strong><em>СКОРО · В РАЗРАБОТКЕ</em></span>
+                <span class="online-soon-chip">СКОРО</span>
+              </button>
+            </div>
+            <div class="online-mode-footer"><span><i></i>ONLINE HUB · VELOCITY APEX</span><button id="onlineModeBack" class="secondary-btn compact-btn" type="button">НАЗАД</button></div>
+          </div>
+
+          <div id="onlineLanding" class="online-view hidden">
             <div class="online-landing-grid">
               <div class="online-card online-profile-card">
                 <div class="online-card-kicker"><span>01</span><strong>ПРОФИЛЬ</strong></div>
@@ -254,7 +285,17 @@
             <div class="case-hero-row">
               <div id="caseModalCrate" class="case-crate case-crate-modal"><i></i><b>VA</b><span></span></div>
               <div class="case-hero-copy"><span>КЕЙС В ИНВЕНТАРЕ</span><strong id="caseOwnedCount">x0</strong><small id="casePriceLabel">0 CR</small></div>
+              <div class="case-quantity-wrap" aria-label="Количество кейсов">
+                <span>КОЛИЧЕСТВО</span>
+                <div class="case-quantity-control">
+                  <button id="caseQtyMinus" type="button" aria-label="Уменьшить количество">−</button>
+                  <strong id="caseQtyValue" aria-live="polite">1</strong>
+                  <button id="caseQtyPlus" type="button" aria-label="Увеличить количество">+</button>
+                </div>
+                <small>1–10 ЗА РАЗ</small>
+              </div>
             </div>
+            <button id="caseBuyBatchBtn" class="secondary-btn case-buy-batch-btn" type="button">КУПИТЬ ×1</button>
             <div id="caseRoulette" class="case-roulette" aria-live="polite">
               <div class="case-roulette-marker" aria-hidden="true"></div>
               <div class="case-roulette-viewport"><div id="caseRollStrip" class="case-roll-strip"></div></div>

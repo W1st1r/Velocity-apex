@@ -276,6 +276,13 @@
     if(!save.caseInventory||typeof save.caseInventory!=='object'||Array.isArray(save.caseInventory))save.caseInventory={};
     save.credits-=box.price;save.caseInventory[caseId]=Math.max(0,Math.floor(Number(save.caseInventory[caseId])||0))+1;return 'purchased';
   };
+  R.buyCases=function(save,caseId,quantity=1){
+    const box=R.CASES[caseId],qty=Math.floor(Number(quantity));if(!box||!save||typeof save!=='object'||!Number.isFinite(qty)||qty<1||qty>10)return {status:'invalid',quantity:0,cost:0};
+    const cost=box.price*qty;if(!Number.isFinite(save.credits)||save.credits<cost)return {status:'insufficient',quantity:qty,cost};
+    if(!save.caseInventory||typeof save.caseInventory!=='object'||Array.isArray(save.caseInventory))save.caseInventory={};
+    const owned=Math.max(0,Math.floor(Number(save.caseInventory[caseId])||0));if(owned+qty>999)return {status:'limit',quantity:qty,cost};
+    save.credits-=cost;save.caseInventory[caseId]=owned+qty;return {status:'purchased',quantity:qty,cost,remaining:save.caseInventory[caseId]};
+  };
   R.openCase=function(save,caseId,rng=Math.random){
     const box=R.CASES[caseId];if(!box||!save||typeof save!=='object')return {status:'invalid'};
     const inventory=save.caseInventory&&typeof save.caseInventory==='object'?save.caseInventory:null,count=inventory?Math.max(0,Math.floor(Number(inventory[caseId])||0)):0;
@@ -290,6 +297,13 @@
     if(duplicate){compensation=R.caseDuplicateCompensation(reward.price);save.credits=Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,Math.floor(Number(save.credits)||0))+compensation);}
     else save[ownedKey].push(reward.id);
     return {status:'opened',caseId,reward,duplicate,compensation,chanceBps:reward.chanceBps,remaining:inventory[caseId]};
+  };
+  R.openCases=function(save,caseId,quantity=1,rng=Math.random){
+    const box=R.CASES[caseId],requested=Math.floor(Number(quantity));if(!box||!save||typeof save!=='object'||!Number.isFinite(requested)||requested<1||requested>10)return {status:'invalid',results:[],opened:0,remaining:0};
+    const inventory=save.caseInventory&&typeof save.caseInventory==='object'?save.caseInventory:null,count=inventory?Math.max(0,Math.floor(Number(inventory[caseId])||0)):0,qty=Math.min(requested,count,10);
+    if(qty<1)return {status:'empty',results:[],opened:0,remaining:count};
+    const results=[];for(let i=0;i<qty;i++){const result=R.openCase(save,caseId,rng);if(result.status!=='opened')break;results.push(result);}
+    return {status:results.length?'opened':'empty',results,opened:results.length,remaining:Math.max(0,Math.floor(Number(save.caseInventory?.[caseId])||0))};
   };
   R.DIFFICULTY_LABELS={easy:'ЛЕГКО',medium:'СРЕДНЕ',hard:'СЛОЖНО',extreme:'ЭКСТРИМ'};
   const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
