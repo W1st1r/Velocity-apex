@@ -33,7 +33,7 @@
 
   class Garage{
     constructor(save,onChange){
-      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;
+      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.previewLoadToken=0;this.catalogPreloadToken=0;
       this.state={
         shop:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect,previewCase:'all'},
         garage:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect}
@@ -56,6 +56,7 @@
       const v=this.view(mode);if(!v.tabs||!v.categories||!v.items)return;
       v.tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{this.mode=mode;this.state[mode].tab=b.dataset.tab;this.render();}));
       v.categories.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{this.mode=mode;this.state[mode].category=b.dataset.category;this.render();}));
+      v.items.addEventListener('pointerdown',e=>{const card=e.target.closest('[data-item]');if(card&&this.state[mode].tab==='livery')this.prewarmLivery(card.dataset.item);},{passive:true});
       v.items.addEventListener('click',e=>this.handleItemsClick(mode,e));
     }
     bindCaseDialog(){
@@ -77,9 +78,12 @@
         return;
       }
       const card=e.target.closest('[data-item]');if(!card)return;
-      this.mode=mode;const s=this.state[mode],id=card.dataset.item;
-      if(s.tab==='livery')s.previewLivery=id;else s.previewEffect=id;
-      const action=e.target.closest('.purchase-btn,.select-btn');
+      this.mode=mode;const s=this.state[mode],id=card.dataset.item,action=e.target.closest('.purchase-btn,.select-btn');
+      const previewKey=s.tab==='livery'?'previewLivery':'previewEffect',changed=s[previewKey]!==id;s[previewKey]=id;
+      // Preview taps are the hot path on iPhone. Do not rebuild dozens of car cards
+      // just to move the preview highlight; update only the two affected cards and
+      // the hero preview. Purchases/equips still use a full render because ownership changes.
+      if(!action){if(changed)this.updatePreviewOnly(mode,id);return;}
       if(action&&mode==='shop'&&action.classList.contains('purchase-btn')){
         const kind=s.tab,result=R.shopAction(this.save,kind,id),v=this.view(mode);
         v.message.textContent=result==='insufficient'?'НЕДОСТАТОЧНО CR':result==='purchased'?'КУПЛЕНО · предмет уже доступен в ГАРАЖЕ':'Предмет недоступен';
@@ -92,6 +96,35 @@
         if(result==='selected')this.onChange();
       }
       this.render();
+    }
+    prewarmLivery(id){
+      const item=R.LIVERIES[id],src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);
+    }
+    scheduleCatalogPreload(entries,mode){
+      const token=++this.catalogPreloadToken,limit=mode==='garage'?entries.length:Math.min(entries.length,14),queue=entries.slice(0,limit);
+      queue.forEach(([id,item],index)=>setTimeout(()=>{if(token!==this.catalogPreloadToken)return;const src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);},35+index*65));
+    }
+    setPreviewCar(liveryId,effectId){
+      const item=R.LIVERIES[liveryId],src=item?.sprite?.src,token=++this.previewLoadToken;
+      if(!src||!R.preloadSprite){this.car.setLoadout(liveryId,effectId,'preview');return;}
+      R.preloadSprite(src).then(()=>{if(token!==this.previewLoadToken)return;const s=this.state[this.mode];if(s?.previewLivery!==liveryId||s?.previewEffect!==effectId)return;this.car.setLoadout(liveryId,effectId,'preview');});
+    }
+    syncPreviewChip(card,isPreview,isSelected){
+      if(!card)return;card.classList.toggle('previewing',isPreview);card.dataset.previewed=isPreview?'true':'false';
+      const button=card.querySelector('.item-preview');if(button)button.setAttribute('aria-pressed',String(isPreview));
+      let chip=card.querySelector('.item-preview-state');
+      if(isSelected){if(!chip){chip=document.createElement('span');chip.className='item-preview-state';button?.appendChild(chip);}chip.className='item-preview-state active';chip.textContent='АКТИВНО';}
+      else if(isPreview){if(!chip){chip=document.createElement('span');chip.className='item-preview-state';button?.appendChild(chip);}chip.className='item-preview-state';chip.textContent='ПРОСМОТР';}
+      else if(chip)chip.remove();
+    }
+    updatePreviewOnly(mode,id){
+      const s=this.state[mode],v=this.view(mode),isCars=s.tab==='livery',previewKey=isCars?'previewLivery':'previewEffect',selected=this.save[isCars?'selectedLivery':'selectedEffect'];
+      const previous=v.items.querySelector('[data-previewed="true"]'),next=v.items.querySelector(`[data-item="${CSS.escape(id)}"]`);
+      if(previous&&previous!==next)this.syncPreviewChip(previous,false,previous.dataset.item===selected);
+      this.syncPreviewChip(next,true,id===selected);
+      if(isCars)this.setPreviewCar(id,s.previewEffect);else this.setPreviewCar(s.previewLivery,id);
+      v.previewName.textContent=R.LIVERIES[s.previewLivery].name;
+      v.previewEffect.textContent=R.EFFECTS[s.previewEffect].name+(mode==='garage'?' · '+(s[previewKey]===selected?'АКТИВНО':'ПРЕДПРОСМОТР'):'');
     }
     open(mode='shop'){
       this.mode=mode;const s=this.state[mode];
@@ -144,7 +177,8 @@
         if(img.complete&&!img.naturalWidth)mark();else img.addEventListener('error',mark,{once:true});
       });
       this.cards=Array.from(v.items.querySelectorAll('.shop-item[data-item] canvas.catalog-fallback-canvas')).map(canvas=>{const el=canvas.closest('.shop-item[data-item]'),car=new R.Car();car.x=140;car.y=56;car.speed=280;car.throttleVisual=1;car.setLoadout(el.dataset.item,s.previewEffect,'thumbnail');return {car,canvas};});
-      if(!this.categoryEmpty)this.car.setLoadout(s.previewLivery,s.previewEffect,'preview');
+      if(isCars)this.scheduleCatalogPreload(entries,mode);
+      if(!this.categoryEmpty)this.setPreviewCar(s.previewLivery,s.previewEffect);
       if(this.categoryEmpty){const meta=R.CAR_CATEGORIES[s.category]||R.CAR_CATEGORIES.all;v.previewName.textContent=meta.label;v.previewEffect.textContent=mode==='shop'?'НОВЫЕ МОДЕЛИ ГОТОВЯТСЯ':'ПОПОЛНИТЕ КОЛЛЕКЦИЮ В МАГАЗИНЕ';}
       else {v.previewName.textContent=R.LIVERIES[s.previewLivery].name;v.previewEffect.textContent=R.EFFECTS[s.previewEffect].name+(mode==='garage'?' · '+(s[previewKey]===selected?'АКТИВНО':'ПРЕДПРОСМОТР'):'');}
     }

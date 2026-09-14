@@ -8,6 +8,7 @@
   const moveToward=(v,target,amount)=>v<target?Math.min(target,v+amount):Math.max(target,v-amount);
   const DEBUG_COLLIDERS=false;
   const spriteCache=new Map();
+  const spriteDecodeCache=new Map();
   function normalizeSpriteSrc(src){
     if(typeof src!=='string'||!src)return '';
     if(/^(?:https?:|data:|blob:|\/)/i.test(src))return src;
@@ -19,7 +20,20 @@
     if(spriteCache.has(resolved))return spriteCache.get(resolved);
     const img=new Image();img.decoding='async';img.src=resolved;spriteCache.set(resolved,img);return img;
   }
+  function preloadSprite(src){
+    if(!src||typeof Image==='undefined')return Promise.resolve(null);
+    const resolved=normalizeSpriteSrc(src);
+    if(spriteDecodeCache.has(resolved))return spriteDecodeCache.get(resolved);
+    const img=getSpriteImage(resolved);
+    const loaded=()=>new Promise(resolve=>{
+      if(img.complete){resolve(img);return;}
+      const done=()=>resolve(img);img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});
+    });
+    const promise=(typeof img.decode==='function'?img.decode().catch(()=>loaded()):loaded()).then(()=>img).catch(()=>img);
+    spriteDecodeCache.set(resolved,promise);return promise;
+  }
   R.normalizeSpriteSrc=normalizeSpriteSrc;
+  R.preloadSprite=preloadSprite;
 
   const positive=(value,fallback)=>Number.isFinite(value)&&value>0?value:fallback;
   function resolveSpriteSize(spriteSpec,imageWidth,imageHeight,preview=false){
