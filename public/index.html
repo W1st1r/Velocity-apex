@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-012" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-013" />
 </head>
 <body>
   <div id="app">
@@ -150,14 +150,22 @@
     <div id="friends" class="overlay friends-screen hidden" aria-hidden="true">
       <section class="friends-card glass enter-panel" aria-labelledby="friendsTitle">
         <header class="friends-header">
-          <div><div class="eyebrow">VELOCITY APEX / SOCIAL</div><h2 id="friendsTitle">ДРУЗЬЯ</h2><p>Добавляйте игроков по нику и смотрите, кто сейчас онлайн.</p></div>
+          <div><div class="eyebrow">VELOCITY APEX / SOCIAL</div><h2 id="friendsTitle">ДРУЗЬЯ</h2><p>Найдите игрока по нику, отправьте приглашение и дождитесь подтверждения.</p></div>
           <button id="friendsCloseBtn" class="account-close" type="button" aria-label="Закрыть">×</button>
         </header>
         <div class="friends-add-row">
           <label class="online-field"><span>НИК ИГРОКА</span><input id="friendUsername" maxlength="24" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@username"></label>
-          <button id="friendAddBtn" class="primary-btn" type="button">ДОБАВИТЬ</button>
+          <button id="friendAddBtn" class="primary-btn" type="button">ПРИГЛАСИТЬ</button>
         </div>
         <div id="friendsMessage" class="account-message" aria-live="polite"></div>
+        <section id="friendRequestsSection" class="friend-requests-section hidden">
+          <div class="friends-toolbar"><strong>ВХОДЯЩИЕ ЗАЯВКИ</strong><span id="friendRequestsCount">0</span></div>
+          <div id="friendRequestsList" class="friends-list friend-requests-list"></div>
+        </section>
+        <section id="friendOutgoingSection" class="friend-requests-section hidden">
+          <div class="friends-toolbar"><strong>ОТПРАВЛЕННЫЕ</strong><span id="friendOutgoingCount">0</span></div>
+          <div id="friendOutgoingList" class="friends-list friend-requests-list"></div>
+        </section>
         <div class="friends-toolbar"><strong>ВАШИ ДРУЗЬЯ</strong><span id="friendsCount">0 друзей</span></div>
         <div id="friendsList" class="friends-list"></div>
       </section>
@@ -190,7 +198,7 @@
         <form id="freeChatForm" class="free-chat-form"><input id="freeChatInput" maxlength="180" autocomplete="off" placeholder="Сообщение всем игрокам…"><button type="submit">ОТПРАВИТЬ</button></form>
       </div>
       <div id="freeMapPanel" class="free-map-panel hidden">
-        <header><div><small>APEX CITY / LIVE MAP</small><strong>КАРТА ГОРОДА</strong></div><button id="freeMapClose" type="button">×</button></header>
+        <header><div><small>APEX CITY / LIVE MAP</small><strong>КАРТА ГОРОДА</strong></div><div class="free-map-actions"><button id="freeMapClear" class="free-map-clear" type="button" disabled>УБРАТЬ МЕТКУ</button><button id="freeMapClose" type="button">×</button></div></header>
         <canvas id="freeMapCanvas" width="900" height="600"></canvas>
         <div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT</span><span>◆ SPEED</span><span>◆ CAR MEET</span></div>
       </div>
@@ -753,20 +761,20 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260915-012"></script>
-  <script src="js/racing-line.js?v=20260915-012"></script>
-  <script src="js/track.js?v=20260915-012"></script>
-  <script src="js/audio.js?v=20260915-012"></script>
-  <script src="js/car.js?v=20260915-012"></script>
-  <script src="js/ai.js?v=20260915-012"></script>
-  <script src="js/garage.js?v=20260915-012"></script>
-  <script src="js/root-console.js?v=20260915-012"></script>
-  <script src="js/controls.js?v=20260915-012"></script>
-  <script src="js/network.js?v=20260915-012"></script>
-  <script src="js/account.js?v=20260915-012"></script>
-  <script src="js/online.js?v=20260915-012"></script>
-  <script src="js/friends.js?v=20260915-012"></script>
-  <script src="js/freeroam.js?v=20260915-012"></script>
-  <script src="js/game.js?v=20260915-012"></script>
+  <script src="js/content.js?v=20260915-013"></script>
+  <script src="js/racing-line.js?v=20260915-013"></script>
+  <script src="js/track.js?v=20260915-013"></script>
+  <script src="js/audio.js?v=20260915-013"></script>
+  <script src="js/car.js?v=20260915-013"></script>
+  <script src="js/ai.js?v=20260915-013"></script>
+  <script src="js/garage.js?v=20260915-013"></script>
+  <script src="js/root-console.js?v=20260915-013"></script>
+  <script src="js/controls.js?v=20260915-013"></script>
+  <script src="js/network.js?v=20260915-013"></script>
+  <script src="js/account.js?v=20260915-013"></script>
+  <script src="js/online.js?v=20260915-013"></script>
+  <script src="js/friends.js?v=20260915-013"></script>
+  <script src="js/freeroam.js?v=20260915-013"></script>
+  <script src="js/game.js?v=20260915-013"></script>
 </body>
 </html>

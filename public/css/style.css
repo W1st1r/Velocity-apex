@@ -2421,3 +2421,39 @@ button[data-category="lux"] .category-chip-icon::before { inset:0;clip-path:poly
 @media(max-width:920px){.free-chat-preview{width:min(360px,78vw)}.free-car-pill strong{max-width:130px}}
 @media(max-width:760px) and (orientation:landscape){.free-car-pill{display:none}.free-chat-preview{width:42vw;bottom:calc(12px + var(--safe-b));padding:9px 10px}.free-chat-panel{bottom:calc(118px + var(--safe-b));width:48vw;height:56vh}.free-chat-preview-line{font-size:7px}.free-chat-unread{min-width:16px;height:16px;font-size:8px}}
 @media(max-width:760px) and (orientation:portrait){.free-hud-left{max-width:66vw}.free-location-pill{display:none}.free-chat-preview{left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));width:auto;bottom:calc(94px + var(--safe-b))}.free-chat-panel{left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));bottom:calc(94px + var(--safe-b));width:auto;height:min(360px,48vh)}.free-map-panel{inset:calc(14px + var(--safe-t)) calc(10px + var(--safe-r)) calc(14px + var(--safe-b)) calc(10px + var(--safe-l))}.free-map-legend{gap:10px}}
+
+/* Free Roam v3 — chat on top, removable waypoint, friend invitations */
+.free-chat-preview{
+  top:calc(68px + var(--safe-t));
+  bottom:auto;
+  left:calc(12px + var(--safe-l));
+  width:min(430px,56vw);
+}
+.free-chat-panel{
+  top:calc(72px + var(--safe-t));
+  bottom:auto;
+  left:calc(12px + var(--safe-l));
+  width:min(420px,54vw);
+  height:min(350px,58vh);
+}
+.free-map-actions{display:flex;align-items:center;gap:7px}
+.free-map-panel header .free-map-clear{width:auto;min-width:108px;padding:0 10px;border:1px solid rgba(141,255,73,.17);background:rgba(141,255,73,.055);color:#c7ffab;font-size:7px;font-weight:950;letter-spacing:.06em}
+.free-map-panel header .free-map-clear:disabled{opacity:.34;cursor:default;border-color:rgba(255,255,255,.07);background:rgba(255,255,255,.025);color:#83958e}
+.friend-requests-section{margin-top:2px}.friend-requests-section.hidden{display:none}
+.friend-request-row{grid-template-columns:42px minmax(0,1fr) minmax(112px,auto) auto;border-color:rgba(103,198,255,.13);background:linear-gradient(135deg,rgba(103,198,255,.045),rgba(141,255,73,.018))}
+.friend-request-state{color:#87a49a;font-size:7px;font-weight:900;letter-spacing:.06em;text-align:right;white-space:nowrap}
+.friend-request-actions{display:flex;align-items:center;gap:6px}
+.friend-request-actions button{min-height:31px;padding:0 10px;border-radius:8px;font-size:7px;font-weight:950;letter-spacing:.05em}
+.friend-request-accept{border:1px solid rgba(141,255,73,.25);background:rgba(141,255,73,.08);color:#caffad}
+.friend-request-decline{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.035);color:#a8b8b1}
+.friend-requests-list{gap:6px}
+@media(max-width:760px) and (orientation:landscape){
+  .free-chat-preview{top:calc(50px + var(--safe-t));bottom:auto;width:43vw;padding:9px 10px}
+  .free-chat-panel{top:calc(50px + var(--safe-t));bottom:auto;width:48vw;height:60vh}
+  .friend-request-row{grid-template-columns:34px minmax(0,1fr) auto}.friend-request-state{display:none}.friend-request-actions button{min-height:28px;padding:0 8px;font-size:6px}
+}
+@media(max-width:760px) and (orientation:portrait){
+  .free-chat-preview{top:calc(116px + var(--safe-t));bottom:auto;left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));width:auto}
+  .free-chat-panel{top:calc(116px + var(--safe-t));bottom:auto;left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));width:auto;height:min(360px,48vh)}
+  .friend-request-row{grid-template-columns:38px minmax(0,1fr);gap:8px}.friend-request-state{grid-column:2;text-align:left}.friend-request-actions{grid-column:1/-1;justify-content:flex-end}
+}

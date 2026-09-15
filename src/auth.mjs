@@ -183,6 +183,17 @@ async function ensureSocialSchema(env){
       )`),
       env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_friendships_low ON friendships(user_low)'),
       env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_friendships_high ON friendships(user_high)'),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS friend_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_user TEXT NOT NULL,
+        to_user TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        UNIQUE(from_user,to_user),
+        FOREIGN KEY (from_user) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (to_user) REFERENCES users(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_friend_requests_to ON friend_requests(to_user,created_at)'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_friend_requests_from ON friend_requests(from_user,created_at)'),
       env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_presence (
         user_id TEXT PRIMARY KEY,
         last_seen_at INTEGER NOT NULL,
@@ -211,14 +222,51 @@ async function handleFriendsRequest(request,env,url){
       FROM friendships f JOIN users u ON u.id=CASE WHEN f.user_low=? THEN f.user_high ELSE f.user_low END
       LEFT JOIN user_presence p ON p.user_id=u.id
       WHERE f.user_low=? OR f.user_high=? ORDER BY lower(u.username) ASC`).bind(me.id,me.id,me.id).all();
+    const incoming=await env.DB.prepare(`SELECT fr.id,fr.created_at,u.id AS user_id,u.username,u.display_name
+      FROM friend_requests fr JOIN users u ON u.id=fr.from_user
+      WHERE fr.to_user=? ORDER BY fr.created_at DESC`).bind(me.id).all();
+    const outgoing=await env.DB.prepare(`SELECT fr.id,fr.created_at,u.id AS user_id,u.username,u.display_name
+      FROM friend_requests fr JOIN users u ON u.id=fr.to_user
+      WHERE fr.from_user=? ORDER BY fr.created_at DESC`).bind(me.id).all();
     const friends=(result.results||[]).map(r=>({id:r.id,username:r.username,displayName:r.display_name,createdAt:Number(r.created_at)||0,lastSeenAt:Number(r.last_seen_at)||0,online:Number(r.last_seen_at||0)>=cutoff}));
-    return json({ok:true,friends});
+    const mapRequest=r=>({requestId:Number(r.id),id:r.user_id,username:r.username,displayName:r.display_name,createdAt:Number(r.created_at)||0});
+    return json({ok:true,friends,incomingRequests:(incoming.results||[]).map(mapRequest),outgoingRequests:(outgoing.results||[]).map(mapRequest)});
   }
-  if((url.pathname==='/api/friends/add'||url.pathname==='/api/friends/remove')&&request.method==='POST'){
+  if((url.pathname==='/api/friends/request'||url.pathname==='/api/friends/add')&&request.method==='POST'){
     const b=await readBody(request),username=normalizeUsername(String(b?.username||'').replace(/^@/,''));if(!validUsername(username))return json({error:'INVALID_USERNAME'},400);
     const target=await env.DB.prepare('SELECT id,username,display_name FROM users WHERE username=? COLLATE NOCASE LIMIT 1').bind(username).first();if(!target)return json({error:'USER_NOT_FOUND'},404);if(target.id===me.id)return json({error:'CANNOT_ADD_SELF'},400);
     const low=me.id<target.id?me.id:target.id,high=me.id<target.id?target.id:me.id;
-    if(url.pathname.endsWith('/add')){const exists=await env.DB.prepare('SELECT 1 AS ok FROM friendships WHERE user_low=? AND user_high=? LIMIT 1').bind(low,high).first();if(exists)return json({error:'ALREADY_FRIENDS'},409);await env.DB.prepare('INSERT INTO friendships (user_low,user_high,created_at) VALUES (?,?,?)').bind(low,high,now()).run();return json({ok:true,friend:{id:target.id,username:target.username,displayName:target.display_name}});}
+    const exists=await env.DB.prepare('SELECT 1 AS ok FROM friendships WHERE user_low=? AND user_high=? LIMIT 1').bind(low,high).first();if(exists)return json({error:'ALREADY_FRIENDS'},409);
+    const reverse=await env.DB.prepare('SELECT id FROM friend_requests WHERE from_user=? AND to_user=? LIMIT 1').bind(target.id,me.id).first();if(reverse)return json({error:'REQUEST_ALREADY_RECEIVED',requestId:Number(reverse.id)},409);
+    const pending=await env.DB.prepare('SELECT id FROM friend_requests WHERE from_user=? AND to_user=? LIMIT 1').bind(me.id,target.id).first();if(pending)return json({error:'REQUEST_ALREADY_SENT',requestId:Number(pending.id)},409);
+    const inserted=await env.DB.prepare('INSERT INTO friend_requests (from_user,to_user,created_at) VALUES (?,?,?)').bind(me.id,target.id,now()).run();
+    return json({ok:true,request:{requestId:Number(inserted.meta?.last_row_id)||0,id:target.id,username:target.username,displayName:target.display_name}},201);
+  }
+  if(url.pathname==='/api/friends/accept'&&request.method==='POST'){
+    const b=await readBody(request),requestId=Math.floor(Number(b?.requestId)||0);if(requestId<1)return json({error:'INVALID_REQUEST'},400);
+    const req=await env.DB.prepare(`SELECT fr.id,fr.from_user,fr.to_user,u.username,u.display_name FROM friend_requests fr JOIN users u ON u.id=fr.from_user WHERE fr.id=? AND fr.to_user=? LIMIT 1`).bind(requestId,me.id).first();
+    if(!req)return json({error:'REQUEST_NOT_FOUND'},404);
+    const low=me.id<req.from_user?me.id:req.from_user,high=me.id<req.from_user?req.from_user:me.id,t=now();
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO friendships (user_low,user_high,created_at) VALUES (?,?,?)').bind(low,high,t),
+      env.DB.prepare('DELETE FROM friend_requests WHERE (from_user=? AND to_user=?) OR (from_user=? AND to_user=?)').bind(me.id,req.from_user,req.from_user,me.id)
+    ]);
+    return json({ok:true,friend:{id:req.from_user,username:req.username,displayName:req.display_name}});
+  }
+  if(url.pathname==='/api/friends/decline'&&request.method==='POST'){
+    const b=await readBody(request),requestId=Math.floor(Number(b?.requestId)||0);if(requestId<1)return json({error:'INVALID_REQUEST'},400);
+    const req=await env.DB.prepare('SELECT id FROM friend_requests WHERE id=? AND to_user=? LIMIT 1').bind(requestId,me.id).first();if(!req)return json({error:'REQUEST_NOT_FOUND'},404);
+    await env.DB.prepare('DELETE FROM friend_requests WHERE id=?').bind(requestId).run();return json({ok:true});
+  }
+  if(url.pathname==='/api/friends/cancel'&&request.method==='POST'){
+    const b=await readBody(request),requestId=Math.floor(Number(b?.requestId)||0);if(requestId<1)return json({error:'INVALID_REQUEST'},400);
+    const req=await env.DB.prepare('SELECT id FROM friend_requests WHERE id=? AND from_user=? LIMIT 1').bind(requestId,me.id).first();if(!req)return json({error:'REQUEST_NOT_FOUND'},404);
+    await env.DB.prepare('DELETE FROM friend_requests WHERE id=?').bind(requestId).run();return json({ok:true});
+  }
+  if(url.pathname==='/api/friends/remove'&&request.method==='POST'){
+    const b=await readBody(request),username=normalizeUsername(String(b?.username||'').replace(/^@/,''));if(!validUsername(username))return json({error:'INVALID_USERNAME'},400);
+    const target=await env.DB.prepare('SELECT id FROM users WHERE username=? COLLATE NOCASE LIMIT 1').bind(username).first();if(!target)return json({error:'USER_NOT_FOUND'},404);if(target.id===me.id)return json({error:'CANNOT_ADD_SELF'},400);
+    const low=me.id<target.id?me.id:target.id,high=me.id<target.id?target.id:me.id;
     await env.DB.prepare('DELETE FROM friendships WHERE user_low=? AND user_high=?').bind(low,high).run();return json({ok:true});
   }
   return json({error:'NOT_FOUND'},404);

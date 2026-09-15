@@ -25,22 +25,21 @@
     downtown:'#10201c',industrial:'#151f21',suburbs:'#14231d',port:'#112227',airport:'#1a2125',mountain:'#14201c',city:'#0d1816'
   };
   const CHAT_PREVIEW_LIMIT=4;
-  const PHYSICS_BY_CATEGORY={
-    basic:{maxSpeed:410,accel:320,brake:570,turn:2.10},
-    sport:{maxSpeed:455,accel:348,brake:610,turn:2.16},
-    premium:{maxSpeed:490,accel:372,brake:645,turn:2.22},
-    rare:{maxSpeed:520,accel:398,brake:675,turn:2.28},
-    legendary:{maxSpeed:550,accel:422,brake:710,turn:2.34},
-    lux:{maxSpeed:580,accel:448,brake:740,turn:2.40}
+  const SOLO_PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
+  const FREE_PHYS_TRACK={
+    roadWidth:100000,barrierMargin:0,theme:{drag:1},
+    nearest(x,y){return{x,y,tx:1,ty:0,nx:0,ny:1,signed:0,index:0,progress:.5};},
+    surfaceAtOffset(){return{type:'asphalt'};},
+    barrierCenterLimit(){return 1e9;}
   };
 
   const state={
     active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,
     room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,driftScore:0,driftInside:false,
-    speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,physics:PHYSICS_BY_CATEGORY.basic
+    speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,driftPhysicsTime:0
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
-  const car={x:2320,y:1590,vx:0,vy:0,angle:-Math.PI/2,speed:0};
+  const car=R.Car?new R.Car({player:true,maxSpeed:SOLO_PHYS.maxSpeed,accel:SOLO_PHYS.accel,brakePower:SOLO_PHYS.brakePower,turnRate:SOLO_PHYS.turnRate}):{x:2320,y:1590,vx:0,vy:0,angle:-Math.PI/2,speed:0};
   let W=1,H=1,DPR=1,last=performance.now(),raf=0;
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -64,11 +63,6 @@
     return {liveryId,effectId,livery:R.LIVERIES?.[liveryId]||R.LIVERIES?.apexLime||null};
   }
 
-  function physicsForLoadout(loadoutInfo){
-    const category=R.normalizeCarCategory?R.normalizeCarCategory(loadoutInfo?.livery?.category):'basic';
-    return PHYSICS_BY_CATEGORY[category]||PHYSICS_BY_CATEGORY.basic;
-  }
-
   function createVisual(liveryId,effectId){
     if(!R.Car)return null;
     const visual=new R.Car();
@@ -79,8 +73,11 @@
 
   function refreshPlayerLoadout(){
     state.loadout=loadout();
-    state.physics=physicsForLoadout(state.loadout);
-    state.playerVisual=createVisual(state.loadout.liveryId,state.loadout.effectId);
+    if(R.Car&&car.setLoadout){
+      car.maxSpeed=SOLO_PHYS.maxSpeed;car.baseMaxSpeed=SOLO_PHYS.maxSpeed;car.accel=SOLO_PHYS.accel;car.brakePower=SOLO_PHYS.brakePower;car.turnRate=SOLO_PHYS.turnRate;
+      car.setLoadout(state.loadout.liveryId,state.loadout.effectId,'full');
+      state.playerVisual=car;
+    }else state.playerVisual=createVisual(state.loadout.liveryId,state.loadout.effectId);
     const currentCar=$('freeCurrentCar');
     if(currentCar)currentCar.textContent=(state.loadout.livery?.name||state.loadout.liveryId||'APEX CAR').toUpperCase();
   }
@@ -277,7 +274,7 @@
     state.driftInside=false;
     refreshPlayerLoadout();
     if(state.playerVisual)state.playerVisual.effectTime=0;
-    car.x=2320;car.y=1590;car.vx=0;car.vy=0;car.angle=-Math.PI/2;car.speed=0;
+    car.x=2320;car.y=1590;car.vx=0;car.vy=0;car.angle=-Math.PI/2;car.speed=0;car.yawRate=0;car.steerInput=0;car.gripDisturbance=0;state.driftPhysicsTime=0;
     updateUnreadBadge();
     $('freeChatLog').replaceChildren();
     updateChatPreview();
@@ -344,48 +341,29 @@
   function update(dt){
     const now=Date.now()+state.serverOffset;
     const dragLock=state.drag&&now<state.drag.startAt;
-    const phys=state.physics;
     let steer=(input.right?1:0)-(input.left?1:0);
-    let accel=input.gas?phys.accel:0;
-    let brake=input.brake?phys.brake:0;
-    if(dragLock){steer=0;accel=0;brake=phys.brake*1.35;}
+    let throttle=input.gas?1:0,brake=input.brake?1:0,handbrake=input.handbrake?1:0;
+    if(dragLock){steer=0;throttle=0;brake=1;handbrake=0;}
 
-    const forwardX=Math.cos(car.angle),forwardY=Math.sin(car.angle);
-    let signed=car.vx*forwardX+car.vy*forwardY;
-    if(accel)signed+=accel*dt;
-    if(brake)signed-=Math.sign(signed||1)*brake*dt;
-    signed*=Math.pow(input.handbrake?.978:.994,dt*60);
-    signed=clamp(signed,-110,phys.maxSpeed);
-
-    const turn=(.76+Math.min(1,Math.abs(signed)/phys.maxSpeed)*phys.turn)*steer*dt*(signed>=0?1:-1);
-    car.angle+=turn;
-    const grip=input.handbrake?.82:.958;
-    car.vx=car.vx*grip+Math.cos(car.angle)*signed*(1-grip);
-    car.vy=car.vy*grip+Math.sin(car.angle)*signed*(1-grip);
-
-    if(!input.gas&&!input.brake){
-      const drag=Math.pow(input.handbrake?.982:.988,dt*60);
-      car.vx*=drag;car.vy*=drag;
-    }
-
-    const nx=clamp(car.x+car.vx*dt,24,WORLD.w-24);
-    const ny=clamp(car.y+car.vy*dt,24,WORLD.h-24);
-    if(roadAt(nx,ny)){
-      car.x=nx;car.y=ny;
+    const prevX=car.x,prevY=car.y;
+    if(R.Car&&typeof car.update==='function'){
+      if(handbrake>0&&car.speed>34)state.driftPhysicsTime=1.2;
+      else state.driftPhysicsTime=Math.max(0,state.driftPhysicsTime-dt);
+      if(car.speed>92&&throttle>.5&&Math.abs(steer)>.82)state.driftPhysicsTime=Math.max(state.driftPhysicsTime,.48);
+      const driftActive=state.driftPhysicsTime>0;
+      car.update(dt,{steer,throttle,brake,handbrake,drift:driftActive},FREE_PHYS_TRACK);
     }else{
-      car.vx*=.66;car.vy*=.66;
-      car.x=clamp(car.x+car.vx*dt,24,WORLD.w-24);
-      car.y=clamp(car.y+car.vy*dt,24,WORLD.h-24);
+      const fx=Math.cos(car.angle),fy=Math.sin(car.angle);let signed=car.vx*fx+car.vy*fy;
+      if(throttle)signed+=SOLO_PHYS.accel*dt;if(brake)signed-=Math.sign(signed||1)*SOLO_PHYS.brakePower*.8*dt;
+      signed=clamp(signed,-90,SOLO_PHYS.maxSpeed);car.angle+=steer*SOLO_PHYS.turnRate*dt*clamp(Math.abs(signed)/70,0,1)*(signed>=0?1:-1);
+      car.vx=Math.cos(car.angle)*signed;car.vy=Math.sin(car.angle)*signed;car.x+=car.vx*dt;car.y+=car.vy*dt;car.speed=Math.hypot(car.vx,car.vy);
     }
 
-    car.speed=Math.hypot(car.vx,car.vy);
-
-    if(state.playerVisual){
-      state.playerVisual.speed=car.speed;
-      state.playerVisual.throttleVisual=input.gas?1:0;
-      state.playerVisual.brakeVisual=input.brake?1:(input.handbrake?.55:0);
-      state.playerVisual.steerVisual=steer;
-      state.playerVisual.effectTime+=dt;
+    const outside=car.x<24||car.x>WORLD.w-24||car.y<24||car.y>WORLD.h-24;
+    if(outside||!roadAt(car.x,car.y)){
+      car.x=clamp(prevX,24,WORLD.w-24);car.y=clamp(prevY,24,WORLD.h-24);
+      car.vx*=.58;car.vy*=.58;car.speed=Math.hypot(car.vx,car.vy);
+      car.markImpact?.(.28);
     }
 
     for(const r of state.remotes.values()){
@@ -866,10 +844,13 @@
     }else $('freeChatInput').blur();
   }
 
+  function syncMapClear(){const b=$('freeMapClear');if(b)b.disabled=!state.waypoint;}
+
   function toggleMap(force){
     const p=$('freeMapPanel');
     const show=force??p.classList.contains('hidden');
     p.classList.toggle('hidden',!show);
+    syncMapClear();
     if(show)drawMiniMap();
   }
 
@@ -882,6 +863,7 @@
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));
   $('freeMapBtn').addEventListener('click',()=>toggleMap());
   $('freeMapClose').addEventListener('click',()=>toggleMap(false));
+  $('freeMapClear')?.addEventListener('click',()=>{state.waypoint=null;syncMapClear();drawMiniMap();setBanner('МЕТКА УДАЛЕНА',1800);});
   $('freeLeaveBtn').addEventListener('click',leave);
   $('freeRefreshBtn').addEventListener('click',loadServers);
   $('freeServersBackBtn').addEventListener('click',closeBrowser);
@@ -892,6 +874,7 @@
     const x=(e.clientX-r.left)/r.width*WORLD.w;
     const y=(e.clientY-r.top)/r.height*WORLD.h;
     state.waypoint={x,y};
+    syncMapClear();
     setBanner('МАРШРУТ УСТАНОВЛЕН');
     toggleMap(false);
   });
