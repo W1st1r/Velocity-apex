@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-014" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-bay1" />
 </head>
 <body>
   <div id="app">
@@ -198,9 +198,9 @@
         <form id="freeChatForm" class="free-chat-form"><input id="freeChatInput" maxlength="180" autocomplete="off" placeholder="Сообщение всем игрокам…"><button type="submit">ОТПРАВИТЬ</button></form>
       </div>
       <div id="freeMapPanel" class="free-map-panel hidden">
-        <header><div><small>APEX CITY / LIVE MAP</small><strong>КАРТА ГОРОДА</strong></div><div class="free-map-actions"><button id="freeMapClear" class="free-map-clear" type="button" disabled>УБРАТЬ МЕТКУ</button><button id="freeMapClose" type="button">×</button></div></header>
-        <canvas id="freeMapCanvas" width="900" height="600"></canvas>
-        <div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT</span><span>◆ SPEED</span><span>◆ CAR MEET</span></div>
+        <header><div><small>APEX BAY / LIVE MAP</small><strong>ГОРОД У МОРЯ</strong></div><div class="free-map-actions"><button id="freeMapClear" class="free-map-clear" type="button" disabled>УБРАТЬ МЕТКУ</button><button id="freeMapClose" type="button">×</button></div></header>
+        <div class="free-map-viewport"><canvas id="freeMapCanvas" width="1260" height="900" aria-label="Карта APEX BAY. Нажмите, чтобы поставить метку на дороге."></canvas><div class="free-map-tools"><button id="freeMapZoomIn" type="button" aria-label="Приблизить карту">+</button><button id="freeMapZoomOut" type="button" aria-label="Отдалить карту">−</button><button id="freeMapFit" type="button">ВЕСЬ ГОРОД</button></div></div>
+        <div class="free-map-footer"><p>Нажмите — поставить метку. Приблизьте и перетаскивайте карту.</p><div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT</span><span>◆ SPEED</span><span>◆ CAR MEET</span></div></div>
       </div>
       <div id="freeMobileControls" class="free-mobile-controls">
         <div><button data-control="left" type="button">◀</button><button data-control="right" type="button">▶</button></div>
@@ -774,7 +774,8 @@
   <script src="js/account.js?v=20260915-013"></script>
   <script src="js/online.js?v=20260915-013"></script>
   <script src="js/friends.js?v=20260915-013"></script>
-  <script src="js/freeroam.js?v=20260915-014"></script>
+  <script src="js/free-city.js?v=20260915-bay1"></script>
+  <script src="js/freeroam.js?v=20260915-bay1"></script>
   <script src="js/game.js?v=20260915-013"></script>
 </body>
 </html>

@@ -6,7 +6,8 @@
     "deploy": "wrangler deploy",
     "test": "node tests/run_all.js && node tests/online_protocol_test.mjs && node tests/online_network_test.js && node tests/online_room_test.mjs && node tests/online_ui_smoke.js && node tests/freeroam_social_smoke.js",
     "test:ai": "node tests/ai_benchmark.js",
-    "test:all": "npm test && npm run test:ai"
+    "test:all": "npm test && npm run test:ai",
+    "test:map": "node tests/free_city_geometry_test.js && node tests/freeroam_social_smoke.js && node tests/interaction_guard_smoke.js"
   },
   "devDependencies": {
     "wrangler": "4.131.1"

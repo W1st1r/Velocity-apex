@@ -2481,3 +2481,19 @@ button[data-category="lux"] .category-chip-icon::before { inset:0;clip-path:poly
   appearance:none;
   cursor:default;
 }
+
+/* APEX BAY: proportional map, legible legend and mobile-safe layout. */
+.free-map-panel{grid-template-rows:auto minmax(0,1fr) auto;background:#112726;border:1px solid #71948b;padding:16px;gap:8px}
+.free-map-panel header small{font-size:9px;letter-spacing:.2em;color:#a7c0b1}
+.free-map-panel header strong{font-size:clamp(15px,2.4vw,25px);color:#f1edda}
+.free-map-viewport{position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:12px;background:#172f30}
+.free-map-panel .free-map-viewport canvas{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:12px;touch-action:manipulation}
+.free-map-footer p{font-size:10px;color:#b5c7ba;margin:2px 0 5px}
+.free-map-legend{font-size:9px;gap:14px;padding-top:5px;color:#f6eedb}
+.free-map-legend span:nth-child(2){color:#77c7ff}.free-map-legend span:nth-child(3){color:#67c6ff}.free-map-legend span:nth-child(4){color:#c678ff}.free-map-legend span:nth-child(5){color:#f6e75d}.free-map-legend span:nth-child(6){color:#8dff49}
+@media(max-height:480px){.free-map-panel{padding:9px;gap:2px}.free-map-panel header{margin-bottom:3px}.free-map-panel header strong{font-size:16px}.free-map-footer p{font-size:8px}.free-map-legend{padding-top:2px;font-size:8px}}
+
+.free-map-tools{position:absolute;right:10px;bottom:10px;display:flex;gap:5px}
+.free-map-tools button{height:36px;min-width:36px;padding:0 10px;background:#173e3bee;border:1px solid #9ab9a77a;border-radius:8px;color:#f4efda;font-size:21px;font-weight:800;touch-action:manipulation}
+.free-map-tools #freeMapFit{font-size:9px;letter-spacing:.07em}
+.free-map-panel .free-map-viewport canvas{touch-action:none;user-select:none;-webkit-user-select:none}
