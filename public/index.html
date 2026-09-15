@@ -178,10 +178,11 @@
     <div id="freeRoam" class="free-roam hidden" aria-hidden="true">
       <canvas id="freeCanvas" aria-label="Свободный город Velocity Apex"></canvas>
       <div class="free-hud">
-        <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div></div>
+        <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div><div class="free-car-pill"><span>МАШИНА</span><strong id="freeCurrentCar">APEX LIME</strong></div></div>
         <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div></div>
-        <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ</button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
+        <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ <b id="freeChatUnread" class="free-chat-unread hidden">0</b></button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
       </div>
+      <div id="freeChatPreview" class="free-chat-preview" aria-live="polite"></div>
       <button id="freeContextAction" class="free-context-action hidden" type="button"></button>
       <div id="freeChatPanel" class="free-chat-panel hidden">
         <div class="free-chat-head"><strong>ЧАТ СЕРВЕРА</strong><button id="freeChatClose" type="button">×</button></div>
