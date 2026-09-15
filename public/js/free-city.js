@@ -1,8 +1,8 @@
 /* APEX BAY — deterministic, canvas-native world. Roads and collision share geometry. */
 (function(){
   'use strict';
-  const W=4200,H=3000,TAU=Math.PI*2,roads=[],buildings=[],trees=[],lots=[];
-  const areas=[{x:250,y:1930,w:730,h:700},{x:1950,y:1370,w:740,h:440},{x:2840,y:2510,w:1300,h:320}];
+  const W=5000,H=3000,TAU=Math.PI*2,roads=[],buildings=[],trees=[],lots=[];
+  const areas=[{x:250,y:1930,w:730,h:700},{x:1950,y:1370,w:740,h:440},{x:2840,y:2510,w:2100,h:320}];
   let seed=91723;
   const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -20,7 +20,7 @@
     }
     roads.push({points,width});
   }
-  [430,1010,1590,2170,2670].forEach((y,i)=>road([[i===0?1050:i===3?430:i===4?1050:220,y],[i===4?4140:3990,y]]));
+  [430,1010,1590,2170,2670].forEach((y,i)=>road([[i===0?1050:i===3?430:i===4?1050:220,y],[i===4?4940:3990,y]]));
   road([[430,1010],[430,1930]]);
   [1050,1680,2320,3020,3660].forEach((x,i)=>road([[x,i===0||i===4?430:180],[x,i<3?2780:2670]]));
   road([[1050,430],[800,250],[390,270],[220,520],[350,770],[600,830],[770,1010]],164,true);
@@ -192,10 +192,10 @@
     for(const y of [1400,1735])for(let x=1990;x<2680;x+=70){path(c,[[x,y],[x,y+43],[x+54,y+43]],'#e4e1c5',2);}
     text(c,'APEX MOTOR CLUB',2320,1500,28,'#ede8d2');text(c,'MEET • PARK • DRIVE',2320,1690,14,'#cad3c3');
     // Airport start / finish and two unobstructed lanes retain multiplayer coordinates.
-    path(c,[[2900,2670],[4100,2670]],'#e3dfc4',4,[42,28]);
-    for(const x of [3130,3920])for(let row=0;row<10;row++)for(let col=0;col<2;col++)fill(c,x+col*12,2545+row*25,12,25,(row+col)%2?'#434c50':'#f1ecda');
-    text(c,'09',2980,2642,48);text(c,'27',4060,2750,48);text(c,'START',3210,2550,15);text(c,'FINISH',3820,2800,15);
-    for(let x=2890;x<4120;x+=80){ellipse(c,x,2525,3,3,'#8ed4db');ellipse(c,x,2814,3,3,'#8ed4db');}
+    path(c,[[2900,2670],[4890,2670]],'#e3dfc4',4,[42,28]);
+    for(const x of [3130,4710])for(let row=0;row<10;row++)for(let col=0;col<2;col++)fill(c,x+col*12,2545+row*25,12,25,(row+col)%2?'#434c50':'#f1ecda');
+    text(c,'09',2980,2642,48);text(c,'27',4860,2750,48);text(c,'START',3210,2550,15);text(c,'FINISH',4610,2800,15);
+    for(let x=2890;x<4920;x+=80){ellipse(c,x,2525,3,3,'#8ed4db');ellipse(c,x,2814,3,3,'#8ed4db');}
   }
   function building(c,b){
     const {x,y,w,h,type,tone}=b,sl=b.height;
@@ -286,7 +286,7 @@
     c.restore();
   }
   function drawOverview(c,w,h){
-    if(!overview){overview=document.createElement('canvas');overview.width=1260;overview.height=900;const g=overview.getContext('2d',{alpha:false});g.scale(.3,.3);scene(g);}
+    if(!overview){overview=document.createElement('canvas');overview.width=1500;overview.height=900;const g=overview.getContext('2d',{alpha:false});g.scale(.3,.3);scene(g);}
     c.drawImage(overview,0,0,w,h);
     const labels=[['ОЗЁРНЫЙ ПЕРЕВАЛ',560,165],['ЦЕНТРАЛЬНЫЙ ПАРК',1360,1210],['ИНДУСТРИАЛЬНЫЙ',3340,720],['СОЛНЕЧНЫЙ КВАРТАЛ',3320,1930],['АЭРОПОРТ',3460,2910],['APEX BAY',2060,880]];
     for(const [label,x,y] of labels){

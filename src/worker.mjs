@@ -10,10 +10,10 @@ const safeLoadout=v=>({liveryId:typeof v?.liveryId==='string'&&v.liveryId.length
 const safeBalance=v=>Number.isInteger(v)&&v>=0&&v<=Number.MAX_SAFE_INTEGER?v:null;
 const FREE_SERVERS=Object.freeze(['city-01','city-02','city-03','city-04','city-05','city-06']);
 const FREE_MAX_PLAYERS=20;
-const FREE_WORLD={w:4200,h:3000};
+const FREE_WORLD={w:5000,h:3000};
 const FREE_STATE_RATE_MS=45;
 const FREE_DRAG_STATE_RATE_MS=26;
-const FREE_DRAG_FINISH_X=3920;
+const FREE_DRAG_FINISH_X=4710;
 const FREE_DRAG_Y_MIN=2510;
 const FREE_DRAG_Y_MAX=2820;
 const FREE_DRAG_SAMPLE_MAX_AGE_MS=900;

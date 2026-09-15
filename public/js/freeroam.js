@@ -41,7 +41,7 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
   const TAU=Math.PI*2;
-  const DRAG_START_X=3130,DRAG_FINISH_X=3920,DRAG_LENGTH=DRAG_FINISH_X-DRAG_START_X;
+  const DRAG_START_X=3130,DRAG_FINISH_X=4710,DRAG_LENGTH=DRAG_FINISH_X-DRAG_START_X;
   const FREE_SEND_MS=50,DRAG_SEND_MS=30,REMOTE_BACKTIME_MS=55,DRAG_REMOTE_BACKTIME_MS=32,REMOTE_EXTRAPOLATE_MS=260;
 
   let lastMapDraw=0;
