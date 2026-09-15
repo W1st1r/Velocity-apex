@@ -233,6 +233,8 @@ The Worker serves the PWA and Online backend from the same origin, so no API URL
 - `public/js/controls.js` — ARROWS/TILT/WHEEL.
 - `public/js/network.js` — Online transport/interpolation.
 - `public/js/online.js` — Online UI/Lobby state.
+- `public/js/freeroam.js` — Free Roam server browser, city simulation, chat, map and activities.
+- `public/js/friends.js` — Friends UI, D1-backed friend list and presence.
 - `public/js/game.js` — offline and Online race integration.
 - `src/protocol.mjs` — server protocol validation.
 - `src/worker.mjs` — Worker + Room Durable Object.
@@ -241,6 +243,7 @@ The Worker serves the PWA and Online backend from the same origin, so no API URL
 - `tests/online_network_test.js` — client interpolation/extrapolation/snap validation.
 - `tests/online_room_test.mjs` — room/server simulation.
 - `tests/online_ui_smoke.js` — Online UI/static-asset smoke checks.
+- `tests/freeroam_social_smoke.js` — Free Roam/Friends static and backend wiring smoke checks.
 
 ## Legacy static hosting note
 
@@ -250,4 +253,6 @@ The Worker serves the PWA and Online backend from the same origin, so no API URL
 - Case opening panel is constrained to the real safe-area viewport and hardened against horizontal overflow on small iPhones.
 - Case roulette uses display-only premium near-misses for tension; reward RNG is resolved before animation and probabilities are unchanged.
 - Case quantity supports 1–10 purchases and multi-open results.
-- Online opens into the Rooms / locked Free Mode hub with a lightweight animated night-city backdrop and reduced-motion fallback.
+- Online opens into the Rooms / Free Roam hub. Free Roam now has six persistent APEX CITY servers with up to 20 players, live vehicle sync, global chat, city map/waypoints, drag matchmaking, drift and speed zones, Car Meet and server records.
+- Main menu now includes Friends next to Account. Friends are stored in D1, can be added by @username and show live online/offline presence.
+- Free Roam city includes Downtown, Industrial, Suburbs, Port Drift, Airport Drag, Car Meet and Mountain Pass districts. No level system is included.

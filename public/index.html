@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-011" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-012" />
 </head>
 <body>
   <div id="app">
@@ -99,6 +99,7 @@
           <button id="shopBtn" class="secondary-btn shop-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg><span>МАГАЗИН</span><strong id="menuCredits">200 CR</strong></button>
           <button id="garageBtn" class="secondary-btn garage-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg><span>ГАРАЖ</span></button>
           <button id="accountBtn" class="secondary-btn account-menu-btn" type="button"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></button>
+          <button id="friendsBtn" class="secondary-btn friends-menu-btn" type="button"><span>ДРУЗЬЯ</span><strong id="friendsMenuStatus">—</strong></button>
           <button id="settingsBtn" class="secondary-btn settings-menu-btn" type="button">НАСТРОЙКИ</button>
         </div>
         <div class="menu-stats" aria-label="Статистика игрока">
@@ -145,6 +146,59 @@
       </section>
     </div>
 
+
+    <div id="friends" class="overlay friends-screen hidden" aria-hidden="true">
+      <section class="friends-card glass enter-panel" aria-labelledby="friendsTitle">
+        <header class="friends-header">
+          <div><div class="eyebrow">VELOCITY APEX / SOCIAL</div><h2 id="friendsTitle">ДРУЗЬЯ</h2><p>Добавляйте игроков по нику и смотрите, кто сейчас онлайн.</p></div>
+          <button id="friendsCloseBtn" class="account-close" type="button" aria-label="Закрыть">×</button>
+        </header>
+        <div class="friends-add-row">
+          <label class="online-field"><span>НИК ИГРОКА</span><input id="friendUsername" maxlength="24" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@username"></label>
+          <button id="friendAddBtn" class="primary-btn" type="button">ДОБАВИТЬ</button>
+        </div>
+        <div id="friendsMessage" class="account-message" aria-live="polite"></div>
+        <div class="friends-toolbar"><strong>ВАШИ ДРУЗЬЯ</strong><span id="friendsCount">0 друзей</span></div>
+        <div id="friendsList" class="friends-list"></div>
+      </section>
+    </div>
+
+    <div id="freeServers" class="overlay free-servers-screen hidden" aria-hidden="true">
+      <section class="free-servers-card glass enter-panel">
+        <header class="free-servers-header">
+          <div><div class="eyebrow">VELOCITY APEX / OPEN CITY</div><h2>СВОБОДНЫЙ РЕЖИМ</h2><p>Выберите городской сервер. Максимум 20 игроков.</p></div>
+          <div class="free-server-actions"><button id="freeRefreshBtn" class="secondary-btn compact-btn" type="button">ОБНОВИТЬ</button><button id="freeServersBackBtn" class="account-close" type="button" aria-label="Назад">×</button></div>
+        </header>
+        <div class="free-server-summary"><span><i></i> OPEN CITY</span><strong id="freeServersOnline">0 игроков онлайн</strong></div>
+        <div id="freeServerList" class="free-server-list"></div>
+        <div id="freeServerMessage" class="online-message" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="freeRoam" class="free-roam hidden" aria-hidden="true">
+      <canvas id="freeCanvas" aria-label="Свободный город Velocity Apex"></canvas>
+      <div class="free-hud">
+        <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div></div>
+        <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div></div>
+        <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ</button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
+      </div>
+      <button id="freeContextAction" class="free-context-action hidden" type="button"></button>
+      <div id="freeChatPanel" class="free-chat-panel hidden">
+        <div class="free-chat-head"><strong>ЧАТ СЕРВЕРА</strong><button id="freeChatClose" type="button">×</button></div>
+        <div id="freeChatLog" class="free-chat-log"></div>
+        <form id="freeChatForm" class="free-chat-form"><input id="freeChatInput" maxlength="180" autocomplete="off" placeholder="Сообщение всем игрокам…"><button type="submit">ОТПРАВИТЬ</button></form>
+      </div>
+      <div id="freeMapPanel" class="free-map-panel hidden">
+        <header><div><small>APEX CITY / LIVE MAP</small><strong>КАРТА ГОРОДА</strong></div><button id="freeMapClose" type="button">×</button></header>
+        <canvas id="freeMapCanvas" width="900" height="600"></canvas>
+        <div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT</span><span>◆ SPEED</span><span>◆ CAR MEET</span></div>
+      </div>
+      <div id="freeMobileControls" class="free-mobile-controls">
+        <div><button data-control="left" type="button">◀</button><button data-control="right" type="button">▶</button></div>
+        <div><button data-control="brake" type="button">BRAKE</button><button data-control="handbrake" type="button">HB</button><button data-control="gas" class="gas" type="button">GAS</button></div>
+      </div>
+    </div>
+
     <div id="localMode" class="overlay local-mode-screen hidden">
       <section class="local-mode-card glass enter-panel" aria-labelledby="localModeTitle">
         <div class="eyebrow">VELOCITY APEX / SOLO</div>
@@ -186,7 +240,7 @@
             <div class="online-mode-hero">
               <span class="online-mode-kicker">SELECT ONLINE EXPERIENCE</span>
               <strong>ВЫБЕРИТЕ РЕЖИМ</strong>
-              <small>Комнаты уже доступны. Свободный город появится в одном из следующих обновлений.</small>
+              <small>Комнаты для гонок или большой открытый город на 20 игроков.</small>
             </div>
             <div class="online-mode-grid">
               <button id="onlineRoomsModeBtn" class="online-mode-tile rooms-mode" type="button">
@@ -195,11 +249,11 @@
                 <span class="online-mode-copy"><small>MULTIPLAYER ROOMS</small><strong>КОМНАТЫ</strong><em>Создавайте приватные заезды или подключайтесь по коду.</em></span>
                 <b aria-hidden="true">›</b>
               </button>
-              <button id="onlineFreeModeBtn" class="online-mode-tile free-mode locked" type="button" disabled aria-disabled="true">
+              <button id="onlineFreeModeBtn" class="online-mode-tile free-mode" type="button">
                 <span class="online-mode-index">02</span>
-                <span class="online-lock-badge" aria-hidden="true">🔒</span>
-                <span class="online-mode-copy"><small>OPEN CITY</small><strong>СВОБОДНЫЙ РЕЖИМ</strong><em>СКОРО · В РАЗРАБОТКЕ</em></span>
-                <span class="online-soon-chip">СКОРО</span>
+                <span class="online-free-badge" aria-hidden="true">20</span>
+                <span class="online-mode-copy"><small>OPEN CITY</small><strong>СВОБОДНЫЙ РЕЖИМ</strong><em>Город, чат, встречи, drag, drift и speed zones.</em></span>
+                <b aria-hidden="true">›</b>
               </button>
             </div>
             <div class="online-mode-footer"><span><i></i>ONLINE HUB · VELOCITY APEX</span><button id="onlineModeBack" class="secondary-btn compact-btn" type="button">НАЗАД</button></div>
@@ -698,18 +752,20 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260915-011"></script>
-  <script src="js/racing-line.js?v=20260915-011"></script>
-  <script src="js/track.js?v=20260915-011"></script>
-  <script src="js/audio.js?v=20260915-011"></script>
-  <script src="js/car.js?v=20260915-011"></script>
-  <script src="js/ai.js?v=20260915-011"></script>
-  <script src="js/garage.js?v=20260915-011"></script>
-  <script src="js/root-console.js?v=20260915-011"></script>
-  <script src="js/controls.js?v=20260915-011"></script>
-  <script src="js/network.js?v=20260915-011"></script>
-  <script src="js/account.js?v=20260915-011"></script>
-  <script src="js/online.js?v=20260915-011"></script>
-  <script src="js/game.js?v=20260915-011"></script>
+  <script src="js/content.js?v=20260915-012"></script>
+  <script src="js/racing-line.js?v=20260915-012"></script>
+  <script src="js/track.js?v=20260915-012"></script>
+  <script src="js/audio.js?v=20260915-012"></script>
+  <script src="js/car.js?v=20260915-012"></script>
+  <script src="js/ai.js?v=20260915-012"></script>
+  <script src="js/garage.js?v=20260915-012"></script>
+  <script src="js/root-console.js?v=20260915-012"></script>
+  <script src="js/controls.js?v=20260915-012"></script>
+  <script src="js/network.js?v=20260915-012"></script>
+  <script src="js/account.js?v=20260915-012"></script>
+  <script src="js/online.js?v=20260915-012"></script>
+  <script src="js/friends.js?v=20260915-012"></script>
+  <script src="js/freeroam.js?v=20260915-012"></script>
+  <script src="js/game.js?v=20260915-012"></script>
 </body>
 </html>

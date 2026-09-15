@@ -9,6 +9,7 @@ const ADMIN_MAX_BAN_MS=365*24*60*60*1000;
 const ADMIN_MAX_CREDITS=999999999;
 const enc=new TextEncoder();
 let adminSchemaPromise=null;
+let socialSchemaPromise=null;
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff',...headers}});
 const now=()=>Date.now();
@@ -167,6 +168,62 @@ async function mutateTargetSave(env,id,mutator){
   }
   return {error:'SAVE_CONFLICT'};
 }
+
+async function ensureSocialSchema(env){
+  if(socialSchemaPromise)return socialSchemaPromise;
+  socialSchemaPromise=(async()=>{
+    await env.DB.batch([
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS friendships (
+        user_low TEXT NOT NULL,
+        user_high TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (user_low,user_high),
+        FOREIGN KEY (user_low) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_high) REFERENCES users(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_friendships_low ON friendships(user_low)'),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_friendships_high ON friendships(user_high)'),
+      env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_presence (
+        user_id TEXT PRIMARY KEY,
+        last_seen_at INTEGER NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )`),
+      env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_user_presence_seen ON user_presence(last_seen_at)')
+    ]);
+  })().catch(e=>{socialSchemaPromise=null;throw e;});
+  return socialSchemaPromise;
+}
+async function touchPresence(env,userId){
+  const t=now();await env.DB.prepare(`INSERT INTO user_presence (user_id,last_seen_at) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET last_seen_at=excluded.last_seen_at`).bind(userId,t).run();return t;
+}
+async function requireUser(env,request){
+  const session=await currentSession(env,request);if(!session)return {error:json({error:'AUTH_REQUIRED'},401)};
+  const ban=await activeBan(env,session.user.id);if(ban)return {error:json({error:'ACCOUNT_BANNED',ban},423)};
+  return {session};
+}
+async function handleFriendsRequest(request,env,url){
+  await ensureSocialSchema(env);if(request.method!=='GET'&&!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+  const access=await requireUser(env,request);if(access.error)return access.error;const me=access.session.user;await touchPresence(env,me.id);
+  if(url.pathname==='/api/friends/presence'&&request.method==='POST')return json({ok:true,seenAt:now()});
+  if(url.pathname==='/api/friends'&&request.method==='GET'){
+    const cutoff=now()-90000;
+    const result=await env.DB.prepare(`SELECT u.id,u.username,u.display_name,u.created_at,p.last_seen_at
+      FROM friendships f JOIN users u ON u.id=CASE WHEN f.user_low=? THEN f.user_high ELSE f.user_low END
+      LEFT JOIN user_presence p ON p.user_id=u.id
+      WHERE f.user_low=? OR f.user_high=? ORDER BY lower(u.username) ASC`).bind(me.id,me.id,me.id).all();
+    const friends=(result.results||[]).map(r=>({id:r.id,username:r.username,displayName:r.display_name,createdAt:Number(r.created_at)||0,lastSeenAt:Number(r.last_seen_at)||0,online:Number(r.last_seen_at||0)>=cutoff}));
+    return json({ok:true,friends});
+  }
+  if((url.pathname==='/api/friends/add'||url.pathname==='/api/friends/remove')&&request.method==='POST'){
+    const b=await readBody(request),username=normalizeUsername(String(b?.username||'').replace(/^@/,''));if(!validUsername(username))return json({error:'INVALID_USERNAME'},400);
+    const target=await env.DB.prepare('SELECT id,username,display_name FROM users WHERE username=? COLLATE NOCASE LIMIT 1').bind(username).first();if(!target)return json({error:'USER_NOT_FOUND'},404);if(target.id===me.id)return json({error:'CANNOT_ADD_SELF'},400);
+    const low=me.id<target.id?me.id:target.id,high=me.id<target.id?target.id:me.id;
+    if(url.pathname.endsWith('/add')){const exists=await env.DB.prepare('SELECT 1 AS ok FROM friendships WHERE user_low=? AND user_high=? LIMIT 1').bind(low,high).first();if(exists)return json({error:'ALREADY_FRIENDS'},409);await env.DB.prepare('INSERT INTO friendships (user_low,user_high,created_at) VALUES (?,?,?)').bind(low,high,now()).run();return json({ok:true,friend:{id:target.id,username:target.username,displayName:target.display_name}});}
+    await env.DB.prepare('DELETE FROM friendships WHERE user_low=? AND user_high=?').bind(low,high).run();return json({ok:true});
+  }
+  return json({error:'NOT_FOUND'},404);
+}
+
 async function handleAdminRequest(request,env,url){
   await ensureAdminSchema(env);
   if(!sameOrigin(request)&&request.method!=='GET')return json({error:'ORIGIN_REJECTED'},403);
@@ -250,10 +307,11 @@ async function handleAdminRequest(request,env,url){
 }
 
 export async function handleAuthRequest(request,env,url=new URL(request.url)){
-  if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/admin/'))return null;
+  if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/admin/')&&!url.pathname.startsWith('/api/friends'))return null;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{
     await ensureAdminSchema(env);
+    if(url.pathname.startsWith('/api/friends'))return handleFriendsRequest(request,env,url);
     if(url.pathname.startsWith('/api/admin/'))return handleAdminRequest(request,env,url);
     if(url.pathname==='/api/auth/me'&&request.method==='GET'){
       const session=await currentSession(env,request);if(!session)return json({authenticated:false});
