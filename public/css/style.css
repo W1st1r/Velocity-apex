@@ -2832,11 +2832,12 @@ button[data-category="lux"] .category-chip-icon::before { inset:0;clip-path:poly
 
 /* Server-assigned owner identity in Free Roam chat. */
 .free-owner-badge{display:inline-block;vertical-align:middle;margin-right:6px;padding:3px 6px;border:1px solid #ff7287;border-radius:5px;background:linear-gradient(135deg,#e12948,#970e2b);box-shadow:0 0 10px #ff244b44,inset 0 1px 0 #ffffff24;color:#fff1f4;font:900 9px/1.15 system-ui;letter-spacing:.8px;white-space:nowrap;text-shadow:0 1px 2px #67061e}
+.free-queen-badge{display:inline-block;vertical-align:middle;margin-right:6px;padding:3px 6px;border:1px solid #ff89d6;border-radius:5px;background:linear-gradient(135deg,#f438ac,#a90e70);box-shadow:0 0 12px #ff42b766,inset 0 1px 0 #ffffff33;color:#fff3fb;font:900 9px/1.15 system-ui;letter-spacing:.8px;white-space:nowrap;text-shadow:0 1px 2px #6e0648}
 .free-chat-line>strong,.free-chat-preview-line>b{overflow-wrap:anywhere}
 
 .free-chat-line.has-owner,.free-chat-preview-line.has-owner{grid-template-columns:minmax(0,126px) minmax(0,1fr)}
 .free-chat-line.has-owner>strong,.free-chat-preview-line.has-owner>b{max-width:none;min-width:0;white-space:normal;overflow:visible;color:#ffd0da}
-.free-chat-line .free-owner-badge,.free-chat-preview-line .free-owner-badge{color:#fff1f4;word-break:normal;white-space:nowrap}
+.free-chat-line .free-owner-badge,.free-chat-preview-line .free-owner-badge{color:#fff1f4;word-break:normal;white-space:nowrap}.free-chat-line .free-queen-badge,.free-chat-preview-line .free-queen-badge{color:#fff3fb;word-break:normal;white-space:nowrap}
 
 
 /* Free Roam Drag Sync v2 — authoritative live leader + photo-finish HUD */

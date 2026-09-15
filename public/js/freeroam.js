@@ -506,8 +506,11 @@
     setBanner.t=setTimeout(()=>b.classList.add('hidden'),ms);
   }
 
+  const isQueenName=name=>String(name||'').trim().replace(/^@/,'').toLowerCase()==='mary';
+
   function appendPlayerName(el,name,owner,level=null){
     if(owner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
+    else if(isQueenName(name)){const badge=document.createElement('span');badge.className='free-queen-badge';badge.textContent='QUEEN';el.append(badge);}
     el.append(document.createTextNode(name||'RACER'));
     if(level!==null&&Number.isFinite(Number(level))){const tag=document.createElement('span');tag.className='free-level-tag';tag.textContent=`[${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`;el.append(document.createTextNode(' '),tag);}
   }
@@ -606,6 +609,7 @@
   }
 
   function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor,owner=false,level=0){
+    const queen=!owner&&isQueenName(name);
     c.save();
     if(visual){
       visual.x=x;visual.y=y;visual.angle=a;
@@ -620,14 +624,18 @@
     c.restore();
     c.save();
     c.font='900 14px system-ui';
-    const label=`${name||'RACER'} [${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`,nameWidth=c.measureText(label).width,badgeWidth=owner?65:0,total=nameWidth+badgeWidth+20,left=x-total/2;
+    const label=`${name||'RACER'} [${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`,nameWidth=c.measureText(label).width,badgeWidth=(owner||queen)?65:0,total=nameWidth+badgeWidth+20,left=x-total/2;
     c.fillStyle='#101a1eef';roundRect(c,left,y-52,total,26,8,true,false);
     if(owner){
       c.shadowColor='#ff304f';c.shadowBlur=9;c.fillStyle='#b51232';roundRect(c,left+4,y-48,57,18,5,true,false);c.shadowBlur=0;
       c.strokeStyle='#ff687c';c.lineWidth=1;roundRect(c,left+4,y-48,57,18,5,false,true);
       c.fillStyle='#fff0f2';c.font='900 10px system-ui';c.textAlign='center';c.fillText('OWNER',left+32.5,y-35);
+    }else if(queen){
+      c.shadowColor='#ff4fbd';c.shadowBlur=11;c.fillStyle='#b51678';roundRect(c,left+4,y-48,57,18,5,true,false);c.shadowBlur=0;
+      c.strokeStyle='#ff86d2';c.lineWidth=1;roundRect(c,left+4,y-48,57,18,5,false,true);
+      c.fillStyle='#fff0fa';c.font='900 10px system-ui';c.textAlign='center';c.fillText('QUEEN',left+32.5,y-35);
     }
-    c.font='900 14px system-ui';c.textAlign='left';c.fillStyle=owner?'#ffd6dd':me?'#dfffcb':'#dce9e5';
+    c.font='900 14px system-ui';c.textAlign='left';c.fillStyle=owner?'#ffd6dd':queen?'#ffd9f1':me?'#dfffcb':'#dce9e5';
     c.fillText(label,left+10+badgeWidth,y-34);
     c.restore();
   }
