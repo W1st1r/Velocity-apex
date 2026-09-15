@@ -2457,3 +2457,27 @@ button[data-category="lux"] .category-chip-icon::before { inset:0;clip-path:poly
   .free-chat-panel{top:calc(116px + var(--safe-t));bottom:auto;left:calc(10px + var(--safe-l));right:calc(10px + var(--safe-r));width:auto;height:min(360px,48vh)}
   .friend-request-row{grid-template-columns:38px minmax(0,1fr);gap:8px}.friend-request-state{grid-column:2;text-align:left}.friend-request-actions{grid-column:1/-1;justify-content:flex-end}
 }
+
+
+/* Free Roam mobile controls — iOS double-tap/selection hardening */
+#freeMobileControls,
+#freeMobileControls *,
+#freeMobileControls button,
+#freeMobileControls button * {
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  -webkit-tap-highlight-color:transparent !important;
+  -webkit-user-drag:none !important;
+}
+#freeMobileControls {
+  touch-action:none !important;
+  overscroll-behavior:none;
+}
+#freeMobileControls button {
+  touch-action:none !important;
+  overscroll-behavior:none;
+  -webkit-appearance:none;
+  appearance:none;
+  cursor:default;
+}

@@ -827,6 +827,18 @@
   });
   addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)input[k]=false;});
 
+  const freeMobileControls=$('freeMobileControls');
+  if(freeMobileControls){
+    // Mobile Safari can interpret rapid taps on control labels as text selection,
+    // copy/callout or double-tap zoom. Keep the gameplay surface non-selectable
+    // without affecting editable chat inputs elsewhere in Free Roam.
+    for(const eventName of ['selectstart','contextmenu','dragstart','dblclick']){
+      freeMobileControls.addEventListener(eventName,e=>e.preventDefault());
+    }
+    freeMobileControls.addEventListener('touchstart',e=>{
+      if(e.target.closest?.('[data-control]'))e.preventDefault();
+    },{passive:false});
+  }
   for(const b of document.querySelectorAll('#freeMobileControls [data-control]')){
     const k=b.dataset.control;
     const on=e=>{e.preventDefault();input[k]=true;};
