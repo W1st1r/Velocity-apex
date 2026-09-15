@@ -1,5 +1,6 @@
 import {CARS} from './car-catalog.mjs';
 import {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse} from './auth.mjs';
+import {getProgression,setProgressionLevel} from './progression.mjs';
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json','cache-control':'no-store'}});
 const schema=new WeakMap();
 export async function ensureOwner(env){if(!env.DB)return;let p=schema.get(env.DB);if(!p){p=env.DB.batch([
@@ -59,7 +60,17 @@ export async function ownerRequest(request,env,url){
   const referralStats=await env.DB.prepare("SELECT COUNT(*) AS total,SUM(CASE WHEN status='rewarded' THEN 1 ELSE 0 END) AS rewarded FROM referrals WHERE inviter_user_id=?").bind(uid).first();
   const history=(await env.DB.prepare('SELECT action,details,created_at FROM admin_audit WHERE target_user_id=? OR (target_user_id IS NULL AND action=\'grant_all\') ORDER BY created_at DESC LIMIT 200').bind(uid).all()).results||[];
   const bans=(await env.DB.prepare('SELECT reason,created_at,expires_at,revoked_at FROM account_bans WHERE user_id=? ORDER BY created_at DESC LIMIT 200').bind(uid).all()).results||[];
-  return json({ok:true,...detail,activity,online:!!server||!!activity&&activity.seen>t-45000,server,stats,friends,promos,inviter,referralStats:{total:Number(referralStats?.total||0),rewarded:Number(referralStats?.rewarded||0)},history,bans,carUpgrades:save.carUpgrades||{},bestLap:save.bestLap||null,bestScore:save.bestScore||null});
+  const progression=await getProgression(env,uid);
+  return json({ok:true,...detail,activity,online:!!server||!!activity&&activity.seen>t-45000,server,stats,friends,promos,inviter,referralStats:{total:Number(referralStats?.total||0),rewarded:Number(referralStats?.rewarded||0)},history,bans,progression,carUpgrades:save.carUpgrades||{},bestLap:save.bestLap||null,bestScore:save.bestScore||null});
+ }
+ const level=url.pathname.match(/^\/api\/owner\/level\/([0-9a-f-]{16,64})$/i);
+ if(level&&request.method==='POST'){
+  const uid=level[1],detail=await accountDetail(env,uid);if(!detail)return json({error:'USER_NOT_FOUND'},404);
+  const b=await request.json(),target=Number(b?.level);if(!Number.isInteger(target)||target<0||target>100)return json({error:'INVALID_LEVEL'},400);
+  const changed=await setProgressionLevel(env,uid,target);if(!changed.ok)return json({error:changed.error||'PROGRESSION_WRITE_FAILED'},500);
+  await audit(env,id,uid,'level',{before:changed.before.level,after:changed.level,totalExp:changed.totalExp,liveSync:true});
+  const synced=await rooms(env,'/free/owner-progress',{userId:uid,totalExp:changed.totalExp,level:changed.level});
+  return json({ok:true,progression:changed,synced:synced.reduce((n,r)=>n+(r.updated||0),0)});
  }
  const kick=url.pathname.match(/^\/api\/owner\/kick\/([0-9a-f-]{16,64})$/i);
  if(kick&&request.method==='POST'){const d=await accountDetail(env,kick[1]);if(!d)return json({error:'USER_NOT_FOUND'},404);if(d.user.isAdmin)return json({error:'ADMIN_ACCOUNT_PROTECTED'},403);const result=await rooms(env,'/free/owner-kick',{userId:kick[1]});await audit(env,id,kick[1],'kick',{});return json({ok:true,kicked:result.reduce((n,r)=>n+r.kicked,0)});}

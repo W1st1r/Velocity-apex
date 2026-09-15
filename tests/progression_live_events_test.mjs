@@ -24,10 +24,17 @@ assert.match(worker,/activity:'koth'/);
 assert.match(worker,/progress_reward/);
 assert.match(worker,/ONLINE_REWARD/);
 assert.match(worker,/disqualified/);
+assert.match(worker,/activity_leave/);
+assert.match(worker,/owner-progress/);
+assert.match(worker,/m\.score>=400/);
+assert.match(worker,/m\.driftMs/);
 
 const ui=fs.readFileSync(new URL('../public/js/freeroam.js',import.meta.url),'utf8');
 assert.match(ui,/DRIFT BATTLE · УЧАСТВОВАТЬ/);
 assert.match(ui,/KING OF THE HILL · УЧАСТВОВАТЬ/);
 assert.match(ui,/CR LIMIT/);
 assert.match(ui,/freeLevelValue/);
+assert.match(ui,/freeEventLeave/);
+assert.match(ui,/activity_leave/);
+assert.match(ui,/event-active/);
 console.log('progression_live_events_test: OK');

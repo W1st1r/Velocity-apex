@@ -84,6 +84,18 @@ export async function getProgression(env,userId){
   }catch{return {totalExp:0,...levelFromTotalExp(0)};}
 }
 
+export async function setProgressionLevel(env,userId,targetLevel){
+  if(!env?.DB||!userId)return {ok:false,error:'PROGRESSION_IDENTITY_MISSING'};
+  const level=Math.max(0,Math.min(MAX_LEVEL,Math.floor(Number(targetLevel))));
+  if(!Number.isFinite(Number(targetLevel))||level!==Number(targetLevel))return {ok:false,error:'INVALID_LEVEL'};
+  try{
+    await ensureProgressionSchema(env);const t=now(),before=await getProgression(env,userId),totalExp=totalExpForLevel(level);
+    await env.DB.prepare(`INSERT INTO player_progress (user_id,total_exp,created_at,updated_at) VALUES (?,?,?,?)
+      ON CONFLICT(user_id) DO UPDATE SET total_exp=excluded.total_exp,updated_at=excluded.updated_at`).bind(userId,totalExp,t,t).run();
+    return {ok:true,before,...{totalExp,...levelFromTotalExp(totalExp)}};
+  }catch(e){console.error('set progression level',e);return {ok:false,error:'PROGRESSION_WRITE_FAILED'};}
+}
+
 async function rewardCap(env,userId,source,requested,t){
   if(requested<=0)return {credits:0,capped:false,hourTotal:0,dayTotal:0,onlineDayTotal:0};
   const hour=await env.DB.prepare('SELECT COALESCE(SUM(credits),0) AS total FROM progression_rewards WHERE user_id=? AND created_at>=?').bind(userId,t-60*60*1000).first();

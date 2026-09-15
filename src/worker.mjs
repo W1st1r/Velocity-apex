@@ -1,6 +1,6 @@
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
 import {handleAuthRequest,freeAccountIdentity} from './auth.mjs';
-import {getProgression,awardProgression,PROGRESSION_REWARDS} from './progression.mjs';
+import {getProgression,awardProgression,PROGRESSION_REWARDS,levelFromTotalExp} from './progression.mjs';
 import {PROTOCOL_VERSION,generateRoomCode,normalizeRoomCode,validRoomCode,sanitizeNickname,validNickname,validSettings,normalizeSettings,validWager,validPlayerState,parseClientMessage,PLAYER_STATE_RATE_MS,RECONNECT_GRACE_MS,EMPTY_ROOM_TTL_MS,ROOM_TTL_MS} from './protocol.mjs';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store'}});
@@ -126,7 +126,7 @@ export class Room {
     const snap=event?.identities?.[id];return snap?{id,userId:snap.userId||null,name:snap.name||'RACER',level:snap.level||0,totalExp:snap.totalExp||0,connected:false}:null;
   }
   eventMetric(event,id){
-    event.metrics=event.metrics||{};return event.metrics[id]||(event.metrics[id]={score:0,points:0,insideMs:0,zoneMs:0,activeMs:0,distance:0,lastX:null,lastY:null});
+    event.metrics=event.metrics||{};return event.metrics[id]||(event.metrics[id]={score:0,points:0,insideMs:0,zoneMs:0,activeMs:0,driftMs:0,distance:0,lastX:null,lastY:null});
   }
   eventNames(event){return Object.fromEntries((event?.participants||[]).map(id=>[id,this.eventIdentity(event,id)?.name||'RACER']));}
   eventLevels(event){return Object.fromEntries((event?.participants||[]).map(id=>[id,Math.max(0,Math.min(100,Math.floor(Number(this.eventIdentity(event,id)?.level)||0)))]));}
@@ -171,6 +171,17 @@ export class Room {
     if(e.status==='waiting'&&e.participants.filter(id=>this.room.players.find(x=>x.id===id&&x.connected)).length>=3){e.status='countdown';e.startAt=t+FREE_ACTIVITY_COUNTDOWN_MS;e.endAt=e.startAt+FREE_KOTH_DURATION_MS;}
     await this.save();this.sendToPlayers(e.participants,{type:'activity_lobby',v:PROTOCOL_VERSION,activity:'koth',eventId:e.id,participants:[...e.participants],names:this.eventNames(e),levels:this.eventLevels(e),status:e.status,startAt:e.startAt,minPlayers:3,maxPlayers:12,durationMs:FREE_KOTH_DURATION_MS,serverTime:t});
   }
+  async leaveLiveActivity(ws,p,activity,t=now()){
+    const key=activity==='drift_battle'?'driftBattle':activity==='koth'?'koth':null;if(!key)return this.error(ws,'INVALID_ACTIVITY','Неизвестный ивент');
+    const e=this.room?.[key];if(!e||!e.participants?.includes(p.id))return this.error(ws,'ACTIVITY_NOT_JOINED','Вы не участвуете в этом ивенте');
+    const wasRunning=e.status==='running',minPlayers=activity==='drift_battle'?2:3;
+    e.disqualified=e.disqualified||{};e.disqualified[p.id]=true;e.participants=e.participants.filter(id=>id!==p.id);delete e.metrics?.[p.id];delete e.identities?.[p.id];
+    this.send(ws,{type:'activity_left',v:PROTOCOL_VERSION,activity,eventId:e.id,serverTime:t});
+    if(!e.participants.length){this.room[key]=null;await this.save();return;}
+    if(!wasRunning){const live=e.participants.filter(id=>this.room.players.find(x=>x.id===id&&x.connected));if(e.status==='countdown'&&live.length<minPlayers){e.status='waiting';e.startAt=0;e.endAt=0;e.createdAt=t;}this.sendToPlayers(e.participants,{type:'activity_lobby',v:PROTOCOL_VERSION,activity:e.activity,eventId:e.id,zoneId:e.zoneId||null,zone:e.activity==='drift_battle'?FREE_DRIFT_ZONES[e.zoneId]:null,participants:[...e.participants],names:this.eventNames(e),levels:this.eventLevels(e),status:e.status,startAt:e.startAt||0,minPlayers,maxPlayers:e.activity==='drift_battle'?8:12,durationMs:e.activity==='drift_battle'?FREE_DRIFT_DURATION_MS:FREE_KOTH_DURATION_MS,serverTime:t});}
+    else{const standings=activity==='drift_battle'?this.driftStandings(e):this.kothStandings(e);this.sendToPlayers(e.participants,{type:'activity_progress',v:PROTOCOL_VERSION,activity,eventId:e.id,startAt:e.startAt,endAt:e.endAt,zoneId:e.zoneId||null,zoneIndex:e.zoneIndex||0,zone:activity==='drift_battle'?FREE_DRIFT_ZONES[e.zoneId]:FREE_KOTH_ZONES[(e.zoneIndex||0)%FREE_KOTH_ZONES.length],finalZone:!!e.finalZone,standings,serverTime:t});}
+    await this.save();
+  }
   handleActivityDeparture(playerId,hardLeave=false){
     for(const [key,minPlayers] of [['driftBattle',2],['koth',3]]){
       const e=this.room?.[key];if(!e||!e.participants?.includes(playerId))continue;
@@ -188,7 +199,13 @@ export class Room {
   driftStandings(e){return [...e.participants].map(id=>({id,name:this.eventIdentity(e,id)?.name||'RACER',level:this.eventIdentity(e,id)?.level||0,score:Math.floor(this.eventMetric(e,id).score||0)})).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));}
   kothStandings(e){return [...e.participants].map(id=>({id,name:this.eventIdentity(e,id)?.name||'RACER',level:this.eventIdentity(e,id)?.level||0,score:Math.floor(this.eventMetric(e,id).points||0),zoneTimeMs:Math.floor(this.eventMetric(e,id).zoneMs||0)})).sort((a,b)=>b.score-a.score||b.zoneTimeMs-a.zoneTimeMs||a.name.localeCompare(b.name));}
   updateDriftMetrics(p,previous,current,t){
-    const e=this.room.driftBattle;if(!e||e.status!=='running'||!e.participants.includes(p.id)||t<e.startAt||t>e.endAt||!previous)return;const zone=FREE_DRIFT_ZONES[e.zoneId],m=this.eventMetric(e,p.id),a=Number(previous.sampleTime||previous.serverTime),b=Number(current.sampleTime||current.serverTime),dt=Math.min(.15,Math.max(0,(b-a)/1000)),travel=Math.hypot(current.x-previous.x,current.y-previous.y);if(dt<=0)return;m.distance+=travel;if(insideCircle(current,zone)){m.insideMs+=dt*1000;if(travel>=1&&current.speed>=18)m.activeMs+=dt*1000;const velocityAngle=Math.atan2(current.vy,current.vx),slip=Math.min(angleDelta(velocityAngle,current.angle),Math.PI-angleDelta(velocityAngle,current.angle));if(current.speed>=55&&slip>=.16){const quality=Math.min(1.45,.72+Math.max(0,slip-.16)*1.05);m.score+=current.speed*dt*4.9*quality;}}
+    const e=this.room.driftBattle;if(!e||e.status!=='running'||!e.participants.includes(p.id)||t<e.startAt||t>e.endAt||!previous)return;
+    const zone=FREE_DRIFT_ZONES[e.zoneId],m=this.eventMetric(e,p.id),a=Number(previous.sampleTime||previous.serverTime),b=Number(current.sampleTime||current.serverTime),dt=Math.min(.15,Math.max(0,(b-a)/1000)),travel=Math.hypot(current.x-previous.x,current.y-previous.y);if(dt<=0)return;
+    m.distance+=travel;if(insideCircle(current,zone)){m.insideMs+=dt*1000;if(travel>=.55&&current.speed>=12)m.activeMs+=dt*1000;
+      const velocityAngle=Math.atan2(current.vy,current.vx),rawSlip=angleDelta(velocityAngle,current.angle),slip=Math.min(rawSlip,Math.PI-rawSlip),yaw=Math.abs(Number(current.yawRate)||0);
+      const drifting=current.speed>=32&&(slip>=.08||yaw>=.38);
+      if(drifting){const quality=Math.min(1.55,.78+Math.max(0,slip-.08)*.9+Math.min(.28,yaw*.08));m.score+=current.speed*dt*4.9*quality;m.driftMs=(Number(m.driftMs)||0)+dt*1000;}
+    }
     if(t-(e.lastProgressAt||0)>=FREE_ACTIVITY_PROGRESS_MS){e.lastProgressAt=t;this.sendToPlayers(e.participants,{type:'activity_progress',v:PROTOCOL_VERSION,activity:'drift_battle',eventId:e.id,startAt:e.startAt,endAt:e.endAt,zoneId:e.zoneId,standings:this.driftStandings(e),serverTime:t});}
   }
   tickKoth(e,t){
@@ -202,12 +219,12 @@ export class Room {
   }
   async settleDrift(e,t){
     if(!e||e.settled)return;e.settled=true;const standings=this.driftStandings(e),results=[];
-    for(let i=0;i<standings.length;i++){const row=standings[i],m=this.eventMetric(e,row.id),eligible=!e.disqualified?.[row.id]&&m.score>=1200&&m.insideMs>=45000&&m.activeMs>=25000&&m.distance>=500;let reward=null;if(eligible){const key=i===0?'DRIFT_FIRST':i===1?'DRIFT_SECOND':i===2?'DRIFT_THIRD':'DRIFT_PARTICIPATION';reward=await this.grantProgress(this.eventIdentity(e,row.id),'drift_battle',e.id,key,{place:i+1,score:row.score,activeMs:Math.round(m.activeMs),distance:Math.round(m.distance)});}results.push({...row,place:i+1,eligible,exp:reward?.expAdded||0,credits:reward?.creditsAdded||0,capped:!!reward?.capped});}
+    for(let i=0;i<standings.length;i++){const row=standings[i],m=this.eventMetric(e,row.id),driftMs=Number(m.driftMs)||0,eligible=!e.disqualified?.[row.id]&&m.score>=400&&m.insideMs>=12000&&m.activeMs>=8000&&driftMs>=5000&&m.distance>=120;let reward=null;if(eligible){const key=i===0?'DRIFT_FIRST':i===1?'DRIFT_SECOND':i===2?'DRIFT_THIRD':'DRIFT_PARTICIPATION';reward=await this.grantProgress(this.eventIdentity(e,row.id),'drift_battle',e.id,key,{place:i+1,score:row.score,insideMs:Math.round(m.insideMs),activeMs:Math.round(m.activeMs),driftMs:Math.round(driftMs),distance:Math.round(m.distance)});}results.push({...row,place:i+1,eligible,insideMs:Math.round(m.insideMs),activeMs:Math.round(m.activeMs),driftMs:Math.round(driftMs),distance:Math.round(m.distance),exp:reward?.expAdded||0,credits:reward?.creditsAdded||0,capped:!!reward?.capped});}
     this.sendToPlayers(e.participants,{type:'activity_result',v:PROTOCOL_VERSION,activity:'drift_battle',eventId:e.id,results,serverTime:t});this.room.driftBattle=null;await this.save();
   }
   async settleKoth(e,t){
     if(!e||e.settled)return;e.settled=true;this.tickKoth(e,t);const standings=this.kothStandings(e),results=[];
-    for(let i=0;i<standings.length;i++){const row=standings[i],m=this.eventMetric(e,row.id),eligible=!e.disqualified?.[row.id]&&m.points>=15&&m.zoneMs>=15000&&m.activeMs>=60000&&m.distance>=600;let reward=null;if(eligible){const key=i===0?'KOTH_FIRST':i===1?'KOTH_SECOND':i===2?'KOTH_THIRD':'KOTH_PARTICIPATION';reward=await this.grantProgress(this.eventIdentity(e,row.id),'koth',e.id,key,{place:i+1,score:row.score,zoneTimeMs:Math.round(m.zoneMs),activeMs:Math.round(m.activeMs),distance:Math.round(m.distance)});}results.push({...row,place:i+1,eligible,exp:reward?.expAdded||0,credits:reward?.creditsAdded||0,capped:!!reward?.capped});}
+    for(let i=0;i<standings.length;i++){const row=standings[i],m=this.eventMetric(e,row.id),eligible=!e.disqualified?.[row.id]&&m.points>=10&&m.zoneMs>=10000&&(m.activeMs>=15000||m.distance>=250);let reward=null;if(eligible){const key=i===0?'KOTH_FIRST':i===1?'KOTH_SECOND':i===2?'KOTH_THIRD':'KOTH_PARTICIPATION';reward=await this.grantProgress(this.eventIdentity(e,row.id),'koth',e.id,key,{place:i+1,score:row.score,zoneTimeMs:Math.round(m.zoneMs),activeMs:Math.round(m.activeMs),distance:Math.round(m.distance)});}results.push({...row,place:i+1,eligible,zoneTimeMs:Math.round(m.zoneMs),activeMs:Math.round(m.activeMs),distance:Math.round(m.distance),exp:reward?.expAdded||0,credits:reward?.creditsAdded||0,capped:!!reward?.capped});}
     this.sendToPlayers(e.participants,{type:'activity_result',v:PROTOCOL_VERSION,activity:'koth',eventId:e.id,results,serverTime:t});this.room.koth=null;await this.save();
   }
   async advanceFreeActivities(t){
@@ -274,6 +291,7 @@ export class Room {
     }
     if(m.type==='activity_join'&&m.activity==='drift_battle'){await this.joinDriftBattle(ws,p,String(m.zoneId||''),now());return;}
     if(m.type==='activity_join'&&m.activity==='koth'){await this.joinKoth(ws,p,now());return;}
+    if(m.type==='activity_leave'&&['drift_battle','koth'].includes(m.activity)){await this.leaveLiveActivity(ws,p,m.activity,now());return;}
     if(m.type==='activity_join'&&m.activity==='drag'){
       if(this.playerBusy(p.id))return this.error(ws,'ACTIVITY_BUSY','Вы уже участвуете в активности');const q=this.room.dragQueue=this.room.dragQueue||[];if(!q.includes(p.id))q.push(p.id);this.broadcast({type:'drag_queue',v:PROTOCOL_VERSION,count:q.length});
       const live=q.filter(id=>this.room.players.some(x=>x.id===id&&x.connected));this.room.dragQueue=live;
@@ -308,6 +326,11 @@ export class Room {
     await this.load();const url=new URL(request.url);
 
     if(url.pathname==='/free/owner-status')return json({players:this.room?.mode==='freeroam'?this.room.players.filter(p=>p.connected).map(p=>({userId:p.userId||null,playerId:p.id})):[]});
+    if(url.pathname==='/free/owner-progress'&&request.method==='POST'){
+      const b=await request.json();if(this.room?.mode!=='freeroam')return json({ok:true,updated:0});const totalExp=Math.max(0,Math.floor(Number(b.totalExp)||0)),progress={totalExp,...levelFromTotalExp(totalExp)};let updated=0;
+      for(const p of this.room.players){if(!b.userId||p.userId!==b.userId)continue;p.level=progress.level;p.totalExp=progress.totalExp;updated++;for(const e of [this.room.driftBattle,this.room.koth])if(e?.identities?.[p.id]){e.identities[p.id].level=p.level;e.identities[p.id].totalExp=p.totalExp;}this.sendToPlayers([p.id],{type:'progress_override',v:PROTOCOL_VERSION,...progress,serverTime:now()});this.broadcast({type:'player_progress',v:PROTOCOL_VERSION,playerId:p.id,level:p.level,totalExp:p.totalExp,serverTime:now()});}
+      if(updated)await this.save();return json({ok:true,updated});
+    }
     if(url.pathname==='/free/owner-kick'&&request.method==='POST'){
       const b=await request.json();let kicked=0;
       if(this.room?.mode==='freeroam'){
