@@ -1,15 +1,16 @@
 (function(){
   'use strict';
-  const $=id=>document.getElementById(id),SAVE_KEY='velocityApex.v1',ACCOUNTS_KEY='velocityApex.accounts.v1';
+  const $=id=>document.getElementById(id),SAVE_KEY='velocityApex.v1',ACCOUNTS_KEY='velocityApex.accounts.v1',INSTALL_KEY='velocityApex.installId.v1';
   const els={
-    root:$('account'),button:$('accountBtn'),menuStatus:$('accountMenuStatus'),close:$('accountCloseBtn'),guest:$('accountGuestView'),profile:$('accountProfileView'),loginTab:$('accountLoginTab'),registerTab:$('accountRegisterTab'),form:$('accountForm'),displayWrap:$('accountDisplayNameWrap'),display:$('accountDisplayName'),username:$('accountUsername'),password:$('accountPassword'),confirmWrap:$('accountConfirmWrap'),confirm:$('accountPasswordConfirm'),message:$('accountMessage'),submit:$('accountSubmitBtn'),displayView:$('accountDisplayNameView'),usernameView:$('accountUsernameView'),avatar:$('accountAvatar'),sync:$('accountSyncStatus'),profileMessage:$('accountProfileMessage'),logout:$('accountLogoutBtn'),
-    gate:$('authGate'),gateChooser:$('authGateChooser'),gateSession:$('authGateSession'),gateAvatar:$('authGateAvatar'),gateDisplayName:$('authGateDisplayName'),gateUsername:$('authGateUsername'),gateKnownWrap:$('authGateKnownWrap'),gateKnownList:$('authGateKnownList'),gateEmpty:$('authGateEmpty'),gateOther:$('authGateOtherBtn'),gateCreate:$('authGateCreateBtn'),gateFormPanel:$('authGateFormPanel'),gateLoginTab:$('authGateLoginTab'),gateRegisterTab:$('authGateRegisterTab'),gateForm:$('authGateForm'),gateDisplayWrap:$('authGateDisplayWrap'),gateDisplay:$('authGateDisplay'),gateLogin:$('authGateLogin'),gatePassword:$('authGatePassword'),gateConfirmWrap:$('authGateConfirmWrap'),gateConfirm:$('authGateConfirm'),gateMessage:$('authGateMessage'),gateSubmit:$('authGateSubmit'),gateBack:$('authGateBack'),gateBan:$('authGateBan'),banUsername:$('authBanUsername'),banRemaining:$('authBanRemaining'),banReason:$('authBanReason'),banUntil:$('authBanUntil'),banOther:$('authBanOtherBtn'),rootSettings:$('rootSettingsCard')
+    root:$('account'),button:$('accountBtn'),menuStatus:$('accountMenuStatus'),close:$('accountCloseBtn'),guest:$('accountGuestView'),profile:$('accountProfileView'),loginTab:$('accountLoginTab'),registerTab:$('accountRegisterTab'),form:$('accountForm'),displayWrap:$('accountDisplayNameWrap'),display:$('accountDisplayName'),username:$('accountUsername'),password:$('accountPassword'),confirmWrap:$('accountConfirmWrap'),confirm:$('accountPasswordConfirm'),inviterWrap:$('accountInviterWrap'),inviter:$('accountInviter'),message:$('accountMessage'),submit:$('accountSubmitBtn'),displayView:$('accountDisplayNameView'),usernameView:$('accountUsernameView'),avatar:$('accountAvatar'),sync:$('accountSyncStatus'),profileMessage:$('accountProfileMessage'),logout:$('accountLogoutBtn'),
+    gate:$('authGate'),gateChooser:$('authGateChooser'),gateSession:$('authGateSession'),gateAvatar:$('authGateAvatar'),gateDisplayName:$('authGateDisplayName'),gateUsername:$('authGateUsername'),gateKnownWrap:$('authGateKnownWrap'),gateKnownList:$('authGateKnownList'),gateEmpty:$('authGateEmpty'),gateOther:$('authGateOtherBtn'),gateCreate:$('authGateCreateBtn'),gateFormPanel:$('authGateFormPanel'),gateLoginTab:$('authGateLoginTab'),gateRegisterTab:$('authGateRegisterTab'),gateForm:$('authGateForm'),gateDisplayWrap:$('authGateDisplayWrap'),gateDisplay:$('authGateDisplay'),gateLogin:$('authGateLogin'),gatePassword:$('authGatePassword'),gateConfirmWrap:$('authGateConfirmWrap'),gateConfirm:$('authGateConfirm'),gateInviterWrap:$('authGateInviterWrap'),gateInviter:$('authGateInviter'),gateMessage:$('authGateMessage'),gateSubmit:$('authGateSubmit'),gateBack:$('authGateBack'),gateBan:$('authGateBan'),banUsername:$('authBanUsername'),banRemaining:$('authBanRemaining'),banReason:$('authBanReason'),banUntil:$('authBanUntil'),banOther:$('authBanOtherBtn'),rootSettings:$('rootSettingsCard')
   };
   if(!els.root||!els.button||!els.gate)return;
 
   const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0};
-  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.'};
+  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
+  function installId(){try{let id=localStorage.getItem(INSTALL_KEY)||'';if(!/^[A-Za-z0-9_-]{16,128}$/.test(id)){id=(crypto.randomUUID?.()||String(Date.now())+Math.random()).replace(/[^A-Za-z0-9_-]/g,'');localStorage.setItem(INSTALL_KEY,id);}return id;}catch{return '';} }
   function localSave(){try{const x=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');return normalizeSave(x);}catch{return normalizeSave({});}}
   function setMessage(text='',bad=false,profile=false){const el=profile?els.profileMessage:els.message;if(!el)return;el.textContent=text;el.classList.toggle('bad',!!bad);}
   function setGateMessage(text='',bad=false){els.gateMessage.textContent=text;els.gateMessage.classList.toggle('bad',!!bad);}
@@ -37,10 +38,10 @@
     if(logged){els.displayView.textContent=state.user.displayName;els.usernameView.textContent='@'+state.user.username;els.avatar.textContent=initials(state.user.displayName).toUpperCase();}
     window.dispatchEvent(new CustomEvent('velocity-account-changed',{detail:{user:state.user}}));
   }
-  function setMode(mode){state.mode=mode==='register'?'register':'login';const reg=state.mode==='register';els.loginTab.classList.toggle('active',!reg);els.registerTab.classList.toggle('active',reg);els.loginTab.setAttribute('aria-selected',String(!reg));els.registerTab.setAttribute('aria-selected',String(reg));els.displayWrap.classList.toggle('hidden',!reg);els.confirmWrap.classList.toggle('hidden',!reg);els.submit.textContent=reg?'СОЗДАТЬ АККАУНТ':'ВОЙТИ';els.password.autocomplete=reg?'new-password':'current-password';setMessage();}
+  function setMode(mode){state.mode=mode==='register'?'register':'login';const reg=state.mode==='register';els.loginTab.classList.toggle('active',!reg);els.registerTab.classList.toggle('active',reg);els.loginTab.setAttribute('aria-selected',String(!reg));els.registerTab.setAttribute('aria-selected',String(reg));els.displayWrap.classList.toggle('hidden',!reg);els.confirmWrap.classList.toggle('hidden',!reg);els.inviterWrap?.classList.toggle('hidden',!reg);els.submit.textContent=reg?'СОЗДАТЬ АККАУНТ':'ВОЙТИ';els.password.autocomplete=reg?'new-password':'current-password';setMessage();}
   function setGateMode(mode){
     state.gateMode=mode==='register'?'register':'login';const reg=state.gateMode==='register';
-    els.gateLoginTab.classList.toggle('active',!reg);els.gateRegisterTab.classList.toggle('active',reg);els.gateLoginTab.setAttribute('aria-selected',String(!reg));els.gateRegisterTab.setAttribute('aria-selected',String(reg));els.gateDisplayWrap.classList.toggle('hidden',!reg);els.gateConfirmWrap.classList.toggle('hidden',!reg);els.gateSubmit.textContent=reg?'СОЗДАТЬ АККАУНТ':'ВОЙТИ';els.gatePassword.autocomplete=reg?'new-password':'current-password';setGateMessage();
+    els.gateLoginTab.classList.toggle('active',!reg);els.gateRegisterTab.classList.toggle('active',reg);els.gateLoginTab.setAttribute('aria-selected',String(!reg));els.gateRegisterTab.setAttribute('aria-selected',String(reg));els.gateDisplayWrap.classList.toggle('hidden',!reg);els.gateConfirmWrap.classList.toggle('hidden',!reg);els.gateInviterWrap?.classList.toggle('hidden',!reg);els.gateSubmit.textContent=reg?'СОЗДАТЬ АККАУНТ':'ВОЙТИ';els.gatePassword.autocomplete=reg?'new-password':'current-password';setGateMessage();
   }
   async function api(path,options={}){
     const init={credentials:'same-origin',headers:{...(options.body?{'content-type':'application/json'}:{}),...(options.headers||{})},...options};
@@ -74,7 +75,7 @@
   function showGateForm(mode='login',username=''){
     stopBanTimer();els.gateBan.classList.add('hidden');$('menu')?.classList.add('hidden');els.gate.classList.remove('hidden');els.gate.setAttribute('aria-hidden','false');els.gateChooser.classList.add('hidden');els.gateFormPanel.classList.remove('hidden');setGateMode(mode);
     if(username)els.gateLogin.value=username;else if(mode==='login')els.gateLogin.value='';
-    els.gatePassword.value='';els.gateConfirm.value='';if(mode==='register'&&!username)els.gateDisplay.value='';
+    els.gatePassword.value='';els.gateConfirm.value='';if(els.gateInviter)els.gateInviter.value='';if(mode==='register'&&!username)els.gateDisplay.value='';
     setTimeout(()=>{(mode==='register'?els.gateDisplay:els.gateLogin)?.focus();},30);
   }
   function showGateChooser(){
@@ -133,9 +134,9 @@
       let data;
       if(state.mode==='register'){
         const displayName=els.display.value.trim();if(password!==els.confirm.value){setMessage('Пароли не совпадают.',true);return;}
-        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,save:localSave()})});
+        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.inviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
-      await finishAuth(data);els.password.value='';els.confirm.value='';setMessage('',false,true);
+      await finishAuth(data);els.password.value='';els.confirm.value='';if(els.inviter)els.inviter.value='';setMessage(data.referral?.rewarded?`Пригласителю начислено ${Number(data.referral.rewardCredits||0).toLocaleString('ru-RU')} CR.`:'',false,true);
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.submit.disabled=false;}
   }
   async function onGateSubmit(event){
@@ -144,9 +145,9 @@
       let data;
       if(state.gateMode==='register'){
         const displayName=els.gateDisplay.value.trim();if(password!==els.gateConfirm.value){setGateMessage('Пароли не совпадают.',true);return;}
-        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,save:localSave()})});
+        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.gateInviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
-      await finishAuth(data);els.gatePassword.value='';els.gateConfirm.value='';enterGame();
+      await finishAuth(data);els.gatePassword.value='';els.gateConfirm.value='';if(els.gateInviter)els.gateInviter.value='';enterGame();
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setGateMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.gateSubmit.disabled=false;}
   }
   async function checkAccess(){
@@ -170,6 +171,6 @@
   els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave,revision:state.revision}),keepalive:true}).catch(()=>{});});
-  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,open,enterGame};
+  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,open,enterGame};
   setMode('login');setGateMode('login');render();bootstrap();
 })();

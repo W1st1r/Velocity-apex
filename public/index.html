@@ -76,6 +76,7 @@
             <label class="account-field"><span>ЛОГИН</span><input id="authGateLogin" maxlength="24" autocapitalize="none" autocomplete="username" spellcheck="false" placeholder="3–24: a-z, 0-9, _" /></label>
             <label class="account-field"><span>ПАРОЛЬ</span><input id="authGatePassword" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Минимум 8 символов" /></label>
             <label id="authGateConfirmWrap" class="account-field hidden"><span>ПОВТОРИТЕ ПАРОЛЬ</span><input id="authGateConfirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Повторите пароль" /></label>
+            <label id="authGateInviterWrap" class="account-field account-field-wide hidden"><span>НИК ПРИГЛАСИТЕЛЯ <b>НЕОБЯЗАТЕЛЬНО</b></span><input id="authGateInviter" maxlength="24" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@username" /></label>
             <div id="authGateMessage" class="account-message" aria-live="polite"></div>
             <button id="authGateSubmit" class="primary-btn" type="submit">ВОЙТИ</button>
           </form>
@@ -100,6 +101,7 @@
           <button id="garageBtn" class="secondary-btn garage-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg><span>ГАРАЖ</span></button>
           <button id="accountBtn" class="secondary-btn account-menu-btn" type="button"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></button>
           <button id="friendsBtn" class="secondary-btn friends-menu-btn" type="button"><span>ДРУЗЬЯ</span><strong id="friendsMenuStatus">—</strong></button>
+          <button id="promoBtn" class="secondary-btn promo-menu-btn" type="button"><span>ПРОМОКОД</span><strong>GIFT</strong></button>
           <button id="settingsBtn" class="secondary-btn settings-menu-btn" type="button">НАСТРОЙКИ</button>
         </div>
         <div class="menu-stats" aria-label="Статистика игрока">
@@ -129,6 +131,7 @@
             <label class="account-field"><span>ЛОГИН</span><input id="accountUsername" maxlength="24" autocapitalize="none" autocomplete="username" spellcheck="false" placeholder="3–24: a-z, 0-9, _" /></label>
             <label class="account-field"><span>ПАРОЛЬ</span><input id="accountPassword" type="password" minlength="8" maxlength="128" autocomplete="current-password" placeholder="Минимум 8 символов" /></label>
             <label id="accountConfirmWrap" class="account-field hidden"><span>ПОВТОРИТЕ ПАРОЛЬ</span><input id="accountPasswordConfirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="Повторите пароль" /></label>
+            <label id="accountInviterWrap" class="account-field account-field-wide hidden"><span>НИК ПРИГЛАСИТЕЛЯ <b>НЕОБЯЗАТЕЛЬНО</b></span><input id="accountInviter" maxlength="24" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="@username" /></label>
             <div id="accountMessage" class="account-message" aria-live="polite"></div>
             <button id="accountSubmitBtn" class="primary-btn" type="submit">ВОЙТИ</button>
           </form>
@@ -146,6 +149,22 @@
       </section>
     </div>
 
+
+    <div id="promo" class="overlay promo-screen hidden" aria-hidden="true">
+      <section class="promo-card glass enter-panel" aria-labelledby="promoTitle">
+        <header class="promo-header">
+          <div><div class="eyebrow">VELOCITY APEX / REDEEM</div><h2 id="promoTitle">ПРОМОКОД</h2><p>Введите код и получите награду прямо в облачный профиль.</p></div>
+          <button id="promoCloseBtn" class="account-close" type="button" aria-label="Закрыть">×</button>
+        </header>
+        <div class="promo-gift-mark" aria-hidden="true"><span>VA</span><i>+</i></div>
+        <form id="promoForm" class="promo-form">
+          <label><span>КОД</span><input id="promoCode" maxlength="32" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="APEX2026"></label>
+          <button id="promoRedeemBtn" class="primary-btn" type="submit">АКТИВИРОВАТЬ</button>
+        </form>
+        <div id="promoMessage" class="promo-message" aria-live="polite">Один промокод можно активировать на аккаунте только один раз.</div>
+        <p class="promo-note">Награда начисляется сервером. CR и предметы появятся в профиле сразу после активации.</p>
+      </section>
+    </div>
 
     <div id="friends" class="overlay friends-screen hidden" aria-hidden="true">
       <section class="friends-card glass enter-panel" aria-labelledby="friendsTitle">
@@ -560,6 +579,12 @@
               <button type="button" data-root-tab="blocked"><b>BAN</b><span>БЛОКИРОВКИ</span></button>
             </div>
           </div>
+          <div class="root-tab-group root-tab-group-system">
+            <span class="root-tab-group-label">СИСТЕМА</span>
+            <div class="root-tab-group-buttons">
+              <button type="button" data-root-tab="promocodes"><b>CODE</b><span>ПРОМОКОДЫ</span></button>
+            </div>
+          </div>
         </nav>
 
         <div id="rootPaneMoney" class="root-pane" data-root-pane="money">
@@ -621,6 +646,32 @@
           </section>
         </div>
 
+        <div id="rootPanePromocodes" class="root-pane hidden" data-root-pane="promocodes">
+          <div class="root-promo-workspace">
+            <section class="root-module root-promo-editor">
+              <div class="root-module-title"><span id="rootPromoEditorTitle">НОВЫЙ ПРОМОКОД</span><small>SERVER REWARD</small></div>
+              <p class="root-module-help">Настройте награду, общий лимит активаций и срок действия. 0 в лимите или сроке означает «без ограничения».</p>
+              <div class="root-promo-grid">
+                <label class="root-admin-label">КОД<input id="rootPromoCode" class="root-input" maxlength="32" placeholder="APEX2026"></label>
+                <label class="root-admin-label">НАЗВАНИЕ<input id="rootPromoTitle" class="root-input" maxlength="64" placeholder="Launch gift"></label>
+                <label class="root-admin-label">CR<input id="rootPromoCredits" class="root-input" type="number" min="0" max="10000000" value="0"></label>
+                <label class="root-admin-label">МАКС. АКТИВАЦИЙ<input id="rootPromoMaxUses" class="root-input" type="number" min="0" max="1000000" value="0"></label>
+                <label class="root-admin-label">МАШИНА<select id="rootPromoCar" class="root-input"></select></label>
+                <label class="root-admin-label">ЭФФЕКТ<select id="rootPromoEffect" class="root-input"></select></label>
+                <label class="root-admin-label">КЕЙС<select id="rootPromoCase" class="root-input"></select></label>
+                <label class="root-admin-label">КОЛ-ВО КЕЙСОВ<input id="rootPromoCaseQty" class="root-input" type="number" min="1" max="99" value="1"></label>
+                <label class="root-admin-label">СРОК ДЕЙСТВИЯ<input id="rootPromoDuration" class="root-input" type="number" min="0" max="8760" value="7"></label>
+                <label class="root-admin-label">ЕДИНИЦА<select id="rootPromoDurationUnit" class="root-input"><option value="hour">ЧАСЫ</option><option value="day" selected>ДНИ</option></select></label>
+                <label class="root-promo-toggle"><input id="rootPromoEnabled" type="checkbox" checked><span>ПРОМОКОД АКТИВЕН</span></label>
+              </div>
+              <div class="root-promo-actions"><button id="rootPromoReset" type="button">ОЧИСТИТЬ</button><button id="rootPromoSave" type="button">СОХРАНИТЬ ПРОМОКОД</button></div>
+            </section>
+            <section class="root-module root-promo-list-module">
+              <div class="root-module-title"><span>ПРОМОКОДЫ</span><small>АКТИВНЫЕ И АРХИВНЫЕ</small></div>
+              <div id="rootPromoList" class="root-promo-list"><div class="root-loading">ЗАГРУЗКА…</div></div>
+            </section>
+          </div>
+        </div>
         <div id="rootPaneAccounts" class="root-pane hidden" data-root-pane="accounts">
           <div class="root-account-workspace">
             <section class="root-module root-account-module root-account-sidebar">
@@ -768,10 +819,11 @@
   <script src="js/car.js?v=20260915-013"></script>
   <script src="js/ai.js?v=20260915-013"></script>
   <script src="js/garage.js?v=20260915-013"></script>
-  <script src="js/root-console.js?v=20260915-013"></script>
+  <script src="js/root-console.js?v=20260915-014"></script>
   <script src="js/controls.js?v=20260915-013"></script>
   <script src="js/network.js?v=20260915-013"></script>
-  <script src="js/account.js?v=20260915-013"></script>
+  <script src="js/account.js?v=20260915-014"></script>
+  <script src="js/promo.js?v=20260915-001"></script>
   <script src="js/online.js?v=20260915-013"></script>
   <script src="js/friends.js?v=20260915-013"></script>
   <script src="js/free-city.js?v=20260915-bay1"></script>
