@@ -16,7 +16,11 @@
   const ZONES={
     drag:{x:3120,y:2670,r:125,label:'AIRPORT DRAG',kind:'drag'},
     speed:{x:2020,y:430,r:120,label:'SPEED TRAP',kind:'speed'},
-    drift:{x:620,y:2290,r:310,label:'PORT DRIFT',kind:'drift'},
+    drift:{x:620,y:2290,r:310,label:'PORT DRIFT',kind:'drift',battleId:'harbor'},
+    driftIndustrial:{x:1110,y:1320,r:260,label:'INDUSTRIAL DRIFT',kind:'driftBattle',battleId:'industrial'},
+    driftParking:{x:3700,y:1710,r:285,label:'PARKING DRIFT',kind:'driftBattle',battleId:'parking'},
+    koth:{x:2320,y:1590,r:100,label:'KING OF THE HILL',kind:'koth'},
+    levels:{x:2470,y:1590,r:100,label:'LEVELS',kind:'levels'},
     meet:{x:2320,y:1590,r:260,label:'CAR MEET',kind:'meet'}
   };
   // MOUNTAIN PASS now follows the lakeside spline in free-city.js.
@@ -31,7 +35,7 @@
 
   const state={
     active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,
-    room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,driftScore:0,driftInside:false,
+    room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,activityPending:false,liveEvent:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
     speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,driftPhysicsTime:0
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
@@ -42,7 +46,7 @@
   const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
   const TAU=Math.PI*2;
   const DRAG_START_X=3130,DRAG_FINISH_X=4710,DRAG_LENGTH=DRAG_FINISH_X-DRAG_START_X;
-  const FREE_SEND_MS=50,DRAG_SEND_MS=30,REMOTE_BACKTIME_MS=55,DRAG_REMOTE_BACKTIME_MS=32,REMOTE_EXTRAPOLATE_MS=260;
+  const FREE_SEND_MS=50,DRAG_SEND_MS=30,REMOTE_BACKTIME_MS=55,DRAG_REMOTE_BACKTIME_MS=32,REMOTE_EXTRAPOLATE_MS=260,KOTH_SWITCH_MS=[0,55000,110000,165000,210000];
 
   let lastMapDraw=0;
   const mapView={zoom:1,x:WORLD.w/2,y:WORLD.h/2};
@@ -79,6 +83,30 @@
     const s=loadSave();
     const liveryId=R.carAvailable(s.selectedLivery)?(s.selectedLivery||'apexLime'):'apexLime',effectId=s.selectedEffect||'standard';
     return {liveryId,effectId,livery:R.LIVERIES?.[liveryId]||R.LIVERIES?.apexLime||null};
+  }
+
+  function expRequired(level){const l=Math.max(0,Math.min(99,Math.floor(Number(level)||0))),raw=100+10*l+.25*l*l;return Math.floor((raw+5-1e-9)/10)*10;}
+  function progressFromTotal(totalExp){let left=Math.max(0,Math.floor(Number(totalExp)||0)),level=0;while(level<100){const need=expRequired(level);if(left<need)break;left-=need;level++;}return {totalExp:Math.max(0,Math.floor(Number(totalExp)||0)),level,levelExp:level>=100?0:left,requiredExp:level>=100?0:expRequired(level),toNext:level>=100?0:Math.max(0,expRequired(level)-left)};}
+  function ownPlayer(){return state.room?.players?.find(p=>p.id===state.playerId)||null;}
+  function syncProgress(progress){state.progress={...state.progress,...progress};const pill=$('freeLevelValue');if(pill)pill.textContent=String(state.progress.level||0);renderLevelsPanel();}
+  function renderLevelsPanel(){
+    const p=state.progress||progressFromTotal(0),max=p.level>=100,number=$('freeLevelsNumber'),maxEl=$('freeLevelsMax'),bar=$('freeLevelsBar'),text=$('freeLevelsProgressText'),next=$('freeLevelsNext'),total=$('freeLevelsTotal');if(!number)return;
+    number.textContent=String(p.level||0);maxEl.textContent=max?'MAX LEVEL':'';total.textContent=Number(p.totalExp||0).toLocaleString('ru-RU');const ratio=max?1:Math.max(0,Math.min(1,(Number(p.levelExp)||0)/Math.max(1,Number(p.requiredExp)||1)));bar.style.width=(ratio*100).toFixed(1)+'%';text.textContent=max?'MAX LEVEL':`${Number(p.levelExp||0).toLocaleString('ru-RU')} / ${Number(p.requiredExp||0).toLocaleString('ru-RU')} EXP`;next.textContent=max?'LEVEL 100 · MAX LEVEL':`До следующего уровня: ${Number(p.toNext||0).toLocaleString('ru-RU')} EXP`;
+  }
+  function toggleLevels(force){const panel=$('freeLevelsPanel');if(!panel)return;const show=force??panel.classList.contains('hidden');panel.classList.toggle('hidden',!show);panel.setAttribute('aria-hidden',String(!show));if(show){toggleChat(false);toggleMap(false);renderLevelsPanel();}}
+  function formatEventTime(ms){const sec=Math.max(0,Math.ceil(ms/1000)),m=Math.floor(sec/60),s=sec%60;return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
+  function eventTitle(activity){return activity==='drift_battle'?'DRIFT BATTLE':activity==='koth'?'KING OF THE HILL':'LIVE EVENT';}
+  function renderEventHud(){
+    const hud=$('freeEventHud'),e=state.liveEvent;if(!hud)return;if(!e){hud.classList.add('hidden');hud.classList.remove('final','result','ending');return;}hud.classList.remove('hidden');hud.classList.toggle('final',!!e.finalZone);hud.classList.toggle('result',e.status==='result');$('freeEventTitle').textContent=eventTitle(e.activity);$('freeEventMode').textContent=e.status==='result'?'SERVER RESULT':'LIVE EVENT';const zone=e.zone?.label||e.zoneId||'';$('freeEventZone').textContent=e.activity==='koth'?(e.finalZone?'FINAL ZONE · ':'ACTIVE ZONE · ')+(zone||'—'):(zone?`ZONE · ${String(zone).toUpperCase()}`:'');const root=$('freeEventStandings');root.replaceChildren();const rows=(e.results||e.standings||[]).slice(0,6);if(!rows.length){const empty=document.createElement('div');empty.className='free-event-row';empty.textContent=e.status==='waiting'?'ОЖИДАЕМ ИГРОКОВ…':'ПОДГОТОВКА…';root.appendChild(empty);}else rows.forEach((r,i)=>{const row=document.createElement('div');row.className='free-event-row'+(r.id===state.playerId?' me':'')+(r.eligible===false?' ineligible':'');const place=document.createElement('b');place.textContent=String(r.place||i+1);const name=document.createElement('strong');name.textContent=`${r.name||'RACER'} [${Number(r.level)||0}]`;const score=document.createElement('span');score.textContent=e.activity==='drift_battle'?Number(r.score||0).toLocaleString('ru-RU'):String(Math.floor(Number(r.score)||0));row.append(place,name,score);if(e.status==='result'){const reward=document.createElement('small');reward.textContent=r.eligible===false?'НАГРАДА НЕ ВЫДАНА · НЕДОСТАТОЧНО УЧАСТИЯ':`+${r.exp||0} EXP · +${r.credits||0} CR${r.capped?' · CR LIMIT':''}`;row.append(reward);}root.appendChild(row);});
+  }
+  function updateEventClock(now){
+    const e=state.liveEvent,hud=$('freeEventHud');if(!e||!hud||hud.classList.contains('hidden'))return;const phase=$('freeEventPhase'),clock=$('freeEventTime');
+    if(e.status==='waiting'){phase.textContent='WAITING';clock.textContent=`${e.participants?.length||1}/${e.minPlayers||2}`;return;}
+    if(e.status==='countdown'){phase.textContent='СТАРТ ЧЕРЕЗ';clock.textContent=String(Math.max(1,Math.ceil(((e.startAt||now)-now)/1000)));return;}
+    if(e.status==='result'){phase.textContent='FINISHED';clock.textContent='00:00';return;}
+    const overallLeft=Math.max(0,(e.endAt||now)-now);hud.classList.toggle('ending',overallLeft<=10000);
+    if(e.activity==='koth'&&!e.finalZone){const elapsed=Math.max(0,now-(e.startAt||now)),next=KOTH_SWITCH_MS.find(v=>v>elapsed);if(Number.isFinite(next)&&next-elapsed<=10000){phase.textContent='ЗОНА ЧЕРЕЗ';clock.textContent=String(Math.max(1,Math.ceil((next-elapsed)/1000)));return;}}
+    phase.textContent=e.finalZone?'FINAL ZONE':'TIME';clock.textContent=formatEventTime(overallLeft);
   }
 
   function createVisual(liveryId,effectId){
@@ -212,58 +240,88 @@
     return false;
   }
 
+  function eventRowsFromParticipants(m){
+    return (m.participants||[]).map((id,i)=>({id,name:m.names?.[id]||state.room?.players?.find(p=>p.id===id)?.name||'RACER',level:Number(m.levels?.[id]??state.room?.players?.find(p=>p.id===id)?.level)||0,score:0,place:i+1}));
+  }
+
   function onMessage(raw){
     let m;
     try{m=JSON.parse(raw);}catch{return;}
     if(!m?.type)return;
+    if(m.type==='error'){
+      if(['ACTIVITY_LOCATION','ACTIVITY_BUSY','ACTIVITY_RUNNING','ACTIVITY_FULL'].includes(m.code)){state.dragQueued=false;state.activityPending=false;}
+      setBanner(m.message||m.code||'ОШИБКА СЕРВЕРА',3000);return;
+    }
     if(m.type==='free_hello'){
       state.serverOffset=(m.serverTime||Date.now())-Date.now();state.serverOffsetReady=true;
-      applyRoom(m.room);pingServer();
-      addSystem('Подключено к '+state.server.name+'.');
-      return;
+      applyRoom(m.room);pingServer();addSystem('Подключено к '+state.server.name+'.');return;
     }
     if(m.type==='pong'&&Number.isFinite(m.clientTime)&&Number.isFinite(m.serverTime)){
-      const recv=Date.now(),rtt=Math.max(0,recv-m.clientTime);if(rtt<1500){const estimate=m.serverTime+rtt*.5,offset=estimate-recv,alpha=!state.serverOffsetReady?1:(rtt<80?.36:rtt<180?.24:.14);state.serverOffset+= (offset-state.serverOffset)*alpha;state.serverOffsetReady=true;state.rtt=state.rtt?state.rtt*.72+rtt*.28:rtt;}if(typeof m.probeId==='string')send({type:'sync_echo',v:1,probeId:m.probeId});return;
+      const recv=Date.now(),rtt=Math.max(0,recv-m.clientTime);if(rtt<1500){const estimate=m.serverTime+rtt*.5,offset=estimate-recv,alpha=!state.serverOffsetReady?1:(rtt<80?.36:rtt<180?.24:.14);state.serverOffset+=(offset-state.serverOffset)*alpha;state.serverOffsetReady=true;state.rtt=state.rtt?state.rtt*.72+rtt*.28:rtt;}if(typeof m.probeId==='string')send({type:'sync_echo',v:1,probeId:m.probeId});return;
     }
     if(m.type==='free_room'){applyRoom(m.room);return;}
     if(m.type==='free_state'&&m.playerId!==state.playerId){
       let r=state.remotes.get(m.playerId);
-      if(!r){
-        r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};
-        state.remotes.set(m.playerId,r);
-      }
-      pushRemoteSnapshot(r,m.state,m.serverTime);
-      return;
+      if(!r){r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',level:0,liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};state.remotes.set(m.playerId,r);}
+      pushRemoteSnapshot(r,m.state,m.serverTime);return;
     }
-    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true);return;}
+    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0);return;}
     if(m.type==='free_record'){
       if(state.room)state.room.records={...(state.room.records||{}),[m.kind]:m.value};
-      addSystem(`${m.name}: новый рекорд ${m.kind==='speed'?m.value+' km/h':m.value+' drift'}.`);
-      return;
+      addSystem(`${m.name}: новый рекорд ${m.kind==='speed'?m.value+' km/h':m.value+' drift'}.`);return;
+    }
+    if(m.type==='player_progress'){
+      const p=state.room?.players?.find(x=>x.id===m.playerId);if(p){p.level=Number(m.level)||0;p.totalExp=Number(m.totalExp)||0;}
+      const r=state.remotes.get(m.playerId);if(r)r.level=Number(m.level)||0;
+      if(m.playerId===state.playerId)syncProgress(progressFromTotal(m.totalExp));return;
+    }
+    if(m.type==='progress_reward'){
+      syncProgress({totalExp:Number(m.totalExp)||0,level:Number(m.level)||0,levelExp:Number(m.levelExp)||0,requiredExp:Number(m.requiredExp)||0,toNext:Number(m.toNext)||0});
+      const levelUp=Number(m.level)>Number(m.levelBefore),money=Number(m.credits)||0,exp=Number(m.exp)||0;
+      if(levelUp)setBanner(`LEVEL UP · ${m.levelBefore} → ${m.level} · +${exp} EXP${money?` · +${money} CR`:''}`,5200);
+      else setBanner(`+${exp} EXP${money?` · +${money} CR`:''}${m.capped?' · CR LIMIT':''}`,3200);
+      if(m.capped&&money===0)addSystem('Лимит бонусной валюты достигнут. EXP продолжает начисляться.');
+      setTimeout(()=>window.VelocityAccount?.refreshCloud?.(),180);return;
     }
     if(m.type==='drag_queue'){
-      if(state.dragQueued)setBanner(`DRAG · очередь ${m.count}/2`,1800);
-      return;
+      if(state.dragQueued)setBanner(`DRAG · очередь ${m.count}/2`,1800);return;
+    }
+    if(m.type==='activity_lobby'&&['drift_battle','koth'].includes(m.activity)&&m.participants?.includes(state.playerId)){
+      state.activityPending=false;state.liveEvent={activity:m.activity,id:m.eventId,status:m.status||'waiting',participants:[...(m.participants||[])],minPlayers:m.minPlayers||2,maxPlayers:m.maxPlayers||8,startAt:m.startAt||0,endAt:m.startAt?(m.startAt+(m.durationMs||0)):0,zoneId:m.zoneId||null,zone:m.zone||null,standings:eventRowsFromParticipants(m),names:m.names||{},levels:m.levels||{}};
+      renderEventHud();toggleChat(false);setBanner(`${eventTitle(m.activity)} · ${m.status==='countdown'?'СТАРТ СКОРО':'ОЖИДАЕМ ИГРОКОВ'}`,2200);return;
     }
     if(m.type==='activity_start'&&m.activity==='drag'&&m.participants.includes(state.playerId)){
       const lane=m.participants.indexOf(state.playerId),opponentId=m.participants.find(id=>id!==state.playerId)||null;
       state.drag={id:m.challengeId,startAt:m.startAt,finishX:m.finishX||DRAG_FINISH_X,participants:[...m.participants],opponentId,finished:false,localCrossed:false,progress:null,confirmed:{},result:null};
       state.dragQueued=false;car.x=DRAG_START_X;car.y=2635+lane*70;car.angle=0;car.vx=car.vy=car.speed=0;
-      m.participants.forEach((id,index)=>{if(id!==state.playerId)resetRemoteToGrid(id,index,m.startAt);});pingServer();
-      // On phones the open chat/keyboard can cover the race HUD and road. Close it as soon as a drag starts;
-      // the compact preview returns automatically after the result.
-      toggleChat(false);
+      m.participants.forEach((id,index)=>{if(id!==state.playerId)resetRemoteToGrid(id,index,m.startAt);});pingServer();toggleChat(false);
       setBanner('DRAG · СИНХРОНИЗАЦИЯ СТАРТА',1800);updateDragHud(Date.now()+state.serverOffset);updateChatPreview();return;
     }
+    if(m.type==='activity_start'&&['drift_battle','koth'].includes(m.activity)&&m.participants?.includes(state.playerId)){
+      const prev=state.liveEvent?.id===m.eventId?state.liveEvent:{};state.liveEvent={...prev,activity:m.activity,id:m.eventId,status:'running',participants:[...(m.participants||prev.participants||[])],startAt:m.startAt||0,endAt:m.endAt||0,zoneId:m.zoneId??prev.zoneId,zone:m.zone??prev.zone,zoneIndex:m.zoneIndex||0,finalZone:!!m.finalZone};renderEventHud();setBanner(`${eventTitle(m.activity)} · GO!`,2200);return;
+    }
     if(m.type==='activity_progress'&&m.activity==='drag'&&state.drag?.id===m.challengeId){state.drag.progress=m;return;}
-    if(m.type==='activity_finish_confirmed'&&m.activity==='drag'&&state.drag?.id===m.challengeId){
-      state.drag.confirmed[m.playerId]=m.elapsedMs;if(m.playerId===state.playerId){state.drag.localCrossed=true;setBanner(`ФИНИШ ЗАФИКСИРОВАН · ${(m.elapsedMs/1000).toFixed(3)} сек`,1800);}return;
-    }
+    if(m.type==='activity_progress'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){state.liveEvent={...state.liveEvent,status:'running',startAt:m.startAt||state.liveEvent.startAt,endAt:m.endAt||state.liveEvent.endAt,zoneId:m.zoneId??state.liveEvent.zoneId,zone:m.zone??state.liveEvent.zone,zoneIndex:m.zoneIndex??state.liveEvent.zoneIndex,finalZone:!!m.finalZone,standings:m.standings||state.liveEvent.standings};renderEventHud();return;}
+    if(m.type==='activity_zone'&&m.activity==='koth'&&state.liveEvent?.id===m.eventId){state.liveEvent={...state.liveEvent,zoneIndex:m.zoneIndex,zone:m.zone,finalZone:!!m.finalZone};renderEventHud();setBanner(m.finalZone?'KING OF THE HILL · FINAL ZONE':`НОВАЯ ЗОНА · ${m.zone?.label||''}`,2800);return;}
+    if(m.type==='activity_finish_confirmed'&&m.activity==='drag'&&state.drag?.id===m.challengeId){state.drag.confirmed[m.playerId]=m.elapsedMs;if(m.playerId===state.playerId){state.drag.localCrossed=true;setBanner(`ФИНИШ ЗАФИКСИРОВАН · ${(m.elapsedMs/1000).toFixed(3)} сек`,1800);}return;}
     if(m.type==='activity_cancelled'&&m.activity==='drag'&&state.drag?.id===m.challengeId){setBanner('DRAG ОТМЕНЁН · СОПЕРНИК ВЫШЕЛ',3000);state.drag=null;updateDragHud(Date.now()+state.serverOffset);return;}
+    if(m.type==='activity_cancelled'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){setBanner(`${eventTitle(m.activity)} ОТМЕНЁН · НЕДОСТАТОЧНО ИГРОКОВ`,3200);state.liveEvent=null;renderEventHud();return;}
     if(m.type==='activity_result'&&m.activity==='drag'){
-      const mine=m.times?.[state.playerId];if(Number.isFinite(mine)){const won=m.winnerId===state.playerId,gap=Math.abs(Number(m.gapMs)||0),photo=m.photoFinish===true||gap<=100,label=photo?'PHOTO FINISH':(won?'ПОБЕДА':'ПОРАЖЕНИЕ');setBanner(`${label} · ${(mine/1000).toFixed(3)} сек · Δ ${(gap/1000).toFixed(3)}`,5200);if(state.drag?.id===m.challengeId){state.drag.finished=true;state.drag.result=m;const dragId=m.challengeId;setTimeout(()=>{if(state.drag?.id===dragId){state.drag=null;updateDragHud(Date.now()+state.serverOffset);}},5400);}}
-      addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил · ${(m.times?.[m.winnerId]/1000).toFixed(3)} сек${m.photoFinish?' · PHOTO FINISH':''}.`);return;
+      const mine=m.times?.[state.playerId];if(Number.isFinite(mine)){const draw=m.draw===true,won=!draw&&m.winnerId===state.playerId,gap=Math.abs(Number(m.gapMs)||0),photo=m.photoFinish===true||gap<=100,label=draw?'НИЧЬЯ':photo?'PHOTO FINISH':(won?'ПОБЕДА':'ПОРАЖЕНИЕ');setBanner(`${label} · ${(mine/1000).toFixed(3)} сек · Δ ${(gap/1000).toFixed(3)}`,5200);if(state.drag?.id===m.challengeId){state.drag.finished=true;state.drag.result=m;const dragId=m.challengeId;setTimeout(()=>{if(state.drag?.id===dragId){state.drag=null;updateDragHud(Date.now()+state.serverOffset);}},5400);}}
+      if(m.draw)addSystem(`DRAG: ничья · ${((m.times?.[m.participants?.[0]]||0)/1000).toFixed(3)} сек.`);else addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил · ${(m.times?.[m.winnerId]/1000).toFixed(3)} сек${m.photoFinish?' · PHOTO FINISH':''}.`);return;
     }
+    if(m.type==='activity_result'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){
+      state.liveEvent={...state.liveEvent,status:'result',results:m.results||[],standings:m.results||[],endAt:m.serverTime||Date.now()+state.serverOffset};renderEventHud();const mine=m.results?.find(r=>r.id===state.playerId);if(mine){if(mine.eligible)setBanner(`${eventTitle(m.activity)} · #${mine.place} · +${mine.exp||0} EXP · +${mine.credits||0} CR`,5200);else setBanner(`${eventTitle(m.activity)} · НАГРАДА НЕ ВЫДАНА · МАЛО АКТИВНОСТИ`,5200);}const id=m.eventId;setTimeout(()=>{if(state.liveEvent?.id===id&&state.liveEvent.status==='result'){state.liveEvent=null;renderEventHud();}},7600);return;
+    }
+  }
+
+  function syncLiveEventFromRoom(room){
+    if(state.liveEvent?.status==='result')return;
+    const active=[room?.activities?.drift,room?.activities?.koth].find(e=>e?.participants?.includes(state.playerId)&&['waiting','countdown','running'].includes(e.status));
+    if(!active){if(state.liveEvent&&['waiting','countdown','running'].includes(state.liveEvent.status)){state.liveEvent=null;renderEventHud();}return;}
+    const activity=active.activity,existing=state.liveEvent?.id===active.id?state.liveEvent:{};
+    const standings=(active.participants||[]).map((id,i)=>{const p=room.players?.find(x=>x.id===id);return{id,name:p?.name||existing.names?.[id]||'RACER',level:Number(p?.level??existing.levels?.[id])||0,score:existing.standings?.find(r=>r.id===id)?.score||0,place:i+1};});
+    state.liveEvent={...existing,activity,id:active.id,status:active.status,participants:[...(active.participants||[])],minPlayers:activity==='koth'?3:2,maxPlayers:activity==='koth'?12:8,startAt:active.startAt||0,endAt:active.endAt||0,zoneId:active.zoneId||existing.zoneId||null,zone:active.zone||existing.zone||null,zoneIndex:active.zoneIndex||0,finalZone:!!active.finalZone,standings};renderEventHud();
   }
 
   function applyRoom(room){
@@ -271,23 +329,19 @@
     state.room=room;
     const live=new Set(room.players.map(p=>p.id));
     for(const p of room.players){
-      if(p.id===state.playerId)continue;
+      if(p.id===state.playerId){syncProgress(progressFromTotal(p.totalExp));continue;}
       let r=state.remotes.get(p.id);
       if(!r){
         const s=p.state||{x:2320,y:1590,angle:0};
-        r={x:s.x,y:s.y,angle:s.angle,target:s,snapshots:[],name:p.name,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',visual:createVisual(p.liveryId,p.effectId)};pushRemoteSnapshot(r,s,s.sampleTime||s.serverTime||Date.now()+state.serverOffset);
-        state.remotes.set(p.id,r);
+        r={x:s.x,y:s.y,angle:s.angle,target:s,snapshots:[],name:p.name,level:Number(p.level)||0,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',visual:createVisual(p.liveryId,p.effectId)};pushRemoteSnapshot(r,s,s.sampleTime||s.serverTime||Date.now()+state.serverOffset);state.remotes.set(p.id,r);
       }
-      r.name=p.name;r.owner=p.owner===true;
-      if(r.liveryId!==p.liveryId||r.effectId!==p.effectId||!r.visual){
-        r.liveryId=p.liveryId||'apexLime';
-        r.effectId=p.effectId||'standard';
-        r.visual=createVisual(r.liveryId,r.effectId);
-      }
+      r.name=p.name;r.owner=p.owner===true;r.level=Number(p.level)||0;
+      if(r.liveryId!==p.liveryId||r.effectId!==p.effectId||!r.visual){r.liveryId=p.liveryId||'apexLime';r.effectId=p.effectId||'standard';r.visual=createVisual(r.liveryId,r.effectId);}
       if(p.state)pushRemoteSnapshot(r,p.state,p.state.sampleTime||p.state.serverTime||Date.now()+state.serverOffset);
     }
     for(const id of state.remotes.keys())if(!live.has(id))state.remotes.delete(id);
     $('freePlayerCount').textContent=`${room.players.filter(p=>p.connected).length} / ${room.maxPlayers||MAX}`;
+    syncLiveEventFromRoom(room);
   }
 
   function startRoam(){
@@ -305,6 +359,7 @@
     roam.classList.remove('hidden');
     roam.setAttribute('aria-hidden','false');
     $('freeServerName').textContent=state.server.name;
+    if(state.room)applyRoom(state.room);renderEventHud();renderLevelsPanel();
     resize();
     last=performance.now();
     cancelAnimationFrame(raf);
@@ -319,6 +374,8 @@
     state.remotes.clear();
     state.drag=null;
     state.dragQueued=false;
+    state.activityPending=false;
+    state.liveEvent=null;renderEventHud();toggleLevels(false);
     state.chatUnread=0;
     updateUnreadBadge();
     roam.classList.add('hidden');
@@ -375,7 +432,7 @@
 
     $('freeSpeed').textContent=Math.round(car.speed);
     $('freeLocation').textContent=district(car.x,car.y);
-    updateActivities(dt,now);updateDragHud(now);
+    updateActivities(dt,now);updateDragHud(now);updateEventClock(now);
   }
 
   function sendFreeState(force=false){
@@ -390,7 +447,7 @@
     if(!d){hud.classList.add('hidden');hud.classList.remove('win','lose','photo');return;}hud.classList.remove('hidden');
     const stateEl=$('freeDragState'),leadEl=$('freeDragLead'),gapEl=$('freeDragGap'),netEl=$('freeDragNet'),mineEl=$('freeDragMine'),rivalEl=$('freeDragRival');if(netEl)netEl.textContent=`PING ${Math.round(state.rtt||0)} MS`;
     const remain=d.startAt-now;if(remain>0){const n=Math.max(1,Math.ceil(remain/1000));if(stateEl)stateEl.textContent='START SYNC';if(leadEl)leadEl.textContent=remain>3000?'READY':String(n);if(gapEl)gapEl.textContent='СТАРТ ПО СЕРВЕРНОМУ ТАЙМЕРУ';hud.classList.remove('win','lose','photo');}
-    else if(d.result){const mine=d.result.times?.[state.playerId],won=d.result.winnerId===state.playerId,gap=Math.abs(Number(d.result.gapMs)||0);hud.classList.toggle('win',won);hud.classList.toggle('lose',!won);hud.classList.toggle('photo',d.result.photoFinish===true);if(stateEl)stateEl.textContent=d.result.photoFinish?'PHOTO FINISH':'SERVER RESULT';if(leadEl)leadEl.textContent=won?'YOU WIN':'YOU LOSE';if(gapEl)gapEl.textContent=`${(mine/1000).toFixed(3)} s · Δ ${(gap/1000).toFixed(3)} s`;}
+    else if(d.result){const mine=d.result.times?.[state.playerId],draw=d.result.draw===true,won=!draw&&d.result.winnerId===state.playerId,gap=Math.abs(Number(d.result.gapMs)||0);hud.classList.toggle('win',won);hud.classList.toggle('lose',!draw&&!won);hud.classList.toggle('photo',d.result.photoFinish===true||draw);if(stateEl)stateEl.textContent=draw?'DRAW':d.result.photoFinish?'PHOTO FINISH':'SERVER RESULT';if(leadEl)leadEl.textContent=draw?'DRAW':won?'YOU WIN':'YOU LOSE';if(gapEl)gapEl.textContent=`${(mine/1000).toFixed(3)} s · Δ ${(gap/1000).toFixed(3)} s`; }
     else{const p=d.progress,leadId=p?.leadId,gap=Math.abs(Number(p?.gap)||0),oppName=state.room?.players?.find(x=>x.id===d.opponentId)?.name||'RIVAL';if(stateEl)stateEl.textContent='SERVER LIVE';if(leadEl){if(!leadId||gap<3)leadEl.textContent='PHOTO FINISH';else leadEl.textContent=leadId===state.playerId?'YOU LEAD':`${oppName} LEADS`;}if(gapEl)gapEl.textContent=gap<3?'РАЗНИЦА МЕНЬШЕ НОСА МАШИНЫ':`ОТРЫВ ≈ ${(gap/54).toFixed(1)} КОРП.`;hud.classList.toggle('photo',gap<8);hud.classList.remove('win','lose');}
     const positions=d.progress?.positions||{},mineX=Number(positions[state.playerId]),rivalX=Number(positions[d.opponentId]);if(remain>0){if(mineEl)mineEl.style.left='0%';if(rivalEl)rivalEl.style.left='0%';}else{if(mineEl&&Number.isFinite(mineX))mineEl.style.left=(clamp((mineX-DRAG_START_X)/DRAG_LENGTH,0,1)*100)+'%';if(rivalEl&&Number.isFinite(rivalX))rivalEl.style.left=(clamp((rivalX-DRAG_START_X)/DRAG_LENGTH,0,1)*100)+'%';}
   }
@@ -399,44 +456,39 @@
     state.speedCooldown=Math.max(0,state.speedCooldown-dt);
 
     if(dist(car.x,car.y,ZONES.speed.x,ZONES.speed.y)<ZONES.speed.r&&state.speedCooldown<=0&&car.speed>90){
-      state.speedCooldown=4;
-      const v=Math.round(car.speed);
-      setBanner(`SPEED TRAP · ${v} KM/H`,2600);
-      send({type:'record',v:1,kind:'speed',value:v});
+      state.speedCooldown=4;const v=Math.round(car.speed);setBanner(`SPEED TRAP · ${v} KM/H`,2600);send({type:'record',v:1,kind:'speed',value:v});
     }
 
     const inDrift=dist(car.x,car.y,ZONES.drift.x,ZONES.drift.y)<ZONES.drift.r;
     if(inDrift&&car.speed>55&&(input.handbrake||Math.abs((input.right?1:0)-(input.left?1:0))>.45)){
-      state.driftScore+=car.speed*dt*4.9;
-      state.driftInside=true;
+      state.driftScore+=car.speed*dt*4.9;state.driftInside=true;
     }else if(state.driftInside&&!inDrift){
-      const score=Math.floor(state.driftScore);
-      if(score>120){
-        setBanner(`DRIFT ZONE · ${score.toLocaleString('ru-RU')}`,3000);
-        send({type:'record',v:1,kind:'drift',value:score});
-      }
-      state.driftScore=0;
-      state.driftInside=false;
+      const score=Math.floor(state.driftScore);if(score>120){setBanner(`DRIFT ZONE · ${score.toLocaleString('ru-RU')}`,3000);send({type:'record',v:1,kind:'drift',value:score});}state.driftScore=0;state.driftInside=false;
     }
 
-    if(state.drag&&!state.drag.finished&&!state.drag.localCrossed&&now>=state.drag.startAt&&car.x>DRAG_FINISH_X&&car.y>2510&&car.y<2820){
-      state.drag.localCrossed=true;sendFreeState(true);setBanner('ФИНИШ · СЕРВЕР ПРОВЕРЯЕТ РЕЗУЛЬТАТ',1800);
+    if(state.drag&&!state.drag.finished&&!state.drag.localCrossed&&now>=state.drag.startAt&&car.x>DRAG_FINISH_X&&car.y>2510&&car.y<2820){state.drag.localCrossed=true;sendFreeState(true);setBanner('ФИНИШ · СЕРВЕР ПРОВЕРЯЕТ РЕЗУЛЬТАТ',1800);}
+
+    const action=$('freeContextAction');if(!action)return;action.onclick=null;
+    if(state.drag||state.dragQueued||state.activityPending||state.liveEvent){action.classList.add('hidden');return;}
+
+    if(dist(car.x,car.y,ZONES.levels.x,ZONES.levels.y)<ZONES.levels.r){
+      action.textContent='УРОВНИ · ОТКРЫТЬ';action.classList.remove('hidden');action.onclick=()=>toggleLevels(true);return;
     }
 
-    const action=$('freeContextAction');
-    const nearDrag=dist(car.x,car.y,ZONES.drag.x,ZONES.drag.y)<ZONES.drag.r&&!state.drag;
-    if(nearDrag&&!state.dragQueued){
-      action.textContent='DRAG · ВСТАТЬ В ОЧЕРЕДЬ';
-      action.classList.remove('hidden');
-      action.onclick=()=>{
-        state.dragQueued=true;
-        send({type:'activity_join',v:1,activity:'drag'});
-        action.classList.add('hidden');
-        setBanner('DRAG · ОЖИДАЕМ СОПЕРНИКА');
-      };
-    }else if(!nearDrag||state.dragQueued){
-      action.classList.add('hidden');
+    if(dist(car.x,car.y,ZONES.koth.x,ZONES.koth.y)<92){
+      action.textContent='KING OF THE HILL · УЧАСТВОВАТЬ';action.classList.remove('hidden');action.onclick=()=>{state.activityPending=true;if(send({type:'activity_join',v:1,activity:'koth'})){action.classList.add('hidden');setBanner('KING OF THE HILL · РЕГИСТРАЦИЯ',1800);}else state.activityPending=false;};return;
     }
+
+    const driftZones=[ZONES.drift,ZONES.driftIndustrial,ZONES.driftParking],battle=driftZones.find(z=>dist(car.x,car.y,z.x,z.y)<88);
+    if(battle){
+      action.textContent='DRIFT BATTLE · УЧАСТВОВАТЬ';action.classList.remove('hidden');action.onclick=()=>{state.activityPending=true;if(send({type:'activity_join',v:1,activity:'drift_battle',zoneId:battle.battleId})){action.classList.add('hidden');setBanner('DRIFT BATTLE · РЕГИСТРАЦИЯ',1800);}else state.activityPending=false;};return;
+    }
+
+    const nearDrag=dist(car.x,car.y,ZONES.drag.x,ZONES.drag.y)<ZONES.drag.r;
+    if(nearDrag){
+      action.textContent='DRAG · ВСТАТЬ В ОЧЕРЕДЬ';action.classList.remove('hidden');action.onclick=()=>{state.dragQueued=true;if(!send({type:'activity_join',v:1,activity:'drag'})){state.dragQueued=false;return;}action.classList.add('hidden');setBanner('DRAG · ОЖИДАЕМ СОПЕРНИКА');};return;
+    }
+    action.classList.add('hidden');
   }
 
   function setBanner(text,ms=2200){
@@ -447,13 +499,14 @@
     setBanner.t=setTimeout(()=>b.classList.add('hidden'),ms);
   }
 
-  function appendPlayerName(el,name,owner){
+  function appendPlayerName(el,name,owner,level=null){
     if(owner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
     el.append(document.createTextNode(name||'RACER'));
+    if(level!==null&&Number.isFinite(Number(level))){const tag=document.createElement('span');tag.className='free-level-tag';tag.textContent=`[${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`;el.append(document.createTextNode(' '),tag);}
   }
 
-  function addChat(name,text,mine=false,owner=false){
-    state.chat.push({name,text,mine,owner,system:false,time:Date.now()});
+  function addChat(name,text,mine=false,owner=false,level=0){
+    state.chat.push({name,text,mine,owner,level,system:false,time:Date.now()});
     if(state.chat.length>80)state.chat.shift();
     if($('freeChatPanel').classList.contains('hidden')&&!mine){state.chatUnread++;updateUnreadBadge();}
     renderChat();
@@ -473,7 +526,7 @@
     for(const m of state.chat.slice(-50)){
       const row=document.createElement('div');
       row.className='free-chat-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner);
+      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,m.system?null:m.level);
       const t=document.createElement('span');t.textContent=m.text;
       row.append(n,t);log.appendChild(row);
     }
@@ -495,7 +548,7 @@
     for(const m of entries){
       const row=document.createElement('div');
       row.className='free-chat-preview-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner);
+      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,m.system?null:m.level);
       const text=document.createElement('span');text.textContent=m.text;
       row.append(name,text);
       root.appendChild(row);
@@ -520,11 +573,16 @@
     CITY.draw(ctx,{x:cx-W/(2*zoom),y:cy-H/(2*zoom),w:W/zoom,h:H/zoom});
     drawZone(ctx,ZONES.drag,'#67c6ff','DRAG');
     drawZone(ctx,ZONES.speed,'#f6e75d','SPEED');
-    drawZone(ctx,ZONES.drift,'#c678ff','DRIFT');
+    drawZone(ctx,ZONES.drift,'#c678ff','DRIFT BATTLE');
+    drawZone(ctx,ZONES.driftIndustrial,'#c678ff','DRIFT BATTLE');
+    drawZone(ctx,ZONES.driftParking,'#c678ff','DRIFT BATTLE');
+    drawZone(ctx,ZONES.koth,'#ffad5a','KOTH');
+    drawZone(ctx,ZONES.levels,'#ffd86a','LEVELS');
     drawZone(ctx,ZONES.meet,'#8dff49','CAR MEET');
+    if(state.liveEvent?.activity==='koth'&&state.liveEvent.zone){drawZone(ctx,{...state.liveEvent.zone,kind:'koth'},state.liveEvent.finalZone?'#ffd86a':'#ff8f4f',state.liveEvent.finalZone?'FINAL ZONE':'ACTIVE ZONE');}
     if(state.waypoint)drawWaypoint(ctx,state.waypoint);
-    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner);
-    drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,state.room?.players?.find(p=>p.id===state.playerId)?.name||accountName(),true,'#a9ff5a',state.room?.players?.find(p=>p.id===state.playerId)?.owner===true);
+    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner,r.level||0);
+    const me=state.room?.players?.find(p=>p.id===state.playerId);drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,me?.name||accountName(),true,'#a9ff5a',me?.owner===true,me?.level??state.progress.level??0);
     ctx.restore();
     if(!$('freeMapPanel').classList.contains('hidden')&&performance.now()-lastMapDraw>80){lastMapDraw=performance.now();drawMiniMap();}
   }
@@ -540,7 +598,7 @@
     c.restore();
   }
 
-  function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor,owner=false){
+  function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor,owner=false,level=0){
     c.save();
     if(visual){
       visual.x=x;visual.y=y;visual.angle=a;
@@ -555,7 +613,7 @@
     c.restore();
     c.save();
     c.font='900 14px system-ui';
-    const label=name||'RACER',nameWidth=c.measureText(label).width,badgeWidth=owner?65:0,total=nameWidth+badgeWidth+20,left=x-total/2;
+    const label=`${name||'RACER'} [${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`,nameWidth=c.measureText(label).width,badgeWidth=owner?65:0,total=nameWidth+badgeWidth+20,left=x-total/2;
     c.fillStyle='#101a1eef';roundRect(c,left,y-52,total,26,8,true,false);
     if(owner){
       c.shadowColor='#ff304f';c.shadowBlur=9;c.fillStyle='#b51232';roundRect(c,left+4,y-48,57,18,5,true,false);c.shadowBlur=0;
@@ -607,7 +665,7 @@
   }
 
   function drawMapZone(c,z,sx,sy){
-    const color=z.kind==='drag'?'#67c6ff':z.kind==='speed'?'#f6e75d':z.kind==='drift'?'#c678ff':'#8dff49';
+    const color=z.kind==='drag'?'#67c6ff':z.kind==='speed'?'#f6e75d':(z.kind==='drift'||z.kind==='driftBattle')?'#c678ff':z.kind==='koth'?'#ff9c52':z.kind==='levels'?'#ffd86a':'#8dff49';
     c.save();c.translate(z.x*sx,z.y*sy);c.rotate(Math.PI/4);
     c.fillStyle=color;c.globalAlpha=.88;c.fillRect(-6,-6,12,12);c.restore();
   }
@@ -638,6 +696,7 @@
     if(k){input[k]=true;e.preventDefault();}
     if(e.code==='KeyM')toggleMap();
     if(e.code==='Enter')toggleChat();
+    if(e.code==='Escape'){toggleChat(false);toggleMap(false);toggleLevels(false);}
   });
   addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)input[k]=false;});
 
@@ -694,6 +753,8 @@
   });
   $('freeChatBtn').addEventListener('click',()=>toggleChat());
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));
+  $('freeLevelPill')?.addEventListener('click',()=>toggleLevels());
+  $('freeLevelsClose')?.addEventListener('click',()=>toggleLevels(false));
   $('freeMapBtn').addEventListener('click',()=>toggleMap());
   $('freeMapClose').addEventListener('click',()=>toggleMap(false));
   $('freeMapClear')?.addEventListener('click',()=>{state.waypoint=null;syncMapClear();drawMiniMap();setBanner('МЕТКА УДАЛЕНА',1800);});

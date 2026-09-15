@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-layout1" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-progression1" />
 <link rel="stylesheet" href="css/owner-panel.css?v=owner1">
 </head>
 <body>
@@ -239,8 +239,8 @@
     <div id="freeRoam" class="free-roam hidden" aria-hidden="true">
       <canvas id="freeCanvas" aria-label="Свободный город Velocity Apex"></canvas>
       <div class="free-hud">
-        <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div><div class="free-car-pill"><span>МАШИНА</span><strong id="freeCurrentCar">APEX LIME</strong></div></div>
-        <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div><div id="freeDragHud" class="free-drag-hud hidden" aria-live="polite"><div class="free-drag-top"><span id="freeDragState">SERVER LIVE</span><span id="freeDragNet">PING 0 MS</span></div><strong id="freeDragLead">READY</strong><small id="freeDragGap">СИНХРОНИЗАЦИЯ</small><div class="free-drag-track"><b class="free-drag-finish"></b><i id="freeDragMine" class="mine"></i><i id="freeDragRival" class="rival"></i></div></div></div>
+        <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><button id="freeLevelPill" class="free-level-pill" type="button"><span>APEX LEVEL</span><strong id="freeLevelValue">0</strong></button><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div><div class="free-car-pill"><span>МАШИНА</span><strong id="freeCurrentCar">APEX LIME</strong></div></div>
+        <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div><div id="freeDragHud" class="free-drag-hud hidden" aria-live="polite"><div class="free-drag-top"><span id="freeDragState">SERVER LIVE</span><span id="freeDragNet">PING 0 MS</span></div><strong id="freeDragLead">READY</strong><small id="freeDragGap">СИНХРОНИЗАЦИЯ</small><div class="free-drag-track"><b class="free-drag-finish"></b><i id="freeDragMine" class="mine"></i><i id="freeDragRival" class="rival"></i></div></div><div id="freeEventHud" class="free-event-hud hidden" aria-live="polite"><div class="free-event-head"><div><small id="freeEventMode">LIVE EVENT</small><strong id="freeEventTitle">DRIFT BATTLE</strong></div><div class="free-event-clock"><span id="freeEventPhase">WAITING</span><b id="freeEventTime">--:--</b></div></div><div id="freeEventZone" class="free-event-zone"></div><div id="freeEventStandings" class="free-event-standings"></div></div></div>
         <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ <b id="freeChatUnread" class="free-chat-unread hidden">0</b></button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
       </div>
       <div id="freeChatPreview" class="free-chat-preview" aria-live="polite"></div>
@@ -253,7 +253,14 @@
       <div id="freeMapPanel" class="free-map-panel hidden">
         <header><div><small>APEX BAY / LIVE MAP</small><strong>ГОРОД У МОРЯ</strong></div><div class="free-map-actions"><button id="freeMapClear" class="free-map-clear" type="button" disabled>УБРАТЬ МЕТКУ</button><button id="freeMapClose" type="button">×</button></div></header>
         <div class="free-map-viewport"><canvas id="freeMapCanvas" width="1260" height="900" aria-label="Карта APEX BAY. Нажмите, чтобы поставить метку на дороге."></canvas><div class="free-map-tools"><button id="freeMapZoomIn" type="button" aria-label="Приблизить карту">+</button><button id="freeMapZoomOut" type="button" aria-label="Отдалить карту">−</button><button id="freeMapFit" type="button">ВЕСЬ ГОРОД</button></div></div>
-        <div class="free-map-footer"><p>Нажмите — поставить метку. Приблизьте и перетаскивайте карту.</p><div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT</span><span>◆ SPEED</span><span>◆ CAR MEET</span></div></div>
+        <div class="free-map-footer"><p>Нажмите — поставить метку. Приблизьте и перетаскивайте карту.</p><div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT BATTLE</span><span>◆ KOTH</span><span>★ LEVELS</span></div></div>
+      </div>
+      <div id="freeLevelsPanel" class="free-levels-panel hidden" aria-hidden="true">
+        <section class="free-levels-card">
+          <header><div><small>VELOCITY APEX / ONLINE PROGRESSION</small><strong>APEX LEVEL</strong></div><button id="freeLevelsClose" type="button" aria-label="Закрыть">×</button></header>
+          <div class="free-levels-main"><div class="free-levels-number"><span>LEVEL</span><b id="freeLevelsNumber">0</b><em id="freeLevelsMax"></em></div><div class="free-levels-progress"><div><i id="freeLevelsBar"></i></div><strong id="freeLevelsProgressText">0 / 100 EXP</strong><small id="freeLevelsNext">До следующего уровня: 100 EXP</small></div><div class="free-levels-total"><span>TOTAL EXP</span><b id="freeLevelsTotal">0</b></div></div>
+          <div class="free-levels-rewards"><h3>КАК ПОЛУЧАТЬ EXP И CR</h3><div class="free-levels-grid"><article><strong>DRIFT BATTLE</strong><span>1 место · +180 EXP · +450 CR</span><span>2 место · +140 EXP · +320 CR</span><span>3 место · +110 EXP · +240 CR</span><span>Участие · +70 EXP · +140 CR</span></article><article><strong>KING OF THE HILL</strong><span>1 место · +220 EXP · +550 CR</span><span>2 место · +170 EXP · +400 CR</span><span>3 место · +130 EXP · +300 CR</span><span>Участие · +80 EXP · +170 CR</span></article><article><strong>DRAG</strong><span>Победа · +60 EXP · +100 CR</span><span>Поражение · +30 EXP · +50 CR</span><span>Ничья · +40 EXP · +70 CR</span></article><article><strong>АКТИВНОЕ ВРЕМЯ</strong><span>Каждые 20 минут · +30 EXP · +60 CR</span><span>Только при реальном движении автомобиля.</span></article></div><p>CR — дополнительный бонус к балансу, а не основной способ фарма. Сервер ограничивает выплаты за час и сутки; EXP и награды события выдаются только после проверки участия.</p></div>
+        </section>
       </div>
       <div id="freeMobileControls" class="free-mobile-controls">
         <div><button data-control="left" type="button">◀</button><button data-control="right" type="button">▶</button></div>
@@ -903,7 +910,7 @@
   <script src="js/online.js?v=20260915-owner1"></script>
   <script src="js/friends.js?v=20260915-owner1"></script>
   <script src="js/free-city.js?v=20260915-freefix1"></script>
-  <script src="js/freeroam.js?v=20260915-owner1"></script>
+  <script src="js/freeroam.js?v=20260915-progression1"></script>
   <script src="js/owner-panel.js?v=owner1"></script>
   <script src="js/game.js?v=20260915-owner1"></script>
 </body>

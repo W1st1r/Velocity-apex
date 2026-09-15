@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {expRequired,totalExpForLevel,levelFromTotalExp,PROGRESSION_REWARDS,REWARD_LIMITS} from '../src/progression.mjs';
+
+const required=new Map([[0,100],[1,110],[5,160],[10,220],[25,510],[50,1220],[75,2260],[90,3020],[99,3540]]);
+for(const [level,exp] of required)assert.equal(expRequired(level),exp,`EXP ${level}->${level+1}`);
+assert.equal(totalExpForLevel(10),1520);
+assert.equal(totalExpForLevel(25),6710);
+assert.equal(totalExpForLevel(50),27340);
+assert.equal(totalExpForLevel(75),69680);
+assert.equal(totalExpForLevel(100),141550);
+assert.equal(levelFromTotalExp(141550).level,100);
+assert.equal(levelFromTotalExp(1519).level,9);
+assert.equal(PROGRESSION_REWARDS.DRIFT_FIRST.credits,450);
+assert.equal(PROGRESSION_REWARDS.KOTH_FIRST.credits,550);
+assert.equal(PROGRESSION_REWARDS.DRAG_WIN.credits,100);
+assert.equal(PROGRESSION_REWARDS.ONLINE_REWARD.credits,60);
+assert.ok(REWARD_LIMITS.ACTIVITY_CR_ROLLING_HOUR<4000);
+assert.ok(REWARD_LIMITS.ACTIVITY_CR_ROLLING_24H<10000);
+
+const worker=fs.readFileSync(new URL('../src/worker.mjs',import.meta.url),'utf8');
+assert.match(worker,/activity:'drift_battle'/);
+assert.match(worker,/activity:'koth'/);
+assert.match(worker,/progress_reward/);
+assert.match(worker,/ONLINE_REWARD/);
+assert.match(worker,/disqualified/);
+
+const ui=fs.readFileSync(new URL('../public/js/freeroam.js',import.meta.url),'utf8');
+assert.match(ui,/DRIFT BATTLE · УЧАСТВОВАТЬ/);
+assert.match(ui,/KING OF THE HILL · УЧАСТВОВАТЬ/);
+assert.match(ui,/CR LIMIT/);
+assert.match(ui,/freeLevelValue/);
+console.log('progression_live_events_test: OK');
