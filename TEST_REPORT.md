@@ -121,3 +121,8 @@ Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syn
 ### Admin UI v2
 - `admin_ui_v2_smoke.js`: structured account workspace, registration/last-login information, detail tabs, second/minute/hour/day ban units.
 - Full `npm test`: PASS after Admin UI v2 changes.
+
+
+## Car upgrades — 2026-09-15
+
+`npm test`: PASS, including the new car_upgrades_test.js. All 45 cars checked for per-car purchase isolation, save round trip, stale purchase rejection, insufficient funds, maximum levels, actual acceleration/top-speed/braking improvements and the 650 online speed ceiling. JavaScript syntax checks passed. Browser rendering was not verified in this environment because a Chromium executable is unavailable.

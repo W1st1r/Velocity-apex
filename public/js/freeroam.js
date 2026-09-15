@@ -74,6 +74,7 @@
     if(R.Car&&car.setLoadout){
       car.maxSpeed=SOLO_PHYS.maxSpeed;car.baseMaxSpeed=SOLO_PHYS.maxSpeed;car.accel=SOLO_PHYS.accel;car.brakePower=SOLO_PHYS.brakePower;car.turnRate=SOLO_PHYS.turnRate;
       car.setLoadout(state.loadout.liveryId,state.loadout.effectId,'full');
+      R.applyCarPerformance(car,state.loadout.liveryId,loadSave());
       state.playerVisual=car;
     }else state.playerVisual=createVisual(state.loadout.liveryId,state.loadout.effectId);
     const currentCar=$('freeCurrentCar');

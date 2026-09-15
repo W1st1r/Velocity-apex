@@ -308,6 +308,47 @@
   R.DIFFICULTY_LABELS={easy:'ЛЕГКО',medium:'СРЕДНЕ',hard:'СЛОЖНО',extreme:'ЭКСТРИМ'};
   const has=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
   const safeNumber=(v,fallback=0)=>typeof v==='number'&&Number.isFinite(v)?Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,v)):fallback;
+  // Per-car tuning: deterministic category/price balance, shared by every mode.
+  R.UPGRADE_TYPES=Object.freeze({
+    speed:{name:'Трансмиссия',description:'Повышает максимальную скорость',stat:'maxSpeed',step:.03,priceFactor:1},
+    acceleration:{name:'Двигатель',description:'Ускоряет набор скорости',stat:'accel',step:.06,priceFactor:1.15},
+    brakes:{name:'Тормоза',description:'Сокращает тормозной путь',stat:'brakePower',step:.07,priceFactor:.8}
+  });
+  R.UPGRADE_MAX_LEVEL=5;
+  const tuningBands={basic:[300,335,190,220,310,340],sport:[350,385,230,265,350,380],premium:[400,430,275,310,390,420],rare:[445,475,320,350,430,465],legendary:[490,520,360,390,475,510],lux:[535,555,400,420,520,550]};
+  R.CAR_PERFORMANCE=Object.freeze(Object.fromEntries(Object.entries(R.LIVERIES).map(([id,item])=>{
+    const category=R.normalizeCarCategory(item.category),band=tuningBands[category]||tuningBands.basic;
+    const prices=Object.values(R.LIVERIES).filter(c=>R.normalizeCarCategory(c.category)===category).map(c=>c.price||0);
+    const low=Math.min(...prices),high=Math.max(...prices),t=high===low?.5:Math.max(0,Math.min(1,((item.price||0)-low)/(high-low)));
+    const mix=(a,b)=>Math.round(a+(b-a)*t);
+    return [id,Object.freeze({maxSpeed:mix(band[0],band[1]),accel:mix(band[2],band[3]),brakePower:mix(band[4],band[5]),turnRate:2.40})];
+  })));
+  R.getUpgradeLevels=function(save,id){
+    const raw=save?.carUpgrades?.[id];
+    return Object.fromEntries(Object.keys(R.UPGRADE_TYPES).map(key=>[key,Number.isInteger(raw?.[key])?Math.max(0,Math.min(5,raw[key])):0]));
+  };
+  R.getCarPerformance=function(id,save){
+    const base=R.CAR_PERFORMANCE[id]||R.CAR_PERFORMANCE.apexLime,result={...base},levels=R.getUpgradeLevels(save,id);
+    for(const [key,type] of Object.entries(R.UPGRADE_TYPES))result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*type.step));
+    return result;
+  };
+  R.applyCarPerformance=function(car,id,save){const stats=R.getCarPerformance(id,save);Object.assign(car,stats);car.baseMaxSpeed=stats.maxSpeed;return stats;};
+  R.getUpgradeCost=function(id,key,level){
+    if(!has(R.LIVERIES,id)||!has(R.UPGRADE_TYPES,key)||!Number.isInteger(level)||level<0||level>=5)return null;
+    return Math.ceil(Math.max(2800,R.LIVERIES[id].price||0)*[.04,.07,.11,.16,.22][level]*R.UPGRADE_TYPES[key].priceFactor/10)*10;
+  };
+  // expectedLevel prevents double taps or stale purchase buttons buying another level.
+  R.buyCarUpgrade=function(save,id,key,expectedLevel){
+    if(!has(R.LIVERIES,id)||!has(R.UPGRADE_TYPES,key)||!save?.ownedLiveries?.includes(id))return {status:'invalid'};
+    const levels=R.getUpgradeLevels(save,id),level=levels[key];
+    if(level>=5)return {status:'max'};
+    if(expectedLevel!==level)return {status:'stale'};
+    const cost=R.getUpgradeCost(id,key,level);
+    if(!Number.isFinite(save.credits)||save.credits<cost)return {status:'insufficient'};
+    if(!save.carUpgrades||typeof save.carUpgrades!=='object'||Array.isArray(save.carUpgrades))save.carUpgrades={};
+    save.credits-=cost;levels[key]++;save.carUpgrades[id]=levels;
+    return {status:'purchased',cost,level:levels[key]};
+  };
   R.normalizeSave=function(raw){
     const d=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
     const own=(value,catalog,free)=>Array.from(new Set([free,...(Array.isArray(value)?value.filter(id=>typeof id==='string'&&has(catalog,id)):[])]));
@@ -320,7 +361,7 @@
       botCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.botCount,7)))),raceLaps:[3,5,7,10,15].includes(d.raceLaps)?d.raceLaps:5,
       difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',
       driftBotCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.driftBotCount,d.botCount??7)))),driftDifficulty:has(R.DIFFICULTY_LABELS,d.driftDifficulty)?d.driftDifficulty:'medium',driftTrackId:has(R.DRIFT_TRACKS,d.driftTrackId)?d.driftTrackId:'sierraFlow',
-      controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,caseInventory,
+      controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,caseInventory,carUpgrades:Object.fromEntries(ownedLiveries.filter(id=>d.carUpgrades&&has(d.carUpgrades,id)).map(id=>[id,R.getUpgradeLevels(d,id)])),
       selectedLivery:ownedLiveries.includes(d.selectedLivery)?d.selectedLivery:'apexLime',selectedEffect:ownedEffects.includes(d.selectedEffect)?d.selectedEffect:'standard'};
   };
   R.shopAction=function(save,kind,id){

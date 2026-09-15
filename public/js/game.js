@@ -286,8 +286,7 @@
     let botName=0,botPaint=0;
     for(let i=0;i<total;i++){
       const isPlayer=i===playerGrid;
-      // Player and bots share exactly the same physical performance. Difficulty is
-      // produced by the driver model/racing line, never max-speed or acceleration cheats.
+      // Bots match the player’s tuned performance; difficulty comes from driving.
       const c=new R.Car({
         id:i,name:isPlayer?'YOU':names[botName++],player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],
         maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate
@@ -300,6 +299,7 @@
         const paint=OFFLINE_BOT_PAINTS[botPaint++%OFFLINE_BOT_PAINTS.length];
         c.setPaintOverride({primary:paint[0],secondary:paint[1],accent:paint[1],stripe:paint[1]});
       }else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);}
+      R.applyCarPerformance(c,save.selectedLivery,save);
       cars.push(c);
     }
     rankBuffer=cars.slice();updateRanks();prevRank=player.rank;
@@ -313,7 +313,7 @@
     for(let i=0;i<order.length;i++){
       const pd=room.players.find(p=>p.id===order[i]);if(!pd)continue;const isPlayer=pd.id===localId;
       const c=new R.Car({id:pd.id,name:pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
-      c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
+      c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');R.applyCarPerformance(c,c.liveryId,isPlayer?save:null);const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
     }
     if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftChainTime=0;driftIdleTime=0;driftLastProgress=player.progress;driftLastValid=false;driftPeakCombo=1;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;
   }
@@ -602,7 +602,7 @@
 
   function updateCamera(dt){
     if(!player)return;
-    const speedT=clamp(player.speed/PHYS.maxSpeed,0,1),targetLook=84+speedT*124;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
+    const speedT=clamp(player.speed/player.maxSpeed,0,1),targetLook=84+speedT*124;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
     const tx=player.x+Math.cos(player.angle)*cam.look,ty=player.y+Math.sin(player.angle)*cam.look;
     const follow=1-Math.pow(.0024,dt);cam.x=lerp(cam.x,tx,follow);cam.y=lerp(cam.y,ty,follow);
     let target=-Math.PI/2-player.angle,d=target-cam.rot;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;cam.rot+=d*Math.min(1,dt*7.2);

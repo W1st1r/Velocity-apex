@@ -39,7 +39,7 @@
         garage:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect}
       };
       this.car=new R.Car();this.car.x=280;this.car.y=190;this.car.angle=-.20;this.car.speed=260;this.car.throttleVisual=1;
-      this.bindView('shop');this.bindView('garage');this.bindCaseDialog();
+      this.bindView('shop');this.bindView('garage');this.bindCaseDialog();this.bindTuning();
     }
     view(mode=this.mode){
       const prefix=mode==='shop'?'shop':'garage';
@@ -70,6 +70,7 @@
       document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!d.modal.classList.contains('hidden'))this.closeCaseDialog();});
     }
     handleItemsClick(mode,e){
+      const tuning=e.target.closest('[data-tune]');if(tuning&&mode==='garage'){this.openTuning(tuning.dataset.tune);return;}
       const caseCard=e.target.closest('[data-case]');
       if(caseCard&&mode==='shop'&&this.state.shop.tab==='case'){
         const id=caseCard.dataset.case;this.state.shop.previewCase=id;
@@ -96,6 +97,40 @@
         if(result==='selected')this.onChange();
       }
       this.render();
+    }
+    bindTuning(){
+      const modal=$('tuningModal');if(!modal)return;
+      $('tuningClose').addEventListener('click',()=>modal.close());
+      modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
+      modal.addEventListener('close',()=>{this.tuningPurchase=null;this.tuningTrigger?.focus();});
+      $('tuningRows').addEventListener('click',e=>{
+        const b=e.target.closest('[data-upgrade]');if(!b||b.disabled)return;
+        this.tuningPurchase={key:b.dataset.upgrade,level:Number(b.dataset.level)};this.renderTuning();$('tuningConfirm').focus();
+      });
+      $('tuningCancel').addEventListener('click',()=>{this.tuningPurchase=null;this.renderTuning();});
+      $('tuningConfirm').addEventListener('click',()=>{
+        const pending=this.tuningPurchase;if(!pending)return;this.tuningPurchase=null;
+        const result=R.buyCarUpgrade(this.save,this.tuningId,pending.key,pending.level);
+        if(result.status==='purchased'){this.onChange();this.render();}
+        this.renderTuning();$('tuningStatus').textContent=result.status==='purchased'?`Установлено · уровень ${result.level} · −${formatCredits(result.cost)} CR`:result.status==='insufficient'?'Недостаточно CR. Покупка не выполнена.':'Данные изменились. Выберите улучшение заново.';
+      });
+    }
+    openTuning(id){
+      if(!this.save.ownedLiveries.includes(id))return;
+      this.tuningId=id;this.tuningPurchase=null;this.tuningTrigger=document.activeElement;this.renderTuning();$('tuningStatus').textContent='Улучшения постоянные и устанавливаются сразу после покупки.';
+      $('tuningModal').showModal();$('tuningClose').focus();
+    }
+    renderTuning(){
+      const id=this.tuningId,item=R.LIVERIES[id];if(!item)return;
+      const levels=R.getUpgradeLevels(this.save,id),stats=R.getCarPerformance(id,this.save),base=R.CAR_PERFORMANCE[id];
+      $('tuningTitle').textContent=item.name;$('tuningCredits').textContent=formatCredits(this.save.credits)+' CR';
+      $('tuningCategory').textContent=R.CAR_CATEGORIES[categoryOf(item)].label+' / '+Object.values(levels).reduce((a,b)=>a+b,0)+' ИЗ 15 УЛУЧШЕНИЙ';
+      $('tuningRows').innerHTML=Object.entries(R.UPGRADE_TYPES).map(([key,type])=>{
+        const level=levels[key],cost=R.getUpgradeCost(id,key,level),max=level>=5,next=Math.round(base[type.stat]*(1+(level+1)*type.step)),missing=Math.max(0,(cost||0)-this.save.credits);
+        return `<article class="tuning-row"><div class="tuning-row-heading"><strong>${type.name}</strong><span>УРОВЕНЬ ${level} / 5</span></div><p>${type.description}</p><div class="tuning-levels" aria-hidden="true">${Array.from({length:5},(_,i)=>`<i class="${i<level?'filled':''}"></i>`).join('')}</div><div class="tuning-values"><span>БАЗА <b>${base[type.stat]}</b></span><span>СЕЙЧАС <b>${stats[type.stat]}${key==='speed'?' км/ч':''}</b></span>${max?'':`<span>ДАЛЕЕ <b>${next}</b></span>`}</div><button type="button" data-upgrade="${key}" data-level="${level}" ${max||missing?'disabled':''}>${max?'✓ МАКСИМУМ':`УРОВЕНЬ ${level+1} · ${formatCredits(cost)} CR`}</button>${missing?`<small>Не хватает ${formatCredits(missing)} CR</small>`:''}</article>`;
+      }).join('');
+      const pending=this.tuningPurchase;$('tuningPurchase').classList.toggle('hidden',!pending);
+      if(pending){const cost=R.getUpgradeCost(id,pending.key,pending.level);$('tuningPurchaseText').textContent=`${R.UPGRADE_TYPES[pending.key].name}: уровень ${pending.level+1}. Списать ${formatCredits(cost)} CR?`;$('tuningConfirm').disabled=cost===null||cost>this.save.credits;}
     }
     prewarmLivery(id){
       const item=R.LIVERIES[id],src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);
@@ -136,6 +171,7 @@
     syncFromSave(){
       for(const s of Object.values(this.state)){s.previewLivery=this.save.selectedLivery;s.previewEffect=this.save.selectedEffect;}
       this.render();
+      if($('tuningModal')?.open){this.tuningPurchase=null;if(this.save.ownedLiveries.includes(this.tuningId))this.renderTuning();else $('tuningModal').close();}
       if(this.activeCaseId&&!this.caseDialog().modal.classList.contains('hidden')&&!this.caseSpinning)this.refreshCaseDialogInventory();
     }
     render(){
@@ -165,10 +201,11 @@
           const priceText=mode==='shop'?(item.price?formatCredits(item.price)+' CR':'FREE'):(isSelected?'АКТИВНО':'В КОЛЛЕКЦИИ');
           const shortfall=Math.max(0,(item.price||0)-this.save.credits),shortfallText=mode==='shop'&&!isOwned&&shortfall>0?`<div class="item-shortfall">ЕЩЁ ${formatCredits(shortfall)} CR</div>`:'';
           let button='';if(mode==='shop')button=isOwned?`<button type="button" class="purchase-btn owned" disabled>КУПЛЕНО</button>`:`<button type="button" class="purchase-btn">КУПИТЬ — ${formatCredits(item.price)} CR</button>`;else button=`<button type="button" class="select-btn ${isSelected?'equipped':''}" ${isSelected?'disabled':''}>${isSelected?'✓ АКТИВНО':'ВЫБРАТЬ'}</button>`;
+          if(isCars&&mode==='garage')button+=`<button type="button" class="tuning-gear" data-tune="${id}" aria-label="Настроить ${item.name}">⚙ <span>УЛУЧШЕНИЯ</span></button>`;
           const classes=['shop-item',isSelected?'selected equipped-card':'',isPreview?'previewing':'',isCars?'car-card '+R.CAR_CATEGORIES[cat].className:'effect-card'].filter(Boolean).join(' ');
           const effectStyle=!isCars?` style="--effect-a:${item.rainbow?'#70ff9d':(item.outer||'#61e8ff')};--effect-b:${item.rainbow?'#ff58ce':(item.inner||'#efffff')}"`:'';
           const stateChip=isSelected?'<span class="item-preview-state active">АКТИВНО</span>':isPreview?'<span class="item-preview-state">ПРОСМОТР</span>':'';
-          return `<article class="${classes}" data-item="${id}" data-equipped="${isSelected?'true':'false'}" data-previewed="${isPreview?'true':'false'}"${effectStyle}>${isCars?badgeMarkup(cat):''}<button type="button" class="item-preview" aria-label="Предпросмотр ${item.name}" aria-pressed="${isPreview?'true':'false'}">${catalogVisualMarkup(id,item,isCars)}${stateChip}</button><div class="item-title">${item.name}</div><div class="item-price"><strong>${priceText}</strong><span>${status}</span></div>${shortfallText}${button}</article>`;
+          return `<article class="${classes}" data-item="${id}" data-equipped="${isSelected?'true':'false'}" data-previewed="${isPreview?'true':'false'}"${effectStyle}>${isCars?badgeMarkup(cat):''}<button type="button" class="item-preview" aria-label="Предпросмотр ${item.name}" aria-pressed="${isPreview?'true':'false'}">${catalogVisualMarkup(id,item,isCars)}${stateChip}</button><div class="item-title">${item.name}</div><div class="item-price"><strong>${priceText}</strong><span>${status}</span></div>${isCars?`<div class="car-spec-line">${R.getCarPerformance(id,this.save).maxSpeed} км/ч <span>·</span> РАЗГОН ${R.getCarPerformance(id,this.save).accel} <span>·</span> ТОРМОЗА ${R.getCarPerformance(id,this.save).brakePower}</div>`:""}${shortfallText}${button}</article>`;
         }).join('');
       }
       v.items.querySelectorAll('.catalog-car-thumb').forEach(img=>{
