@@ -45,6 +45,35 @@
     for(const a of areas){const p={x:clamp(x,a.x+35,a.x+a.w-35),y:clamp(y,a.y+35,a.y+a.h-35)},n=Math.hypot(x-p.x,y-p.y);if(n<d){best=p;d=n;}}
     return best;
   }
+  // Closest point in the union of the same road capsules and activity aprons.
+  // A small skin keeps strict roadAt() tests inside, including curve endpoints.
+  function contactPoint(x,y,margin=20){
+    const skin=.12,pad=margin+skin;
+    if(roadAt(x,y,-pad))return {x,y};
+    let best=null,bestD=Infinity;
+    const consider=(px,py)=>{px=clamp(px,24+skin,W-24-skin);py=clamp(py,24+skin,H-24-skin);const d=(x-px)**2+(y-py)**2;if(d<bestD&&roadAt(px,py,-margin)){best={x:px,y:py};bestD=d;}};
+    for(const a of areas)consider(clamp(x,a.x+pad,a.x+a.w-pad),clamp(y,a.y+pad,a.y+a.h-pad));
+    for(const seg of segments){const p=projection(x,y,seg),dx=x-p.x,dy=y-p.y,d=Math.hypot(dx,dy),r=Math.max(1,seg.half-pad),k=d>r?r/d:1;consider(p.x+dx*k,p.y+dy*k);}
+    return best||nearestRoad(x,y);
+  }
+  function resolveCarMotion(car,prevX,prevY){
+    const dx=car.x-prevX,dy=car.y-prevY,steps=Math.max(1,Math.ceil(Math.hypot(dx,dy)/4));
+    let x=prevX,y=prevY,sx=dx/steps,sy=dy/steps,impact=0;
+    if(!roadAt(x,y,-20)){const p=contactPoint(x,y);x=p.x;y=p.y;}
+    for(let i=0;i<steps;i++){
+      const tx=x+sx,ty=y+sy;
+      if(roadAt(tx,ty,-20)){x=tx;y=ty;continue;}
+      const p=contactPoint(tx,ty),nx0=p.x-tx,ny0=p.y-ty,d=Math.hypot(nx0,ny0);
+      x=p.x;y=p.y;if(d<1e-7)continue;
+      const nx=nx0/d,ny=ny0/d,vn=car.vx*nx+car.vy*ny;
+      // Only the component entering the wall is affected. Tangential speed survives.
+      if(vn<0){impact=Math.max(impact,-vn);const bounce=vn<-35?.12:0;car.vx-=(1+bounce)*vn*nx;car.vy-=(1+bounce)*vn*ny;}
+      const inward=sx*nx+sy*ny;if(inward<0){sx-=inward*nx;sy-=inward*ny;}
+    }
+    car.x=x;car.y=y;car.speed=Math.hypot(car.vx,car.vy);
+    if(impact>45)car.markImpact?.(Math.min(.45,impact/1000));
+    return impact;
+  }
   function district(x,y){
     if(y>2440&&x>2800)return 'АЭРОПОРТ';
     if(x<1000&&y>1880)return 'ПОРТ • DRIFT';
@@ -265,5 +294,5 @@
       rr(c,px-tw/2-8,py-12,tw+16,20,5,'#203d38d9');text(c,label,px,py+2,11,'#f0eedb');
     }
   }
-  window.ApexCity={width:W,height:H,roadAt,nearestRoad,district,draw,drawOverview};
+  window.ApexCity={width:W,height:H,resolveCarMotion,roadAt,nearestRoad,district,draw,drawOverview};
 })();

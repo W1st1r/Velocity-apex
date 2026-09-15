@@ -208,7 +208,7 @@
       r.target=m.state;
       return;
     }
-    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId);return;}
+    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true);return;}
     if(m.type==='free_record'){
       if(state.room)state.room.records={...(state.room.records||{}),[m.kind]:m.value};
       addSystem(`${m.name}: новый рекорд ${m.kind==='speed'?m.value+' km/h':m.value+' drift'}.`);
@@ -253,7 +253,7 @@
         r={x:s.x,y:s.y,angle:s.angle,target:s,name:p.name,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',visual:createVisual(p.liveryId,p.effectId)};
         state.remotes.set(p.id,r);
       }
-      r.name=p.name;
+      r.name=p.name;r.owner=p.owner===true;
       if(r.liveryId!==p.liveryId||r.effectId!==p.effectId||!r.visual){
         r.liveryId=p.liveryId||'apexLime';
         r.effectId=p.effectId||'standard';
@@ -338,12 +338,7 @@
       car.vx=Math.cos(car.angle)*signed;car.vy=Math.sin(car.angle)*signed;car.x+=car.vx*dt;car.y+=car.vy*dt;car.speed=Math.hypot(car.vx,car.vy);
     }
 
-    const outside=car.x<24||car.x>WORLD.w-24||car.y<24||car.y>WORLD.h-24;
-    if(outside||!roadAt(car.x,car.y)){
-      car.x=clamp(prevX,24,WORLD.w-24);car.y=clamp(prevY,24,WORLD.h-24);
-      car.vx*=.58;car.vy*=.58;car.speed=Math.hypot(car.vx,car.vy);
-      car.markImpact?.(.28);
-    }
+    CITY.resolveCarMotion(car,prevX,prevY);
 
     for(const r of state.remotes.values()){
       if(!r.target)continue;
@@ -426,8 +421,13 @@
     setBanner.t=setTimeout(()=>b.classList.add('hidden'),ms);
   }
 
-  function addChat(name,text,mine=false){
-    state.chat.push({name,text,mine,system:false,time:Date.now()});
+  function appendPlayerName(el,name,owner){
+    if(owner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
+    el.append(document.createTextNode(name||'RACER'));
+  }
+
+  function addChat(name,text,mine=false,owner=false){
+    state.chat.push({name,text,mine,owner,system:false,time:Date.now()});
     if(state.chat.length>80)state.chat.shift();
     if($('freeChatPanel').classList.contains('hidden')&&!mine){state.chatUnread++;updateUnreadBadge();}
     renderChat();
@@ -446,8 +446,8 @@
     log.replaceChildren();
     for(const m of state.chat.slice(-50)){
       const row=document.createElement('div');
-      row.className='free-chat-line'+(m.system?' system':'')+(m.mine?' mine':'');
-      const n=document.createElement('strong');n.textContent=m.name;
+      row.className='free-chat-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
+      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner);
       const t=document.createElement('span');t.textContent=m.text;
       row.append(n,t);log.appendChild(row);
     }
@@ -468,8 +468,8 @@
     }
     for(const m of entries){
       const row=document.createElement('div');
-      row.className='free-chat-preview-line'+(m.system?' system':'')+(m.mine?' mine':'');
-      const name=document.createElement('b');name.textContent=m.name;
+      row.className='free-chat-preview-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
+      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner);
       const text=document.createElement('span');text.textContent=m.text;
       row.append(name,text);
       root.appendChild(row);
@@ -497,8 +497,8 @@
     drawZone(ctx,ZONES.drift,'#c678ff','DRIFT');
     drawZone(ctx,ZONES.meet,'#8dff49','CAR MEET');
     if(state.waypoint)drawWaypoint(ctx,state.waypoint);
-    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id));
-    drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,accountName(),true,'#a9ff5a');
+    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner);
+    drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,state.room?.players?.find(p=>p.id===state.playerId)?.name||accountName(),true,'#a9ff5a',state.room?.players?.find(p=>p.id===state.playerId)?.owner===true);
     ctx.restore();
     if(!$('freeMapPanel').classList.contains('hidden')&&performance.now()-lastMapDraw>80){lastMapDraw=performance.now();drawMiniMap();}
   }
@@ -514,7 +514,7 @@
     c.restore();
   }
 
-  function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor){
+  function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor,owner=false){
     c.save();
     if(visual){
       visual.x=x;visual.y=y;visual.angle=a;
@@ -528,12 +528,16 @@
     }
     c.restore();
     c.save();
-    c.textAlign='center';
     c.font='900 14px system-ui';
-    c.fillStyle='rgba(0,0,0,.34)';
-    c.fillRect(x-62,y-48,124,20);
-    c.fillStyle=me?'#dfffcb':'#dce9e5';
-    c.fillText(name||'RACER',x,y-34);
+    const label=name||'RACER',nameWidth=c.measureText(label).width,badgeWidth=owner?65:0,total=nameWidth+badgeWidth+20,left=x-total/2;
+    c.fillStyle='#101a1eef';roundRect(c,left,y-52,total,26,8,true,false);
+    if(owner){
+      c.shadowColor='#ff304f';c.shadowBlur=9;c.fillStyle='#b51232';roundRect(c,left+4,y-48,57,18,5,true,false);c.shadowBlur=0;
+      c.strokeStyle='#ff687c';c.lineWidth=1;roundRect(c,left+4,y-48,57,18,5,false,true);
+      c.fillStyle='#fff0f2';c.font='900 10px system-ui';c.textAlign='center';c.fillText('OWNER',left+32.5,y-35);
+    }
+    c.font='900 14px system-ui';c.textAlign='left';c.fillStyle=owner?'#ffd6dd':me?'#dfffcb':'#dce9e5';
+    c.fillText(label,left+10+badgeWidth,y-34);
     c.restore();
   }
 

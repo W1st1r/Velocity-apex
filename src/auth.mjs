@@ -492,6 +492,14 @@ async function handleAdminRequest(request,env,url){
   return json({error:'NOT_FOUND'},404);
 }
 
+// Used only by the outer worker. Never derive roles from a supplied nickname.
+export async function freeAccountIdentity(env,request){
+  if(!env.DB)return {user:null};
+  const session=await currentSession(env,request);if(!session)return {user:null};
+  const response=await banResponse(env,session.user);if(response)return {user:null,response};
+  return {user:session.user,owner:isAdminUsername(session.user.username)};
+}
+
 export async function handleAuthRequest(request,env,url=new URL(request.url)){
   if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/admin/')&&!url.pathname.startsWith('/api/friends')&&!url.pathname.startsWith('/api/promocodes/'))return null;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);

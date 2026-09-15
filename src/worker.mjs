@@ -1,4 +1,4 @@
-import {handleAuthRequest} from './auth.mjs';
+import {handleAuthRequest,freeAccountIdentity} from './auth.mjs';
 import {PROTOCOL_VERSION,generateRoomCode,normalizeRoomCode,validRoomCode,sanitizeNickname,validNickname,validSettings,normalizeSettings,validWager,validPlayerState,parseClientMessage,PLAYER_STATE_RATE_MS,RECONNECT_GRACE_MS,EMPTY_ROOM_TTL_MS,ROOM_TTL_MS} from './protocol.mjs';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store'}});
@@ -10,6 +10,7 @@ const safeBalance=v=>Number.isInteger(v)&&v>=0&&v<=Number.MAX_SAFE_INTEGER?v:nul
 const FREE_SERVERS=Object.freeze(['city-01','city-02','city-03','city-04','city-05','city-06']);
 const FREE_MAX_PLAYERS=20;
 const FREE_WORLD={w:4200,h:3000};
+const validFreeName=v=>validNickname(v)||(typeof v==='string'&&/^@[a-z0-9_]{3,24}$/.test(v));
 
 export default {
   async fetch(request,env){
@@ -23,7 +24,12 @@ export default {
     const fm=url.pathname.match(/^\/api\/free\/(city-0[1-6])\/(join|ws)$/);
     if(fm){
       const serverId=fm[1],stub=env.ROOMS.get(env.ROOMS.idFromName('FREE:'+serverId));
-      if(fm[2]==='join'&&request.method==='POST')return stub.fetch(new Request('https://room.internal/free/join?serverId='+encodeURIComponent(serverId),{method:'POST',headers:request.headers,body:request.body}));
+      if(fm[2]==='join'&&request.method==='POST'){
+        let body;try{body=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
+        const identity=await freeAccountIdentity(env,request);if(identity.response)return identity.response;
+        const payload={name:identity.user?('@'+identity.user.username):body?.name,loadout:body?.loadout,owner:identity.owner===true};
+        return stub.fetch(new Request('https://room.internal/free/join?serverId='+encodeURIComponent(serverId),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}));
+      }
       if(fm[2]==='ws')return stub.fetch(new Request('https://room.internal/free/ws?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{headers:request.headers}));
     }
     const authResponse=await handleAuthRequest(request,env,url);if(authResponse)return authResponse;
@@ -73,7 +79,7 @@ export class Room {
   }
 
   publicFreeRoom(){
-    const r=this.room;return {protocol:PROTOCOL_VERSION,mode:'freeroam',serverId:r.serverId,maxPlayers:FREE_MAX_PLAYERS,records:r.records||{speed:0,drift:0},players:r.players.map(p=>({id:p.id,name:p.name,connected:!!p.connected,liveryId:p.liveryId,effectId:p.effectId,state:p.state||null}))};
+    const r=this.room;return {protocol:PROTOCOL_VERSION,mode:'freeroam',serverId:r.serverId,maxPlayers:FREE_MAX_PLAYERS,records:r.records||{speed:0,drift:0},players:r.players.map(p=>({id:p.id,name:p.name,owner:p.owner===true,connected:!!p.connected,liveryId:p.liveryId,effectId:p.effectId,state:p.state||null}))};
   }
   async handleFreeMessage(ws,p,m){
     if(m.type==='ping'){if(typeof m.clientTime==='number')this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:now()});return;}
@@ -83,7 +89,7 @@ export class Room {
       p.lastSeq=s.seq;p.lastStateAt=t;p.state={x:s.x,y:s.y,vx:s.vx,vy:s.vy,angle:s.angle,speed:s.speed,serverTime:t};this.broadcast({type:'free_state',v:PROTOCOL_VERSION,playerId:p.id,serverTime:t,state:p.state},ws);return;
     }
     if(m.type==='chat'){
-      const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180);if(!text||t-(p.lastChatAt||0)<700)return;p.lastChatAt=t;this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,text,serverTime:t});return;
+      const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180);if(!text||t-(p.lastChatAt||0)<700)return;p.lastChatAt=t;this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,text,serverTime:t});return;
     }
     if(m.type==='record'){
       const kind=m.kind,value=Math.floor(Number(m.value)||0);if(!['speed','drift'].includes(kind)||value<=0||value>(kind==='speed'?650:100000000))return;
@@ -124,10 +130,10 @@ export class Room {
 
     if(url.pathname==='/free/status')return json({ok:true,players:this.room?.mode==='freeroam'?this.room.players.filter(p=>p.connected).length:0,records:this.room?.mode==='freeroam'?(this.room.records||{}):{}});
     if(url.pathname==='/free/join'&&request.method==='POST'){
-      let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}if(!validNickname(b?.name))return json({error:'INVALID_NAME'},400);
+      let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}if(!validFreeName(b?.name))return json({error:'INVALID_NAME'},400);
       const serverId=url.searchParams.get('serverId')||'city-01',t=now();if(!this.room||this.room.mode!=='freeroam')this.room={mode:'freeroam',serverId,createdAt:t,updatedAt:t,emptySince:0,records:{speed:0,drift:0},dragQueue:[],dragChallenges:{},players:[]};
       const live=this.room.players.filter(p=>p.connected||p.disconnectedUntil>t);if(live.length>=FREE_MAX_PLAYERS)return json({error:'SERVER_FULL'},409);
-      const id=playerId(),sessionToken=token(),loadout=safeLoadout(b.loadout);this.room.players.push({id,name:sanitizeNickname(b.name),token:sessionToken,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,lastSeq:-1,lastStateAt:0,lastChatAt:0,state:null});await this.save();return json({ok:true,serverId:this.room.serverId,playerId:id,sessionToken,room:this.publicFreeRoom()},201);
+      const id=playerId(),sessionToken=token(),loadout=safeLoadout(b.loadout);this.room.players.push({id,name:sanitizeNickname(b.name),owner:b.owner===true,token:sessionToken,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,lastSeq:-1,lastStateAt:0,lastChatAt:0,state:null});await this.save();return json({ok:true,serverId:this.room.serverId,playerId:id,sessionToken,room:this.publicFreeRoom()},201);
     }
     if(url.pathname==='/free/ws'){
       if(request.headers.get('Upgrade')!=='websocket')return json({error:'WEBSOCKET_REQUIRED'},426);if(!this.room||this.room.mode!=='freeroam')return json({error:'SERVER_NOT_FOUND'},404);
