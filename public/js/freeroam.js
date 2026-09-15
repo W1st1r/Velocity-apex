@@ -250,6 +250,9 @@
       state.drag={id:m.challengeId,startAt:m.startAt,finishX:m.finishX||DRAG_FINISH_X,participants:[...m.participants],opponentId,finished:false,localCrossed:false,progress:null,confirmed:{},result:null};
       state.dragQueued=false;car.x=DRAG_START_X;car.y=2635+lane*70;car.angle=0;car.vx=car.vy=car.speed=0;
       m.participants.forEach((id,index)=>{if(id!==state.playerId)resetRemoteToGrid(id,index,m.startAt);});pingServer();
+      // On phones the open chat/keyboard can cover the race HUD and road. Close it as soon as a drag starts;
+      // the compact preview returns automatically after the result.
+      toggleChat(false);
       setBanner('DRAG · СИНХРОНИЗАЦИЯ СТАРТА',1800);updateDragHud(Date.now()+state.serverOffset);updateChatPreview();return;
     }
     if(m.type==='activity_progress'&&m.activity==='drag'&&state.drag?.id===m.challengeId){state.drag.progress=m;return;}
@@ -381,7 +384,10 @@
   }
 
   function updateDragHud(now){
-    const hud=$('freeDragHud');if(!hud)return;const d=state.drag;if(!d){hud.classList.add('hidden');hud.classList.remove('win','lose','photo');return;}hud.classList.remove('hidden');
+    const hud=$('freeDragHud');if(!hud)return;const d=state.drag;
+    // CSS uses this state to keep chat and controls out of the race sightline on small touch screens.
+    roam.classList.toggle('drag-active',!!d);
+    if(!d){hud.classList.add('hidden');hud.classList.remove('win','lose','photo');return;}hud.classList.remove('hidden');
     const stateEl=$('freeDragState'),leadEl=$('freeDragLead'),gapEl=$('freeDragGap'),netEl=$('freeDragNet'),mineEl=$('freeDragMine'),rivalEl=$('freeDragRival');if(netEl)netEl.textContent=`PING ${Math.round(state.rtt||0)} MS`;
     const remain=d.startAt-now;if(remain>0){const n=Math.max(1,Math.ceil(remain/1000));if(stateEl)stateEl.textContent='START SYNC';if(leadEl)leadEl.textContent=remain>3000?'READY':String(n);if(gapEl)gapEl.textContent='СТАРТ ПО СЕРВЕРНОМУ ТАЙМЕРУ';hud.classList.remove('win','lose','photo');}
     else if(d.result){const mine=d.result.times?.[state.playerId],won=d.result.winnerId===state.playerId,gap=Math.abs(Number(d.result.gapMs)||0);hud.classList.toggle('win',won);hud.classList.toggle('lose',!won);hud.classList.toggle('photo',d.result.photoFinish===true);if(stateEl)stateEl.textContent=d.result.photoFinish?'PHOTO FINISH':'SERVER RESULT';if(leadEl)leadEl.textContent=won?'YOU WIN':'YOU LOSE';if(gapEl)gapEl.textContent=`${(mine/1000).toFixed(3)} s · Δ ${(gap/1000).toFixed(3)} s`;}
