@@ -30,7 +30,7 @@
   };
 
   const state={
-    active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,
+    active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,
     room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,driftScore:0,driftInside:false,
     speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,driftPhysicsTime:0
   };
@@ -41,10 +41,30 @@
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
   const TAU=Math.PI*2;
+  const DRAG_START_X=3130,DRAG_FINISH_X=3920,DRAG_LENGTH=DRAG_FINISH_X-DRAG_START_X;
+  const FREE_SEND_MS=50,DRAG_SEND_MS=30,REMOTE_BACKTIME_MS=55,DRAG_REMOTE_BACKTIME_MS=32,REMOTE_EXTRAPOLATE_MS=260;
 
   let lastMapDraw=0;
   const mapView={zoom:1,x:WORLD.w/2,y:WORLD.h/2};
   let mapDrag=null,mapWasDragged=false;
+
+  function angleLerp(a,b,t){let d=(b-a)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;return a+d*t;}
+  function pushRemoteSnapshot(r,s,serverTime){
+    if(!r||!s)return;const at=Number.isFinite(s.sampleTime)?s.sampleTime:(Number.isFinite(serverTime)?serverTime:Date.now()+state.serverOffset);if(Number.isFinite(r.ignoreBefore)&&at<r.ignoreBefore)return;const item={...s,_at:at};
+    r.snapshots=r.snapshots||[];const last=r.snapshots[r.snapshots.length-1];if(last&&Number.isFinite(item.seq)&&Number.isFinite(last.seq)&&item.seq<=last.seq)return;
+    if(last&&Math.hypot((item.x||0)-(last.x||0),(item.y||0)-(last.y||0))>720)r.snapshots.length=0;
+    r.snapshots.push(item);if(r.snapshots.length>18)r.snapshots.splice(0,r.snapshots.length-18);r.target=s;
+  }
+  function sampleRemote(r,targetTime){
+    const a=r?.snapshots;if(!a?.length)return r?.target||null;while(a.length>3&&a[1]._at<targetTime-500)a.shift();
+    let before=null,after=null;for(const snap of a){if(snap._at<=targetTime)before=snap;if(snap._at>=targetTime){after=snap;break;}}
+    if(before&&after&&before!==after){const t=clamp((targetTime-before._at)/Math.max(1,after._at-before._at),0,1);return {...after,x:before.x+(after.x-before.x)*t,y:before.y+(after.y-before.y)*t,vx:before.vx+(after.vx-before.vx)*t,vy:before.vy+(after.vy-before.vy)*t,speed:before.speed+(after.speed-before.speed)*t,angle:angleLerp(before.angle,after.angle,t)};}
+    const latest=a[a.length-1],age=targetTime-latest._at;if(age>0&&age<=REMOTE_EXTRAPOLATE_MS){const dt=age/1000;return {...latest,x:latest.x+(latest.vx||0)*dt,y:latest.y+(latest.vy||0)*dt,angle:latest.angle+(latest.yawRate||0)*dt};}
+    return latest;
+  }
+  function resetRemoteToGrid(playerId,lane,startAt){
+    const r=state.remotes.get(playerId);if(!r)return;const y=2635+lane*70;r.ignoreBefore=(Number(startAt)||0)-250;r.x=DRAG_START_X;r.y=y;r.angle=0;r.target={...(r.target||{}),x:DRAG_START_X,y,angle:0,vx:0,vy:0,speed:0,sampleTime:Date.now()+state.serverOffset};r.snapshots=[];pushRemoteSnapshot(r,r.target,r.target.sampleTime);
+  }
 
   function accountName(){
     return (window.VelocityAccount?.user?.displayName||localStorage.getItem('velocityApex.onlineName')||'RACER').trim().slice(0,14)||'RACER';
@@ -175,12 +195,16 @@
     }
   }
 
+  function stopClockSync(){clearInterval(state.pingTimer);state.pingTimer=0;}
+  function pingServer(){if(state.ws?.readyState===WebSocket.OPEN)send({type:'ping',v:1,clientTime:Date.now()});}
+  function startClockSync(){stopClockSync();pingServer();state.pingTimer=setInterval(pingServer,2000);}
   function connect(){
-    try{state.ws?.close();}catch{}
+    stopClockSync();try{state.ws?.close();}catch{}
     const proto=location.protocol==='https:'?'wss:':'ws:';
     const ws=state.ws=new WebSocket(`${proto}//${location.host}/api/free/${state.server.id}/ws?playerId=${encodeURIComponent(state.playerId)}&token=${encodeURIComponent(state.token)}`);
+    ws.onopen=()=>{if(ws===state.ws)startClockSync();};
     ws.onmessage=e=>onMessage(e.data);
-    ws.onclose=()=>{if(state.active)setBanner('СОЕДИНЕНИЕ ПОТЕРЯНО · ВОЗВРАТ В МЕНЮ',3500);};
+    ws.onclose=()=>{if(ws!==state.ws)return;stopClockSync();if(state.active)setBanner('СОЕДИНЕНИЕ ПОТЕРЯНО · ВОЗВРАТ В МЕНЮ',3500);};
   }
 
   function send(o){
@@ -193,19 +217,22 @@
     try{m=JSON.parse(raw);}catch{return;}
     if(!m?.type)return;
     if(m.type==='free_hello'){
-      state.serverOffset=(m.serverTime||Date.now())-Date.now();
-      applyRoom(m.room);
+      state.serverOffset=(m.serverTime||Date.now())-Date.now();state.serverOffsetReady=true;
+      applyRoom(m.room);pingServer();
       addSystem('Подключено к '+state.server.name+'.');
       return;
+    }
+    if(m.type==='pong'&&Number.isFinite(m.clientTime)&&Number.isFinite(m.serverTime)){
+      const recv=Date.now(),rtt=Math.max(0,recv-m.clientTime);if(rtt<1500){const estimate=m.serverTime+rtt*.5,offset=estimate-recv,alpha=!state.serverOffsetReady?1:(rtt<80?.36:rtt<180?.24:.14);state.serverOffset+= (offset-state.serverOffset)*alpha;state.serverOffsetReady=true;state.rtt=state.rtt?state.rtt*.72+rtt*.28:rtt;}if(typeof m.probeId==='string')send({type:'sync_echo',v:1,probeId:m.probeId});return;
     }
     if(m.type==='free_room'){applyRoom(m.room);return;}
     if(m.type==='free_state'&&m.playerId!==state.playerId){
       let r=state.remotes.get(m.playerId);
       if(!r){
-        r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,name:'RACER',liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};
+        r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};
         state.remotes.set(m.playerId,r);
       }
-      r.target=m.state;
+      pushRemoteSnapshot(r,m.state,m.serverTime);
       return;
     }
     if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true);return;}
@@ -219,25 +246,20 @@
       return;
     }
     if(m.type==='activity_start'&&m.activity==='drag'&&m.participants.includes(state.playerId)){
-      const lane=m.participants.indexOf(state.playerId);
-      state.drag={id:m.challengeId,startAt:m.startAt,finished:false};
-      state.dragQueued=false;
-      car.x=3130;
-      car.y=2635+lane*70;
-      car.angle=0;
-      car.vx=car.vy=car.speed=0;
-      setBanner('DRAG · ПРИГОТОВЬТЕСЬ',2000);
-      updateChatPreview();
-      return;
+      const lane=m.participants.indexOf(state.playerId),opponentId=m.participants.find(id=>id!==state.playerId)||null;
+      state.drag={id:m.challengeId,startAt:m.startAt,finishX:m.finishX||DRAG_FINISH_X,participants:[...m.participants],opponentId,finished:false,localCrossed:false,progress:null,confirmed:{},result:null};
+      state.dragQueued=false;car.x=DRAG_START_X;car.y=2635+lane*70;car.angle=0;car.vx=car.vy=car.speed=0;
+      m.participants.forEach((id,index)=>{if(id!==state.playerId)resetRemoteToGrid(id,index,m.startAt);});pingServer();
+      setBanner('DRAG · СИНХРОНИЗАЦИЯ СТАРТА',1800);updateDragHud(Date.now()+state.serverOffset);updateChatPreview();return;
     }
+    if(m.type==='activity_progress'&&m.activity==='drag'&&state.drag?.id===m.challengeId){state.drag.progress=m;return;}
+    if(m.type==='activity_finish_confirmed'&&m.activity==='drag'&&state.drag?.id===m.challengeId){
+      state.drag.confirmed[m.playerId]=m.elapsedMs;if(m.playerId===state.playerId){state.drag.localCrossed=true;setBanner(`ФИНИШ ЗАФИКСИРОВАН · ${(m.elapsedMs/1000).toFixed(3)} сек`,1800);}return;
+    }
+    if(m.type==='activity_cancelled'&&m.activity==='drag'&&state.drag?.id===m.challengeId){setBanner('DRAG ОТМЕНЁН · СОПЕРНИК ВЫШЕЛ',3000);state.drag=null;updateDragHud(Date.now()+state.serverOffset);return;}
     if(m.type==='activity_result'&&m.activity==='drag'){
-      const mine=m.times?.[state.playerId];
-      if(mine){
-        const won=m.winnerId===state.playerId;
-        setBanner(`${won?'ПОБЕДА':'ФИНИШ'} · ${(mine/1000).toFixed(3)} сек`,5000);
-        state.drag=null;
-      }
-      addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил.`);
+      const mine=m.times?.[state.playerId];if(Number.isFinite(mine)){const won=m.winnerId===state.playerId,gap=Math.abs(Number(m.gapMs)||0),photo=m.photoFinish===true||gap<=100,label=photo?'PHOTO FINISH':(won?'ПОБЕДА':'ПОРАЖЕНИЕ');setBanner(`${label} · ${(mine/1000).toFixed(3)} сек · Δ ${(gap/1000).toFixed(3)}`,5200);if(state.drag?.id===m.challengeId){state.drag.finished=true;state.drag.result=m;const dragId=m.challengeId;setTimeout(()=>{if(state.drag?.id===dragId){state.drag=null;updateDragHud(Date.now()+state.serverOffset);}},5400);}}
+      addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил · ${(m.times?.[m.winnerId]/1000).toFixed(3)} сек${m.photoFinish?' · PHOTO FINISH':''}.`);return;
     }
   }
 
@@ -250,7 +272,7 @@
       let r=state.remotes.get(p.id);
       if(!r){
         const s=p.state||{x:2320,y:1590,angle:0};
-        r={x:s.x,y:s.y,angle:s.angle,target:s,name:p.name,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',visual:createVisual(p.liveryId,p.effectId)};
+        r={x:s.x,y:s.y,angle:s.angle,target:s,snapshots:[],name:p.name,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',visual:createVisual(p.liveryId,p.effectId)};pushRemoteSnapshot(r,s,s.sampleTime||s.serverTime||Date.now()+state.serverOffset);
         state.remotes.set(p.id,r);
       }
       r.name=p.name;r.owner=p.owner===true;
@@ -259,7 +281,7 @@
         r.effectId=p.effectId||'standard';
         r.visual=createVisual(r.liveryId,r.effectId);
       }
-      if(p.state)r.target=p.state;
+      if(p.state)pushRemoteSnapshot(r,p.state,p.state.sampleTime||p.state.serverTime||Date.now()+state.serverOffset);
     }
     for(const id of state.remotes.keys())if(!live.has(id))state.remotes.delete(id);
     $('freePlayerCount').textContent=`${room.players.filter(p=>p.connected).length} / ${room.maxPlayers||MAX}`;
@@ -288,7 +310,7 @@
 
   function leave(){
     state.active=false;
-    send({type:'leave',v:1});
+    stopClockSync();send({type:'leave',v:1});
     try{state.ws?.close(1000,'leave');}catch{}
     state.ws=null;
     state.remotes.clear();
@@ -340,30 +362,31 @@
 
     CITY.resolveCarMotion(car,prevX,prevY);
 
+    const remoteTargetTime=now-(state.drag?DRAG_REMOTE_BACKTIME_MS:REMOTE_BACKTIME_MS);
     for(const r of state.remotes.values()){
-      if(!r.target)continue;
-      const t=Math.min(1,dt*7.5);
-      r.x+=(r.target.x-r.x)*t;
-      r.y+=(r.target.y-r.y)*t;
-      let d=(r.target.angle-r.angle)%(Math.PI*2);
-      if(d>Math.PI)d-=Math.PI*2;
-      if(d<-Math.PI)d+=Math.PI*2;
-      r.angle+=d*t;
-      if(r.visual){
-        r.visual.speed=Math.max(40,r.target.speed||0);
-        r.visual.effectTime+=dt;
-        r.visual.throttleVisual=.88;
-      }
+      const sampled=sampleRemote(r,remoteTargetTime);if(!sampled)continue;r.x=sampled.x;r.y=sampled.y;r.angle=sampled.angle;
+      if(r.visual){r.visual.speed=Math.max(40,sampled.speed||0);r.visual.effectTime+=dt;r.visual.throttleVisual=.88;}
     }
 
-    if(performance.now()-state.lastSend>55){
-      state.lastSend=performance.now();
-      send({type:'free_state',v:1,state:{seq:++state.seq,x:car.x,y:car.y,vx:car.vx,vy:car.vy,angle:car.angle,speed:car.speed}});
-    }
+    const sendEvery=state.drag&&!state.drag.result?DRAG_SEND_MS:FREE_SEND_MS;if(performance.now()-state.lastSend>sendEvery)sendFreeState();
 
     $('freeSpeed').textContent=Math.round(car.speed);
     $('freeLocation').textContent=district(car.x,car.y);
-    updateActivities(dt,now);
+    updateActivities(dt,now);updateDragHud(now);
+  }
+
+  function sendFreeState(force=false){
+    const t=performance.now(),every=state.drag&&!state.drag.result?DRAG_SEND_MS:FREE_SEND_MS;if(!force&&t-state.lastSend<every)return false;if(state.ws?.bufferedAmount>65536)return false;state.lastSend=t;
+    return send({type:'free_state',v:1,state:{seq:++state.seq,x:car.x,y:car.y,vx:car.vx,vy:car.vy,angle:car.angle,speed:car.speed,yawRate:Number(car.yawRate)||0,sampleTime:Math.round(Date.now()+state.serverOffset)}});
+  }
+
+  function updateDragHud(now){
+    const hud=$('freeDragHud');if(!hud)return;const d=state.drag;if(!d){hud.classList.add('hidden');hud.classList.remove('win','lose','photo');return;}hud.classList.remove('hidden');
+    const stateEl=$('freeDragState'),leadEl=$('freeDragLead'),gapEl=$('freeDragGap'),netEl=$('freeDragNet'),mineEl=$('freeDragMine'),rivalEl=$('freeDragRival');if(netEl)netEl.textContent=`PING ${Math.round(state.rtt||0)} MS`;
+    const remain=d.startAt-now;if(remain>0){const n=Math.max(1,Math.ceil(remain/1000));if(stateEl)stateEl.textContent='START SYNC';if(leadEl)leadEl.textContent=remain>3000?'READY':String(n);if(gapEl)gapEl.textContent='СТАРТ ПО СЕРВЕРНОМУ ТАЙМЕРУ';hud.classList.remove('win','lose','photo');}
+    else if(d.result){const mine=d.result.times?.[state.playerId],won=d.result.winnerId===state.playerId,gap=Math.abs(Number(d.result.gapMs)||0);hud.classList.toggle('win',won);hud.classList.toggle('lose',!won);hud.classList.toggle('photo',d.result.photoFinish===true);if(stateEl)stateEl.textContent=d.result.photoFinish?'PHOTO FINISH':'SERVER RESULT';if(leadEl)leadEl.textContent=won?'YOU WIN':'YOU LOSE';if(gapEl)gapEl.textContent=`${(mine/1000).toFixed(3)} s · Δ ${(gap/1000).toFixed(3)} s`;}
+    else{const p=d.progress,leadId=p?.leadId,gap=Math.abs(Number(p?.gap)||0),oppName=state.room?.players?.find(x=>x.id===d.opponentId)?.name||'RIVAL';if(stateEl)stateEl.textContent='SERVER LIVE';if(leadEl){if(!leadId||gap<3)leadEl.textContent='PHOTO FINISH';else leadEl.textContent=leadId===state.playerId?'YOU LEAD':`${oppName} LEADS`;}if(gapEl)gapEl.textContent=gap<3?'РАЗНИЦА МЕНЬШЕ НОСА МАШИНЫ':`ОТРЫВ ≈ ${(gap/54).toFixed(1)} КОРП.`;hud.classList.toggle('photo',gap<8);hud.classList.remove('win','lose');}
+    const positions=d.progress?.positions||{},mineX=Number(positions[state.playerId]),rivalX=Number(positions[d.opponentId]);if(remain>0){if(mineEl)mineEl.style.left='0%';if(rivalEl)rivalEl.style.left='0%';}else{if(mineEl&&Number.isFinite(mineX))mineEl.style.left=(clamp((mineX-DRAG_START_X)/DRAG_LENGTH,0,1)*100)+'%';if(rivalEl&&Number.isFinite(rivalX))rivalEl.style.left=(clamp((rivalX-DRAG_START_X)/DRAG_LENGTH,0,1)*100)+'%';}
   }
 
   function updateActivities(dt,now){
@@ -390,11 +413,8 @@
       state.driftInside=false;
     }
 
-    if(state.drag&&!state.drag.finished&&now>=state.drag.startAt&&car.x>3920&&car.y>2510&&car.y<2820){
-      state.drag.finished=true;
-      const elapsed=now-state.drag.startAt;
-      send({type:'activity_finish',v:1,activity:'drag',challengeId:state.drag.id,elapsedMs:elapsed});
-      setBanner(`DRAG · ${(elapsed/1000).toFixed(3)} сек`,3200);
+    if(state.drag&&!state.drag.finished&&!state.drag.localCrossed&&now>=state.drag.startAt&&car.x>DRAG_FINISH_X&&car.y>2510&&car.y<2820){
+      state.drag.localCrossed=true;sendFreeState(true);setBanner('ФИНИШ · СЕРВЕР ПРОВЕРЯЕТ РЕЗУЛЬТАТ',1800);
     }
 
     const action=$('freeContextAction');

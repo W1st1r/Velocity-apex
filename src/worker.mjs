@@ -10,6 +10,14 @@ const safeBalance=v=>Number.isInteger(v)&&v>=0&&v<=Number.MAX_SAFE_INTEGER?v:nul
 const FREE_SERVERS=Object.freeze(['city-01','city-02','city-03','city-04','city-05','city-06']);
 const FREE_MAX_PLAYERS=20;
 const FREE_WORLD={w:4200,h:3000};
+const FREE_STATE_RATE_MS=45;
+const FREE_DRAG_STATE_RATE_MS=26;
+const FREE_DRAG_FINISH_X=3920;
+const FREE_DRAG_Y_MIN=2510;
+const FREE_DRAG_Y_MAX=2820;
+const FREE_DRAG_SAMPLE_MAX_AGE_MS=900;
+const FREE_DRAG_SAMPLE_FUTURE_MS=90;
+const FREE_DRAG_PROGRESS_RATE_MS=45;
 const validFreeName=v=>validNickname(v)||(typeof v==='string'&&/^@[a-z0-9_]{3,24}$/.test(v));
 
 export default {
@@ -81,12 +89,49 @@ export class Room {
   publicFreeRoom(){
     const r=this.room;return {protocol:PROTOCOL_VERSION,mode:'freeroam',serverId:r.serverId,maxPlayers:FREE_MAX_PLAYERS,records:r.records||{speed:0,drift:0},players:r.players.map(p=>({id:p.id,name:p.name,owner:p.owner===true,connected:!!p.connected,liveryId:p.liveryId,effectId:p.effectId,state:p.state||null}))};
   }
+  freeDragForPlayer(playerId){
+    const challengeId=this.room?.players?.find(x=>x.id===playerId)?.dragChallengeId;if(!challengeId)return null;
+    const challenge=this.room?.dragChallenges?.[challengeId];return challenge&&challenge.ids?.includes(playerId)?challenge:null;
+  }
+  sendToPlayers(ids,obj){
+    const wanted=new Set(ids||[]),text=JSON.stringify(obj);for(const socket of this.ctx.getWebSockets()){const a=socket.deserializeAttachment?.();if(!wanted.has(a?.playerId))continue;try{socket.send(text);}catch{}}
+  }
+  projectFreeDragState(player,asOf){
+    const s=player?.state;if(!s)return null;const basis=Number.isFinite(s.sampleTime)?s.sampleTime:(s.serverTime||asOf),dt=Math.max(0,Math.min(.24,(asOf-basis)/1000));
+    return {x:s.x+s.vx*dt,y:s.y+s.vy*dt,vx:s.vx,vy:s.vy,speed:s.speed,sampleTime:basis,latencyMs:Math.max(0,Math.min(999,asOf-basis))};
+  }
+  broadcastFreeDragProgress(challenge,asOf,force=false){
+    if(!challenge||(!force&&asOf-(challenge.lastProgressAt||0)<FREE_DRAG_PROGRESS_RATE_MS))return;challenge.lastProgressAt=asOf;
+    const positions={},latencies={};for(const id of challenge.ids){const player=this.room.players.find(x=>x.id===id),projected=this.projectFreeDragState(player,asOf);if(!projected)continue;positions[id]=projected.x;latencies[id]=Math.round(projected.latencyMs);}
+    const [a,b]=challenge.ids,gap=Number.isFinite(positions[a])&&Number.isFinite(positions[b])?positions[a]-positions[b]:0,leadId=Math.abs(gap)<2?null:(gap>0?a:b);
+    this.sendToPlayers(challenge.ids,{type:'activity_progress',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,asOf,startAt:challenge.startAt,finishX:FREE_DRAG_FINISH_X,positions,latencies,leadId,gap:Math.abs(gap)});
+  }
+  dragCrossingTime(previous,current,startAt){
+    if(!previous||!current)return null;const aTime=Number(previous.sampleTime),bTime=Number(current.sampleTime);if(!Number.isFinite(aTime)||!Number.isFinite(bTime)||bTime<=aTime)return null;
+    const dx=current.x-previous.x;if(previous.x>=FREE_DRAG_FINISH_X||current.x<FREE_DRAG_FINISH_X||dx<=0)return null;const alpha=(FREE_DRAG_FINISH_X-previous.x)/dx;if(alpha<0||alpha>1)return null;
+    const y=previous.y+(current.y-previous.y)*alpha;if(y<FREE_DRAG_Y_MIN||y>FREE_DRAG_Y_MAX)return null;const crossedAt=aTime+(bTime-aTime)*alpha;if(crossedAt<startAt-35)return null;return Math.max(startAt,crossedAt);
+  }
+  async settleFreeDrag(challenge){
+    if(!challenge||challenge.settled)return false;if(!challenge.ids.every(id=>Number.isFinite(challenge.finishes?.[id])))return false;challenge.settled=true;
+    const sorted=[...challenge.ids].sort((a,b)=>challenge.finishes[a]-challenge.finishes[b]),winnerId=sorted[0],times=Object.fromEntries(challenge.ids.map(id=>[id,Math.max(0,Math.round(challenge.finishes[id]-challenge.startAt))])),gapMs=Math.max(0,Math.round(challenge.finishes[sorted[1]]-challenge.finishes[winnerId])),names=Object.fromEntries(challenge.ids.map(id=>[id,this.room.players.find(x=>x.id===id)?.name||'RACER']));
+    this.sendToPlayers(challenge.ids,{type:'activity_result',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,winnerId,times,names,gapMs,photoFinish:gapMs<=100,serverTime:now()});
+    for(const id of challenge.ids){const player=this.room.players.find(x=>x.id===id);if(player?.dragChallengeId===challenge.id)delete player.dragChallengeId;}delete this.room.dragChallenges[challenge.id];await this.save();return true;
+  }
+  async updateFreeDragFromState(player,previous,current,receivedAt){
+    const challenge=this.freeDragForPlayer(player.id);if(!challenge)return;this.broadcastFreeDragProgress(challenge,receivedAt);if(challenge.finishes[player.id])return;
+    const crossedAt=this.dragCrossingTime(previous,current,challenge.startAt);if(!Number.isFinite(crossedAt))return;challenge.finishes[player.id]=crossedAt;
+    this.sendToPlayers(challenge.ids,{type:'activity_finish_confirmed',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,playerId:player.id,elapsedMs:Math.max(0,Math.round(crossedAt-challenge.startAt)),serverTime:receivedAt});this.broadcastFreeDragProgress(challenge,receivedAt,true);
+    if(await this.settleFreeDrag(challenge))return;await this.save();
+  }
   async handleFreeMessage(ws,p,m){
-    if(m.type==='ping'){if(typeof m.clientTime==='number')this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:now()});return;}
+    if(m.type==='ping'){if(typeof m.clientTime==='number'){const t=now(),probeId=crypto.randomUUID().slice(0,12);p.syncProbeId=probeId;p.syncProbeAt=t;this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:t,probeId});}return;}
+    if(m.type==='sync_echo'){if(typeof m.probeId!=='string'||m.probeId!==p.syncProbeId||!p.syncProbeAt)return;const rtt=now()-p.syncProbeAt;delete p.syncProbeId;delete p.syncProbeAt;if(rtt>=0&&rtt<=2000)p.netRttMs=Number.isFinite(p.netRttMs)?Math.min(rtt,p.netRttMs+8):rtt;return;}
     if(m.type==='free_state'){
-      const t=now(),s=m.state;if(!s||!Number.isInteger(s.seq)||s.seq<=p.lastSeq||t-p.lastStateAt<45)return;
+      const t=now(),s=m.state,drag=this.freeDragForPlayer(p.id),minRate=drag?FREE_DRAG_STATE_RATE_MS:FREE_STATE_RATE_MS;if(!s||!Number.isInteger(s.seq)||s.seq<=p.lastSeq||t-p.lastStateAt<minRate)return;
       if(![s.x,s.y,s.vx,s.vy,s.angle,s.speed].every(Number.isFinite)||s.x<0||s.x>FREE_WORLD.w||s.y<0||s.y>FREE_WORLD.h||Math.abs(s.vx)>1200||Math.abs(s.vy)>1200||s.speed<0||s.speed>650)return;
-      p.lastSeq=s.seq;p.lastStateAt=t;p.state={x:s.x,y:s.y,vx:s.vx,vy:s.vy,angle:s.angle,speed:s.speed,serverTime:t};this.broadcast({type:'free_state',v:PROTOCOL_VERSION,playerId:p.id,serverTime:t,state:p.state},ws);return;
+      const claimed=Number(s.sampleTime),rtt=Number.isFinite(p.netRttMs)?Math.max(0,Math.min(500,p.netRttMs)):null,expected=rtt===null?t:t-rtt*.5,allowance=rtt===null?90:Math.max(28,Math.min(75,24+rtt*.18)),trusted=Number.isFinite(claimed)?Math.max(expected-allowance,Math.min(expected+allowance,claimed)):expected,bounded=Math.max(t-FREE_DRAG_SAMPLE_MAX_AGE_MS,Math.min(t+FREE_DRAG_SAMPLE_FUTURE_MS,trusted)),sampleTime=Math.max((p.lastSampleTime||0)+1,bounded);
+      const previous=p.state;if(previous){const dt=Math.max(.02,(sampleTime-(previous.sampleTime||previous.serverTime||sampleTime-50))/1000),travel=Math.hypot(s.x-previous.x,s.y-previous.y);if(travel>Math.max(150,dt*1250))return;}
+      p.lastSeq=s.seq;p.lastStateAt=t;p.lastSampleTime=sampleTime;p.state={seq:s.seq,x:s.x,y:s.y,vx:s.vx,vy:s.vy,angle:s.angle,speed:s.speed,yawRate:Number.isFinite(s.yawRate)?Math.max(-20,Math.min(20,s.yawRate)):0,sampleTime,serverTime:t};this.broadcast({type:'free_state',v:PROTOCOL_VERSION,playerId:p.id,serverTime:t,state:p.state},ws);await this.updateFreeDragFromState(p,previous,p.state,t);return;
     }
     if(m.type==='chat'){
       const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180);if(!text||t-(p.lastChatAt||0)<700)return;p.lastChatAt=t;this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,text,serverTime:t});return;
@@ -96,15 +141,15 @@ export class Room {
       if(value>(this.room.records?.[kind]||0)){this.room.records[kind]=value;await this.save();this.broadcast({type:'free_record',v:PROTOCOL_VERSION,kind,value,playerId:p.id,name:p.name,serverTime:now()});}return;
     }
     if(m.type==='activity_join'&&m.activity==='drag'){
-      const q=this.room.dragQueue=this.room.dragQueue||[];if(!q.includes(p.id))q.push(p.id);this.broadcast({type:'drag_queue',v:PROTOCOL_VERSION,count:q.length});
+      if(this.freeDragForPlayer(p.id))return;const q=this.room.dragQueue=this.room.dragQueue||[];if(!q.includes(p.id))q.push(p.id);this.broadcast({type:'drag_queue',v:PROTOCOL_VERSION,count:q.length});
       const live=q.filter(id=>this.room.players.some(x=>x.id===id&&x.connected));this.room.dragQueue=live;
-      if(live.length>=2){const ids=live.splice(0,2),challengeId=crypto.randomUUID(),startAt=now()+3200;this.room.dragQueue=live;this.room.dragChallenges[challengeId]={ids,startAt,finishes:{},createdAt:now()};await this.save();this.broadcast({type:'activity_start',v:PROTOCOL_VERSION,activity:'drag',challengeId,participants:ids,startAt});}return;
+      if(live.length>=2){const ids=live.splice(0,2),challengeId=crypto.randomUUID(),startAt=now()+3600,challenge={id:challengeId,ids,startAt,finishes:{},createdAt:now(),lastProgressAt:0};this.room.dragQueue=live;this.room.dragChallenges[challengeId]=challenge;for(const id of ids){const racer=this.room.players.find(x=>x.id===id);if(racer)racer.dragChallengeId=challengeId;}await this.save();this.broadcast({type:'activity_start',v:PROTOCOL_VERSION,activity:'drag',challengeId,participants:ids,startAt,finishX:FREE_DRAG_FINISH_X});this.broadcastFreeDragProgress(challenge,now(),true);}return;
     }
-    if(m.type==='activity_finish'&&m.activity==='drag'){
-      const c=this.room.dragChallenges?.[m.challengeId];if(!c||!c.ids.includes(p.id)||c.finishes[p.id])return;const elapsed=Math.floor(Number(m.elapsedMs)||0);if(elapsed<500||elapsed>120000)return;c.finishes[p.id]=elapsed;
-      const done=c.ids.every(id=>c.finishes[id]);if(done){const sorted=[...c.ids].sort((a,b)=>c.finishes[a]-c.finishes[b]),names=Object.fromEntries(c.ids.map(id=>[id,this.room.players.find(x=>x.id===id)?.name||'RACER']));this.broadcast({type:'activity_result',v:PROTOCOL_VERSION,activity:'drag',challengeId:m.challengeId,winnerId:sorted[0],times:c.finishes,names});delete this.room.dragChallenges[m.challengeId];await this.save();}return;
-    }
+    // Legacy clients may still send activity_finish. The server deliberately ignores
+    // elapsedMs: drag results are derived only from timestamped movement snapshots.
+    if(m.type==='activity_finish'&&m.activity==='drag')return;
     if(m.type==='leave'){
+      const active=this.freeDragForPlayer(p.id);if(active){for(const id of active.ids){const racer=this.room.players.find(x=>x.id===id);if(racer?.dragChallengeId===active.id)delete racer.dragChallengeId;}delete this.room.dragChallenges[active.id];this.sendToPlayers(active.ids.filter(id=>id!==p.id),{type:'activity_cancelled',v:PROTOCOL_VERSION,activity:'drag',challengeId:active.id,reason:'PLAYER_LEFT'});}
       this.room.players=this.room.players.filter(x=>x.id!==p.id);this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>id!==p.id);if(!this.room.players.length){this.room=null;await this.ctx.storage.deleteAll();try{ws.close(1000,'leave');}catch{};return;}await this.save();this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicFreeRoom()},ws);try{ws.close(1000,'leave');}catch{};return;
     }
   }
@@ -133,7 +178,7 @@ export class Room {
       let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}if(!validFreeName(b?.name))return json({error:'INVALID_NAME'},400);
       const serverId=url.searchParams.get('serverId')||'city-01',t=now();if(!this.room||this.room.mode!=='freeroam')this.room={mode:'freeroam',serverId,createdAt:t,updatedAt:t,emptySince:0,records:{speed:0,drift:0},dragQueue:[],dragChallenges:{},players:[]};
       const live=this.room.players.filter(p=>p.connected||p.disconnectedUntil>t);if(live.length>=FREE_MAX_PLAYERS)return json({error:'SERVER_FULL'},409);
-      const id=playerId(),sessionToken=token(),loadout=safeLoadout(b.loadout);this.room.players.push({id,name:sanitizeNickname(b.name),owner:b.owner===true,token:sessionToken,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,lastSeq:-1,lastStateAt:0,lastChatAt:0,state:null});await this.save();return json({ok:true,serverId:this.room.serverId,playerId:id,sessionToken,room:this.publicFreeRoom()},201);
+      const id=playerId(),sessionToken=token(),loadout=safeLoadout(b.loadout);this.room.players.push({id,name:sanitizeNickname(b.name),owner:b.owner===true,token:sessionToken,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,lastSeq:-1,lastStateAt:0,lastSampleTime:0,lastChatAt:0,netRttMs:null,state:null});await this.save();return json({ok:true,serverId:this.room.serverId,playerId:id,sessionToken,room:this.publicFreeRoom()},201);
     }
     if(url.pathname==='/free/ws'){
       if(request.headers.get('Upgrade')!=='websocket')return json({error:'WEBSOCKET_REQUIRED'},426);if(!this.room||this.room.mode!=='freeroam')return json({error:'SERVER_NOT_FOUND'},404);
@@ -238,6 +283,7 @@ export class Room {
   async handleDisconnect(ws){
     await this.load();if(!this.room)return;const a=ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return;
     const stillLive=this.ctx.getWebSockets().some(s=>s!==ws&&s.deserializeAttachment?.()?.playerId===p.id);if(stillLive)return;
+    if(this.room.mode==='freeroam'){const active=this.freeDragForPlayer(p.id);if(active){for(const id of active.ids){const racer=this.room.players.find(x=>x.id===id);if(racer?.dragChallengeId===active.id)delete racer.dragChallengeId;}delete this.room.dragChallenges[active.id];this.sendToPlayers(active.ids.filter(id=>id!==p.id),{type:'activity_cancelled',v:PROTOCOL_VERSION,activity:'drag',challengeId:active.id,reason:'CONNECTION_LOST'});}this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>id!==p.id);}
     p.connected=false;p.disconnectedUntil=now()+RECONNECT_GRACE_MS;if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();this.broadcast({type:this.room.mode==='freeroam'?'free_room':'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.room.mode==='freeroam'?this.publicFreeRoom():this.publicRoom()});
   }
   async alarm(){
