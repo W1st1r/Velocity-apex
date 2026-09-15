@@ -9,5 +9,5 @@ assert.ok(garage.includes("if(!action){if(changed)this.updatePreviewOnly(mode,id
 assert.ok(garage.includes("addEventListener('pointerdown'"), 'car prewarm on touch/pointer missing');
 assert.ok(garage.includes('scheduleCatalogPreload(entries,mode)'), 'idle catalog preload missing');
 assert.ok(car.includes('R.preloadSprite=preloadSprite'), 'shared sprite decode cache/preloader missing');
-assert.ok(html.includes('garage.js?v=20260915-014')&&html.includes('car.js?v=20260915-014'), 'cache bust not updated');
+assert.ok(html.includes('garage.js?v=20260915-owner1')&&html.includes('car.js?v=20260915-owner1'), 'cache bust not updated');
 console.log('garage_performance_smoke: OK');

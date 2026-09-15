@@ -217,7 +217,7 @@
       // throttle and handbrake can sustain it, but grip ramps up outside ~45 degrees
       // so the car naturally catches instead of feeling like it is on ice.
       let gripRate=this.surface==='asphalt'?(4.20-3.70*driftIntent):(this.surface==='shoulder'?4.55:1.65/Math.max(.75,track.theme.drag||1));
-      gripRate*=1-.30*(this.gripDisturbance||0);
+      gripRate/=this.drift||1;gripRate*=1-.30*(this.gripDisturbance||0);
       const currentSlip=Math.abs(Math.atan2(lateral,Math.abs(longitudinal)+18)),beforeTyreSpeed=Math.hypot(longitudinal,lateral);
       if(currentSlip>.82)gripRate+=7.5*(currentSlip-.82)/.48;
       lateral*=Math.exp(-Math.max(.88,gripRate)*dt);

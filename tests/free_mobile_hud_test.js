@@ -13,5 +13,5 @@ ok(css.includes('nth-last-child(n+3)'),'phone chat preview should be limited to 
 ok(js.includes("roam.classList.toggle('drag-active',!!d)"),'drag-active UI state missing');
 ok(js.includes('toggleChat(false);'),'drag start must close open chat/keyboard');
 ok(html.includes('css/style.css?v=20260915-mobilehud3'),'CSS cache version not bumped');
-ok(html.includes('js/freeroam.js?v=20260915-mobilehud3'),'Free Roam cache version not bumped');
+ok(html.includes('js/freeroam.js?v=20260915-owner1'),'Free Roam cache version not bumped');
 console.log('free mobile HUD test: OK');

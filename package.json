@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node tests/run_all.js && node tests/online_protocol_test.mjs && node tests/online_network_test.js && node tests/online_room_test.mjs && node tests/online_ui_smoke.js && node tests/freeroam_social_smoke.js && node tests/free_drag_sync_test.mjs && node tests/free_mobile_hud_test.js",
+    "test": "node tests/run_all.js && node tests/online_protocol_test.mjs && node tests/online_network_test.js && node tests/online_room_test.mjs && node tests/online_ui_smoke.js && node tests/freeroam_social_smoke.js && node tests/free_drag_sync_test.mjs && node tests/free_mobile_hud_test.js && node tests/owner_panel_test.mjs",
     "test:ai": "node tests/ai_benchmark.js",
     "test:all": "npm test && npm run test:ai",
     "test:map": "node tests/free_city_geometry_test.js && node tests/freeroam_social_smoke.js && node tests/interaction_guard_smoke.js"

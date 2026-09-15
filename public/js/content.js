@@ -327,15 +327,16 @@
     const raw=save?.carUpgrades?.[id];
     return Object.fromEntries(Object.keys(R.UPGRADE_TYPES).map(key=>[key,Number.isInteger(raw?.[key])?Math.max(0,Math.min(5,raw[key])):0]));
   };
-  R.getCarPerformance=function(id,save){
-    const base=R.CAR_PERFORMANCE[id]||R.CAR_PERFORMANCE.apexLime,result={...base},levels=R.getUpgradeLevels(save,id);
-    for(const [key,type] of Object.entries(R.UPGRADE_TYPES))result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*type.step));
-    return result;
+  R.carAvailable=id=>window.VelocityAccount?.isAdmin||!(R.ownerCars?.[id]?.enabled===false||R.ownerCars?.[id]?.unavailable);
+  R.getCarPerformance=function(id,save,personal=true){
+    const base={...(R.CAR_PERFORMANCE[id]||R.CAR_PERFORMANCE.apexLime),...(R.ownerCars?.[id]||{})},result={maxSpeed:base.maxSpeed,accel:base.accel,brakePower:base.brakePower,turnRate:base.turnRate,drift:base.drift||1},levels=R.getUpgradeLevels(save,id);
+    for(const [key,type] of Object.entries(R.UPGRADE_TYPES))result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*(R.ownerCars?.[id]?.upgrades?.[key]?.step??type.step)));
+    if(personal)Object.assign(result,R.ownerTuning?.[id]||{});return result;
   };
-  R.applyCarPerformance=function(car,id,save){const stats=R.getCarPerformance(id,save);Object.assign(car,stats);car.baseMaxSpeed=stats.maxSpeed;return stats;};
+  R.applyCarPerformance=function(car,id,save){if(!R.carAvailable(id))id='apexLime';const stats=R.getCarPerformance(id,save,car.player!==false);Object.assign(car,stats);car.baseMaxSpeed=stats.maxSpeed;return stats;};
   R.getUpgradeCost=function(id,key,level){
     if(!has(R.LIVERIES,id)||!has(R.UPGRADE_TYPES,key)||!Number.isInteger(level)||level<0||level>=5)return null;
-    return Math.ceil(Math.max(2800,R.LIVERIES[id].price||0)*[.04,.07,.11,.16,.22][level]*R.UPGRADE_TYPES[key].priceFactor/10)*10;
+    return Math.ceil(Math.max(2800,R.LIVERIES[id].price||0)*[.04,.07,.11,.16,.22][level]*(R.ownerCars?.[id]?.upgrades?.[key]?.priceFactor??R.UPGRADE_TYPES[key].priceFactor)/10)*10;
   };
   // expectedLevel prevents double taps or stale purchase buttons buying another level.
   R.buyCarUpgrade=function(save,id,key,expectedLevel){
@@ -367,6 +368,7 @@
   R.shopAction=function(save,kind,id){
     const catalog=kind==='livery'?R.LIVERIES:kind==='effect'?R.EFFECTS:null;
     if(!catalog||!has(catalog,id))return 'invalid';
+    if(kind==='livery'&&!R.carAvailable(id))return 'unavailable';
     const owned=save[kind==='livery'?'ownedLiveries':'ownedEffects'],selected=kind==='livery'?'selectedLivery':'selectedEffect';
     if(owned.includes(id)){save[selected]=id;return 'selected';}
     if(!Number.isFinite(save.credits)||save.credits<catalog[id].price)return 'insufficient';
@@ -378,14 +380,14 @@
     const selectedKey=kind==='livery'?'selectedLivery':kind==='effect'?'selectedEffect':null;
     if(!catalog||!ownedKey||!Object.prototype.hasOwnProperty.call(catalog,id))return 'invalid';
     if(!Array.isArray(save[ownedKey])||!save[ownedKey].includes(id))return 'locked';
-    save[selectedKey]=id;return 'selected';
+    if(kind==='livery'&&!R.carAvailable(id))return 'unavailable';save[selectedKey]=id;return 'selected';
   };
   R.getCatalogEntries=function(save,mode,kind,category='all'){
     const cars=kind==='livery',catalog=cars?R.LIVERIES:kind==='effect'?R.EFFECTS:null;
     if(!catalog)return [];
     const owned=save&&Array.isArray(save[cars?'ownedLiveries':'ownedEffects'])?save[cars?'ownedLiveries':'ownedEffects']:[];
     let entries=Object.entries(catalog);
-    if(cars&&mode==='shop')entries=entries.filter(([,item])=>!item.shopHidden);
+    if(cars&&mode==='shop')entries=entries.filter(([id,item])=>!item.shopHidden&&R.carAvailable(id));
     if(mode==='garage')entries=entries.filter(([id])=>owned.includes(id));
     if(cars&&category!=='all')entries=entries.filter(([,item])=>R.normalizeCarCategory(item.category)===category);
     return entries;

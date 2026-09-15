@@ -1,3 +1,4 @@
+import {maintenanceGate,settings} from './owner.mjs';
 const SESSION_COOKIE='va_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
 const PASSWORD_ITERATIONS=100000;
@@ -546,6 +547,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       const hash=await passwordHash(password,decodeB64url(row.password_salt),Number(row.password_iterations)||PASSWORD_ITERATIONS);
       if(hash!==row.password_hash)return json({error:'INVALID_CREDENTIALS'},401);
       const user=adminUser({id:row.id,username:row.username,displayName:row.display_name,createdAt:Number(row.created_at)||0});
+      if(!user.isAdmin&&(await settings(env)).maintenance)return json({error:'MAINTENANCE'},503);
       const banned=await banResponse(env,user);if(banned)return banned;
       const t=now();await env.DB.prepare('UPDATE users SET last_login_at=?,updated_at=? WHERE id=?').bind(t,t,row.id).run();
       const session=await createSession(env,request,row.id);
@@ -572,3 +574,5 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     console.error('auth error',e);return json({error:'SERVER_ERROR'},500);
   }
 }
+
+export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse};

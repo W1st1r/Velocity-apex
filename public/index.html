@@ -16,6 +16,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
   <link rel="stylesheet" href="css/style.css?v=20260915-mobilehud3" />
+<link rel="stylesheet" href="css/owner-panel.css?v=owner1">
 </head>
 <body>
   <div id="app">
@@ -591,9 +592,9 @@
       <section class="root-console-panel glass enter-panel">
         <header class="root-console-header">
           <div>
-            <div class="root-terminal-line"><span>VELOCITY APEX / ROOT CONSOLE</span><i></i></div>
-            <h2 id="rootConsoleTitle">ПАНЕЛЬ АДМИНИСТРАТОРА</h2>
-            <div class="root-access-status"><span class="root-led active"></span> ADMIN ACCESS: GRANTED</div>
+            <div class="root-terminal-line"><span>VELOCITY APEX / OWNER PANEL</span><i></i></div>
+            <h2 id="rootConsoleTitle">ПАНЕЛЬ ВЛАДЕЛЬЦА</h2>
+            <div class="root-access-status"><span class="root-led active"></span> ДОСТУП ВЛАДЕЛЬЦА</div>
           </div>
           <div class="root-header-actions">
             <button id="rootBackBtn" class="secondary-btn" type="button">НАЗАД</button>
@@ -603,9 +604,9 @@
 
         <div id="rootNotice" class="root-notice" aria-live="polite">ADMIN // ACTIVE</div>
 
-        <nav id="rootTabs" class="root-tabs root-nav" aria-label="Панель администратора">
+        <nav id="rootTabs" class="root-tabs root-nav" aria-label="Панель владельца">
           <div class="root-tab-group">
-            <span class="root-tab-group-label">МОЙ АККАУНТ</span>
+            <span class="root-tab-group-label">РЕСУРСЫ И МАШИНЫ</span>
             <div class="root-tab-group-buttons">
               <button class="active" type="button" data-root-tab="money"><b>CR</b><span>ДЕНЬГИ</span></button>
               <button type="button" data-root-tab="cars"><b>AUTO</b><span>МАШИНЫ</span></button>
@@ -666,8 +667,8 @@
 
         <div id="rootPaneCars" class="root-pane hidden" data-root-pane="cars">
           <section class="root-module">
-            <div class="root-module-title"><span>МАШИНЫ</span><small>ВАШ АККАУНТ</small></div>
-            <div class="root-bulk-actions"><button type="button" data-root-action="grant-cars">ВЫДАТЬ ВСЕ МАШИНЫ</button><button type="button" class="danger" data-root-action="revoke-cars">ЗАБРАТЬ ПЛАТНЫЕ</button></div>
+            <div class="root-module-title"><span>МАШИНЫ</span><small>КАТАЛОГ И ПЕРСОНАЛЬНЫЕ НАСТРОЙКИ</small></div>
+            <div class="root-bulk-actions"><button type="button" data-root-action="grant-cars">ВЫДАТЬ СЕБЕ ВСЕ МАШИНЫ</button><button type="button" class="danger" data-root-action="revoke-cars">УБРАТЬ У СЕБЯ ПЛАТНЫЕ</button></div>
             <div id="rootCars" class="root-items"></div>
           </section>
         </div>
@@ -853,22 +854,23 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260915-014"></script>
-  <script src="js/racing-line.js?v=20260915-014"></script>
-  <script src="js/track.js?v=20260915-014"></script>
-  <script src="js/audio.js?v=20260915-014"></script>
-  <script src="js/car.js?v=20260915-014"></script>
-  <script src="js/ai.js?v=20260915-014"></script>
-  <script src="js/garage.js?v=20260915-014"></script>
-  <script src="js/root-console.js?v=20260915-014"></script>
-  <script src="js/controls.js?v=20260915-014"></script>
-  <script src="js/network.js?v=20260915-014"></script>
-  <script src="js/account.js?v=20260915-014"></script>
+  <script src="js/content.js?v=20260915-owner1"></script>
+  <script src="js/racing-line.js?v=20260915-owner1"></script>
+  <script src="js/track.js?v=20260915-owner1"></script>
+  <script src="js/audio.js?v=20260915-owner1"></script>
+  <script src="js/car.js?v=20260915-owner1"></script>
+  <script src="js/ai.js?v=20260915-owner1"></script>
+  <script src="js/garage.js?v=20260915-owner1"></script>
+  <script src="js/root-console.js?v=20260915-owner1"></script>
+  <script src="js/controls.js?v=20260915-owner1"></script>
+  <script src="js/network.js?v=20260915-owner1"></script>
+  <script src="js/account.js?v=20260915-owner1"></script>
   <script src="js/promo.js?v=20260915-001"></script>
-  <script src="js/online.js?v=20260915-014"></script>
-  <script src="js/friends.js?v=20260915-014"></script>
+  <script src="js/online.js?v=20260915-owner1"></script>
+  <script src="js/friends.js?v=20260915-owner1"></script>
   <script src="js/free-city.js?v=20260915-freefix1"></script>
-  <script src="js/freeroam.js?v=20260915-mobilehud3"></script>
-  <script src="js/game.js?v=20260915-014"></script>
+  <script src="js/freeroam.js?v=20260915-owner1"></script>
+  <script src="js/owner-panel.js?v=owner1"></script>
+  <script src="js/game.js?v=20260915-owner1"></script>
 </body>
 </html>

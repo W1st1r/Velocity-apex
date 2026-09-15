@@ -77,7 +77,7 @@
 
   function loadout(){
     const s=loadSave();
-    const liveryId=s.selectedLivery||'apexLime',effectId=s.selectedEffect||'standard';
+    const liveryId=R.carAvailable(s.selectedLivery)?(s.selectedLivery||'apexLime'):'apexLime',effectId=s.selectedEffect||'standard';
     return {liveryId,effectId,livery:R.LIVERIES?.[liveryId]||R.LIVERIES?.apexLime||null};
   }
 
@@ -204,7 +204,7 @@
     const ws=state.ws=new WebSocket(`${proto}//${location.host}/api/free/${state.server.id}/ws?playerId=${encodeURIComponent(state.playerId)}&token=${encodeURIComponent(state.token)}`);
     ws.onopen=()=>{if(ws===state.ws)startClockSync();};
     ws.onmessage=e=>onMessage(e.data);
-    ws.onclose=()=>{if(ws!==state.ws)return;stopClockSync();if(state.active)setBanner('СОЕДИНЕНИЕ ПОТЕРЯНО · ВОЗВРАТ В МЕНЮ',3500);};
+    ws.onclose=e=>{if(ws!==state.ws)return;stopClockSync();if(e.code===4003){leave();alert('Вы отключены владельцем или начались технические работы.');return;}if(state.active)setBanner('СОЕДИНЕНИЕ ПОТЕРЯНО · ВОЗВРАТ В МЕНЮ',3500);};
   }
 
   function send(o){

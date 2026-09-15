@@ -8,7 +8,7 @@
   if(!els.root||!els.button||!els.gate)return;
 
   const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0};
-  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
+  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
   function installId(){try{let id=localStorage.getItem(INSTALL_KEY)||'';if(!/^[A-Za-z0-9_-]{16,128}$/.test(id)){id=(crypto.randomUUID?.()||String(Date.now())+Math.random()).replace(/[^A-Za-z0-9_-]/g,'');localStorage.setItem(INSTALL_KEY,id);}return id;}catch{return '';} }
   function localSave(){try{const x=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');return normalizeSave(x);}catch{return normalizeSave({});}}
@@ -64,8 +64,9 @@
     els.root.classList.remove('hidden');els.root.setAttribute('aria-hidden','false');$('menu')?.classList.add('hidden');setMessage();setMessage('',false,true);setTimeout(()=>els.logout.focus(),30);
   }
   function close(){els.root.classList.add('hidden');els.root.setAttribute('aria-hidden','true');if(state.gameEntered)$('menu')?.classList.remove('hidden');}
-  function enterGame(){
+  async function enterGame(){
     if(!state.user)return;
+    try{const r=await fetch('/api/owner/runtime',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({location:'menu'})});const d=await r.json();if(!r.ok){setGateMessage(d.error==='MAINTENANCE'?'Технические работы. Вход временно закрыт.':'Не удалось проверить доступ. Попробуйте ещё раз.',true);return;}window.Racing.ownerCars=d.cars;window.Racing.ownerTuning=d.tuning;}catch(e){setGateMessage('Нет связи с сервером. Попробуйте ещё раз.',true);return;}
     state.gameEntered=true;els.gate.classList.add('hidden');els.gate.setAttribute('aria-hidden','true');$('menu')?.classList.remove('hidden');setGateMessage();
     window.dispatchEvent(new CustomEvent('velocity-account-entered',{detail:{user:state.user}}));
   }

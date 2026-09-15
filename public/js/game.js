@@ -490,9 +490,10 @@
       driftIdleTime+=dt;if(collision||player.speed<24||forward<5||driftIdleTime>.82){if(driftLastValid&&driftCombo>=2.5&&collision)toast('COMBO LOST','warn');driftCombo=1;driftChainDistance=0;driftChainTime=0;driftLastValid=false;}
     }
   }
+  window.VelocityLocation=()=>state.startsWith('online')?'online':state.startsWith('root')?'owner':state==='racing'&&localMode==='drift'?'drift':state;
   function finishRace(){
     if(state!=='racing'||!player||!player.raceFinished||player.laps<raceSettings.laps||raceRewardClaimed)return;
-    raceRewardClaimed=true;const drift=localMode==='drift';
+    raceRewardClaimed=true;const drift=localMode==='drift';window.VelocityRecordRace?.({raceId:currentRaceRewardKey,kind:drift?'drift':'solo',won:player.finishPlace===1,time:raceTime*1000});
     const reward=drift?R.driftReward(raceSettings,player.finishPlace,score,track.length):R.raceReward(raceSettings,player.finishPlace);if(drift)claimDriftCreditsOnce(currentRaceRewardKey||('offline:'+Date.now()),reward);else{save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+reward);writeSave();}
     $('finishReward').textContent='+'+reward.toLocaleString()+' CR';$('finishBalance').textContent=save.credits.toLocaleString()+' CR';$('finishTrack').textContent=track.config.name;
     state='finished';resetInput();audio.updateEngine(0,0,false);setPauseButton(false,false);showRaceUI(false);persistRecords();

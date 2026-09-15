@@ -145,12 +145,12 @@
           <div class="root-admin-facts">
             <div><small>ДАТА РЕГИСТРАЦИИ</small><strong>${esc(when(u.createdAt))}</strong></div>
             <div><small>ПОСЛЕДНИЙ ЗАХОД</small><strong>${esc(u.lastLoginAt?when(u.lastLoginAt):'Ещё не входил')}</strong></div>
-            <div><small>ОБЛАЧНЫЙ SAVE</small><strong>${esc(data.updatedAt?when(data.updatedAt):'Нет данных')}</strong></div>
-            <div><small>SERVER REVISION</small><strong>${Number(data.revision)||0}</strong></div>
+            
+            
           </div>
         </div>
         <div class="root-admin-detail-tabs" role="tablist" aria-label="Управление аккаунтом">
-          <button class="${this.remoteDetailTab==='overview'?'active':''}" type="button" data-admin-detail-tab="overview">ОБЗОР</button>
+          <button class="${this.remoteDetailTab==='overview'?'active':''}" type="button" data-admin-detail-tab="overview">ОБЩЕЕ</button>
           <button class="${this.remoteDetailTab==='money'?'active':''}" type="button" data-admin-detail-tab="money">ДЕНЬГИ</button>
           <button class="${this.remoteDetailTab==='resources'?'active':''}" type="button" data-admin-detail-tab="resources">РЕСУРСЫ</button>
           <button class="${this.remoteDetailTab==='ban'?'active':''}" type="button" data-admin-detail-tab="ban">БЛОКИРОВКА</button>

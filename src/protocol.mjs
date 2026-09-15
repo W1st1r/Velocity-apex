@@ -41,11 +41,11 @@ export function normalizeSettings(value={}){
     wager:validWager(value.wager)?value.wager:0,drift};
 }
 export function finiteNumber(v,min=-Infinity,max=Infinity){ return typeof v==='number' && Number.isFinite(v) && v>=min && v<=max; }
-export function validPlayerState(s){
+export function validPlayerState(s,maxSpeed=650,maxYaw=20){
   if(!s||typeof s!=='object')return false;
   return Number.isInteger(s.seq)&&s.seq>=0&&s.seq<=Number.MAX_SAFE_INTEGER && finiteNumber(s.clientTime,0,Number.MAX_SAFE_INTEGER) &&
-    finiteNumber(s.x,-100000,100000)&&finiteNumber(s.y,-100000,100000)&&finiteNumber(s.vx,-1200,1200)&&finiteNumber(s.vy,-1200,1200)&&
-    finiteNumber(s.angle,-1000,1000)&&finiteNumber(s.speed,0,650)&&finiteNumber(s.yawRate,-20,20)&&finiteNumber(s.progress,0,1.0001)&&
+    finiteNumber(s.x,-100000,100000)&&finiteNumber(s.y,-100000,100000)&&finiteNumber(s.vx,-Math.max(1200,maxSpeed*2),Math.max(1200,maxSpeed*2))&&finiteNumber(s.vy,-Math.max(1200,maxSpeed*2),Math.max(1200,maxSpeed*2))&&
+    finiteNumber(s.angle,-1000,1000)&&finiteNumber(s.speed,0,maxSpeed)&&finiteNumber(s.yawRate,-maxYaw,maxYaw)&&finiteNumber(s.progress,0,1.0001)&&
     Number.isInteger(s.laps)&&s.laps>=0&&s.laps<=100&&Number.isInteger(s.checkpoint)&&s.checkpoint>=0&&s.checkpoint<=10000&&
     finiteNumber(s.steer,-1,1)&&finiteNumber(s.throttle,0,1)&&finiteNumber(s.brake,0,1)&&
     (s.driftScore===undefined||finiteNumber(s.driftScore,0,100000000))&&typeof s.finished==='boolean';
