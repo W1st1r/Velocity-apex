@@ -53,7 +53,7 @@
     lux:{id:'lux',label:'LUX',className:'rarity-lux',color:'#E97CFF'}
   };
   R.normalizeCarCategory=value=>value==='regular'?'basic':(R.CAR_CATEGORIES[value]&&value!=='all'?value:'basic');
-  // Legacy starter liveries remain valid for old velocityApex.v1 saves, but stay out of the new 41-car shop catalog.
+  // Legacy starter liveries remain valid for old velocityApex.v1 saves, but stay out of the new 42-car shop catalog.
   R.LIVERIES={
     apexLime:{name:'APEX LIME',price:0,category:'basic',legacy:true,shopHidden:true,primary:'#80ff44',secondary:'#f5f5ed',accent:'#183b24',stripe:'#eaffdf'},
     crimsonVelocity:{name:'CRIMSON VELOCITY',price:1400,category:'basic',legacy:true,shopHidden:true,primary:'#f3274f',secondary:'#20242c',accent:'#ffffff',stripe:'#f6ecec'},
@@ -101,7 +101,8 @@
     {id:"pagani-huayra-bc",name:"Pagani Huayra BC",category:"lux",primary:"#3a4144",secondary:'#141a1e',accent:'#f1f4f4',stripe:'#dce4e6',bodyColor:'#3a4144',sprite:{src:"assets/cars/pagani-huayra-bc.webp",thumbnail:"assets/cars/pagani-huayra-bc-thumbnail.webp",preserveAspectRatio:true,orientation:'nose-right'}},
     {id:"lamborghini-veneno",name:"Lamborghini Veneno",category:"lux",primary:"#9ca2a3",secondary:'#141a1e',accent:'#f1f4f4',stripe:'#dce4e6',bodyColor:'#9ca2a3',sprite:{src:"assets/cars/lamborghini-veneno.webp",thumbnail:"assets/cars/lamborghini-veneno-thumbnail.webp",preserveAspectRatio:true,orientation:'nose-right'}},
     {id:"mercedes-amg-one",name:"Mercedes-AMG ONE",category:"lux",primary:"#242a2b",secondary:'#141a1e',accent:'#f1f4f4',stripe:'#dce4e6',bodyColor:'#242a2b',sprite:{src:"assets/cars/mercedes-amg-one.webp",thumbnail:"assets/cars/mercedes-amg-one-thumbnail.webp",preserveAspectRatio:true,orientation:'nose-right'}},
-    {id:"aston-martin-valkyrie-mary",name:"Mary",category:"lux",primary:"#ff3fae",secondary:"#141018",accent:"#ffe3f4",stripe:"#ff9bd3",bodyColor:"#ff3fae",sprite:{src:"assets/cars/aston-martin-valkyrie-mary.webp",thumbnail:"assets/cars/aston-martin-valkyrie-mary-thumbnail.webp",preserveAspectRatio:true,orientation:'nose-right'}}
+    {id:"aston-martin-valkyrie-mary",name:"Mary",category:"lux",primary:"#ff3fae",secondary:"#141018",accent:"#ffe3f4",stripe:"#ff9bd3",bodyColor:"#ff3fae",sprite:{src:"assets/cars/aston-martin-valkyrie-mary.webp",thumbnail:"assets/cars/aston-martin-valkyrie-mary-thumbnail.webp",preserveAspectRatio:true,orientation:'nose-right'}},
+    {id:"apollo-evo",name:"Apollo EVO",category:"lux",primary:"#ff5a0a",secondary:"#11161a",accent:"#f5f7f6",stripe:"#ffb24a",bodyColor:"#ff5a0a",limited:true,performance:{maxSpeed:558,accel:428,brakePower:560,turnRate:2.52,drift:.94},upgrades:{speed:{step:.028,priceFactor:1.08},acceleration:{step:.064,priceFactor:1.20},brakes:{step:.072,priceFactor:.90}},sprite:{src:"assets/cars/apollo-evo.webp",thumbnail:"assets/cars/apollo-evo-thumbnail.webp",preserveAspectRatio:true,orientation:'nose-right'}}
   ];
   // Economy and geometry are intentionally centralized: values are resolved once when the
   // catalog loads, so the race renderer does no image analysis or per-frame metadata work.
@@ -146,7 +147,8 @@
     "pagani-huayra-bc":255000,
     "lamborghini-veneno":285000,
     "mercedes-amg-one":265000,
-    "aston-martin-valkyrie-mary":280000
+    "aston-martin-valkyrie-mary":280000,
+    "apollo-evo":318000
   });
   // visualLength/visualWidth are per-car contain bounds. They are maxima, not
   // independent stretch targets: resolveSpriteSize() preserves the source WebP ratio.
@@ -165,7 +167,8 @@
     "pagani-huayra-bc":1.07,
     "lamborghini-veneno":1.08,
     "mclaren-p1":1.05,
-    "ferrari-enzo":1.06
+    "ferrari-enzo":1.06,
+    "apollo-evo":1.06
   });
   const CAR_GEOMETRY=Object.freeze({
     "vw-golf-gti":geo(59.3,31.2,1.14,1.349,66.2,29.4,0,0,0.0,0.0),
@@ -208,7 +211,8 @@
     "pagani-huayra-bc":geo(65.7,40.9,1.23,1.176,84.4,39.0,0.4,0,0.3,0.0),
     "lamborghini-veneno":geo(67.5,42.4,1.25,1.132,91.3,39.7,1.0,0,0.75,0.0),
     "mercedes-amg-one":geo(64.6,41.9,1.24,1.161,87.3,38.6,0.7,0,0.52,0.0),
-    "aston-martin-valkyrie-mary":geo(79.4,34.7,1.23,0.989,86.6,39.0,0.7,0,0.52,0.0)
+    "aston-martin-valkyrie-mary":geo(79.4,34.7,1.23,0.989,86.6,39.0,0.7,0,0.52,0.0),
+    "apollo-evo":geo(67.4,44.3,1.25,1.10,92.0,44.0,0.9,0,0.7,0.0)
   });
   for(const car of REAL_CARS){
     const {id,...base}=car,g=CAR_GEOMETRY[id];
@@ -231,7 +235,7 @@
   };
   const CASE_ORDER=['all','basic','sport','premium','rare','legendary','lux','effects'];
   const CASE_META={
-    all:{name:'APEX OMNI',label:'ОБЩИЙ',subtitle:'МАШИНЫ + ЭФФЕКТЫ',accent:'#D9FFF0',description:'Все платные эффекты и 41 автомобиль. Топовые классы выпадают крайне редко.'},
+    all:{name:'APEX OMNI',label:'ОБЩИЙ',subtitle:'МАШИНЫ + ЭФФЕКТЫ',accent:'#D9FFF0',description:'Все платные эффекты и 42 автомобиля. Топовые классы выпадают крайне редко.'},
     basic:{name:'BASIC GRID',label:'BASIC',subtitle:'СТАРТОВЫЙ КЛАСС',accent:R.CAR_CATEGORIES.basic.color,description:'Автомобили BASIC. Более дорогие модели имеют меньший шанс.'},
     sport:{name:'SPORT RUSH',label:'SPORT',subtitle:'СПОРТИВНЫЙ КЛАСС',accent:R.CAR_CATEGORIES.sport.color,description:'Только автомобили SPORT с шансами, рассчитанными по стоимости.'},
     premium:{name:'PREMIUM VAULT',label:'PREMIUM',subtitle:'ПРЕМИАЛЬНЫЙ КЛАСС',accent:R.CAR_CATEGORIES.premium.color,description:'Только автомобили PREMIUM.'},
@@ -320,8 +324,8 @@
     const category=R.normalizeCarCategory(item.category),band=tuningBands[category]||tuningBands.basic;
     const prices=Object.values(R.LIVERIES).filter(c=>R.normalizeCarCategory(c.category)===category).map(c=>c.price||0);
     const low=Math.min(...prices),high=Math.max(...prices),t=high===low?.5:Math.max(0,Math.min(1,((item.price||0)-low)/(high-low)));
-    const mix=(a,b)=>Math.round(a+(b-a)*t);
-    return [id,Object.freeze({maxSpeed:mix(band[0],band[1]),accel:mix(band[2],band[3]),brakePower:mix(band[4],band[5]),turnRate:2.40})];
+    const mix=(a,b)=>Math.round(a+(b-a)*t),generated={maxSpeed:mix(band[0],band[1]),accel:mix(band[2],band[3]),brakePower:mix(band[4],band[5]),turnRate:2.40,drift:1};
+    return [id,Object.freeze({...generated,...(item.performance||{})})];
   })));
   R.getUpgradeLevels=function(save,id){
     const raw=save?.carUpgrades?.[id];
@@ -330,13 +334,14 @@
   R.carAvailable=id=>window.VelocityAccount?.isAdmin||!(R.ownerCars?.[id]?.enabled===false||R.ownerCars?.[id]?.unavailable);
   R.getCarPerformance=function(id,save,personal=true){
     const base={...(R.CAR_PERFORMANCE[id]||R.CAR_PERFORMANCE.apexLime),...(R.ownerCars?.[id]||{})},result={maxSpeed:base.maxSpeed,accel:base.accel,brakePower:base.brakePower,turnRate:base.turnRate,drift:base.drift||1},levels=R.getUpgradeLevels(save,id);
-    for(const [key,type] of Object.entries(R.UPGRADE_TYPES))result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*(R.ownerCars?.[id]?.upgrades?.[key]?.step??type.step)));
+    for(const [key,type] of Object.entries(R.UPGRADE_TYPES)){const tune=R.ownerCars?.[id]?.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||type;result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*(tune.step??type.step)));}
     if(personal)Object.assign(result,R.ownerTuning?.[id]||{});return result;
   };
   R.applyCarPerformance=function(car,id,save){if(!R.carAvailable(id))id='apexLime';const stats=R.getCarPerformance(id,save,car.player!==false);Object.assign(car,stats);car.baseMaxSpeed=stats.maxSpeed;return stats;};
   R.getUpgradeCost=function(id,key,level){
     if(!has(R.LIVERIES,id)||!has(R.UPGRADE_TYPES,key)||!Number.isInteger(level)||level<0||level>=5)return null;
-    return Math.ceil(Math.max(2800,R.LIVERIES[id].price||0)*[.04,.07,.11,.16,.22][level]*(R.ownerCars?.[id]?.upgrades?.[key]?.priceFactor??R.UPGRADE_TYPES[key].priceFactor)/10)*10;
+    const tune=R.ownerCars?.[id]?.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||R.UPGRADE_TYPES[key];
+    return Math.ceil(Math.max(2800,R.LIVERIES[id].price||0)*[.04,.07,.11,.16,.22][level]*(tune.priceFactor??R.UPGRADE_TYPES[key].priceFactor)/10)*10;
   };
   // expectedLevel prevents double taps or stale purchase buttons buying another level.
   R.buyCarUpgrade=function(save,id,key,expectedLevel){

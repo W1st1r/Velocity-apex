@@ -8,7 +8,7 @@ for(const id of ['basic','sport','premium','rare','legendary','lux'])assert.ok(R
 assert.equal(R.normalizeCarCategory('regular'),'basic','regular compatibility failed');
 assert.equal(R.LIVERIES['porsche-911'].category,'premium','Porsche must remain premium');
 let save=R.normalizeSave({credits:50000,ownedLiveries:['apexLime','crimsonVelocity'],ownedEffects:['standard','redFlame'],selectedLivery:'apexLime',selectedEffect:'standard',bestScore:321,bestLap:4567,maxLaps:9,controlMode:'wheel'});
-assert.equal(R.getCatalogEntries(save,'shop','livery','all').length,41,'shop all must show the 41 real cars only');
+assert.equal(R.getCatalogEntries(save,'shop','livery','all').length,42,'shop all must show the 42 real cars only');
 assert.deepEqual(R.getCatalogEntries(save,'garage','livery','all').map(([id])=>id).sort(),save.ownedLiveries.slice().sort(),'garage all must show owned cars only');
 assert.deepEqual(R.getCatalogEntries(save,'garage','effect','all').map(([id])=>id).sort(),save.ownedEffects.slice().sort(),'garage effects must show owned effects only');
 assert.ok(R.getCatalogEntries(save,'shop','livery','basic').every(([,x])=>R.normalizeCarCategory(x.category)==='basic'),'basic filter incorrect');

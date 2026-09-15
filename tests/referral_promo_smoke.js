@@ -5,6 +5,8 @@ const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
 const account=fs.readFileSync(path.join(root,'public','js','account.js'),'utf8');
 const promo=fs.readFileSync(path.join(root,'public','js','promo.js'),'utf8');
 const rootjs=fs.readFileSync(path.join(root,'public','js','root-console.js'),'utf8');
+const owner=fs.readFileSync(path.join(root,'src','owner.mjs'),'utf8');
+const ownerUi=fs.readFileSync(path.join(root,'public','js','owner-panel.js'),'utf8');
 const migration=fs.readFileSync(path.join(root,'migrations','0005_referrals_promocodes.sql'),'utf8');
 for(const token of ['CREATE TABLE IF NOT EXISTS referrals','CREATE TABLE IF NOT EXISTS promo_codes','CREATE TABLE IF NOT EXISTS promo_redemptions','user_registration_signals'])assert(migration.includes(token),'missing migration token '+token);
 for(const token of ['REFERRAL_REWARD_CREDITS=1500','REFERRAL_MIN_INVITER_AGE_MS','REFERRAL_DAILY_LIMIT','REFERRAL_NETWORK_7D_LIMIT','SAME_DEVICE','SAME_NETWORK','DEVICE_ALREADY_USED'])assert(auth.includes(token),'missing referral anti-abuse '+token);
@@ -16,5 +18,7 @@ for(const id of ['authGateInviter','accountInviter','promoBtn','promoCode','root
 assert(account.includes('deviceId:installId()')&&account.includes('inviterUsername:'),'registration client does not send anti-abuse/referral data');
 assert(account.includes('refreshCloud:loadCloud'),'promo live cloud refresh hook missing');
 assert(promo.includes('/api/promocodes/redeem')&&promo.includes('refreshCloud'),'promo redemption client wiring missing');
+assert(owner.includes('referralStats')&&owner.includes('inviter_user_id=?'),'owner referral counter API missing');
+assert(ownerUi.includes('Пригласил игроков')&&ownerUi.includes('Засчитано приглашений'),'owner referral counter UI missing');
 assert(rootjs.includes("'promocodes'")&&rootjs.includes('/api/admin/promocodes')&&rootjs.includes('savePromocode')&&rootjs.includes('loadPromocodes'),'root promo manager missing');
 console.log('referral_promo_smoke: OK');

@@ -1213,5 +1213,32 @@ export const CARS={
         "priceFactor": 0.8
       }
     }
+  },
+  "apollo-evo": {
+    "name": "Apollo EVO",
+    "price": 318000,
+    "category": "lux",
+    "maxSpeed": 558,
+    "accel": 428,
+    "brakePower": 560,
+    "turnRate": 2.52,
+    "drift": 0.94,
+    "enabled": true,
+    "unavailable": false,
+    "limited": true,
+    "upgrades": {
+      "speed": {
+        "step": 0.028,
+        "priceFactor": 1.08
+      },
+      "acceleration": {
+        "step": 0.064,
+        "priceFactor": 1.2
+      },
+      "brakes": {
+        "step": 0.072,
+        "priceFactor": 0.9
+      }
+    }
   }
 };

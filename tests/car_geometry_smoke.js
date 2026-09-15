@@ -45,9 +45,10 @@ const expectedPreviewLengthScales=Object.freeze({
   'pagani-huayra-bc':1.07,
   'lamborghini-veneno':1.08,
   'mclaren-p1':1.05,
-  'ferrari-enzo':1.06
+  'ferrari-enzo':1.06,
+  'apollo-evo':1.06
 });
-assert.equal(Object.keys(expectedPreviewLengthScales).length,8,'preview length regression set must contain exactly 8 cars');
+assert.equal(Object.keys(expectedPreviewLengthScales).length,9,'preview length regression set must contain exactly 9 cars');
 
 for(const id of R.REAL_CAR_IDS){
   const g=R.CAR_GEOMETRY[id],meta=R.LIVERIES[id],sprite=meta?.sprite,collision=meta?.collision;
@@ -86,7 +87,7 @@ for(const id of R.REAL_CAR_IDS){
   assert.ok(previewRender.length>=74&&previewRender.length<=88,`${id} corrected preview length escaped safe range: ${previewRender.length.toFixed(1)}`);
   assert.ok(thumbnailRender.length>=74&&thumbnailRender.length<=88,`${id} corrected thumbnail length escaped safe range: ${thumbnailRender.length.toFixed(1)}`);
   // Catalog/garage contain sizing keeps a shared visual envelope; the optional final
-  // longitudinal correction above intentionally affects length only for the 8 tuned cars.
+  // longitudinal correction above intentionally affects length only for the 9 tuned cars.
   // Narrow/long bodies can stay longer and compact/wide hypercars can stay wider, but neither
   // dimension may become an outlier. Gameplay sizing is checked separately below.
   assert.ok(preview.length>=74&&preview.length<=81,`${id} preview length escaped normalized range: ${preview.length.toFixed(1)}`);
@@ -112,7 +113,7 @@ assert.ok(close(probeCall[3],probeBase.length*probeScale),'preview drawImage len
 
 // Guard this preview-only calibration from accidentally modifying gameplay geometry.
 const gameplayGeometry=R.REAL_CAR_IDS.map(id=>{const g=R.CAR_GEOMETRY[id];return [id,g.raceScale,g.raceOffsetX,g.raceOffsetY,g.collisionLength,g.collisionWidth,g.collisionOffsetX,g.collisionOffsetY];});
-assert.equal(crypto.createHash('sha256').update(JSON.stringify(gameplayGeometry)).digest('hex'),'93d44953b0b9bd4b43a513bfefed193ae093c5c423e333ccce7b9f75f8829622','raceScale/collision geometry changed during preview calibration');
+assert.equal(crypto.createHash('sha256').update(JSON.stringify(gameplayGeometry)).digest('hex'),'20339e86066f4a359e9706e257665e163cb63d54dfed27acf689b532e20f749f','raceScale/collision geometry changed during preview calibration');
 
 const chiron=car('bugatti-chiron-super-sport'),mary=car('aston-martin-valkyrie-mary');
 let sideGap=(chiron.collisionWidth+mary.collisionWidth)*.5;mary.y=sideGap-.5;contact(chiron,mary,'side-by-side near touch should collide');mary.y=sideGap+.5;clear(chiron,mary,'side-by-side separated cars should not collide');
@@ -120,4 +121,4 @@ mary.x=(chiron.collisionLength+mary.collisionLength)*.5-.5;mary.y=0;contact(chir
 mary.x=45;mary.y=22;mary.angle=Math.PI/5;contact(chiron,mary,'angled body contact should collide');
 // 13 offline bots + player grid geometry: adjacent rows are 140 apart and paired lanes are 68 apart.
 const grid=[];for(let i=0;i<14;i++){const c=new R.Car();c.setLoadout('apexLime','standard');c.x=-65-Math.floor(i/2)*140;c.y=i%2===0?-34:34;c.angle=0;grid.push(c);}for(let i=0;i<grid.length;i++)for(let j=i+1;j<grid.length;j++)clear(grid[i],grid[j],`start grid overlap ${i}/${j}`);
-console.log('car_geometry_smoke: OK (41 WebP ratios + contain bounds + 8 preview length scales + centered draw + collisions + invariants + 13-bot grid)');
+console.log('car_geometry_smoke: OK (42 WebP ratios + contain bounds + 9 preview length scales + centered draw + collisions + invariants + 13-bot grid)');

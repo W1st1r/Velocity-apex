@@ -42,7 +42,7 @@ Local **ИГРАТЬ РЯДОМ** now branches into **ОБЫЧНЫЙ** and **Д�
 
 ### `npm test` — PASS
 
-The full suite passed: physics/camera, economy, 41-car catalog/assets, geometry/collisions, Shop/Garage, root tools, interaction guards, all six track geometries, trajectory sectors, deterministic standalone AI/traffic, online protocol, network interpolation/extrapolation, room/Durable Object flow and Online DOM/PWA static checks.
+The full suite passed: physics/camera, economy, 42-car catalog/assets, geometry/collisions, Shop/Garage, root tools, interaction guards, all six track geometries, trajectory sectors, deterministic standalone AI/traffic, online protocol, network interpolation/extrapolation, room/Durable Object flow and Online DOM/PWA static checks.
 
 Notable checks:
 - all six tracks have finite smooth geometry and zero detected centerline self-intersections;
@@ -85,7 +85,7 @@ Validation: `npm test` PASS; JavaScript syntax checks PASS; manifest and `wrangl
 Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syntax checks PASS; manifest JSON parse PASS.
 
 ## Garage visual repair — 2026-09-15
-- Verified all 41 real cars have both full-size and thumbnail WebP assets (82/82 files present).
+- Verified all 42 real cars have both full-size and thumbnail WebP assets (84/84 files present).
 - Garage/shop car cards now use direct thumbnail images instead of relying on dozens of continuously redrawn canvases; legacy cars retain a canvas fallback.
 - Sprite URLs are normalized to root-relative `/assets/...` paths so installed PWA/navigation routes cannot break car artwork.
 - Effect cards now have dedicated visual flame swatches, including STANDARD and RAINBOW/IRIDESCENT states.

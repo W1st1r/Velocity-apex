@@ -10,10 +10,10 @@ for(const id of R.CASE_ORDER){
   assert.ok(box.rewards.every(x=>x.chanceBps>=1),`${id} zero-probability reward`);
   const ev=box.rewards.reduce((sum,x)=>sum+x.price*x.chanceBps/10000,0);assert.ok(box.price>ev,`${id} case price must exceed expected gross item value`);
 }
-assert.equal(R.CASES.all.rewards.length,48,'general case must contain 41 cars + 7 paid effects');
+assert.equal(R.CASES.all.rewards.length,49,'general case must contain 42 cars + 7 paid effects');
 for(const id of ['basic','sport','premium','rare','legendary','lux'])assert.ok(R.CASES[id].rewards.every(x=>x.kind==='livery'&&x.category===id),`${id} case category leak`);
 assert.ok(R.CASES.effects.rewards.every(x=>x.kind==='effect'&&x.price>0),'effects case must contain paid effects only');
-const allLux=R.CASES.all.rewards.filter(x=>x.category==='lux');assert.equal(allLux.length,8);assert.ok(allLux.every(x=>x.chanceBps<=8),`general LUX should stay ultra-rare: ${allLux.map(x=>x.chanceBps)}`);
+const allLux=R.CASES.all.rewards.filter(x=>x.category==='lux');assert.equal(allLux.length,9);assert.ok(allLux.every(x=>x.chanceBps<=8),`general LUX should stay ultra-rare: ${allLux.map(x=>x.chanceBps)}`);
 const allLegendary=R.CASES.all.rewards.filter(x=>x.category==='legendary');assert.ok(allLegendary.every(x=>x.chanceBps<=14),'general legendary odds too generous');
 const cheapest=R.CASES.basic.rewards.reduce((a,b)=>a.price<b.price?a:b),priciest=R.CASES.basic.rewards.reduce((a,b)=>a.price>b.price?a:b);assert.ok(cheapest.chanceBps>priciest.chanceBps,'higher price should mean lower chance in category case');
 let save=R.normalizeSave({credits:R.CASES.basic.price-1});const before=save.credits;assert.equal(R.buyCase(save,'basic'),'insufficient');assert.equal(save.credits,before);assert.equal(save.caseInventory.basic,0);
