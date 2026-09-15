@@ -117,3 +117,7 @@ Validation: full `npm test` PASS; `account.js`, `auth.mjs`, and `worker.mjs` syn
 - Active players poll account status every 20 seconds and reload a newer server save automatically (or immediately when the app returns to foreground).
 - Grant/revoke no longer destroys the target account session; bans remain enforced separately.
 - Added `tests/admin_grant_sync_smoke.js`; full `npm test` passes.
+
+### Admin UI v2
+- `admin_ui_v2_smoke.js`: structured account workspace, registration/last-login information, detail tabs, second/minute/hour/day ban units.
+- Full `npm test`: PASS after Admin UI v2 changes.

@@ -1,0 +1,13 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'public','index.html'),'utf8');
+const js=fs.readFileSync(path.join(root,'public','js','root-console.js'),'utf8');
+const css=fs.readFileSync(path.join(root,'public','css','style.css'),'utf8');
+const auth=fs.readFileSync(path.join(root,'src','auth.mjs'),'utf8');
+for(const token of ['МОЙ АККАУНТ','УПРАВЛЕНИЕ ИГРОКАМИ','root-account-workspace','ВЫБЕРИТЕ АККАУНТ'])assert(html.includes(token),'missing structured admin UI: '+token);
+for(const token of ['ДАТА РЕГИСТРАЦИИ','ПОСЛЕДНИЙ ЗАХОД','SERVER REVISION','data-admin-detail-tab="overview"','data-admin-detail-tab="money"','data-admin-detail-tab="resources"','data-admin-detail-tab="ban"'])assert(js.includes(token),'missing account detail information/navigation: '+token);
+for(const unit of ['second','minute','hour','day'])assert(js.includes(`value="${unit}"`)||js.includes(`data-ban-preset-unit="${unit}"`),'missing ban unit '+unit);
+assert(js.includes('BAN_UNIT_MS={second:1000,minute:60000,hour:3600000,day:86400000}'),'ban units must be exact');
+assert(auth.includes('durationMs<1000||durationMs>ADMIN_MAX_BAN_MS'),'server must accept bans from one second');
+for(const selector of ['.root-account-workspace','.root-admin-facts','.root-admin-detail-tabs','.root-admin-ban-presets'])assert(css.includes(selector),'missing admin v2 CSS '+selector);
+console.log('admin_ui_v2_smoke: OK');

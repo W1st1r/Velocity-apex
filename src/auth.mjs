@@ -235,7 +235,7 @@ async function handleAdminRequest(request,env,url){
     }
     if(action==='ban'){
       if(isAdminUsername(target.username))return json({error:'ADMIN_ACCOUNT_PROTECTED'},403);
-      const b=await readBody(request),durationMs=Math.floor(Number(b?.durationMs)),reason=normalizeReason(b?.reason);if(!Number.isFinite(durationMs)||durationMs<60*1000||durationMs>ADMIN_MAX_BAN_MS)return json({error:'INVALID_BAN_DURATION'},400);if(reason.length<3)return json({error:'INVALID_BAN_REASON'},400);
+      const b=await readBody(request),durationMs=Math.floor(Number(b?.durationMs)),reason=normalizeReason(b?.reason);if(!Number.isFinite(durationMs)||durationMs<1000||durationMs>ADMIN_MAX_BAN_MS)return json({error:'INVALID_BAN_DURATION'},400);if(reason.length<3)return json({error:'INVALID_BAN_REASON'},400);
       const t=now(),expiresAt=t+durationMs,id=crypto.randomUUID();
       await env.DB.prepare('UPDATE account_bans SET revoked_at=?,revoked_by=? WHERE user_id=? AND revoked_at IS NULL AND expires_at>?').bind(t,access.session.user.id,userId,t).run();
       await env.DB.prepare('INSERT INTO account_bans (id,user_id,reason,created_at,expires_at,created_by) VALUES (?,?,?,?,?,?)').bind(id,userId,reason,t,expiresAt,access.session.user.id).run();

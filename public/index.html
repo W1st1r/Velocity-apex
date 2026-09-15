@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-010" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-011" />
 </head>
 <body>
   <div id="app">
@@ -480,13 +480,23 @@
 
         <div id="rootNotice" class="root-notice" aria-live="polite">ADMIN // ACTIVE</div>
 
-        <nav id="rootTabs" class="root-tabs" aria-label="Панель администратора">
-          <button class="active" type="button" data-root-tab="money">ДЕНЬГИ</button>
-          <button type="button" data-root-tab="cars">МАШИНЫ</button>
-          <button type="button" data-root-tab="effects">ЭФФЕКТЫ</button>
-          <button type="button" data-root-tab="cases">КЕЙСЫ</button>
-          <button type="button" data-root-tab="accounts">АККАУНТЫ</button>
-          <button type="button" data-root-tab="blocked">ЗАБЛОКИРОВАННЫЕ</button>
+        <nav id="rootTabs" class="root-tabs root-nav" aria-label="Панель администратора">
+          <div class="root-tab-group">
+            <span class="root-tab-group-label">МОЙ АККАУНТ</span>
+            <div class="root-tab-group-buttons">
+              <button class="active" type="button" data-root-tab="money"><b>CR</b><span>ДЕНЬГИ</span></button>
+              <button type="button" data-root-tab="cars"><b>AUTO</b><span>МАШИНЫ</span></button>
+              <button type="button" data-root-tab="effects"><b>FX</b><span>ЭФФЕКТЫ</span></button>
+              <button type="button" data-root-tab="cases"><b>BOX</b><span>КЕЙСЫ</span></button>
+            </div>
+          </div>
+          <div class="root-tab-group root-tab-group-users">
+            <span class="root-tab-group-label">УПРАВЛЕНИЕ ИГРОКАМИ</span>
+            <div class="root-tab-group-buttons">
+              <button type="button" data-root-tab="accounts"><b>USR</b><span>АККАУНТЫ</span></button>
+              <button type="button" data-root-tab="blocked"><b>BAN</b><span>БЛОКИРОВКИ</span></button>
+            </div>
+          </div>
         </nav>
 
         <div id="rootPaneMoney" class="root-pane" data-root-pane="money">
@@ -549,21 +559,31 @@
         </div>
 
         <div id="rootPaneAccounts" class="root-pane hidden" data-root-pane="accounts">
-          <section class="root-module root-account-module">
-            <div class="root-module-title"><span>АККАУНТЫ</span><small>D1 USERS</small></div>
-            <div class="root-search-row"><input id="rootAccountSearch" class="root-input" type="search" autocomplete="off" placeholder="Поиск по @нику"><button id="rootAccountSearchBtn" type="button">НАЙТИ</button></div>
-            <div id="rootAccountList" class="root-account-list"></div>
-          </section>
-          <section id="rootAccountDetail" class="root-module root-account-detail hidden"></section>
+          <div class="root-account-workspace">
+            <section class="root-module root-account-module root-account-sidebar">
+              <div class="root-module-title"><span>АККАУНТЫ</span><small>ПОИСК И ВЫБОР</small></div>
+              <p class="root-module-help">Найдите игрока по нику или имени. Нажмите на карточку, чтобы открыть профиль и инструменты управления.</p>
+              <div class="root-search-row"><input id="rootAccountSearch" class="root-input" type="search" autocomplete="off" placeholder="@ник или имя игрока"><button id="rootAccountSearchBtn" type="button">НАЙТИ</button></div>
+              <div id="rootAccountList" class="root-account-list"></div>
+            </section>
+            <section id="rootAccountDetail" class="root-module root-account-detail root-account-detail-empty">
+              <div class="root-account-empty-state"><strong>ВЫБЕРИТЕ АККАУНТ</strong><span>Сначала выберите игрока слева. Здесь появятся данные регистрации, последнего входа и действия с аккаунтом.</span></div>
+            </section>
+          </div>
         </div>
 
         <div id="rootPaneBlocked" class="root-pane hidden" data-root-pane="blocked">
-          <section class="root-module root-account-module">
-            <div class="root-module-title"><span>ЗАБЛОКИРОВАННЫЕ</span><small>ACTIVE BANS</small></div>
-            <div class="root-search-row"><input id="rootBlockedSearch" class="root-input" type="search" autocomplete="off" placeholder="Поиск заблокированного @ника"><button id="rootBlockedSearchBtn" type="button">НАЙТИ</button></div>
-            <div id="rootBlockedList" class="root-account-list"></div>
-          </section>
-          <section id="rootBlockedDetail" class="root-module root-account-detail hidden"></section>
+          <div class="root-account-workspace">
+            <section class="root-module root-account-module root-account-sidebar">
+              <div class="root-module-title"><span>ЗАБЛОКИРОВАННЫЕ</span><small>АКТИВНЫЕ БЛОКИРОВКИ</small></div>
+              <p class="root-module-help">Здесь отображаются только аккаунты с активной блокировкой. Выберите игрока, чтобы посмотреть причину или снять блокировку.</p>
+              <div class="root-search-row"><input id="rootBlockedSearch" class="root-input" type="search" autocomplete="off" placeholder="@ник заблокированного"><button id="rootBlockedSearchBtn" type="button">НАЙТИ</button></div>
+              <div id="rootBlockedList" class="root-account-list"></div>
+            </section>
+            <section id="rootBlockedDetail" class="root-module root-account-detail root-account-detail-empty">
+              <div class="root-account-empty-state"><strong>ВЫБЕРИТЕ БЛОКИРОВКУ</strong><span>Выберите пользователя слева, чтобы увидеть срок, причину и управление блокировкой.</span></div>
+            </section>
+          </div>
         </div>
       </section>
     </div>
@@ -678,18 +698,18 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260915-010"></script>
-  <script src="js/racing-line.js?v=20260915-010"></script>
-  <script src="js/track.js?v=20260915-010"></script>
-  <script src="js/audio.js?v=20260915-010"></script>
-  <script src="js/car.js?v=20260915-010"></script>
-  <script src="js/ai.js?v=20260915-010"></script>
-  <script src="js/garage.js?v=20260915-010"></script>
-  <script src="js/root-console.js?v=20260915-010"></script>
-  <script src="js/controls.js?v=20260915-010"></script>
-  <script src="js/network.js?v=20260915-010"></script>
-  <script src="js/account.js?v=20260915-010"></script>
-  <script src="js/online.js?v=20260915-010"></script>
-  <script src="js/game.js?v=20260915-010"></script>
+  <script src="js/content.js?v=20260915-011"></script>
+  <script src="js/racing-line.js?v=20260915-011"></script>
+  <script src="js/track.js?v=20260915-011"></script>
+  <script src="js/audio.js?v=20260915-011"></script>
+  <script src="js/car.js?v=20260915-011"></script>
+  <script src="js/ai.js?v=20260915-011"></script>
+  <script src="js/garage.js?v=20260915-011"></script>
+  <script src="js/root-console.js?v=20260915-011"></script>
+  <script src="js/controls.js?v=20260915-011"></script>
+  <script src="js/network.js?v=20260915-011"></script>
+  <script src="js/account.js?v=20260915-011"></script>
+  <script src="js/online.js?v=20260915-011"></script>
+  <script src="js/game.js?v=20260915-011"></script>
 </body>
 </html>
