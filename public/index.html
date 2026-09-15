@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-bay1" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-menu2" />
 </head>
 <body>
   <div id="app">
@@ -88,28 +88,61 @@
 
     <div id="menu" class="overlay menu-screen hidden">
       <div class="menu-card glass enter-panel">
-        <div class="brand-mark" aria-hidden="true"><span></span><i></i></div>
-        <div class="eyebrow">TOP-DOWN ARCADE RACING</div>
-        <h1>VELOCITY <span>APEX</span></h1>
-        <p class="tagline">CHASE THE PERFECT LINE</p>
-        <div class="mode-actions">
-          <button id="playBtn" class="primary-btn play-btn" type="button"><span>ИГРАТЬ РЯДОМ</span><b aria-hidden="true">›</b></button>
-          <button id="onlineBtn" class="primary-btn online-main-btn" type="button"><span>ОНЛАЙН</span><b aria-hidden="true">›</b></button>
-        </div>
-        <div class="menu-action-row">
-          <button id="shopBtn" class="secondary-btn shop-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg><span>МАГАЗИН</span><strong id="menuCredits">200 CR</strong></button>
-          <button id="garageBtn" class="secondary-btn garage-menu-btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg><span>ГАРАЖ</span></button>
-          <button id="accountBtn" class="secondary-btn account-menu-btn" type="button"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></button>
-          <button id="friendsBtn" class="secondary-btn friends-menu-btn" type="button"><span>ДРУЗЬЯ</span><strong id="friendsMenuStatus">—</strong></button>
-          <button id="promoBtn" class="secondary-btn promo-menu-btn" type="button"><span>ПРОМОКОД</span><strong>GIFT</strong></button>
-          <button id="settingsBtn" class="secondary-btn settings-menu-btn" type="button">НАСТРОЙКИ</button>
-        </div>
-        <div class="menu-stats" aria-label="Статистика игрока">
-          <div><span>BEST SCORE</span><strong id="menuBestScore">0</strong></div>
-          <div><span>BEST LAP</span><strong id="menuBestLap">--:--.---</strong></div>
-          <div><span>MAX LAPS</span><strong id="menuMaxLaps">0</strong></div>
-        </div>
-        <button id="menuMute" class="sound-btn" type="button" aria-label="Переключить звук"><span class="sound-dot" aria-hidden="true"></span><strong>SOUND ON</strong></button>
+        <header class="menu-hero">
+          <div class="brand-mark" aria-hidden="true"><span></span><i></i></div>
+          <div class="menu-brand-copy">
+            <div class="eyebrow">TOP-DOWN ARCADE RACING</div>
+            <h1>VELOCITY <span>APEX</span></h1>
+            <p class="tagline">CHASE THE PERFECT LINE</p>
+          </div>
+        </header>
+
+        <section class="menu-section menu-play-section" aria-label="Режим игры">
+          <div class="menu-section-head"><span>РЕЖИМ ИГРЫ</span><i aria-hidden="true"></i></div>
+          <div class="mode-actions">
+            <button id="playBtn" class="primary-btn play-btn" type="button"><span class="menu-primary-copy"><small>ЛОКАЛЬНАЯ ИГРА</small><strong>ИГРАТЬ РЯДОМ</strong></span><b aria-hidden="true">›</b></button>
+            <button id="onlineBtn" class="primary-btn online-main-btn" type="button"><span class="menu-primary-copy"><small>С ДРУГИМИ ИГРОКАМИ</small><strong>ОНЛАЙН</strong></span><b aria-hidden="true">›</b></button>
+          </div>
+        </section>
+
+        <section class="menu-section menu-tools-section" aria-label="Главные разделы">
+          <div class="menu-section-head"><span>ГАРАЖ И ПРОФИЛЬ</span><i aria-hidden="true"></i></div>
+          <div class="menu-action-row">
+            <button id="shopBtn" class="secondary-btn menu-tile shop-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
+              <span class="menu-tile-copy"><span>МАГАЗИН</span><strong id="menuCredits">200 CR</strong></span>
+            </button>
+            <button id="garageBtn" class="secondary-btn menu-tile garage-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg></span>
+              <span class="menu-tile-copy"><span>ГАРАЖ</span><strong>МОИ МАШИНЫ</strong></span>
+            </button>
+            <button id="accountBtn" class="secondary-btn menu-tile account-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-4.2 3.1-6.3 7-6.3s6.4 2.1 7 6.3"/></svg></span>
+              <span class="menu-tile-copy"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></span>
+            </button>
+            <button id="friendsBtn" class="secondary-btn menu-tile friends-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 20c.4-4 2.4-6 5.5-6 3.2 0 5.2 2 5.6 6M14 15c.8-.8 1.8-1.2 3-1.2 2.3 0 3.8 1.5 4.1 4.6"/></svg></span>
+              <span class="menu-tile-copy"><span>ДРУЗЬЯ</span><strong id="friendsMenuStatus">—</strong></span>
+            </button>
+            <button id="promoBtn" class="secondary-btn menu-tile promo-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm-1-4h18v4H3V5Z"/><path d="M12 5v15M8.2 5c-1.4 0-2.2-.7-2.2-1.7S6.8 2 7.8 2C10 2 12 5 12 5s2-3 4.2-3c1 0 1.8.4 1.8 1.3S17.2 5 15.8 5"/></svg></span>
+              <span class="menu-tile-copy"><span>ПРОМОКОД</span><strong>ВВЕСТИ КОД</strong></span>
+            </button>
+            <button id="settingsBtn" class="secondary-btn menu-tile settings-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7.3 7.3 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7.2 7.2 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7.2 7.2 0 0 0-1.8 1l-2.4-1-2 3.4L5 11a7.3 7.3 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.2 7.2 0 0 0 1.8 1l.4 3.1h4.8l.4-3.1a7.2 7.2 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"/></svg></span>
+              <span class="menu-tile-copy"><span>НАСТРОЙКИ</span><strong>ИГРА И УПРАВЛЕНИЕ</strong></span>
+            </button>
+          </div>
+        </section>
+
+        <footer class="menu-footer">
+          <div class="menu-stats" aria-label="Статистика игрока">
+            <div><span>BEST SCORE</span><strong id="menuBestScore">0</strong></div>
+            <div><span>BEST LAP</span><strong id="menuBestLap">--:--.---</strong></div>
+            <div><span>MAX LAPS</span><strong id="menuMaxLaps">0</strong></div>
+          </div>
+          <button id="menuMute" class="sound-btn" type="button" aria-label="Переключить звук"><span class="sound-dot" aria-hidden="true"></span><strong>SOUND ON</strong></button>
+        </footer>
       </div>
     </div>
 
