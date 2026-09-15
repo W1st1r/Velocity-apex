@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-mobilehud3" />
+  <link rel="stylesheet" href="css/style.css?v=20260915-layout1" />
 <link rel="stylesheet" href="css/owner-panel.css?v=owner1">
 </head>
 <body>
@@ -561,6 +561,14 @@
             <button type="button" data-tilt-sensitivity="high">ВЫСОКАЯ</button>
           </div>
         </div>
+        <div class="settings-section control-layout-settings">
+          <div class="control-layout-settings-copy">
+            <div class="section-label">РАСКЛАДКА КНОПОК</div>
+            <strong>ПОЛОЖЕНИЕ И РАЗМЕР</strong>
+            <small>Перемещайте GAS, BRAKE, стрелки и ручник по экрану. Размер каждой кнопки настраивается отдельно.</small>
+          </div>
+          <button id="controlLayoutOpenBtn" class="secondary-btn control-layout-open-btn" type="button">НАСТРОИТЬ</button>
+        </div>
         <div id="rootSettingsCard" class="settings-section root-settings-card hidden">
           <div class="root-settings-head">
             <div><div class="section-label">ROOT ACCESS</div><strong>Developer tools</strong><small>Session-only authorization</small></div>
@@ -571,6 +579,31 @@
         <div id="settingsMessage" class="settings-message" aria-live="polite">Выберите удобный способ управления. GAS и BRAKE работают независимо.</div>
         <button id="settingsBackBtn" class="secondary-btn settings-back-btn" type="button">НАЗАД</button>
       </section>
+    </div>
+
+    <div id="controlLayoutEditor" class="control-layout-editor hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="controlLayoutTitle">
+      <div class="control-layout-editor-top glass">
+        <div><div class="eyebrow">VELOCITY APEX / MOBILE INPUT</div><h2 id="controlLayoutTitle">РАСКЛАДКА УПРАВЛЕНИЯ</h2><p>Перетащите кнопку пальцем. Нажмите на неё, чтобы изменить размер.</p></div>
+        <button id="controlLayoutCancelBtn" class="secondary-btn" type="button">ОТМЕНА</button>
+      </div>
+      <div id="controlLayoutStage" class="control-layout-stage" aria-label="Область настройки кнопок">
+        <button class="control-layout-node layout-left" data-layout-control="left" type="button" aria-label="Стрелка влево"><span>◀</span></button>
+        <button class="control-layout-node layout-right" data-layout-control="right" type="button" aria-label="Стрелка вправо"><span>▶</span></button>
+        <button class="control-layout-node layout-brake" data-layout-control="brake" type="button">BRAKE</button>
+        <button class="control-layout-node layout-handbrake" data-layout-control="handbrake" type="button">HB</button>
+        <button class="control-layout-node layout-gas" data-layout-control="gas" type="button">GAS</button>
+      </div>
+      <div class="control-layout-editor-bottom glass">
+        <div class="control-layout-selected-copy"><small>ВЫБРАНО</small><strong id="controlLayoutSelected">GAS</strong><span id="controlLayoutStatus">ПЕРЕТАЩИТЕ КНОПКУ В НУЖНОЕ МЕСТО</span></div>
+        <div class="control-size-editor">
+          <span>РАЗМЕР</span>
+          <button id="controlSizeMinus" type="button" aria-label="Уменьшить кнопку">−</button>
+          <input id="controlSizeRange" type="range" min="60" max="160" step="5" value="100" aria-label="Размер выбранной кнопки">
+          <button id="controlSizePlus" type="button" aria-label="Увеличить кнопку">+</button>
+          <strong id="controlSizeValue">100%</strong>
+        </div>
+        <div class="control-layout-editor-actions"><button id="controlLayoutResetBtn" class="secondary-btn" type="button">СБРОСИТЬ</button><button id="controlLayoutSaveBtn" class="primary-btn" type="button">СОХРАНИТЬ</button></div>
+      </div>
     </div>
 
     <div id="rootAuth" class="overlay root-auth-screen hidden" role="dialog" aria-modal="true" aria-labelledby="rootAuthTitle">
@@ -862,6 +895,7 @@
   <script src="js/ai.js?v=20260915-owner1"></script>
   <script src="js/garage.js?v=20260915-owner1"></script>
   <script src="js/root-console.js?v=20260915-owner1"></script>
+  <script src="js/control-layout.js?v=20260915-layout1"></script>
   <script src="js/controls.js?v=20260915-owner1"></script>
   <script src="js/network.js?v=20260915-owner1"></script>
   <script src="js/account.js?v=20260915-owner1"></script>
