@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const W=5000,H=3000,TAU=Math.PI*2,roads=[],buildings=[],trees=[],lots=[];
-  const areas=[{x:250,y:1930,w:730,h:700},{x:1950,y:1370,w:740,h:440},{x:2840,y:2510,w:2100,h:320}];
+  const areas=[{x:1940,y:1190,w:180,h:240},{x:250,y:1930,w:730,h:700},{x:1950,y:1370,w:740,h:440},{x:2840,y:2510,w:2100,h:320}];
   let seed=91723;
   const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -85,7 +85,7 @@
     return 'APEX BAY';
   }
   const park={x:1170,y:1130,w:385,h:340};
-  function reserved(x,y,pad=0){return (x>1750-pad&&x<1970+pad&&y>540-pad&&y<860+pad)||(x>park.x-pad&&x<park.x+park.w+pad&&y>park.y-pad&&y<park.y+park.h+pad)||(x<1000&&y<940)||(x<1020&&y>1870)||(x>2790&&y>2420);}
+  function reserved(x,y,pad=0){return (x>1920-pad&&x<2140+pad&&y>1030-pad&&y<1450+pad)||(x>1750-pad&&x<1970+pad&&y>540-pad&&y<860+pad)||(x>park.x-pad&&x<park.x+park.w+pad&&y>park.y-pad&&y<park.y+park.h+pad)||(x<1000&&y<940)||(x<1020&&y>1870)||(x>2790&&y>2420);}
   function rectFree(x,y,w,h,pad=20){
     for(const xx of [x-pad,x+w/2,x+w+pad])for(const yy of [y-pad,y+h/2,y+h+pad])if(reserved(xx,yy)||roadAt(xx,yy))return false;
     for(const s of segments){
@@ -190,6 +190,9 @@
     text(c,'HARBOR / 03',615,2010,27,'#dfddc68c');text(c,'DRIFT DOCK',620,2510,32,'#dfddc6b0');
     // Meeting plaza, marked parking bays and a clear through road.
     for(const y of [1400,1735])for(let x=1990;x<2680;x+=70){path(c,[[x,y],[x,y+43],[x+54,y+43]],'#e4e1c5',2);}
+    building(c,{x:1940,y:1115,w:180,h:75,type:'warehouse',tone:1,height:12});
+    fill(c,1940,1115,180,8,'#a9ff5a');text(c,'КЛАНЫ',2030,1150,24,'#cfff9a');text(c,'CREW HQ',2030,1175,12,'#e8ffe0');
+    for(let x=1960;x<2110;x+=48)path(c,[[x,1290],[x,1350],[x+36,1350]],'#c2d8bb',2);
     text(c,'APEX MOTOR CLUB',2320,1500,28,'#ede8d2');text(c,'MEET • PARK • DRIVE',2320,1690,14,'#cad3c3');
     // Airport start / finish and two unobstructed lanes retain multiplayer coordinates.
     path(c,[[2900,2670],[4890,2670]],'#e3dfc4',4,[42,28]);

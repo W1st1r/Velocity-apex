@@ -180,16 +180,19 @@
     state=catalogReturn;$(mode).classList.add('hidden');(state==='setup'?UI.setup:UI.menu).classList.remove('hidden');syncSetupUI();updateMenuStats();
   }
   function showShopLanding(){
-    $('shopLanding').classList.remove('hidden');$('shopPersonalPanel').classList.add('hidden');
+    $('shopLanding').classList.remove('hidden');$('shopPersonalPanel').classList.add('hidden');$('shopMarketPanel')?.classList.add('hidden');
   }
   function showPersonalShop(){
-    $('shopLanding').classList.add('hidden');$('shopPersonalPanel').classList.remove('hidden');garage.open('shop');
+    $('shopLanding').classList.add('hidden');$('shopMarketPanel')?.classList.add('hidden');$('shopPersonalPanel').classList.remove('hidden');garage.open('shop');
+  }
+  function showMarketShop(){
+    $('shopLanding').classList.add('hidden');$('shopPersonalPanel').classList.add('hidden');$('shopMarketPanel')?.classList.remove('hidden');window.VelocityMarket?.open?.();
   }
   const openShop=()=>{openCatalog('shop');showShopLanding();},openGarage=()=>openCatalog('garage');
   $('shopBtn').addEventListener('click',openShop);$('garageBtn').addEventListener('click',openGarage);$('loadoutBtn').addEventListener('click',openGarage);
-  $('shopPersonalBtn').addEventListener('click',showPersonalShop);
+  $('shopPersonalBtn').addEventListener('click',showPersonalShop);$('shopMarketBtn')?.addEventListener('click',showMarketShop);
   $('shopLandingBackBtn').addEventListener('click',()=>closeCatalog('shop'));
-  $('shopBackBtn').addEventListener('click',showShopLanding);$('garageBackBtn').addEventListener('click',()=>closeCatalog('garage'));
+  $('shopBackBtn').addEventListener('click',showShopLanding);$('marketBackBtn')?.addEventListener('click',showShopLanding);$('garageBackBtn').addEventListener('click',()=>closeCatalog('garage'));
 
   function controlNotice(message,kind='warn'){
     settingsNotice=message;settingsNoticeKind=kind;syncSettingsUI();
@@ -320,7 +323,7 @@
     const order=(room.gridOrder&&room.gridOrder.length?room.gridOrder:room.players.filter(p=>p.connected).map(p=>p.id)).slice(0,8);
     for(let i=0;i<order.length;i++){
       const pd=room.players.find(p=>p.id===order[i]);if(!pd)continue;const isPlayer=pd.id===localId;
-      const c=new R.Car({id:pd.id,name:pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
+      const c=new R.Car({id:pd.id,name:(pd.crew?'['+pd.crew.tag+'] ':'')+pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
       c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');R.applyCarPerformance(c,c.liveryId,isPlayer?save:null);const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
     }
     if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftChainTime=0;driftIdleTime=0;driftLastProgress=player.progress;driftLastValid=false;driftPeakCombo=1;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;

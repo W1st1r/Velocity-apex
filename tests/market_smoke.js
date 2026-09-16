@@ -1,0 +1,16 @@
+const fs=require('fs'),path=require('path'),assert=require('assert').strict;
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+const js=fs.readFileSync(path.join(root,'public/js/market.js'),'utf8');
+const server=fs.readFileSync(path.join(root,'src/market.mjs'),'utf8');
+const worker=fs.readFileSync(path.join(root,'src/worker.mjs'),'utf8');
+const migration=fs.readFileSync(path.join(root,'migrations/0008_market.sql'),'utf8');
+for(const id of ['shopMarketPanel','marketTabs','marketList','marketCredits','marketDialog','marketCarSelect','marketPriceInput'])assert.ok(html.includes(`id="${id}"`),`missing market UI ${id}`);
+for(const tab of ['cars','purchases','sales','history'])assert.ok(html.includes(`data-market-tab="${tab}"`),`missing market tab ${tab}`);
+for(const endpoint of ['/api/market/listings','/api/market/buy-orders'])assert.ok(server.includes(endpoint),`missing endpoint ${endpoint}`);
+assert.ok(server.includes("status='processing'")&&server.includes('upgrades_json'),'market escrow/tuning safeguards missing');
+assert.ok(server.includes('changeCredits(save,-price)')&&server.includes('takeCar(save,carId)'),'market asset reservation missing');
+assert.ok(worker.includes("handleMarketRequest"),'market route not wired');
+for(const table of ['market_sell_listings','market_buy_orders','market_history'])assert.ok(migration.includes(table),`missing ${table} migration`);
+assert.ok(js.includes('refreshAfterTrade')&&js.includes('VelocityAccount?.refreshCloud'),'cloud save refresh missing');
+console.log('market_smoke: OK');

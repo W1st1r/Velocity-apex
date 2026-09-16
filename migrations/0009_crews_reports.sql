@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS crews (id TEXT PRIMARY KEY,name TEXT NOT NULL COLLATE NOCASE UNIQUE,tag TEXT NOT NULL COLLATE NOCASE UNIQUE,emblem TEXT NOT NULL,color TEXT NOT NULL,leader_id TEXT NOT NULL REFERENCES users(id),created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS crew_members (user_id TEXT PRIMARY KEY REFERENCES users(id),crew_id TEXT NOT NULL REFERENCES crews(id),joined_at INTEGER NOT NULL);
+CREATE INDEX IF NOT EXISTS crew_member_group ON crew_members(crew_id);
+CREATE TABLE IF NOT EXISTS crew_cooldowns (user_id TEXT PRIMARY KEY,until_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS street_rep (user_id TEXT NOT NULL,source TEXT NOT NULL,event_id TEXT NOT NULL,crew_id TEXT,week INTEGER NOT NULL,points INTEGER NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(user_id,source,event_id));
+CREATE INDEX IF NOT EXISTS crew_rep_week ON street_rep(week,crew_id,user_id);
+CREATE INDEX IF NOT EXISTS street_rep_user_time ON street_rep(user_id,created_at);
+CREATE TABLE IF NOT EXISTS crew_payouts (week INTEGER NOT NULL,user_id TEXT NOT NULL,crew_id TEXT NOT NULL,rank INTEGER NOT NULL,amount INTEGER NOT NULL,paid INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(week,user_id));
+CREATE TABLE IF NOT EXISTS crew_settlements (week INTEGER PRIMARY KEY,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS player_reports (id TEXT PRIMARY KEY,reporter_id TEXT NOT NULL REFERENCES users(id),target_id TEXT NOT NULL REFERENCES users(id),reason TEXT NOT NULL,evidence TEXT NOT NULL DEFAULT '',status TEXT NOT NULL DEFAULT 'new',created_at INTEGER NOT NULL,reviewed_at INTEGER,reviewer_id TEXT);
+CREATE INDEX IF NOT EXISTS report_created ON player_reports(created_at DESC);

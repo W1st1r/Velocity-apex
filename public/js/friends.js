@@ -58,7 +58,7 @@
       const avatar=document.createElement('span');avatar.className='friend-avatar';avatar.textContent=initials(f);
       const copy=document.createElement('div');copy.className='friend-copy';
       const n=document.createElement('strong');n.textContent=f.displayName;
-      const u=document.createElement('small');u.textContent='@'+f.username;copy.append(n,u);
+      const u=document.createElement('small');u.textContent='@'+f.username;copy.append(n,u);copy.classList.add('crew-profile-link');copy.onclick=()=>window.VelocityCrews?.profile({username:f.username});
       const s=document.createElement('span');s.className='friend-status '+(f.online?'online':'offline');s.textContent=statusText(f);
       const remove=document.createElement('button');remove.type='button';remove.className='friend-remove';remove.textContent='УДАЛИТЬ';remove.addEventListener('click',()=>removeFriend(f.username));
       row.append(avatar,copy,s,remove);list.appendChild(row);

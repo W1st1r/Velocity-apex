@@ -1,5 +1,7 @@
+import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.mjs';
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
 import {handleAuthRequest,freeAccountIdentity} from './auth.mjs';
+import {handleMarketRequest} from './market.mjs';
 import {getProgression,awardProgression,PROGRESSION_REWARDS,levelFromTotalExp} from './progression.mjs';
 import {PROTOCOL_VERSION,generateRoomCode,normalizeRoomCode,validRoomCode,sanitizeNickname,validNickname,validSettings,normalizeSettings,validWager,validPlayerState,parseClientMessage,PLAYER_STATE_RATE_MS,RECONNECT_GRACE_MS,EMPTY_ROOM_TTL_MS,ROOM_TTL_MS} from './protocol.mjs';
 
@@ -44,6 +46,7 @@ const insideCircle=(state,zone,extra=0)=>!!state&&Math.hypot(state.x-zone.x,stat
 const angleDelta=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return Math.abs(d);};
 
 export default {
+  async scheduled(event,env,ctx){ctx.waitUntil(settleCrews(env));},
   async fetch(request,env){
     const url=new URL(request.url);
     const owner=await ownerRequest(request,env,url);if(owner)return owner;
@@ -61,12 +64,14 @@ export default {
         let body;try{body=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
         const identity=await freeAccountIdentity(env,request);if(identity.response)return identity.response;
         const progress=identity.user?await getProgression(env,identity.user.id):{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100};
-        const payload={name:identity.user?('@'+identity.user.username):body?.name,loadout:body?.loadout,owner:identity.owner===true,userId:identity.user?.id||null,progress};
+        const payload={name:identity.user?('@'+identity.user.username):body?.name,loadout:body?.loadout,crew:await crewIdentity(env,identity.user?.id),owner:identity.owner===true,userId:identity.user?.id||null,progress};
         return stub.fetch(new Request('https://room.internal/free/join?serverId='+encodeURIComponent(serverId),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}));
       }
       if(fm[2]==='ws')return stub.fetch(new Request('https://room.internal/free/ws?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{headers:request.headers}));
     }
+    const crewResponse=await handleCrewRequest(request,env,url);if(crewResponse)return crewResponse;
     const authResponse=await handleAuthRequest(request,env,url);if(authResponse)return authResponse;
+    const marketResponse=await handleMarketRequest(request,env,url);if(marketResponse)return marketResponse;
     if(url.pathname==='/api/rooms/create'&&request.method==='POST'){
       let body;try{body=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
       if(!validNickname(body?.name))return json({error:'INVALID_NAME'},400);
@@ -74,7 +79,7 @@ export default {
       const identity=await freeAccountIdentity(env,request);if(identity.response)return identity.response;
       for(let i=0;i<12;i++){
         const code=generateRoomCode(),id=env.ROOMS.idFromName(code),stub=env.ROOMS.get(id);
-        const resp=await stub.fetch(new Request('https://room.internal/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code,userId:identity.user?.id||null,owner:identity.owner===true,name:sanitizeNickname(body.name),settings,loadout:safeLoadout(body.loadout)})}));
+        const resp=await stub.fetch(new Request('https://room.internal/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({code,userId:identity.user?.id||null,crew:await crewIdentity(env,identity.user?.id),owner:identity.owner===true,name:identity.user?'@'+identity.user.username:sanitizeNickname(body.name),settings,loadout:safeLoadout(body.loadout)})}));
         if(resp.status===409)continue;
         const result=await resp.json();return json(result,resp.status);
       }
@@ -84,7 +89,7 @@ export default {
     if(m){
       const code=normalizeRoomCode(m[1]);if(!validRoomCode(code))return json({error:'INVALID_CODE'},400);
       const stub=env.ROOMS.get(env.ROOMS.idFromName(code));
-      if(m[2]==='join'&&request.method==='POST'){const identity=await freeAccountIdentity(env,request);if(identity.response)return identity.response;const body=await request.json();return stub.fetch(new Request('https://room.internal/join',{method:'POST',body:JSON.stringify({...body,userId:identity.user?.id||null,owner:identity.owner===true})}));}
+      if(m[2]==='join'&&request.method==='POST'){const identity=await freeAccountIdentity(env,request);if(identity.response)return identity.response;const body=await request.json();return stub.fetch(new Request('https://room.internal/join',{method:'POST',body:JSON.stringify({...body,name:identity.user?'@'+identity.user.username:body.name,userId:identity.user?.id||null,crew:await crewIdentity(env,identity.user?.id),owner:identity.owner===true})}));}
       if(m[2]==='ws')return stub.fetch(request);
     }
     return env.ASSETS.fetch(request);
@@ -233,7 +238,7 @@ export class Room {
   }
 
   publicFreeRoom(){
-    const r=this.room;return {protocol:PROTOCOL_VERSION,mode:'freeroam',serverId:r.serverId,maxPlayers:FREE_MAX_PLAYERS,records:r.records||{speed:0,drift:0},activities:{drift:this.publicActivity(r.driftBattle),koth:this.publicActivity(r.koth)},players:r.players.map(p=>({id:p.id,name:p.name,owner:p.owner===true,connected:!!p.connected,liveryId:p.liveryId,effectId:p.effectId,level:Math.max(0,Math.min(100,Math.floor(Number(p.level)||0))),totalExp:Math.max(0,Math.floor(Number(p.totalExp)||0)),state:p.state||null}))};
+    const r=this.room;return {protocol:PROTOCOL_VERSION,mode:'freeroam',serverId:r.serverId,maxPlayers:FREE_MAX_PLAYERS,records:r.records||{speed:0,drift:0},activities:{drift:this.publicActivity(r.driftBattle),koth:this.publicActivity(r.koth)},players:r.players.map(p=>({id:p.id,userId:p.userId||null,crew:p.crew||null,name:p.name,owner:p.owner===true,connected:!!p.connected,liveryId:p.liveryId,effectId:p.effectId,level:Math.max(0,Math.min(100,Math.floor(Number(p.level)||0))),totalExp:Math.max(0,Math.floor(Number(p.totalExp)||0)),state:p.state||null}))};
   }
   freeDragForPlayer(playerId){
     const challengeId=this.room?.players?.find(x=>x.id===playerId)?.dragChallengeId;if(!challengeId)return null;
@@ -272,7 +277,7 @@ export class Room {
   }
   async refreshOwnerLimits(p){if(!p.limitsAt||now()-p.limitsAt>15000){const limits=await playerLimits(this.env,p);p.speedLimit=limits.speed;p.yawLimit=limits.yaw;p.limitsAt=now();}}
   async handleFreeMessage(ws,p,m){
-    if(m.type==='ping'){if(typeof m.clientTime==='number'){const t=now(),probeId=crypto.randomUUID().slice(0,12);p.syncProbeId=probeId;p.syncProbeAt=t;this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:t,probeId});}return;}
+    if(m.type==='ping'){if(p.userId&&now()-(p.crewCheckedAt||0)>30000){p.crewCheckedAt=now();const crew=await crewIdentity(this.env,p.userId);if(JSON.stringify(crew)!==JSON.stringify(p.crew)){p.crew=crew;if(this.room.mode==='freeroam')this.broadcast({type:'free_room',v:PROTOCOL_VERSION,room:this.publicFreeRoom(),serverTime:now()});else this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});}}if(typeof m.clientTime==='number'){const t=now(),probeId=crypto.randomUUID().slice(0,12);p.syncProbeId=probeId;p.syncProbeAt=t;this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:t,probeId});}return;}
     if(m.type==='sync_echo'){if(typeof m.probeId!=='string'||m.probeId!==p.syncProbeId||!p.syncProbeAt)return;const rtt=now()-p.syncProbeAt;delete p.syncProbeId;delete p.syncProbeAt;if(rtt>=0&&rtt<=2000)p.netRttMs=Number.isFinite(p.netRttMs)?Math.min(rtt,p.netRttMs+8):rtt;return;}
     if(m.type==='free_state'){
       await this.refreshOwnerLimits(p);
@@ -308,7 +313,7 @@ export class Room {
 
   publicRoom(){
     const r=this.room,settlement=r.settlement?{raceId:r.settlement.raceId,status:r.settlement.status,pot:r.settlement.pot||0,wager:r.settlement.wager||0,winnerId:r.settlement.winnerId||null,reason:r.settlement.reason||'',stakes:r.settlement.stakes||{}}:null;
-    return {protocol:PROTOCOL_VERSION,code:r.code,status:r.status,settings:r.settings,hostId:r.hostId,raceId:r.raceId||null,raceStartAt:r.raceStartAt||0,gridOrder:r.gridOrder||[],finishOrder:r.finishOrder||[],settlement,pot:settlement?.pot||0,players:r.players.map(p=>({id:p.id,name:p.name,ready:!!p.ready,connected:!!p.connected,host:p.id===r.hostId,liveryId:p.liveryId,effectId:p.effectId,wagerConfirmed:!!p.wagerConfirmed,stake:p.stake||0,finishPlace:p.finishPlace||0,finishTime:p.finishTime||0,state:p.state?{laps:p.state.laps,progress:p.state.progress,finished:!!p.state.finished,driftScore:Math.max(0,Math.floor(Number(p.state.driftScore)||0))}:null}))};
+    return {protocol:PROTOCOL_VERSION,code:r.code,status:r.status,settings:r.settings,hostId:r.hostId,raceId:r.raceId||null,raceStartAt:r.raceStartAt||0,gridOrder:r.gridOrder||[],finishOrder:r.finishOrder||[],settlement,pot:settlement?.pot||0,players:r.players.map(p=>({id:p.id,userId:p.userId||null,crew:p.crew||null,name:p.name,ready:!!p.ready,connected:!!p.connected,host:p.id===r.hostId,liveryId:p.liveryId,effectId:p.effectId,wagerConfirmed:!!p.wagerConfirmed,stake:p.stake||0,finishPlace:p.finishPlace||0,finishTime:p.finishTime||0,state:p.state?{laps:p.state.laps,progress:p.state.progress,finished:!!p.state.finished,driftScore:Math.max(0,Math.floor(Number(p.state.driftScore)||0))}:null}))};
   }
   send(ws,obj){try{ws.send(JSON.stringify(obj));}catch{}}
   broadcast(obj,except=null){const text=JSON.stringify(obj);for(const ws of this.ctx.getWebSockets()){if(ws===except)continue;try{ws.send(text);}catch{}}}
@@ -346,7 +351,7 @@ export class Room {
       let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}if(!validFreeName(b?.name))return json({error:'INVALID_NAME'},400);
       const serverId=url.searchParams.get('serverId')||'city-01',t=now();if(!this.room||this.room.mode!=='freeroam')this.room={mode:'freeroam',serverId,createdAt:t,updatedAt:t,emptySince:0,records:{speed:0,drift:0},dragQueue:[],dragChallenges:{},driftBattle:null,koth:null,players:[]};
       const live=this.room.players.filter(p=>p.connected||p.disconnectedUntil>t);if(live.length>=FREE_MAX_PLAYERS)return json({error:'SERVER_FULL'},409);
-      const id=playerId(),sessionToken=token(),loadout=safeLoadout(b.loadout);this.room.players.push({id,name:sanitizeNickname(b.name),owner:b.owner===true,userId:b.userId||null,token:sessionToken,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,level:Math.max(0,Math.min(100,Math.floor(Number(b.progress?.level)||0))),totalExp:Math.max(0,Math.floor(Number(b.progress?.totalExp)||0)),activePlayMs:0,onlineRewardCounter:0,activeSessionId:crypto.randomUUID(),lastSeq:-1,lastStateAt:0,lastSampleTime:0,lastChatAt:0,netRttMs:null,state:null});await this.save();return json({ok:true,serverId:this.room.serverId,playerId:id,sessionToken,room:this.publicFreeRoom()},201);
+      const id=playerId(),sessionToken=token(),loadout=safeLoadout(b.loadout);this.room.players.push({id,name:sanitizeNickname(b.name),crew:b.crew||null,owner:b.owner===true,userId:b.userId||null,token:sessionToken,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,level:Math.max(0,Math.min(100,Math.floor(Number(b.progress?.level)||0))),totalExp:Math.max(0,Math.floor(Number(b.progress?.totalExp)||0)),activePlayMs:0,onlineRewardCounter:0,activeSessionId:crypto.randomUUID(),lastSeq:-1,lastStateAt:0,lastSampleTime:0,lastChatAt:0,netRttMs:null,state:null});await this.save();return json({ok:true,serverId:this.room.serverId,playerId:id,sessionToken,room:this.publicFreeRoom()},201);
     }
     if(url.pathname==='/free/ws'){
       if(request.headers.get('Upgrade')!=='websocket')return json({error:'WEBSOCKET_REQUIRED'},426);if(!this.room||this.room.mode!=='freeroam')return json({error:'SERVER_NOT_FOUND'},404);
@@ -358,16 +363,16 @@ export class Room {
     if(url.pathname==='/create'&&request.method==='POST'){
       if(this.room&&this.room.players.length&&now()-(this.room.updatedAt||0)<ROOM_TTL_MS)return json({error:'ROOM_EXISTS'},409);
       const b=await request.json(),created=now(),id=playerId(),sessionToken=token(),settings=normalizeSettings(b.settings);
-      this.room={code:b.code,createdAt:created,updatedAt:created,emptySince:created,status:'lobby',settings,hostId:id,raceId:null,raceStartAt:0,gridOrder:[],finishOrder:[],settlement:null,players:[{id,userId:b.userId||null,owner:b.owner===true,name:sanitizeNickname(b.name),token:sessionToken,ready:false,connected:false,disconnectedUntil:created+RECONNECT_GRACE_MS,liveryId:b.loadout?.liveryId||'apexLime',effectId:b.loadout?.effectId||'standard',wagerConfirmed:settings.wager===0,stake:0,creditSnapshot:null,lastSeq:-1,lastStateAt:0,state:null,serverLaps:0,lastLapAt:0,finishPlace:0,finishTime:0}]};
+      this.room={code:b.code,createdAt:created,updatedAt:created,emptySince:created,status:'lobby',settings,hostId:id,raceId:null,raceStartAt:0,gridOrder:[],finishOrder:[],settlement:null,players:[{id,userId:b.userId||null,crew:b.crew||null,owner:b.owner===true,name:sanitizeNickname(b.name),token:sessionToken,ready:false,connected:false,disconnectedUntil:created+RECONNECT_GRACE_MS,liveryId:b.loadout?.liveryId||'apexLime',effectId:b.loadout?.effectId||'standard',wagerConfirmed:settings.wager===0,stake:0,creditSnapshot:null,lastSeq:-1,lastStateAt:0,state:null,serverLaps:0,lastLapAt:0,finishPlace:0,finishTime:0}]};
       await this.save();return json({ok:true,code:b.code,playerId:id,sessionToken,room:this.publicRoom()},201);
     }
     if(url.pathname==='/join'&&request.method==='POST'){
       if(!this.room)return json({error:'ROOM_NOT_FOUND'},404);
       let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
-      if(!validNickname(b?.name))return json({error:'INVALID_NAME'},400);
+      if(!(b?.userId?validFreeName(b?.name):validNickname(b?.name)))return json({error:'INVALID_NAME'},400);
       if(this.room.status!=='lobby')return json({error:'RACE_ALREADY_STARTED'},409);
       const active=this.room.players.filter(p=>p.connected||p.disconnectedUntil>now());if(active.length>=this.room.settings.maxPlayers)return json({error:'ROOM_FULL'},409);
-      const id=playerId(),sessionToken=token(),t=now(),loadout=safeLoadout(b.loadout);this.room.players.push({id,userId:b.userId||null,owner:b.owner===true,name:sanitizeNickname(b.name),token:sessionToken,ready:false,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,wagerConfirmed:this.room.settings.wager===0,stake:0,creditSnapshot:null,lastSeq:-1,lastStateAt:0,state:null,serverLaps:0,lastLapAt:0,finishPlace:0,finishTime:0});
+      const id=playerId(),sessionToken=token(),t=now(),loadout=safeLoadout(b.loadout);this.room.players.push({id,userId:b.userId||null,crew:b.crew||null,owner:b.owner===true,name:sanitizeNickname(b.name),token:sessionToken,ready:false,connected:false,disconnectedUntil:t+RECONNECT_GRACE_MS,liveryId:loadout.liveryId,effectId:loadout.effectId,wagerConfirmed:this.room.settings.wager===0,stake:0,creditSnapshot:null,lastSeq:-1,lastStateAt:0,state:null,serverLaps:0,lastLapAt:0,finishPlace:0,finishTime:0});
       await this.save();return json({ok:true,code:this.room.code,playerId:id,sessionToken,room:this.publicRoom()},201);
     }
     if(url.pathname==='/ws'||url.pathname.endsWith('/ws')){
@@ -389,7 +394,7 @@ export class Room {
     await this.load();if(!this.room)return;const a=ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return this.error(ws,'SESSION_INVALID','Сессия игрока недействительна');
     const parsed=parseClientMessage(message);if(!parsed.ok){if(parsed.error==='message_too_large')try{ws.close(1009,'message too large');}catch{};return;}
     const m=parsed.msg;if(['state','finish'].includes(m.type))await this.refreshOwnerLimits(p);if(this.room.mode==='freeroam')return this.handleFreeMessage(ws,p,m);if(m.v!==undefined&&m.v!==PROTOCOL_VERSION)return this.error(ws,'PROTOCOL_VERSION','Версия Online-протокола не поддерживается');
-    if(m.type==='ping'){if(typeof m.clientTime==='number')this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:now()});return;}
+    if(m.type==='ping'){if(p.userId&&now()-(p.crewCheckedAt||0)>30000){p.crewCheckedAt=now();const crew=await crewIdentity(this.env,p.userId);if(JSON.stringify(crew)!==JSON.stringify(p.crew)){p.crew=crew;if(this.room.mode==='freeroam')this.broadcast({type:'free_room',v:PROTOCOL_VERSION,room:this.publicFreeRoom(),serverTime:now()});else this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});}}if(typeof m.clientTime==='number')this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:now()});return;}
     if(m.type==='wager_confirm'){
       if(this.room.status!=='lobby')return;
       const amount=m.amount,balance=safeBalance(m.balance);if(!validWager(amount)||amount!==this.room.settings.wager)return this.error(ws,'WAGER_MISMATCH','Ставка комнаты изменилась');
@@ -435,6 +440,7 @@ export class Room {
       p.finishPlace=this.room.finishOrder.length+1;p.finishTime=Math.max(0,now()-this.room.raceStartAt);this.room.finishOrder.push(p.id);p.state.finished=true;
       if(p.finishPlace===1&&this.room.settlement?.status==='locked'){this.room.settlement.status='awarded';this.room.settlement.winnerId=p.id;this.room.settlement.awardedAt=now();}
       await recordResult(this.env,this.room.raceId,p.userId,'online',p.finishPlace===1,p.finishTime);
+      await awardCrewRep(this.env,p.userId,'online',this.room.raceId,90);
       await this.save();this.broadcast({type:'race_finish',v:PROTOCOL_VERSION,raceId:this.room.raceId,playerId:p.id,finishPlace:p.finishPlace,finishTime:p.finishTime,room:this.publicRoom()});return;
     }
     if(m.type==='return_lobby'){

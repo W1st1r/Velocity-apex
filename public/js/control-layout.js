@@ -2,15 +2,16 @@
   'use strict';
 
   const STORAGE_KEY='velocityApex.controlLayout.v1';
-  const KEYS=['left','right','brake','handbrake','gas'];
+  const KEYS=['left','right','wheel','brake','handbrake','gas'];
   const DEFAULT_LAYOUT={
     left:{x:.065,y:.835,scale:1},
     right:{x:.145,y:.835,scale:1},
+    wheel:{x:.105,y:.825,scale:1},
     handbrake:{x:.795,y:.855,scale:1},
     brake:{x:.875,y:.835,scale:1},
     gas:{x:.955,y:.81,scale:1}
   };
-  const LABELS={left:'СТРЕЛКА ◀',right:'СТРЕЛКА ▶',brake:'BRAKE',handbrake:'РУЧНИК / HB',gas:'GAS'};
+  const LABELS={left:'СТРЕЛКА ◀',right:'СТРЕЛКА ▶',wheel:'РУЛЬ',brake:'BRAKE',handbrake:'РУЧНИК / HB',gas:'GAS'};
   const $=id=>document.getElementById(id);
   const clone=value=>JSON.parse(JSON.stringify(value));
   const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
@@ -42,15 +43,15 @@
   function readLayout(){
     try{
       const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
-      if(!parsed||parsed.version!==1||!parsed.layout)return null;
-      return {version:1,layout:sanitizeLayout(parsed.layout)};
+      if(!parsed||![1,2].includes(parsed.version)||!parsed.layout)return null;
+      return {version:2,layout:sanitizeLayout(parsed.layout)};
     }catch(_){return null;}
   }
 
   function writeLayout(layout){
     const safe=sanitizeLayout(layout);
-    try{localStorage.setItem(STORAGE_KEY,JSON.stringify({version:1,layout:safe}));}catch(_){}
-    savedLayout={version:1,layout:safe};
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify({version:2,layout:safe}));}catch(_){}
+    savedLayout={version:2,layout:safe};
     return safe;
   }
 
@@ -61,7 +62,7 @@
 
   function mapRuntimeControls(){
     const race={
-      left:$('leftBtn'),right:$('rightBtn'),brake:$('brakeBtn'),handbrake:$('handbrakeBtn'),gas:$('gasBtn')
+      left:$('leftBtn'),right:$('rightBtn'),wheel:$('steeringWheel'),brake:$('brakeBtn'),handbrake:$('handbrakeBtn'),gas:$('gasBtn')
     };
     const freeRoot=$('freeMobileControls');
     const free={};
@@ -103,17 +104,28 @@
 
   function previewBaseSize(key){
     if(key==='gas')return 78;
+    if(key==='wheel')return 98;
     if(key==='handbrake')return 52;
     if(key==='brake')return 60;
     return 66;
   }
 
+  function currentMode(){
+    try{const raw=JSON.parse(localStorage.getItem('velocityApex.v1')||'{}');return ['arrows','tilt','wheel'].includes(raw?.controlMode)?raw.controlMode:'arrows';}catch(_){return 'arrows';}
+  }
+
+  function activeKeys(){
+    const mode=currentMode();if(mode==='wheel')return ['wheel','brake','handbrake','gas'];if(mode==='tilt')return ['brake','handbrake','gas'];return ['left','right','brake','handbrake','gas'];
+  }
+
   function renderEditor(){
     const stage=$('controlLayoutStage');
     if(!stage)return;
-    const w=Math.max(1,innerWidth),h=Math.max(1,innerHeight);
+    const w=Math.max(1,innerWidth),h=Math.max(1,innerHeight),visible=new Set(activeKeys());
+    if(!visible.has(selectedKey))selectedKey=visible.has('gas')?'gas':Array.from(visible)[0];
     for(const node of editorNodes()){
       const key=node.dataset.layoutControl,item=workingLayout[key];if(!item)continue;
+      node.classList.toggle('hidden',!visible.has(key));
       node.style.left=(item.x*w)+'px';node.style.top=(item.y*h)+'px';
       node.style.setProperty('--editor-scale',item.scale.toFixed(3));
       node.classList.toggle('selected',key===selectedKey);
@@ -129,7 +141,7 @@
   }
 
   function setSelected(key){
-    if(!KEYS.includes(key))return;
+    if(!KEYS.includes(key)||!activeKeys().includes(key))return;
     selectedKey=key;renderEditor();
   }
 
@@ -190,7 +202,7 @@
     if(opened)return;
     opened=true;changed=false;pointerId=null;dragKey=null;
     beforeOpen=savedLayout?clone(savedLayout.layout):null;
-    workingLayout=clone(savedLayout?.layout||DEFAULT_LAYOUT);
+    workingLayout=clone(savedLayout?.layout||DEFAULT_LAYOUT);if(!activeKeys().includes(selectedKey))selectedKey='gas';
     const settings=$('settings'),editor=$('controlLayoutEditor');
     settings?.classList.add('layout-editing');
     editor?.classList.remove('hidden');

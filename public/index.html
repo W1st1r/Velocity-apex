@@ -15,8 +15,9 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260915-progression1" />
+  <link rel="stylesheet" href="css/style.css?v=20260916-market1" />
 <link rel="stylesheet" href="css/owner-panel.css?v=owner1">
+  <link rel="stylesheet" href="css/crews.css?v=20260916-crews1">
 </head>
 <body>
   <div id="app">
@@ -109,6 +110,7 @@
         <section class="menu-section menu-tools-section" aria-label="Главные разделы">
           <div class="menu-section-head"><span>ГАРАЖ И ПРОФИЛЬ</span><i aria-hidden="true"></i></div>
           <div class="menu-action-row">
+            <button id="crewBtn" class="secondary-btn menu-tile" type="button"><span class="menu-tile-icon">⚡</span><span class="menu-tile-copy"><span>КЛАН</span><strong>CREW · РЕЙТИНГ</strong></span></button>
             <button id="shopBtn" class="secondary-btn menu-tile shop-menu-btn" type="button">
               <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
               <span class="menu-tile-copy"><span>МАГАЗИН</span><strong id="menuCredits">200 CR</strong></span>
@@ -490,13 +492,13 @@
             <span class="shop-entry-copy"><small>МОЙ МАГАЗИН</small><strong>ЛИЧНЫЙ</strong><em>Машины, эффекты и кейсы</em></span>
             <b aria-hidden="true">›</b>
           </button>
-          <button id="shopMarketBtn" class="shop-entry-card shop-entry-market" type="button" disabled aria-disabled="true">
+          <button id="shopMarketBtn" class="shop-entry-card shop-entry-market" type="button">
             <span class="shop-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm2-4h12l2 4H4l2-4Z"/><path d="M9 13h6M9 17h4"/></svg></span>
-            <span class="shop-entry-copy"><small>ТОРГОВЛЯ С ИГРОКАМИ</small><strong>РЫНОК</strong><em>Скоро · в разработке</em></span>
-            <span class="shop-entry-lock">СКОРО</span>
+            <span class="shop-entry-copy"><small>ТОРГОВЛЯ С ИГРОКАМИ</small><strong>РЫНОК</strong><em>Покупка · продажа · заявки</em></span>
+            <span class="shop-entry-live">LIVE</span>
           </button>
         </div>
-        <div class="shop-entry-note">Рынок появится в одном из следующих обновлений.</div>
+        <div class="shop-entry-note">Рынок работает между аккаунтами: машины и кредиты передаются через защищённую серверную сделку.</div>
       </section>
       <section id="shopPersonalPanel" class="shop-panel glass catalog-panel hidden" aria-labelledby="shopTitle">
         <header class="shop-header"><div><div class="eyebrow">VELOCITY APEX / STORE</div><h2 id="shopTitle">МАГАЗИН</h2></div><strong class="credits-pill" id="shopCredits">200 CR</strong><button id="shopBackBtn" class="secondary-btn" type="button">НАЗАД</button></header>
@@ -504,6 +506,45 @@
           <div class="shop-catalog"><div id="shopTabs" class="segmented catalog-tabs" role="group" aria-label="Раздел магазина"><button type="button" data-tab="livery" class="selected">МАШИНЫ</button><button type="button" data-tab="effect">ЭФФЕКТЫ</button><button type="button" data-tab="case">КЕЙСЫ</button></div><div id="shopCategoryTabs" class="car-category-tabs" role="group" aria-label="Категория автомобилей магазина"><button type="button" data-category="all" class="selected"><span>ВСЕ</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="basic"><span>BASIC</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="sport"><span>SPORT</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="premium"><span>PREMIUM</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="rare"><span>RARE</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="legendary"><span>LEGENDARY</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="lux"><span>LUX</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button></div><div id="shopItems" class="shop-items"></div></div></div>
         <div id="shopMessage" class="shop-message" aria-live="polite">Кредиты начисляются за завершённые гонки.</div>
       </section>
+
+      <section id="shopMarketPanel" class="market-panel glass hidden" aria-labelledby="marketTitle">
+        <header class="market-header">
+          <div class="market-title-wrap"><div class="eyebrow">VELOCITY APEX / PLAYER MARKET</div><h2 id="marketTitle">РЫНОК</h2><small>Безопасные сделки между игроками</small></div>
+          <div class="market-wallet"><span>БАЛАНС</span><strong id="marketCredits">0 CR</strong></div>
+          <button id="marketBackBtn" class="secondary-btn" type="button">НАЗАД</button>
+        </header>
+        <div class="market-tabs" id="marketTabs" role="tablist" aria-label="Раздел рынка">
+          <button class="selected" data-market-tab="cars" type="button"><span>МАШИНЫ</span><small id="marketCarsCount">0</small></button>
+          <button data-market-tab="purchases" type="button"><span>ПОКУПКИ</span><small id="marketPurchasesCount">0</small></button>
+          <button data-market-tab="sales" type="button"><span>ПРОДАЖИ</span><small id="marketSalesCount">0</small></button>
+          <button data-market-tab="history" type="button"><span>ИСТОРИЯ</span><small id="marketHistoryCount">0</small></button>
+        </div>
+        <div class="market-toolbar">
+          <div><strong id="marketSectionTitle">МАШИНЫ НА РЫНКЕ</strong><small id="marketSectionHint">Покупайте машины, выставленные другими игроками.</small></div>
+          <label class="market-search"><span aria-hidden="true">⌕</span><input id="marketSearch" type="search" autocomplete="off" placeholder="Поиск машины или игрока" /></label>
+          <button id="marketPrimaryAction" class="primary-btn hidden" type="button">СОЗДАТЬ</button>
+          <button id="marketRefreshBtn" class="secondary-btn market-refresh" type="button" aria-label="Обновить рынок">↻</button>
+        </div>
+        <div id="marketNotice" class="market-notice" aria-live="polite">Рынок готов.</div>
+        <div id="marketList" class="market-list" aria-live="polite"></div>
+      </section>
+
+      <div id="marketDialog" class="market-dialog hidden" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="marketDialogTitle">
+        <section class="market-dialog-card glass">
+          <header><div><div class="eyebrow">VELOCITY APEX / MARKET</div><h3 id="marketDialogTitle">СДЕЛКА</h3></div><button id="marketDialogClose" type="button" aria-label="Закрыть">×</button></header>
+          <form id="marketTradeForm" class="market-trade-form">
+            <label><span>МАШИНА</span><select id="marketCarSelect"></select></label>
+            <label><span>ЦЕНА</span><div class="market-price-input"><input id="marketPriceInput" inputmode="numeric" type="number" min="1" max="100000000" step="1" /><b>CR</b></div></label>
+            <div id="marketTradeHint" class="market-trade-hint"></div>
+            <button id="marketTradeSubmit" class="primary-btn" type="submit">ПОДТВЕРДИТЬ</button>
+          </form>
+          <div id="marketConfirmView" class="market-confirm-view hidden">
+            <div id="marketConfirmCar" class="market-confirm-car"></div>
+            <p id="marketConfirmText"></p>
+            <div class="market-confirm-actions"><button id="marketConfirmCancel" class="secondary-btn" type="button">ОТМЕНА</button><button id="marketConfirmSubmit" class="primary-btn" type="button">ПОДТВЕРДИТЬ</button></div>
+          </div>
+        </section>
+      </div>
     </div>
 
 
@@ -591,7 +632,7 @@
           <div class="control-layout-settings-copy">
             <div class="section-label">РАСКЛАДКА КНОПОК</div>
             <strong>ПОЛОЖЕНИЕ И РАЗМЕР</strong>
-            <small>Перемещайте GAS, BRAKE, стрелки и ручник по экрану. Размер каждой кнопки настраивается отдельно.</small>
+            <small>Перемещайте GAS, BRAKE, стрелки или руль и ручник по экрану. Размер каждого элемента настраивается отдельно.</small>
           </div>
           <button id="controlLayoutOpenBtn" class="secondary-btn control-layout-open-btn" type="button">НАСТРОИТЬ</button>
         </div>
@@ -615,6 +656,7 @@
       <div id="controlLayoutStage" class="control-layout-stage" aria-label="Область настройки кнопок">
         <button class="control-layout-node layout-left" data-layout-control="left" type="button" aria-label="Стрелка влево"><span>◀</span></button>
         <button class="control-layout-node layout-right" data-layout-control="right" type="button" aria-label="Стрелка вправо"><span>▶</span></button>
+        <button class="control-layout-node layout-wheel hidden" data-layout-control="wheel" type="button" aria-label="Виртуальный руль"><span>◉</span></button>
         <button class="control-layout-node layout-brake" data-layout-control="brake" type="button">BRAKE</button>
         <button class="control-layout-node layout-handbrake" data-layout-control="handbrake" type="button">HB</button>
         <button class="control-layout-node layout-gas" data-layout-control="gas" type="button">GAS</button>
@@ -677,6 +719,7 @@
             <span class="root-tab-group-label">УПРАВЛЕНИЕ ИГРОКАМИ</span>
             <div class="root-tab-group-buttons">
               <button type="button" data-root-tab="accounts"><b>USR</b><span>АККАУНТЫ</span></button>
+              <button type="button" id="crewOwnerReports"><b>REP</b><span>ЖАЛОБЫ</span></button>
               <button type="button" data-root-tab="blocked"><b>BAN</b><span>БЛОКИРОВКИ</span></button>
             </div>
           </div>
@@ -921,16 +964,18 @@
   <script src="js/ai.js?v=20260915-owner1"></script>
   <script src="js/garage.js?v=20260915-owner1"></script>
   <script src="js/root-console.js?v=20260915-owner1"></script>
-  <script src="js/control-layout.js?v=20260915-layout1"></script>
+  <script src="js/control-layout.js?v=20260916-wheel1"></script>
   <script src="js/controls.js?v=20260915-owner1"></script>
   <script src="js/network.js?v=20260915-owner1"></script>
   <script src="js/account.js?v=20260915-owner1"></script>
+  <script src="js/market.js?v=20260916-market1"></script>
   <script src="js/promo.js?v=20260915-001"></script>
-  <script src="js/online.js?v=20260915-owner1"></script>
-  <script src="js/friends.js?v=20260915-owner1"></script>
-  <script src="js/free-city.js?v=20260915-freefix1"></script>
-  <script src="js/freeroam.js?v=20260915-progression1"></script>
+  <script src="js/online.js?v=20260916-crews1"></script>
+  <script src="js/friends.js?v=20260916-crews1"></script>
+  <script src="js/free-city.js?v=20260916-crews1"></script>
+  <script src="js/freeroam.js?v=20260916-crews1"></script>
   <script src="js/owner-panel.js?v=owner1"></script>
-  <script src="js/game.js?v=20260915-owner1"></script>
+  <script src="js/crews.js?v=20260916-crews1"></script>
+  <script src="js/game.js?v=20260916-crews1"></script>
 </body>
 </html>

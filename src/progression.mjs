@@ -1,3 +1,4 @@
+import {awardCrewRep} from './crews.mjs';
 import {mutateTargetSave} from './auth.mjs';
 
 export const MAX_LEVEL=100;
@@ -114,7 +115,7 @@ export async function awardProgression(env,userId,{source,eventId,exp=0,credits=
   try{
     await ensureProgressionSchema(env);t=now();safeSource=String(source).slice(0,40);safeEvent=String(eventId).slice(0,120);requestedExp=clampInt(exp,0,100000);requestedCredits=clampInt(credits,0,1000000);
     existing=await env.DB.prepare('SELECT exp,credits,requested_credits,created_at,meta_json FROM progression_rewards WHERE user_id=? AND source=? AND event_id=? LIMIT 1').bind(userId,safeSource,safeEvent).first();
-    if(existing){const progress=await getProgression(env,userId);return {ok:true,duplicate:true,expAdded:0,creditsAdded:0,requestedCredits:clampInt(existing.requested_credits),...progress};}
+    if(existing){await awardCrewRep(env,userId,safeSource,safeEvent,existing.exp);const progress=await getProgression(env,userId);return {ok:true,duplicate:true,expAdded:0,creditsAdded:0,requestedCredits:clampInt(existing.requested_credits),...progress};}
     cap=await rewardCap(env,userId,safeSource,requestedCredits,t);rewardId=crypto.randomUUID();try{metaText=JSON.stringify(meta||{}).slice(0,3000);}catch{}
     const reserved=await env.DB.prepare('INSERT OR IGNORE INTO progression_rewards (id,user_id,source,event_id,exp,credits,requested_credits,created_at,meta_json) VALUES (?,?,?,?,?,?,?,?,?)').bind(rewardId,userId,safeSource,safeEvent,requestedExp,0,requestedCredits,t,metaText).run();
     if(Number(reserved?.meta?.changes||0)!==1){const progress=await getProgression(env,userId);return {ok:true,duplicate:true,expAdded:0,creditsAdded:0,requestedCredits,...progress};}
@@ -126,6 +127,7 @@ export async function awardProgression(env,userId,{source,eventId,exp=0,credits=
       if(changed.ok){creditsAdded=clampInt(changed.result?.delta);balance=clampInt(changed.result?.after);}
     }
     await env.DB.prepare('UPDATE progression_rewards SET credits=? WHERE id=?').bind(creditsAdded,rewardId).run();
+    await awardCrewRep(env,userId,safeSource,safeEvent,requestedExp);
     const info={totalExp:afterTotal,...levelFromTotalExp(afterTotal)};
     return {ok:true,duplicate:false,expAdded:requestedExp,creditsAdded,requestedCredits,capped:creditsAdded<requestedCredits,balance,levelBefore:before.level,...info};
   }catch(e){console.error('progression reward',e);return {ok:false,error:'REWARD_WRITE_FAILED'};}

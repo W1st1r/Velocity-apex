@@ -3,6 +3,7 @@
   "name": "velocity-apex",
   "main": "src/worker.mjs",
   "compatibility_date": "2026-09-13",
+  "triggers": {"crons": ["0 * * * *"]},
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
