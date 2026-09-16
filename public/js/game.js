@@ -179,9 +179,17 @@
   function closeCatalog(mode){
     state=catalogReturn;$(mode).classList.add('hidden');(state==='setup'?UI.setup:UI.menu).classList.remove('hidden');syncSetupUI();updateMenuStats();
   }
-  const openShop=()=>openCatalog('shop'),openGarage=()=>openCatalog('garage');
+  function showShopLanding(){
+    $('shopLanding').classList.remove('hidden');$('shopPersonalPanel').classList.add('hidden');
+  }
+  function showPersonalShop(){
+    $('shopLanding').classList.add('hidden');$('shopPersonalPanel').classList.remove('hidden');garage.open('shop');
+  }
+  const openShop=()=>{openCatalog('shop');showShopLanding();},openGarage=()=>openCatalog('garage');
   $('shopBtn').addEventListener('click',openShop);$('garageBtn').addEventListener('click',openGarage);$('loadoutBtn').addEventListener('click',openGarage);
-  $('shopBackBtn').addEventListener('click',()=>closeCatalog('shop'));$('garageBackBtn').addEventListener('click',()=>closeCatalog('garage'));
+  $('shopPersonalBtn').addEventListener('click',showPersonalShop);
+  $('shopLandingBackBtn').addEventListener('click',()=>closeCatalog('shop'));
+  $('shopBackBtn').addEventListener('click',showShopLanding);$('garageBackBtn').addEventListener('click',()=>closeCatalog('garage'));
 
   function controlNotice(message,kind='warn'){
     settingsNotice=message;settingsNoticeKind=kind;syncSettingsUI();

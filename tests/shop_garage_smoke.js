@@ -20,8 +20,9 @@ assert.equal(R.selectOwned(save,'livery','porsche-911'),'selected');assert.equal
 assert.equal(R.selectOwned(save,'effect','redFlame'),'selected');assert.equal(save.selectedEffect,'redFlame');
 const persisted=R.normalizeSave(JSON.parse(JSON.stringify(save)));assert.equal(persisted.selectedLivery,'porsche-911');assert.equal(persisted.selectedEffect,'redFlame');assert.equal(persisted.bestScore,321);assert.equal(persisted.bestLap,4567);assert.equal(persisted.controlMode,'wheel');
 const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),js=fs.readFileSync(path.join(ROOT,'public/js/garage.js'),'utf8'),game=fs.readFileSync(path.join(ROOT,'public/js/game.js'),'utf8'),css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8');
-for(const id of ['shopBtn','garageBtn','shop','garage','shopBackBtn','garageBackBtn','shopItems','garageItems','shopPreview','garagePreview'])assert.ok(html.includes(`id="${id}"`),`missing UI ${id}`);
+for(const id of ['shopBtn','garageBtn','shop','garage','shopLanding','shopPersonalPanel','shopPersonalBtn','shopMarketBtn','shopLandingBackBtn','shopBackBtn','garageBackBtn','shopItems','garageItems','shopPreview','garagePreview'])assert.ok(html.includes(`id="${id}"`),`missing UI ${id}`);
+assert.ok(html.includes('Скоро · в разработке')&&html.includes('shopMarketBtn" class="shop-entry-card shop-entry-market" type="button" disabled'),'locked market placeholder missing');
 assert.ok(js.includes("mode==='garage'")&&js.includes('R.selectOwned')&&js.includes('R.shopAction'),'shop/garage behavior split missing');
-assert.ok(game.includes("openCatalog('shop')")&&game.includes("openCatalog('garage')")&&game.includes("$('loadoutBtn').addEventListener('click',openGarage)"),'screen routing missing');
+assert.ok(game.includes("openCatalog('shop')")&&game.includes("openCatalog('garage')")&&game.includes("showShopLanding")&&game.includes("showPersonalShop")&&game.includes("$('shopPersonalBtn').addEventListener('click',showPersonalShop)")&&game.includes("$('loadoutBtn').addEventListener('click',openGarage)"),'screen routing missing');
 assert.ok(css.includes('-webkit-overflow-scrolling:touch')&&css.includes('prefers-reduced-motion')&&css.includes('@keyframes luxShift'),'iPhone category strip/LUX safeguards missing');
 console.log('shop_garage_smoke: OK');

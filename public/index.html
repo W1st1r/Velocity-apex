@@ -479,7 +479,26 @@
     </div>
 
     <div id="shop" class="overlay shop-screen hidden">
-      <section class="shop-panel glass catalog-panel" aria-labelledby="shopTitle">
+      <section id="shopLanding" class="shop-entry-panel glass" aria-labelledby="shopLandingTitle">
+        <header class="shop-entry-header">
+          <div><div class="eyebrow">VELOCITY APEX / STORE</div><h2 id="shopLandingTitle">МАГАЗИН</h2><p>ВЫБЕРИТЕ РАЗДЕЛ</p></div>
+          <button id="shopLandingBackBtn" class="secondary-btn shop-entry-back" type="button">НАЗАД</button>
+        </header>
+        <div class="shop-entry-grid">
+          <button id="shopPersonalBtn" class="shop-entry-card shop-entry-personal" type="button">
+            <span class="shop-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
+            <span class="shop-entry-copy"><small>МОЙ МАГАЗИН</small><strong>ЛИЧНЫЙ</strong><em>Машины, эффекты и кейсы</em></span>
+            <b aria-hidden="true">›</b>
+          </button>
+          <button id="shopMarketBtn" class="shop-entry-card shop-entry-market" type="button" disabled aria-disabled="true">
+            <span class="shop-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm2-4h12l2 4H4l2-4Z"/><path d="M9 13h6M9 17h4"/></svg></span>
+            <span class="shop-entry-copy"><small>ТОРГОВЛЯ С ИГРОКАМИ</small><strong>РЫНОК</strong><em>Скоро · в разработке</em></span>
+            <span class="shop-entry-lock">СКОРО</span>
+          </button>
+        </div>
+        <div class="shop-entry-note">Рынок появится в одном из следующих обновлений.</div>
+      </section>
+      <section id="shopPersonalPanel" class="shop-panel glass catalog-panel hidden" aria-labelledby="shopTitle">
         <header class="shop-header"><div><div class="eyebrow">VELOCITY APEX / STORE</div><h2 id="shopTitle">МАГАЗИН</h2></div><strong class="credits-pill" id="shopCredits">200 CR</strong><button id="shopBackBtn" class="secondary-btn" type="button">НАЗАД</button></header>
         <div class="shop-body"><div class="garage-preview"><canvas id="shopPreview" width="560" height="360" aria-label="Предпросмотр автомобиля в магазине"></canvas><div id="shopCaseHero" class="shop-case-hero hidden" aria-hidden="true"><div class="case-crate case-crate-large"><i></i><b>VA</b><span></span></div></div><strong id="shopPreviewName"></strong><small id="shopPreviewEffect"></small><p id="shopPreviewCopy">Предпросмотр коллекции. Покупка не меняет активный loadout.</p></div>
           <div class="shop-catalog"><div id="shopTabs" class="segmented catalog-tabs" role="group" aria-label="Раздел магазина"><button type="button" data-tab="livery" class="selected">МАШИНЫ</button><button type="button" data-tab="effect">ЭФФЕКТЫ</button><button type="button" data-tab="case">КЕЙСЫ</button></div><div id="shopCategoryTabs" class="car-category-tabs" role="group" aria-label="Категория автомобилей магазина"><button type="button" data-category="all" class="selected"><span>ВСЕ</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="basic"><span>BASIC</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="sport"><span>SPORT</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="premium"><span>PREMIUM</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="rare"><span>RARE</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="legendary"><span>LEGENDARY</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="lux"><span>LUX</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button></div><div id="shopItems" class="shop-items"></div></div></div>
