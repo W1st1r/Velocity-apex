@@ -42,6 +42,55 @@
       scenery:{grandstands:[[.012,-1,.78,1],[.45,1,.62,0]],spectators:[[.28,1],[.73,-1]],pitSide:-1},
       theme:{kind:'neon',ground:'#101a2b',road:'#252c3a',curb:'#36dff2',barrier:'#8866ec',accent:'#b06cff',surface:'runoff',drag:.68,dust:'#819bb7'}}
   };
+
+  // Solo career: long time-attack routes. Levels unlock strictly in order.
+  R.CAREER_TRACKS={
+    career01:{id:'career01',name:'GREEN FRONTIER',type:'CAREER 01 / FLOW',description:'Длинный скоростной маршрут с широкими дугами и понятными точками торможения.',targetLength:32000,roadWidth:222,curbWidth:9,barrierMargin:40,
+      points:points([[-2100,-620],[-1650,-900],[-950,-1030],[-200,-1010],[560,-1080],[1280,-920],[1900,-600],[2200,-180],[2150,300],[1840,690],[1320,900],[760,820],[350,580],[-40,740],[-520,980],[-1120,930],[-1660,650],[-1990,260],[-1850,-80],[-2200,-320]]),
+      theme:{kind:'circuit',ground:'#174e2d',road:'#34383a',curb:'#e94b49',barrier:'#d5d9d6',accent:'#8dff49',surface:'grass',drag:1,dust:'#a8d66f'}},
+    career02:{id:'career02',name:'NEON ARTERY',type:'CAREER 02 / STREET',description:'Ночной скоростной город: длинные прямые, быстрые шиканы и позднее торможение.',targetLength:31000,roadWidth:214,curbWidth:9,barrierMargin:40,
+      points:points([[-2200,-700],[-1450,-900],[-650,-860],[180,-980],[930,-900],[1650,-680],[2110,-300],[2240,120],[2050,470],[1500,560],[1180,840],[560,980],[-40,900],[-410,620],[-820,710],[-1320,930],[-1840,720],[-2140,360],[-2050,50],[-2260,-270]]),
+      theme:{kind:'neon',ground:'#111c30',road:'#252c3c',curb:'#31cfea',barrier:'#8866ec',accent:'#53dfff',surface:'runoff',drag:.68,dust:'#87a4c3'}},
+    career03:{id:'career03',name:'CANYON VELOCITY',type:'CAREER 03 / HIGH SPEED',description:'Каньон с затяжными разгоном, двойной шпилькой и серией быстрых смен направления.',targetLength:30000,roadWidth:208,curbWidth:9,barrierMargin:41,
+      points:points([[-2260,-720],[-1500,-940],[-720,-930],[80,-1040],[860,-900],[1550,-720],[2110,-400],[2300,0],[2200,390],[1780,650],[1230,560],[930,290],[570,480],[280,820],[-230,980],[-720,810],[-980,500],[-1380,650],[-1840,780],[-2180,460],[-2070,140],[-2310,-180]]),
+      theme:{kind:'desert',ground:'#b77c4b',road:'#353331',curb:'#eb9d56',barrier:'#f1ce9a',accent:'#ffac64',surface:'sand',drag:1.45,dust:'#e9be7e'}},
+    career04:{id:'career04',name:'ALPINE SERPENT',type:'CAREER 04 / TECHNICAL',description:'Горный серпантин: плотные S-связки, две шпильки и узкие зоны для ошибки.',targetLength:29000,roadWidth:200,curbWidth:8,barrierMargin:40,
+      points:points([[-2050,-720],[-1550,-980],[-960,-920],[-650,-650],[-180,-920],[360,-1050],[930,-880],[1370,-560],[1810,-760],[2190,-430],[2260,-30],[1980,260],[1530,180],[1780,570],[1420,890],[820,1030],[350,790],[-40,1030],[-520,930],[-720,620],[-1150,800],[-1640,700],[-1980,390],[-1830,80],[-2180,-190],[-1840,-430]]),
+      theme:{kind:'alpine',ground:'#465e5c',road:'#343d42',curb:'#a6c5d1',barrier:'#eef5f6',accent:'#b5e5ff',surface:'grass',drag:1.08,dust:'#b9cec6'}},
+    career05:{id:'career05',name:'COASTAL STORM',type:'CAREER 05 / GRAND TOURING',description:'Береговой марафон: скоростные дуги чередуются с жёсткими торможениями и связками.',targetLength:28000,roadWidth:198,curbWidth:8,barrierMargin:39,
+      points:points([[-2250,-620],[-1650,-900],[-930,-1010],[-260,-920],[300,-1120],[940,-970],[1500,-650],[2050,-720],[2320,-310],[2250,90],[1960,420],[1460,350],[1680,720],[1210,1010],[600,960],[190,690],[-220,960],[-780,910],[-1050,600],[-1510,820],[-1980,650],[-2220,300],[-2030,20],[-2340,-230],[-2050,-430]]),
+      theme:{kind:'coast',ground:'#227b8a',road:'#384144',curb:'#55c3cc',barrier:'#e2e9df',accent:'#5fe4da',surface:'sand',drag:1.18,dust:'#e4d4af'}},
+    career06:{id:'career06',name:'METRO PULSE',type:'CAREER 06 / STREET EXPERT',description:'Техничный мегаполис: короткие разгоны, резкие перекладки и наказание за поздний вход.',targetLength:27000,roadWidth:194,curbWidth:8,barrierMargin:38,
+      points:points([[-2180,-680],[-1640,-980],[-1110,-900],[-800,-600],[-330,-900],[180,-1080],[690,-940],[1040,-610],[1510,-860],[2030,-650],[2290,-260],[2180,80],[1810,250],[2090,540],[1680,850],[1130,980],[720,700],[330,950],[-180,1040],[-590,780],[-900,520],[-1260,760],[-1730,830],[-2110,520],[-1940,220],[-2260,-40],[-1970,-330]]),
+      theme:{kind:'neon',ground:'#0f1b26',road:'#242b34',curb:'#47dff4',barrier:'#7f62d9',accent:'#b06cff',surface:'runoff',drag:.7,dust:'#819bb7'}},
+    career07:{id:'career07',name:'DESERT RAZOR',type:'CAREER 07 / PRECISION',description:'Узкий пустынный маршрут: слепые шпильки, быстрые дуги и почти нет времени на коррекцию.',targetLength:26000,roadWidth:190,curbWidth:8,barrierMargin:37,
+      points:points([[-2140,-700],[-1660,-980],[-1220,-810],[-920,-540],[-520,-920],[-40,-1080],[460,-930],[780,-590],[1180,-840],[1660,-920],[2110,-610],[2310,-220],[2150,90],[1760,190],[2090,500],[1780,820],[1260,1010],[850,730],[430,1010],[-80,930],[-370,610],[-820,830],[-1280,900],[-1690,660],[-1950,360],[-1800,80],[-2200,-160],[-1880,-430]]),
+      theme:{kind:'desert',ground:'#a86f43',road:'#323231',curb:'#ef9e56',barrier:'#efc78f',accent:'#ff8248',surface:'sand',drag:1.5,dust:'#e9be7e'}},
+    career08:{id:'career08',name:'MIDNIGHT CROWN',type:'CAREER 08 / NIGHT ELITE',description:'Ночной экзамен: узкие S-секции, двойные апексы и длинные зоны торможения из максималки.',targetLength:25000,roadWidth:188,curbWidth:8,barrierMargin:36,
+      points:points([[-2180,-710],[-1740,-1010],[-1300,-850],[-980,-570],[-620,-900],[-180,-1100],[260,-900],[590,-580],[970,-900],[1410,-1040],[1840,-800],[2220,-480],[2300,-100],[2020,120],[1700,20],[1980,390],[2200,680],[1760,930],[1280,830],[970,570],[650,930],[190,1030],[-220,800],[-540,540],[-910,850],[-1360,960],[-1770,720],[-2050,420],[-1890,120],[-2240,-130],[-1920,-420]]),
+      theme:{kind:'neon',ground:'#0c1626',road:'#222936',curb:'#31cfea',barrier:'#835bd9',accent:'#ff4fd1',surface:'runoff',drag:.68,dust:'#7f98b3'}},
+    career09:{id:'career09',name:'APEX GAUNTLET',type:'CAREER 09 / MASTER',description:'Мастерская трасса: серии поворотов без отдыха, нестандартные радиусы и узкие выходы.',targetLength:24500,roadWidth:184,curbWidth:7,barrierMargin:35,
+      points:points([[-2160,-720],[-1780,-1010],[-1370,-810],[-1080,-520],[-760,-900],[-360,-1120],[60,-900],[390,-560],[720,-920],[1110,-1080],[1500,-830],[1890,-960],[2260,-620],[2340,-260],[2140,20],[1790,-60],[2050,260],[2300,560],[1940,870],[1510,980],[1190,700],[900,970],[500,1070],[150,790],[-180,1030],[-570,860],[-840,560],[-1180,900],[-1580,920],[-1950,650],[-2110,340],[-1900,90],[-2240,-170],[-1900,-430]]),
+      theme:{kind:'aurora',ground:'#103f43',road:'#30383b',curb:'#80f0df',barrier:'#d7e7e4',accent:'#9bff62',surface:'grass',drag:1.08,dust:'#8dbbb3'}},
+    career10:{id:'career10',name:'BLACK SUMMIT',type:'CAREER 10 / APEX',description:'Финал первой главы: самая узкая и динамичная трасса, где каждая ошибка ломает рекорд.',targetLength:24000,roadWidth:180,curbWidth:7,barrierMargin:34,
+      points:points([[-2150,-730],[-1810,-1030],[-1430,-820],[-1160,-500],[-850,-900],[-500,-1140],[-120,-910],[180,-540],[480,-940],[830,-1130],[1180,-850],[1510,-1050],[1900,-890],[2250,-570],[2330,-210],[2100,30],[1770,-100],[1980,220],[2290,470],[2130,770],[1750,1010],[1390,780],[1120,1010],[760,1110],[450,820],[120,1050],[-220,850],[-480,560],[-800,910],[-1160,1010],[-1500,790],[-1800,930],[-2110,650],[-2190,330],[-1940,80],[-2270,-160],[-1910,-430]]),
+      theme:{kind:'alpine',ground:'#233b3a',road:'#2f373b',curb:'#9fc6cf',barrier:'#edf4f4',accent:'#ffffff',surface:'grass',drag:1.12,dust:'#a8c0ba'}}
+  };
+  R.CAREER_LEVELS=Object.freeze([
+    {level:1,trackId:'career01',gold:112,silver:123,bronze:138,rewards:{gold:1800,silver:1350,bronze:900}},
+    {level:2,trackId:'career02',gold:108,silver:119,bronze:134,rewards:{gold:2200,silver:1650,bronze:1100}},
+    {level:3,trackId:'career03',gold:104,silver:115,bronze:130,rewards:{gold:2600,silver:1950,bronze:1300}},
+    {level:4,trackId:'career04',gold:100,silver:111,bronze:126,rewards:{gold:3000,silver:2250,bronze:1500}},
+    {level:5,trackId:'career05',gold:96,silver:107,bronze:122,rewards:{gold:3400,silver:2550,bronze:1700}},
+    {level:6,trackId:'career06',gold:92,silver:103,bronze:118,rewards:{gold:3900,silver:2925,bronze:1950}},
+    {level:7,trackId:'career07',gold:88,silver:99,bronze:114,rewards:{gold:4400,silver:3300,bronze:2200}},
+    {level:8,trackId:'career08',gold:84,silver:95,bronze:110,rewards:{gold:5000,silver:3750,bronze:2500}},
+    {level:9,trackId:'career09',gold:80,silver:91,bronze:106,rewards:{gold:5700,silver:4275,bronze:2850}},
+    {level:10,trackId:'career10',gold:76,silver:87,bronze:102,rewards:{gold:6500,silver:4875,bronze:3250}}
+  ].map(Object.freeze));
+  R.getCareerLevel=level=>R.CAREER_LEVELS[Math.max(1,Math.min(10,Math.round(Number(level)||1)))-1];
+  R.careerTimeTier=function(level,timeSeconds){const c=R.getCareerLevel(level),t=Number(timeSeconds);if(!Number.isFinite(t)||t<=0)return null;if(t<=c.gold)return'gold';if(t<=c.silver)return'silver';if(t<=c.bronze)return'bronze';return null;};
+
   R.CAR_CATEGORY_ORDER=['all','basic','sport','premium','rare','legendary','lux'];
   R.CAR_CATEGORIES={
     all:{id:'all',label:'ВСЕ',className:'rarity-all',color:'#DDE9E2'},
@@ -424,6 +473,7 @@
       botCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.botCount,7)))),raceLaps:[3,5,7,10,15].includes(d.raceLaps)?d.raceLaps:5,
       difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',
       driftBotCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.driftBotCount,d.botCount??7)))),driftDifficulty:has(R.DIFFICULTY_LABELS,d.driftDifficulty)?d.driftDifficulty:'medium',driftTrackId:has(R.DRIFT_TRACKS,d.driftTrackId)?d.driftTrackId:'sierraFlow',
+      careerUnlocked:Math.max(1,Math.min(10,Math.round(safeNumber(d.careerUnlocked,1)))),careerBestTimes:Object.fromEntries(Object.entries(d.careerBestTimes&&typeof d.careerBestTimes==='object'&&!Array.isArray(d.careerBestTimes)?d.careerBestTimes:{}).filter(([id,v])=>has(R.CAREER_TRACKS,id)&&Number.isFinite(Number(v))&&Number(v)>0).map(([id,v])=>[id,Math.round(Number(v))])),careerCompleted:Array.from(new Set((Array.isArray(d.careerCompleted)?d.careerCompleted:[]).filter(id=>has(R.CAREER_TRACKS,id)))),
       controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,caseInventory,carUpgrades:Object.fromEntries(ownedLiveries.filter(id=>d.carUpgrades&&has(d.carUpgrades,id)).map(id=>[id,R.getUpgradeLevels(d,id)])),
       carCustomizations:Object.fromEntries(ownedLiveries.map(id=>[id,safeCustomization(d.carCustomizations?.[id],R.LIVERIES[id])])),
       selectedLivery:ownedLiveries.includes(d.selectedLivery)?d.selectedLivery:'apexLime',selectedEffect:ownedEffects.includes(d.selectedEffect)?d.selectedEffect:'standard'};

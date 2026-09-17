@@ -15,7 +15,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260916-adminprefix1" />
+  <link rel="stylesheet" href="css/style.css?v=20260916-adminprefix1&career=20260917-1" />
 <link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12">
   <link rel="stylesheet" href="css/crews.css?v=20260917-clans1">
   <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5">
@@ -295,7 +295,7 @@
       <section class="local-mode-card glass enter-panel" aria-labelledby="localModeTitle">
         <div class="eyebrow">VELOCITY APEX / ОДИНОЧНАЯ ИГРА</div>
         <h2 id="localModeTitle">ВЫБЕРИТЕ РЕЖИМ</h2>
-        <p class="local-mode-lead">Обычная гонка сохраняет прежнюю механику. Drift — отдельные трассы, ручник и очки за контролируемый занос.</p>
+        <p class="local-mode-lead">Обычный режим сохраняет классические гонки, Drift — заносы и ручник, а Карьера — 10 длинных трасс Time Attack с прогрессией и рекордами.</p>
         <div class="local-mode-grid">
           <button id="normalModeBtn" class="local-mode-choice normal-choice" type="button">
             <span class="mode-index">01</span><strong>ОБЫЧНЫЙ</strong><small>Текущие трассы · прежняя физика · стандартные выплаты</small><b aria-hidden="true">›</b>
@@ -303,11 +303,39 @@
           <button id="driftModeBtn" class="local-mode-choice drift-choice" type="button">
             <span class="mode-index">02</span><strong>ДРИФТ</strong><small>2 длинные карты · ручник · Drift Score / Combo</small><b aria-hidden="true">›</b>
           </button>
+          <button id="careerModeBtn" class="local-mode-choice career-choice" type="button">
+            <span class="mode-index">03</span><strong>КАРЬЕРА</strong><small>10 уровней · длинные Time Attack трассы · рекорды и награды CR</small><b aria-hidden="true">›</b>
+          </button>
         </div>
         <button id="localModeBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button>
       </section>
     </div>
 
+
+    <div id="career" class="overlay career-screen hidden" aria-hidden="true">
+      <section class="career-card glass enter-panel" aria-labelledby="careerTitle">
+        <header class="career-header">
+          <div><div class="eyebrow">VELOCITY APEX / SOLO CAREER</div><h2 id="careerTitle">КАРЬЕРА · ГЛАВА 1</h2><p>10 длинных трасс на время. Пройдите лимит, чтобы открыть следующий уровень.</p></div>
+          <div class="career-progress"><span>ОТКРЫТО</span><strong id="careerUnlockedText">1 / 10</strong></div>
+        </header>
+        <div class="career-layout">
+          <div id="careerLevelList" class="career-level-list" aria-label="Уровни карьеры"></div>
+          <aside class="career-detail">
+            <div class="career-detail-top"><span id="careerDetailLevel">LEVEL 01</span><strong id="careerDetailName">GREEN FRONTIER</strong><small id="careerDetailType">CAREER / FLOW</small></div>
+            <p id="careerDetailDescription">Выберите уровень.</p>
+            <div class="career-detail-stats"><div><span>ДИСТАНЦИЯ</span><strong id="careerDetailDistance">32.0 KM</strong></div><div><span>РЕКОРД</span><strong id="careerDetailBest">--:--.---</strong></div></div>
+            <div class="career-time-bands">
+              <div data-tier="gold"><span>GOLD</span><b id="careerGoldTime">≤ 01:52</b><strong id="careerGoldReward">1 800 CR</strong></div>
+              <div data-tier="silver"><span>SILVER</span><b id="careerSilverTime">≤ 02:03</b><strong id="careerSilverReward">1 350 CR</strong></div>
+              <div data-tier="bronze"><span>BRONZE</span><b id="careerBronzeTime">≤ 02:18</b><strong id="careerBronzeReward">900 CR</strong></div>
+            </div>
+            <div class="career-rules"><span>ПЕРВОЕ ПРОХОЖДЕНИЕ · 100%</span><span>ПОВТОР · 50%</span><span>НОВЫЙ РЕКОРД · 100%</span></div>
+            <button id="careerStartBtn" class="primary-btn" type="button">НАЧАТЬ УРОВЕНЬ</button>
+          </aside>
+        </div>
+        <footer class="career-footer"><button id="careerBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button><span>УРОВНИ 11+ · СКОРО · БУДУТ ЕЩЁ СЛОЖНЕЕ</span></footer>
+      </section>
+    </div>
     <div id="online" class="overlay online-screen hidden" data-view="onlineLanding">
       <section id="onlinePanel" class="online-panel glass enter-panel" aria-labelledby="onlineTitle">
         <header class="online-header">
@@ -1049,7 +1077,7 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260917-economy13"></script>
+  <script src="js/content.js?v=20260917-career1"></script>
   <script src="js/racing-line.js?v=20260915-owner1"></script>
   <script src="js/track.js?v=20260915-owner1"></script>
   <script src="js/audio.js?v=20260915-owner1"></script>
@@ -1070,6 +1098,6 @@
   <script src="js/freeroam.js?v=20260916-adminprefix1"></script>
   <script src="js/owner-panel.js?v=20260917-economy13"></script>
   <script src="js/crews.js?v=20260917-economy13"></script>
-  <script src="js/game.js?v=20260917-pause1"></script>
+  <script src="js/game.js?v=20260917-career1"></script>
 </body>
 </html>
