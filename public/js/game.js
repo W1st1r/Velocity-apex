@@ -58,7 +58,7 @@
 
   const save=loadSave();
   const raceSettings={bots:save.botCount,laps:save.raceLaps,difficulty:save.difficulty,trackId:save.trackId};
-  let localMode='normal',careerSelectedLevel=Math.max(1,Math.min(10,save.careerUnlocked||1));
+  let localMode='normal',careerSelectedLevel=Math.max(1,Math.min(R.CAREER_LEVELS.length,save.careerUnlocked||1));
   const audio=new R.AudioSystem();audio.setMuted(save.muted);
   let track=new R.Track(R.TRACKS[raceSettings.trackId]);
   let raceRewardClaimed=false,currentRaceRewardKey='',modeSelectReadyAt=0,catalogReturn='menu',settingsReturn='menu',settingsNotice='',settingsNoticeKind='';
@@ -155,7 +155,7 @@
   function careerLevelUnlocked(level){return level<=Math.max(1,save.careerUnlocked||1);}
   function renderCareer(){
     if(!UI.careerLevelList)return;
-    careerSelectedLevel=Math.max(1,Math.min(10,careerSelectedLevel||1));
+    careerSelectedLevel=Math.max(1,Math.min(R.CAREER_LEVELS.length,careerSelectedLevel||1));
     if(!careerLevelUnlocked(careerSelectedLevel))careerSelectedLevel=Math.max(1,save.careerUnlocked||1);
     const completed=new Set(save.careerCompleted||[]);
     UI.careerLevelList.innerHTML=R.CAREER_LEVELS.map(level=>{
@@ -164,7 +164,7 @@
     }).join('');
     UI.careerLevelList.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>{const level=+btn.dataset.careerLevel;if(!careerLevelUnlocked(level)){toast('СНАЧАЛА ПРОЙДИТЕ ПРЕДЫДУЩИЙ УРОВЕНЬ','warn');return;}careerSelectedLevel=level;renderCareer();}));
     const level=R.getCareerLevel(careerSelectedLevel),cfg=R.CAREER_TRACKS[level.trackId],best=Number(save.careerBestTimes?.[level.trackId])||0;
-    $('careerUnlockedText').textContent=Math.max(1,save.careerUnlocked||1)+' / 10';$('careerDetailLevel').textContent='LEVEL '+String(level.level).padStart(2,'0');$('careerDetailName').textContent=cfg.name;$('careerDetailType').textContent=cfg.type;$('careerDetailDescription').textContent=cfg.description;$('careerDetailDistance').textContent=(cfg.targetLength/1000).toFixed(1)+' KM';$('careerDetailBest').textContent=best?fmt(best):'--:--.---';$('careerGoldTime').textContent='≤ '+careerTimeLabel(level.gold);$('careerSilverTime').textContent='≤ '+careerTimeLabel(level.silver);$('careerBronzeTime').textContent='≤ '+careerTimeLabel(level.bronze);$('careerGoldReward').textContent=level.rewards.gold.toLocaleString('ru-RU')+' CR';$('careerSilverReward').textContent=level.rewards.silver.toLocaleString('ru-RU')+' CR';$('careerBronzeReward').textContent=level.rewards.bronze.toLocaleString('ru-RU')+' CR';UI.careerStart.disabled=!careerLevelUnlocked(level.level);
+    $('careerUnlockedText').textContent=Math.max(1,save.careerUnlocked||1)+' / '+R.CAREER_LEVELS.length;$('careerDetailLevel').textContent='LEVEL '+String(level.level).padStart(2,'0');$('careerDetailName').textContent=cfg.name;$('careerDetailType').textContent=cfg.type;$('careerDetailDescription').textContent=cfg.description;$('careerDetailDistance').textContent=(cfg.targetLength/1000).toFixed(1)+' KM';$('careerDetailBest').textContent=best?fmt(best):'--:--.---';$('careerGoldTime').textContent='≤ '+careerTimeLabel(level.gold);$('careerSilverTime').textContent='≤ '+careerTimeLabel(level.silver);$('careerBronzeTime').textContent='≤ '+careerTimeLabel(level.bronze);$('careerGoldReward').textContent=level.rewards.gold.toLocaleString('ru-RU')+' CR';$('careerSilverReward').textContent=level.rewards.silver.toLocaleString('ru-RU')+' CR';$('careerBronzeReward').textContent=level.rewards.bronze.toLocaleString('ru-RU')+' CR';UI.careerStart.disabled=!careerLevelUnlocked(level.level);
   }
   function openCareer(){if(state!=='localMode'||performance.now()<modeSelectReadyAt)return;audio.init();localMode='career';state='career';UI.localMode.classList.add('hidden');UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();last=performance.now();}
   function closeCareer(){if(state!=='career')return;state='localMode';UI.career.classList.add('hidden');UI.career.setAttribute('aria-hidden','true');UI.localMode.classList.remove('hidden');last=performance.now();}
@@ -562,10 +562,10 @@
     const level=R.getCareerLevel(careerSelectedLevel),cfg=R.CAREER_TRACKS[level.trackId],timeMs=Math.round(raceTime*1000),tier=R.careerTimeTier(level.level,raceTime),previous=Number(save.careerBestTimes?.[level.trackId])||0,wasCompleted=(save.careerCompleted||[]).includes(level.trackId),isRecord=!previous||timeMs<previous;
     if(!save.careerBestTimes||typeof save.careerBestTimes!=='object')save.careerBestTimes={};if(isRecord)save.careerBestTimes[level.trackId]=timeMs;
     let reward=0,rewardMode='ЛИМИТ НЕ ВЗЯТ';
-    if(tier){const base=level.rewards[tier];reward=Math.round(base*((!wasCompleted||isRecord)?1:.5));rewardMode=!wasCompleted?'ПЕРВОЕ ПРОХОЖДЕНИЕ · 100%':isRecord?'НОВЫЙ РЕКОРД · 100%':'ПОВТОР · 50%';if(!wasCompleted)save.careerCompleted=[...(save.careerCompleted||[]),level.trackId];if(level.level<10)save.careerUnlocked=Math.max(save.careerUnlocked||1,level.level+1);save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+reward);}
+    if(tier){const base=level.rewards[tier];reward=Math.round(base*((!wasCompleted||isRecord)?1:.5));rewardMode=!wasCompleted?'ПЕРВОЕ ПРОХОЖДЕНИЕ · 100%':isRecord?'НОВЫЙ РЕКОРД · 100%':'ПОВТОР · 50%';if(!wasCompleted)save.careerCompleted=[...(save.careerCompleted||[]),level.trackId];if(level.level<R.CAREER_LEVELS.length)save.careerUnlocked=Math.max(save.careerUnlocked||1,level.level+1);save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+reward);}
     writeSave();window.VelocityRecordRace?.({raceId:currentRaceRewardKey,kind:'career',won:!!tier,time:timeMs});
     $('finishReward').textContent='+'+reward.toLocaleString('ru-RU')+' CR';$('finishBalance').textContent=save.credits.toLocaleString('ru-RU')+' CR';$('finishTrack').textContent=cfg.name;state='finished';resetInput();audio.updateEngine(0,0,false);setPauseButton(false,false);showRaceUI(false);
-    UI.finishPlace.textContent=tier?tier.toUpperCase():'TIME OUT';UI.finishPosition.textContent='LEVEL '+level.level+' / 10';UI.finishLapsLabel.textContent='СТАТУС';UI.finishLaps.textContent=tier?'ПРОЙДЕНО':'НЕ ПРОЙДЕНО';UI.finishTime.textContent=fmt(timeMs);UI.finishBestLabel.textContent='РЕКОРД ТРАССЫ';UI.finishBestLap.textContent=fmt(Number(save.careerBestTimes[level.trackId])||timeMs);UI.finishScoreLabel.textContent='ЛИМИТ';UI.finishScore.textContent=careerTimeLabel(level.bronze);UI.finishDifficulty.textContent=tier?tier.toUpperCase():'RETRY';UI.finishEyebrow.textContent='КАРЬЕРА / TIME ATTACK';UI.finishTitle.textContent=tier?'УРОВЕНЬ ПРОЙДЕН':'ВРЕМЯ ВЫШЛО';UI.finishRewardLabel.textContent=rewardMode;UI.finishCard.classList.toggle('winner',!!tier);UI.finish.classList.remove('hidden');updateMenuStats();renderCareer();
+    UI.finishPlace.textContent=tier?tier.toUpperCase():'TIME OUT';UI.finishPosition.textContent='LEVEL '+level.level+' / '+R.CAREER_LEVELS.length;UI.finishLapsLabel.textContent='СТАТУС';UI.finishLaps.textContent=tier?'ПРОЙДЕНО':'НЕ ПРОЙДЕНО';UI.finishTime.textContent=fmt(timeMs);UI.finishBestLabel.textContent='РЕКОРД ТРАССЫ';UI.finishBestLap.textContent=fmt(Number(save.careerBestTimes[level.trackId])||timeMs);UI.finishScoreLabel.textContent='ЛИМИТ';UI.finishScore.textContent=careerTimeLabel(level.bronze);UI.finishDifficulty.textContent=tier?tier.toUpperCase():'RETRY';UI.finishEyebrow.textContent='КАРЬЕРА / TIME ATTACK';UI.finishTitle.textContent=tier?'УРОВЕНЬ ПРОЙДЕН':'ВРЕМЯ ВЫШЛО';UI.finishRewardLabel.textContent=rewardMode;UI.finishCard.classList.toggle('winner',!!tier);UI.finish.classList.remove('hidden');updateMenuStats();renderCareer();
   }
 
   function finishRace(){

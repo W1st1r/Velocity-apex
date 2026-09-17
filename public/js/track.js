@@ -7,7 +7,7 @@
 
   class Track {
     constructor(config=R.TRACKS.apexCircuit) {
-      this.config=config;this.id=config.id;this.theme=config.theme;this.roadWidth=config.roadWidth;
+      this.config=config;this.id=config.id;this.theme=config.theme;this.roadWidth=config.roadWidth;this.isCareer=/^career\d+$/.test(config.id||'');this.detailLevel=clamp(config.detailLevel??(this.isCareer?3:1),1,3);
       this.curbWidth=clamp(config.curbWidth??10,6,12);this.driveableMargin=this.curbWidth;this.barrierMargin=clamp(config.barrierMargin??38,30,44);
       this.points=config.points;this.samples=[];this.length=0;this._cache=null;
       this._build();
@@ -171,7 +171,7 @@
       // A single bounded static texture per active track keeps mobile frame cost low.
       if(!this._cache){
         const b=this.bounds,w=b.maxX-b.minX,h=b.maxY-b.minY;
-        this.cacheScale=Math.min(.85,3072/w,2304/h);
+        const maxW=this.isCareer?3584:3072,maxH=this.isCareer?2688:2304,maxScale=this.isCareer?.96:.85;this.cacheScale=Math.min(maxScale,maxW/w,maxH/h);
         const c=document.createElement('canvas');c.width=Math.ceil(w*this.cacheScale);c.height=Math.ceil(h*this.cacheScale);
         const cx=c.getContext('2d');cx.scale(this.cacheScale,this.cacheScale);cx.translate(-b.minX,-b.minY);this._drawStatic(cx);this._cache=c;
       }
@@ -312,11 +312,45 @@
       [.17,.28,.40,.86].forEach((progress,i)=>{const spot=this._scenerySpot(progress,i&1?1:-1,62,16);if(!spot)return;ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle);ctx.fillStyle='#111b1d';ctx.fillRect(-34,-8,68,16);ctx.strokeStyle='rgba(229,244,241,.35)';ctx.strokeRect(-34,-8,68,16);for(let k=0;k<5;k++){ctx.fillStyle=k===i%5?this.theme.accent:'#4d7778';ctx.globalAlpha=k===i%5?.9:.42;ctx.fillRect(-27+k*12,-3,7,6);}ctx.globalAlpha=1;ctx.restore();});
     }
 
+    _drawCareerDetails(ctx) {
+      if(!this.isCareer)return;
+      const kind=this.theme.kind,accent=this.theme.accent||'#8dff49',roadside=kind==='neon'?'#132635':kind==='desert'?'#72503a':kind==='coast'?'#174f58':kind==='alpine'?'#26443f':'#183f3d';
+      // Dense but baked trackside furniture. It is rendered once into the static track cache,
+      // so phones pay the detail cost on track load, not on every frame.
+      for(let i=0;i<34;i++){
+        const progress=(.025+i/34)%1,side=i%2?1:-1,spot=this._scenerySpot(progress,side,68+(i%4)*13,18);if(!spot)continue;
+        ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle);
+        ctx.globalAlpha=.18;ctx.fillStyle='#020506';ctx.fillRect(-10,-10,24,32);ctx.globalAlpha=1;
+        ctx.fillStyle=roadside;ctx.fillRect(-7,-8,14,23);ctx.fillStyle='#d8e3df';ctx.fillRect(-2,-30,4,23);
+        ctx.fillStyle=accent;ctx.globalAlpha=.86;ctx.beginPath();ctx.arc(0,-33,3.2,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+        if(i%4===0){ctx.fillStyle='#11191c';ctx.fillRect(-28,-22,56,17);ctx.strokeStyle='rgba(235,246,242,.28)';ctx.lineWidth=1.2;ctx.strokeRect(-28,-22,56,17);ctx.fillStyle=accent;ctx.font='900 6px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(i%8===0?'APEX':'VELOCITY',0,-13.5);}
+        ctx.restore();
+      }
+      // Corner chevrons make technical sections readable at speed and add a motorsport feel.
+      const apices=(this.apexes||[]).filter(a=>a.severity>.18).slice(0,20);
+      for(let i=0;i<apices.length;i++){
+        const a=apices[i],p=this.samples[a.index],side=(a.sign||1)>0?-1:1,off=(this.roadWidth*.5+this.barrierMargin+26)*side;
+        ctx.save();ctx.translate(p.x+p.nx*off,p.y+p.ny*off);ctx.rotate(Math.atan2(p.ty,p.tx));
+        for(let k=-1;k<=1;k++){ctx.save();ctx.translate(k*19,0);ctx.fillStyle='#eef4ef';ctx.fillRect(-8,-11,16,22);ctx.fillStyle=accent;ctx.beginPath();const dir=side>0?1:-1;ctx.moveTo(-4*dir,-6);ctx.lineTo(4*dir,0);ctx.lineTo(-4*dir,6);ctx.lineTo(-1*dir,0);ctx.closePath();ctx.fill();ctx.restore();}
+        ctx.restore();
+      }
+      // Larger scenery pockets: service compounds, containers, parked support vehicles.
+      for(let i=0;i<12;i++){
+        const progress=(.06+i*.079)%1,side=(i%3===0)?-1:1,spot=this._scenerySpot(progress,side,155+(i%2)*32,44);if(!spot)continue;
+        ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle*.15);
+        ctx.globalAlpha=.20;ctx.fillStyle='#020607';ctx.fillRect(-62,-41,130,88);ctx.globalAlpha=1;
+        ctx.fillStyle=kind==='desert'?'#9a6541':kind==='neon'?'#182b3c':kind==='coast'?'#d0bc8e':'#40514f';ctx.fillRect(-58,-37,116,74);
+        ctx.fillStyle='rgba(10,18,20,.50)';ctx.fillRect(-48,-28,42,26);ctx.fillRect(5,-28,43,26);
+        ctx.fillStyle=i%2?accent:'#d6e1dc';for(let k=0;k<3;k++)ctx.fillRect(-42+k*32,16,21,9);
+        ctx.strokeStyle='rgba(239,248,245,.20)';ctx.lineWidth=1;ctx.strokeRect(-58,-37,116,74);ctx.restore();
+      }
+    }
+
     _drawThemeScenery(ctx) {
       const fn={circuit:'_drawCircuitScenery',neon:'_drawNeonScenery',desert:'_drawDesertScenery',alpine:'_drawAlpineScenery',coast:'_drawCoastScenery',aurora:'_drawAuroraScenery'}[this.theme.kind];
       if(fn)this[fn](ctx);
       this._drawServiceRoad(ctx);this._drawPitBuilding(ctx);
-      const s=this.config.scenery||{};(s.grandstands||[]).forEach(g=>this._drawGrandstand(ctx,g[0],g[1],g[2],!!g[3]));(s.spectators||[]).forEach(z=>this._drawSpectatorZone(ctx,z[0],z[1]));
+      const s=this.config.scenery||{};(s.grandstands||[]).forEach(g=>this._drawGrandstand(ctx,g[0],g[1],g[2],!!g[3]));(s.spectators||[]).forEach(z=>this._drawSpectatorZone(ctx,z[0],z[1]));this._drawCareerDetails(ctx);
     }
 
     _drawRacingRubber(ctx) {
@@ -348,7 +382,8 @@
       for(let i=0;i<kind.length;i++)seed=Math.imul(seed^kind.charCodeAt(i),16777619)>>>0;
       const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
       ctx.save();
-      for(let i=0;i<115;i++){
+      const detailCount=this.isCareer?260:115;
+      for(let i=0;i<detailCount;i++){
         const x=lerp(b.minX,b.maxX,rand()),y=lerp(b.minY,b.maxY,rand());
         if(this.nearest(x,y).distance<this.roadWidth*.78)continue;
         const a=.035+rand()*.055,size=4+rand()*15;ctx.globalAlpha=a;

@@ -2,8 +2,8 @@ const assert=require('assert').strict,fs=require('fs'),path=require('path'),vm=r
 const ROOT=path.resolve(__dirname,'..');global.window=global;global.document={};window.Racing={};
 for(const f of ['content.js','racing-line.js','track.js'])vm.runInThisContext(fs.readFileSync(path.join(ROOT,'public/js',f),'utf8'),{filename:f});
 const R=global.Racing;
-assert.equal(Object.keys(R.CAREER_TRACKS).length,10,'career needs 10 unique tracks');
-assert.equal(R.CAREER_LEVELS.length,10,'career needs 10 levels');
+assert.equal(Object.keys(R.CAREER_TRACKS).length,30,'career needs 30 unique tracks');
+assert.equal(R.CAREER_LEVELS.length,30,'career needs 30 levels');
 let prevGold=Infinity,prevBronze=Infinity,prevReward=0;
 for(const level of R.CAREER_LEVELS){
   const cfg=R.CAREER_TRACKS[level.trackId];assert.ok(cfg,`level ${level.level}: track missing`);
@@ -20,4 +20,7 @@ const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),game=fs.r
 for(const token of ['careerModeBtn','careerLevelList','careerStartBtn','careerGoldReward','КАРЬЕРА'])assert.ok(html.includes(token),`HTML missing ${token}`);
 for(const token of ['finishCareerRace','careerUnlocked','ПОВТОР · 50%','НОВЫЙ РЕКОРД · 100%','localMode===\'career\''])assert.ok(game.includes(token),`game logic missing ${token}`);
 for(const token of ['.career-screen','.career-level-list','.career-detail','.career-time-bands'])assert.ok(css.includes(token),`career CSS missing ${token}`);
-console.log('career_mode_test: OK — 10 long levels, sequential unlock, tighter timers, CR tiers, record/repeat rules, mobile UI');
+assert.equal(R.CAREER_LEVELS.at(-1).level,30);
+assert.ok(R.CAREER_TRACKS.career30.detailLevel===3,'late career tracks must request high detail');
+assert.ok(R.CAREER_LEVELS[10].gold<R.CAREER_LEVELS[9].gold,'chapter II time must tighten');
+console.log('career_mode_test: OK — 30 long levels, sequential unlock, tighter timers, CR tiers, record/repeat rules, mobile UI');
