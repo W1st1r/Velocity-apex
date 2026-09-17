@@ -1,0 +1,654 @@
+/* Velocity Apex Mobile UI V8
+   Phone-first shell for every menu added to the game. Loaded last on purpose. */
+
+:root{
+  --m-safe-t:max(8px,env(safe-area-inset-top));
+  --m-safe-r:max(10px,env(safe-area-inset-right));
+  --m-safe-b:max(8px,env(safe-area-inset-bottom));
+  --m-safe-l:max(10px,env(safe-area-inset-left));
+  --m-panel-bg:linear-gradient(155deg,rgba(8,24,23,.985),rgba(3,10,13,.985));
+  --m-card-bg:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.022));
+  --m-border:rgba(208,244,229,.13);
+  --m-muted:#81978d;
+  --m-text:#eff9f3;
+  --m-accent:#9bff67;
+  --m-radius:16px;
+}
+
+html,body,#app{overscroll-behavior:none;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font-family:inherit}
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+input,select,textarea{user-select:text;-webkit-user-select:text}
+.overlay{box-sizing:border-box}
+
+/* -------------------------------------------------------------------------- */
+/* MAIN MENU V4 — dashboard composition for phone landscape.                  */
+/* -------------------------------------------------------------------------- */
+.menu-screen{
+  background:
+    radial-gradient(circle at 20% 22%,rgba(75,214,255,.10),transparent 30%),
+    radial-gradient(circle at 80% 80%,rgba(141,255,73,.10),transparent 32%),
+    linear-gradient(140deg,rgba(1,7,9,.70),rgba(1,6,8,.90));
+}
+.menu-screen .menu-card{
+  width:min(900px,94vw);
+  max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 12px);
+  display:grid;
+  grid-template-columns:minmax(220px,.78fr) minmax(390px,1.55fr);
+  grid-template-areas:
+    "hero hero"
+    "play tools"
+    "footer footer";
+  gap:8px 12px;
+  padding:13px 15px 11px;
+  border-radius:22px;
+  border:1px solid rgba(211,248,232,.16);
+  background:
+    linear-gradient(135deg,rgba(10,28,26,.97),rgba(3,11,14,.985));
+  box-shadow:0 24px 80px rgba(0,0,0,.52),inset 0 1px rgba(255,255,255,.035);
+  overflow:auto;
+  scrollbar-width:none;
+}
+.menu-screen .menu-card::-webkit-scrollbar{display:none}
+.menu-screen .menu-card::before{
+  left:5%;right:5%;
+  background:linear-gradient(90deg,transparent,rgba(87,204,255,.34),rgba(141,255,73,.48),transparent)
+}
+.menu-screen .menu-card::after{
+  background:radial-gradient(circle at 8% 18%,rgba(93,202,255,.06),transparent 33%),radial-gradient(circle at 86% 82%,rgba(141,255,73,.055),transparent 34%)
+}
+.menu-hero{grid-area:hero;justify-content:flex-start;text-align:left;padding:0 2px 2px;gap:11px}
+.menu-screen .menu-brand-copy{display:grid;align-content:center}
+.menu-screen .menu-card h1{font-size:clamp(28px,5.1dvh,44px);letter-spacing:-.045em}
+.menu-screen .tagline{margin-top:3px}
+.menu-hub-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.menu-hub-badges span{padding:3px 6px;border:1px solid rgba(255,255,255,.075);border-radius:999px;background:rgba(255,255,255,.027);color:#71877d;font-size:5.5px;font-weight:950;letter-spacing:.10em}
+.menu-play-section{grid-area:play;align-self:stretch}
+.menu-tools-section{grid-area:tools;align-self:stretch}
+.menu-footer{grid-area:footer}
+.menu-screen .mode-actions{grid-template-columns:1fr;grid-template-rows:repeat(2,minmax(0,1fr));height:100%;gap:6px}
+.menu-screen .mode-actions .primary-btn{height:auto;min-height:62px;border-radius:13px;padding:0 13px}
+.menu-screen .play-btn{box-shadow:0 10px 24px rgba(141,255,73,.09),inset 0 1px rgba(255,255,255,.18)}
+.menu-screen .online-main-btn{box-shadow:0 10px 24px rgba(77,190,255,.06),inset 0 1px rgba(255,255,255,.055)}
+.menu-screen .menu-primary-copy small{font-size:6px}
+.menu-screen .menu-primary-copy strong{font-size:12px}
+.menu-screen .menu-action-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.menu-screen .menu-action-row .secondary-btn.menu-tile{
+  height:auto;min-height:47px;padding:5px 8px;grid-template-columns:28px minmax(0,1fr);gap:7px;border-radius:11px;
+  background:linear-gradient(145deg,rgba(238,255,247,.067),rgba(145,198,181,.024));
+  border-color:rgba(211,242,230,.105)
+}
+.menu-screen .menu-action-row .secondary-btn.menu-tile:active{transform:scale(.985);background:rgba(141,255,73,.065)}
+.menu-screen .menu-tile-icon{width:28px;height:28px;border-radius:8px}
+.menu-screen .menu-tile-copy>span{font-size:7.3px;letter-spacing:.075em}
+.menu-screen .menu-tile-copy>strong,
+.menu-screen .account-menu-btn strong,
+.menu-screen .friends-menu-btn strong,
+.menu-screen .promo-menu-btn strong,
+.menu-screen .shop-menu-btn strong{font-size:5.5px;line-height:1.15}
+.menu-screen .support-menu-btn{border-color:rgba(92,195,255,.16)!important}
+.menu-screen .support-menu-btn .menu-tile-icon{color:#9bdcff;background:rgba(67,174,255,.055);border-color:rgba(67,174,255,.15)}
+.menu-screen .admin-menu-btn{border-color:rgba(85,255,179,.24)!important;background:linear-gradient(145deg,rgba(85,255,179,.075),rgba(85,255,179,.025))!important}
+.menu-screen .admin-menu-btn .menu-tile-icon{color:#b8ffda;background:rgba(85,255,179,.07);border-color:rgba(85,255,179,.20)}
+.menu-screen .menu-footer{align-items:center;padding-top:1px}
+.menu-screen .menu-stats>div{background:rgba(255,255,255,.023);border:1px solid rgba(255,255,255,.055)}
+
+/* -------------------------------------------------------------------------- */
+/* Shared phone shell.                                                        */
+/* -------------------------------------------------------------------------- */
+@media (max-width:1024px), (max-height:620px){
+  .auth-gate-screen,.account-screen,.promo-screen,.friends-screen,.free-servers-screen,
+  .local-mode-screen,.online-screen,.setup-screen,.shop-screen,.settings-screen,
+  .root-auth-screen,.root-console-screen,.root-confirm-screen,.pause-screen,
+  .finish-screen,.online-finish-screen,.admin-system-screen{
+    padding:var(--m-safe-t) var(--m-safe-r) var(--m-safe-b) var(--m-safe-l)!important;
+  }
+
+  .auth-gate-card,.account-card,.promo-card,.friends-card,.free-servers-card,
+  .local-mode-card,.online-panel,.setup-card,.shop-entry-panel,.shop-panel,
+  .settings-panel,.root-auth-card,.root-console-panel,.root-confirm-card,
+  .finish-card,.pause-screen .menu-card,.admin-system-panel{
+    box-sizing:border-box;
+    max-width:calc(100vw - var(--m-safe-l) - var(--m-safe-r))!important;
+    max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b))!important;
+    border-radius:var(--m-radius)!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .account-card,.promo-card,.friends-card,.free-servers-card,.local-mode-card,
+  .online-panel,.setup-card,.shop-entry-panel,.shop-panel,.settings-panel,
+  .root-auth-card,.root-console-panel,.root-confirm-card,.finish-card{
+    overflow:auto!important;
+    scrollbar-width:none;
+  }
+  .account-card::-webkit-scrollbar,.promo-card::-webkit-scrollbar,.friends-card::-webkit-scrollbar,
+  .free-servers-card::-webkit-scrollbar,.local-mode-card::-webkit-scrollbar,.online-panel::-webkit-scrollbar,
+  .setup-card::-webkit-scrollbar,.shop-entry-panel::-webkit-scrollbar,.shop-panel::-webkit-scrollbar,
+  .settings-panel::-webkit-scrollbar,.root-console-panel::-webkit-scrollbar,.finish-card::-webkit-scrollbar{display:none}
+
+  /* Touch targets + stop Safari input zoom. */
+  .account-card button,.promo-card button,.friends-card button,.free-servers-card button,
+  .local-mode-card button,.online-panel button,.setup-card button,.shop-entry-panel button,
+  .shop-panel button,.settings-panel button,.root-console-panel button,.root-auth-card button,
+  .root-confirm-card button,.finish-card button,.admin-system-panel button,#crewDialog button,.tuning-modal button{
+    min-height:38px;
+  }
+  .account-card input,.account-card select,.account-card textarea,.promo-card input,
+  .friends-card input,.friends-card select,.free-servers-card input,.online-panel input,.online-panel select,
+  .setup-card input,.setup-card select,.shop-panel input,.shop-panel select,.settings-panel input,
+  .settings-panel select,.root-console-panel input,.root-console-panel select,.root-console-panel textarea,
+  .admin-system-panel input,.admin-system-panel select,.admin-system-panel textarea,
+  #crewDialog input:not([type=radio]),#crewDialog select,#crewDialog textarea,.tuning-modal input,.tuning-modal select{
+    font-size:16px!important;
+  }
+
+  /* Sticky compact headers / closes stay reachable. */
+  .account-header,.promo-header,.friends-header,.free-servers-header,.shop-header,.garage-header,
+  .settings-header,.admin-system-header{
+    position:sticky;top:0;z-index:8;
+    padding-top:4px;
+    background:linear-gradient(180deg,rgba(7,20,19,.995) 0 78%,rgba(7,20,19,.86) 90%,transparent);
+    backdrop-filter:blur(10px);
+  }
+  .account-close,.shop-close,.garage-close,.settings-close,.friends-close,.free-servers-close{
+    flex:0 0 auto;min-width:38px!important;width:38px!important;height:38px!important;min-height:38px!important;
+  }
+
+  /* Horizontal tab strips instead of squeezed labels. */
+  .account-tabs,.online-tabs,.settings-tabs,.admin-system-tabs,.market-tabs,.tuning-tabs{
+    overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+  }
+  .account-tabs::-webkit-scrollbar,.online-tabs::-webkit-scrollbar,.settings-tabs::-webkit-scrollbar,
+  .admin-system-tabs::-webkit-scrollbar,.market-tabs::-webkit-scrollbar,.tuning-tabs::-webkit-scrollbar{display:none}
+  .account-tabs>*,.online-tabs>*,.settings-tabs>*,.admin-system-tabs>*,.market-tabs>*,.tuning-tabs>*{
+    scroll-snap-align:start;flex:0 0 auto;
+  }
+
+  /* Cards/readability across account, shop, lobby and result screens. */
+  .account-feature-grid,.finish-stats,.online-finish-stats{gap:6px}
+  .account-feature-grid>div,.finish-stats>div,.reward-panel>span{border-radius:10px}
+  .friends-list,.free-server-list,.online-rooms,.garage-grid,.shop-grid{gap:7px}
+  .finish-actions{position:sticky;bottom:0;z-index:5;padding-top:8px;background:linear-gradient(0deg,rgba(4,12,14,.98) 0 72%,transparent)}
+
+  /* Admin / support — phone first. */
+  .admin-system-panel{width:100%!important;height:auto;max-height:100%!important;border-radius:15px!important}
+  .admin-system-header{padding:9px 10px 7px!important;align-items:center}
+  .admin-system-header h2{font-size:20px!important;margin:2px 0!important}
+  .admin-system-header p{display:none!important}
+  .admin-system-tabs{padding:6px 8px!important;gap:5px!important;position:sticky;top:0;z-index:7;background:rgba(5,16,16,.96);backdrop-filter:blur(10px)}
+  .admin-system-tabs button{padding:8px 10px!important;border-radius:9px!important;font-size:9px!important;min-height:34px!important}
+  .admin-system-content{padding:8px 9px max(12px,var(--m-safe-b))!important}
+  .admin-system-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important}
+  .admin-stat{padding:8px!important;border-radius:10px!important}
+  .admin-stat small{font-size:7px!important}.admin-stat strong{font-size:15px!important;margin-top:3px!important}.admin-stat span{font-size:8px!important}
+  .admin-ticket-card,.admin-staff-card,.admin-report-card,.admin-owner-complaint{padding:9px 10px!important;border-radius:11px!important}
+  .admin-ticket-card{grid-template-columns:minmax(0,1fr) auto!important;gap:7px!important}
+  .admin-ticket-card strong,.admin-staff-card strong,.admin-report-card strong{font-size:11px!important}
+  .admin-ticket-card p,.admin-staff-card p,.admin-report-card p{font-size:9px!important;line-height:1.35!important}
+  .admin-chip{padding:3px 5px!important;font-size:7px!important}
+  .admin-action{padding:8px 9px!important;font-size:8px!important;min-height:34px!important}
+  .admin-form{gap:8px!important}.admin-form label{font-size:8px!important}.admin-form textarea{min-height:72px!important}
+  .admin-punish-box{grid-template-columns:1fr 1fr!important;gap:5px!important;padding:7px!important}
+  .admin-punish-box input:nth-last-child(2){grid-column:1/-1}
+  .owner-admin-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important}
+  .owner-admin-assignment{grid-template-columns:minmax(0,1fr) 110px!important;gap:5px!important}
+  .owner-admin-assignment .admin-action{grid-column:1/-1}
+  .owner-admin-staff-grid,.owner-admin-columns{grid-template-columns:1fr!important;gap:6px!important}
+  .owner-admin-section{padding:8px!important;border-radius:11px!important}
+
+  /* Market / tuning / crew — consistent finger sized UI. */
+  .market-screen{padding:var(--m-safe-t) var(--m-safe-r) var(--m-safe-b) var(--m-safe-l)!important}
+  .market-panel{width:100%!important;max-width:100%!important;height:100%!important;max-height:100%!important;border-radius:14px!important;padding:8px!important}
+  .market-header{gap:6px!important}.market-title-wrap h2{font-size:18px!important}.market-title-wrap small{display:none!important}
+  .market-tabs button{min-height:36px!important;font-size:8px!important;padding:5px 8px!important}
+  .market-toolbar{gap:5px!important}.market-search{height:36px!important}.market-search input{font-size:16px!important}
+  .market-card{border-radius:10px!important}.market-card-title strong{font-size:9px!important}.market-card-meta{font-size:6px!important}.market-card-price strong{font-size:10px!important}
+  .market-card-actions .primary-btn,.market-card-actions .secondary-btn,.market-danger-btn{min-height:36px!important;font-size:7px!important}
+  .market-dialog{padding:var(--m-safe-t) var(--m-safe-r) var(--m-safe-b) var(--m-safe-l)!important}
+  .market-dialog-card{width:min(520px,100%)!important;max-height:100%!important;border-radius:14px!important;padding:10px!important}
+
+  #crewDialog{width:min(620px,calc(100vw - var(--m-safe-l) - var(--m-safe-r)))!important;max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b))!important;border-radius:14px!important}
+  #crewDialog header{padding-top:2px!important}
+  #crewDialog .crew-shell{padding:9px!important;padding-bottom:max(9px,var(--m-safe-b))!important}
+  #crewDialog button{min-height:36px!important}
+  #crewDialog input:not([type=radio]),#crewDialog textarea,#crewDialog select{min-height:40px!important;padding:8px 9px!important}
+
+  .tuning-modal{width:min(760px,calc(100vw - var(--m-safe-l) - var(--m-safe-r)))!important;max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b))!important;border-radius:14px!important;padding:9px 10px!important}
+  .tuning-header{position:sticky;top:-9px;z-index:7;padding:7px 0;background:linear-gradient(180deg,rgba(14,25,20,.99) 0 82%,transparent)}
+  .tuning-tabs{position:sticky;top:38px;z-index:6;background:rgba(14,25,20,.96)}
+
+  /* Owner/root console: remove desktop-like tiny, multi-column pressure. */
+  .root-console-panel{width:100%!important;height:100%!important;padding:8px!important;border-radius:14px!important}
+  .root-tabs.root-nav{display:flex!important;overflow-x:auto!important;gap:5px!important;scrollbar-width:none}
+  .root-tabs.root-nav>*{flex:0 0 auto!important;min-width:108px}
+  .root-promo-workspace{grid-template-columns:1fr!important}.root-promo-list{max-height:32dvh!important}
+  .owner-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}
+  .owner-car-editor form,.owner-grant,.owner-profile{padding:10px!important;margin-top:8px!important;border-radius:10px!important}
+}
+
+/* Short iPhones / landscape is the critical target. */
+@media (orientation:landscape) and (max-height:540px) and (max-width:1024px){
+  .menu-screen{padding:var(--m-safe-t) var(--m-safe-r) var(--m-safe-b) var(--m-safe-l)!important}
+  .menu-screen .menu-card{width:min(900px,96vw);grid-template-columns:minmax(190px,.7fr) minmax(360px,1.5fr);gap:5px 9px;padding:8px 10px 7px;border-radius:16px}
+  .menu-hero{gap:7px;padding:0}.menu-hero .brand-mark{display:none!important}
+  .menu-screen .menu-card h1{font-size:clamp(25px,7.2dvh,34px);margin-top:0}.menu-screen .eyebrow{font-size:5.8px}.menu-screen .tagline{font-size:5.2px;margin-top:2px}
+  .menu-hub-badges{margin-top:3px}.menu-hub-badges span{padding:2px 5px;font-size:4.7px}
+  .menu-section{gap:3px}.menu-section-head{height:7px;font-size:4.8px}
+  .menu-screen .mode-actions{gap:4px}.menu-screen .mode-actions .primary-btn{min-height:48px;padding:0 10px;border-radius:9px}.menu-screen .menu-primary-copy strong{font-size:9px}.menu-screen .menu-primary-copy small{font-size:4.8px}
+  .menu-screen .menu-action-row{gap:4px}.menu-screen .menu-action-row .secondary-btn.menu-tile{min-height:39px;padding:4px 6px;grid-template-columns:23px minmax(0,1fr);gap:5px;border-radius:8px}
+  .menu-screen .menu-tile-icon{width:23px;height:23px;border-radius:7px}.menu-screen .menu-tile-copy>span{font-size:6.2px}.menu-screen .menu-tile-copy>strong,.menu-screen .account-menu-btn strong,.menu-screen .friends-menu-btn strong,.menu-screen .promo-menu-btn strong,.menu-screen .shop-menu-btn strong{font-size:4.7px}
+  .menu-screen .menu-footer{gap:4px}.menu-screen .menu-stats{gap:3px}.menu-screen .menu-stats>div{min-height:25px;padding:3px 5px;border-radius:7px}.menu-screen .menu-stats span{font-size:4.3px}.menu-screen .menu-stats strong{font-size:7px}.menu-screen .sound-btn{min-height:25px;min-width:80px;font-size:5px;border-radius:7px}
+
+  .auth-gate-card,.account-card,.promo-card,.friends-card,.free-servers-card,.local-mode-card,.online-panel,.setup-card,.shop-entry-panel,.shop-panel,.settings-panel,.root-auth-card,.root-console-panel,.root-confirm-card,.finish-card{border-radius:12px!important}
+  .account-header h2,.promo-header h2,.friends-header h2,.free-servers-header h2,.settings-header h2{font-size:18px!important}
+  .admin-system-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .owner-admin-summary{grid-template-columns:repeat(6,minmax(0,1fr))!important}
+  .owner-admin-staff-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .owner-fields{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+
+/* Narrow landscape phones: reduce tools to two columns and allow clean scrolling. */
+@media (orientation:landscape) and (max-width:620px){
+  .menu-screen .menu-card{grid-template-columns:minmax(165px,.72fr) minmax(0,1.28fr)}
+  .menu-screen .menu-action-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .menu-hub-badges{display:none}
+  .admin-ticket-card{grid-template-columns:1fr!important}
+  .admin-system-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .owner-admin-summary{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .owner-fields{grid-template-columns:1fr!important}
+}
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE UI V5 — readability pass for every recently added phone menu.       */
+/* -------------------------------------------------------------------------- */
+@media (max-width:1024px), (max-height:620px){
+  /* Free-roam overlays must never sit under a notch / home indicator. */
+  .free-pause-panel,.free-levels-panel,.case-modal{
+    box-sizing:border-box;
+    padding:var(--m-safe-t) var(--m-safe-r) var(--m-safe-b) var(--m-safe-l)!important;
+  }
+  .free-pause-card,.free-levels-card,.case-open-panel{
+    box-sizing:border-box;
+    max-width:calc(100vw - var(--m-safe-l) - var(--m-safe-r))!important;
+    max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b))!important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .free-levels-card{width:min(760px,100%)!important;padding:11px!important;border-radius:14px!important}
+  .free-levels-card header{position:sticky;top:-11px;z-index:6;padding:7px 0;background:linear-gradient(180deg,rgba(9,22,21,.99) 0 82%,transparent)}
+  .free-levels-card header button{min-width:40px;width:40px;height:40px;min-height:40px}
+  .free-levels-main{grid-template-columns:90px minmax(0,1fr) 110px!important;gap:8px!important;margin-top:8px!important;padding:10px!important}
+  .free-levels-grid{gap:6px!important}.free-levels-grid article{padding:9px!important}
+
+  .free-pause-card{width:min(390px,100%)!important;padding:14px!important;border-radius:14px!important}
+  .free-pause-card button{min-height:42px!important;font-size:10px!important}
+
+  /* Chat/map stay usable with thumb input and cannot overflow landscape phones. */
+  .free-chat-panel{max-width:calc(100vw - var(--m-safe-l) - var(--m-safe-r))!important;max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b))!important;border-radius:13px!important}
+  .free-chat-panel input,.free-chat-panel textarea{font-size:16px!important}
+  .free-chat-panel button{min-height:38px}
+  .free-map-panel{max-width:calc(100vw - var(--m-safe-l) - var(--m-safe-r))!important;max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b))!important;border-radius:14px!important}
+  .free-map-panel header button{min-height:38px}
+
+  /* Cases: keep controls and rewards on screen without desktop-sized padding. */
+  .case-open-panel{width:100%!important;height:100%!important;padding:9px 10px!important;border-radius:14px!important}
+  .case-modal-header{position:sticky;top:0;z-index:8;gap:7px!important;margin-bottom:6px!important;padding:2px 0 7px!important;background:linear-gradient(180deg,rgba(5,13,14,.995) 0 84%,transparent)}
+  .case-modal-header h2{font-size:18px!important}.case-close-btn{min-height:38px!important}
+  .case-modal-body{grid-template-columns:minmax(0,1.18fr) minmax(180px,.82fr)!important;gap:7px!important}
+  .case-opening-zone,.case-rewards-panel{border-radius:11px!important;padding:7px!important}
+  .case-open-btn,.case-buy-batch-btn,.case-quantity-control button{min-height:38px!important}
+
+  /* Compact garage/shop cards but preserve readable action labels. */
+  .garage-grid,.shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .garage-card button,.shop-card button{min-height:38px!important}
+  .garage-card,.shop-card{min-width:0!important}
+
+  /* Owner administration: one-thumb actions and no squeezed select fields. */
+  .owner-admin-assignment input,.owner-admin-assignment select,.admin-row-actions select{font-size:16px!important;min-height:40px!important}
+  .admin-row-actions{gap:6px!important}
+  .admin-row-actions button,.admin-row-actions select{min-width:0}
+}
+
+/* iPhone landscape: readable two-column quick hub instead of tiny 3-column text. */
+@media (orientation:landscape) and (max-height:540px) and (max-width:1024px){
+  .menu-screen .menu-card{
+    grid-template-columns:minmax(190px,.72fr) minmax(390px,1.55fr);
+    grid-template-rows:auto minmax(0,1fr) auto;
+    overflow:auto;
+  }
+  .menu-screen .menu-action-row{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important}
+  .menu-screen .menu-action-row .secondary-btn.menu-tile{min-height:44px!important;padding:5px 8px!important;grid-template-columns:28px minmax(0,1fr)!important;gap:7px!important;border-radius:9px!important}
+  .menu-screen .menu-tile-icon{width:28px!important;height:28px!important}
+  .menu-screen .menu-tile-copy>span{font-size:7.6px!important;letter-spacing:.07em!important}
+  .menu-screen .menu-tile-copy>strong,.menu-screen .account-menu-btn strong,.menu-screen .friends-menu-btn strong,.menu-screen .promo-menu-btn strong,.menu-screen .shop-menu-btn strong{font-size:6.1px!important;line-height:1.2!important}
+  .menu-screen .mode-actions .primary-btn{min-height:58px!important}
+  .menu-screen .menu-primary-copy strong{font-size:10.5px!important}.menu-screen .menu-primary-copy small{font-size:5.6px!important}
+  .menu-screen .menu-stats>div{min-height:28px!important}.menu-screen .menu-stats span{font-size:5px!important}.menu-screen .menu-stats strong{font-size:8px!important}
+  .menu-screen .sound-btn{min-height:30px!important;font-size:6px!important}
+
+  .case-modal-body{grid-template-columns:minmax(0,1fr) minmax(155px,.68fr)!important}
+  .free-levels-card{width:min(700px,100%)!important}
+  .free-levels-main{grid-template-columns:76px minmax(0,1fr) 96px!important}
+}
+
+/* Very narrow landscape devices: prioritize legibility and scrolling over density. */
+@media (orientation:landscape) and (max-width:620px){
+  .menu-screen .menu-card{grid-template-columns:minmax(160px,.68fr) minmax(0,1.32fr)!important}
+  .menu-screen .menu-action-row .secondary-btn.menu-tile{min-height:42px!important}
+  .case-modal-body{grid-template-columns:minmax(0,1fr)!important;overflow:auto!important}
+  .case-rewards-panel{max-height:150px!important;overflow:auto!important}
+  .free-levels-main{grid-template-columns:70px minmax(0,1fr)!important}
+  .free-levels-total{grid-column:1/-1;grid-template-columns:auto auto;justify-content:space-between;align-items:center}
+  .free-levels-grid{grid-template-columns:minmax(0,1fr)!important}
+  .garage-grid,.shop-grid{grid-template-columns:minmax(0,1fr)!important}
+  .owner-admin-assignment{grid-template-columns:minmax(0,1fr)!important}
+  .admin-row-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .admin-row-actions select{grid-column:1/-1}
+}
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE UI V6 — real-device correction pass (iPhone / landscape).           */
+/* Fixes horizontal drift on the dashboard and support/admin forms.           */
+/* -------------------------------------------------------------------------- */
+@media (max-width:1024px), (max-height:620px){
+  /* Every recently added shell must stay inside the visual viewport. */
+  .menu-screen,.admin-system-screen,.market-screen,
+  .auth-gate-screen,.account-screen,.promo-screen,.friends-screen,.free-servers-screen,
+  .local-mode-screen,.online-screen,.setup-screen,.shop-screen,.settings-screen,
+  .root-auth-screen,.root-console-screen,.root-confirm-screen,.pause-screen,
+  .finish-screen,.online-finish-screen{
+    box-sizing:border-box;
+    max-width:100vw;
+    max-height:100dvh;
+    overflow:hidden;
+  }
+  .menu-screen *, .admin-system-screen *, .owner-admin-system *,
+  .market-screen *, #crewDialog *, .tuning-modal *{box-sizing:border-box;min-width:0}
+
+  /* MAIN MENU: fixed centered canvas; no element can push the card sideways. */
+  .menu-screen{
+    display:grid!important;
+    place-items:center!important;
+    padding:calc(var(--m-safe-t) + 4px) calc(var(--m-safe-r) + 4px) calc(var(--m-safe-b) + 4px) calc(var(--m-safe-l) + 4px)!important;
+  }
+  .menu-screen.hidden{display:none!important}
+  .menu-screen .menu-card{
+    width:min(860px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 8px))!important;
+    max-width:100%!important;
+    max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 8px)!important;
+    margin:0 auto!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    grid-template-columns:minmax(205px,.72fr) minmax(0,1.28fr)!important;
+    grid-template-areas:"hero hero" "play tools" "footer footer"!important;
+    gap:6px 10px!important;
+    padding:10px 12px 8px!important;
+    border-radius:18px!important;
+  }
+  .menu-screen .menu-hero,.menu-screen .menu-play-section,.menu-screen .menu-tools-section,.menu-screen .menu-footer,
+  .menu-screen .mode-actions,.menu-screen .menu-action-row,.menu-screen .menu-stats{width:100%;min-width:0}
+  .menu-screen .menu-hero{gap:7px!important;padding:0 1px 1px!important}
+  .menu-screen .menu-card h1{font-size:clamp(27px,6.2dvh,38px)!important;line-height:.9!important}
+  .menu-screen .eyebrow{font-size:6px!important;letter-spacing:.2em!important}
+  .menu-screen .tagline{font-size:5.6px!important;margin-top:3px!important;letter-spacing:.14em!important}
+  .menu-screen .menu-hub-badges{margin-top:4px!important}
+  .menu-screen .menu-hub-badges span{font-size:4.8px!important;padding:2px 5px!important}
+  .menu-screen .menu-section{gap:4px!important}
+  .menu-screen .menu-section-head{height:9px!important;font-size:5.1px!important;letter-spacing:.14em!important}
+
+  .menu-screen .mode-actions{height:100%!important;grid-template-columns:1fr!important;grid-template-rows:repeat(2,minmax(0,1fr))!important;gap:6px!important}
+  .menu-screen .mode-actions .primary-btn{
+    width:100%!important;height:auto!important;min-height:64px!important;margin:0!important;padding:0 12px!important;border-radius:11px!important;
+  }
+  .menu-screen .menu-primary-copy small{font-size:5.3px!important}
+  .menu-screen .menu-primary-copy strong{font-size:10.3px!important;white-space:normal!important}
+
+  .menu-screen .menu-action-row{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important;align-content:start}
+  .menu-screen #crewBtn{grid-column:1/-1!important}
+  .menu-screen .menu-action-row:has(#staffAdminBtn.hidden) #settingsBtn{grid-column:1/-1!important}
+  .menu-screen .menu-action-row .secondary-btn.menu-tile{
+    width:100%!important;height:auto!important;min-height:41px!important;margin:0!important;padding:5px 7px!important;
+    grid-template-columns:27px minmax(0,1fr)!important;gap:7px!important;border-radius:9px!important;
+    overflow:hidden!important;
+  }
+  .menu-screen .menu-tile-icon{width:27px!important;height:27px!important;border-radius:8px!important;flex:0 0 auto}
+  .menu-screen .menu-tile-copy{overflow:hidden!important}
+  .menu-screen .menu-tile-copy>span{font-size:7.1px!important;letter-spacing:.065em!important;white-space:nowrap!important;text-overflow:ellipsis!important}
+  .menu-screen .menu-tile-copy>strong,
+  .menu-screen .account-menu-btn strong,.menu-screen .friends-menu-btn strong,
+  .menu-screen .promo-menu-btn strong,.menu-screen .shop-menu-btn strong{
+    margin-top:2px!important;font-size:5.5px!important;line-height:1.15!important;letter-spacing:.06em!important;
+    white-space:nowrap!important;text-overflow:ellipsis!important;overflow:hidden!important;
+  }
+  .menu-screen #crewBtn .menu-tile-copy>strong{white-space:nowrap!important}
+
+  .menu-screen .menu-footer{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:6px!important;padding-top:1px!important}
+  .menu-screen .menu-stats{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;margin:0!important}
+  .menu-screen .menu-stats>div{min-height:27px!important;padding:4px 6px!important;border-radius:8px!important;overflow:hidden}
+  .menu-screen .menu-stats span{font-size:4.5px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .menu-screen .menu-stats strong{font-size:7.8px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .menu-screen .sound-btn{width:auto!important;min-width:92px!important;min-height:29px!important;margin:0!important;padding:0 9px!important;border-radius:8px!important;font-size:5.6px!important;white-space:nowrap}
+
+  /* SUPPORT / ADMIN: a true app panel, not a desktop form squeezed into a phone. */
+  .admin-system-screen{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:calc(var(--m-safe-t) + 4px) calc(var(--m-safe-r) + 4px) calc(var(--m-safe-b) + 4px) calc(var(--m-safe-l) + 4px)!important;
+  }
+  .admin-system-screen.hidden{display:none!important}
+  .admin-system-panel{
+    width:min(880px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 8px))!important;
+    height:min(520px,calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 8px))!important;
+    max-width:100%!important;max-height:100%!important;
+    margin:0 auto!important;border-radius:17px!important;overflow:hidden!important;
+  }
+  .admin-system-header{
+    position:relative!important;top:auto!important;
+    display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;
+    gap:10px!important;padding:9px 11px 8px!important;
+    background:linear-gradient(180deg,rgba(7,20,19,.995),rgba(7,20,19,.965))!important;
+  }
+  .admin-system-header>div{min-width:0!important}
+  .admin-system-header .eyebrow{font-size:6px!important;letter-spacing:.2em!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .admin-system-header h2{font-size:21px!important;line-height:1!important;margin:3px 0 0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  .admin-system-header p{display:none!important}
+  .admin-system-header>.secondary-btn{
+    width:auto!important;min-width:84px!important;min-height:36px!important;height:36px!important;margin:0!important;padding:0 12px!important;
+    border-radius:10px!important;font-size:8px!important;letter-spacing:.1em!important;white-space:nowrap!important;
+  }
+  #supportTabs{
+    display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:5px!important;padding:6px 8px!important;overflow:visible!important;
+    position:relative!important;top:auto!important;
+  }
+  #supportTabs button{
+    width:100%!important;min-height:34px!important;padding:6px 7px!important;margin:0!important;border-radius:9px!important;
+    font-size:7.6px!important;line-height:1.12!important;letter-spacing:.025em!important;white-space:normal!important;
+  }
+  .admin-system-content{flex:1 1 auto!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;padding:8px 10px max(10px,var(--m-safe-b))!important}
+  .admin-system-content>*{max-width:100%}
+  #supportContent .admin-form{max-width:none!important;width:100%!important;margin:0!important}
+  #supportContent .support-form{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px 8px!important;align-items:end}
+  #supportContent .support-form .admin-section-title{grid-column:1/-1!important;margin:0 0 2px!important;align-items:center!important}
+  #supportContent .support-form .admin-section-title h3{font-size:12px!important}
+  #supportContent .support-form .admin-section-title span{font-size:7px!important}
+  #supportContent .support-target-field{grid-column:1!important}
+  #supportContent .support-category-field{grid-column:2!important}
+  #supportContent .support-form-question .support-category-field{grid-column:1/-1!important}
+  #supportContent .support-description-field{grid-column:1/-1!important}
+  #supportContent .support-evidence-field{grid-column:1!important}
+  #supportContent .support-form-status{grid-column:1/-1!important;min-height:0!important;text-align:left!important;padding:0!important;font-size:8px!important}
+  #supportContent .support-form .admin-form-actions{grid-column:2!important;grid-row:auto!important;justify-content:flex-end!important;align-items:end!important;margin:0!important}
+  #supportContent .support-form-question .admin-form-actions{grid-column:2!important}
+  #supportContent .admin-form label{gap:4px!important;font-size:7.5px!important;letter-spacing:.08em!important}
+  #supportContent .admin-form input:not([type=file]),#supportContent .admin-form select{
+    min-height:39px!important;height:39px!important;padding:7px 10px!important;border-radius:10px!important;font-size:16px!important;
+  }
+  #supportContent .admin-form textarea{min-height:68px!important;height:68px!important;max-height:100px!important;padding:8px 10px!important;border-radius:10px!important;font-size:16px!important;resize:vertical!important}
+  #supportContent .admin-form input[type=file]{min-height:39px!important;height:39px!important;padding:4px 6px!important;border-radius:10px!important;font-size:11px!important;overflow:hidden!important}
+  #supportContent .admin-form input[type=file]::file-selector-button{
+    height:29px;margin:-1px 8px -1px -1px;padding:0 9px;border:1px solid rgba(82,255,185,.22);border-radius:7px;background:rgba(82,255,185,.08);color:#dffff0;font:800 9px/1 inherit;
+  }
+  #supportContent .admin-action{min-height:39px!important;padding:0 14px!important;border-radius:10px!important;font-size:8px!important;white-space:nowrap!important}
+
+  /* Newly added systems: hard containment for long content / usernames. */
+  .admin-ticket-card,.admin-staff-card,.admin-report-card,.admin-owner-complaint,
+  .owner-admin-section,.owner-admin-assignment,.admin-ticket-body,.admin-message,
+  .market-card,.crew-card,.tuning-row{min-width:0!important;max-width:100%!important;overflow-wrap:anywhere}
+  .admin-row-actions{max-width:100%!important;flex-wrap:wrap!important}
+  .admin-row-actions button{width:auto!important;max-width:100%!important}
+  .owner-admin-system{width:100%!important;overflow-x:hidden!important}
+  .market-panel,#crewDialog,.tuning-modal,.root-console-panel{overflow-x:hidden!important}
+}
+
+/* Real iPhone landscape sizes (roughly 844–956 × 390–440 CSS px). */
+@media (orientation:landscape) and (min-width:700px) and (max-width:1024px) and (max-height:500px){
+  .menu-screen .menu-card{
+    width:min(860px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 12px))!important;
+    grid-template-columns:minmax(220px,.76fr) minmax(0,1.24fr)!important;
+    padding:8px 10px 7px!important;gap:5px 9px!important;
+  }
+  .menu-screen .brand-mark{display:none!important}
+  .menu-screen .menu-card h1{font-size:30px!important}
+  .menu-screen .menu-hub-badges{display:flex!important}
+  .menu-screen .mode-actions .primary-btn{min-height:56px!important}
+  .menu-screen .menu-action-row .secondary-btn.menu-tile{min-height:39px!important}
+  .menu-screen .menu-tile-icon{width:25px!important;height:25px!important}
+  .menu-screen .menu-footer{gap:5px!important}
+
+  .admin-system-panel{width:min(880px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 12px))!important;height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 8px)!important}
+  .admin-system-header{padding:7px 10px 6px!important}
+  .admin-system-header h2{font-size:19px!important}
+  .admin-system-header>.secondary-btn{min-height:34px!important;height:34px!important}
+  #supportTabs{padding:5px 8px!important}
+  #supportTabs button{min-height:32px!important;font-size:7.2px!important}
+  .admin-system-content{padding:7px 9px max(8px,var(--m-safe-b))!important}
+  #supportContent .support-form{gap:6px 8px!important}
+  #supportContent .admin-form textarea{min-height:62px!important;height:62px!important}
+}
+
+/* Portrait / narrow devices: stack forms rather than squeezing two columns. */
+@media (orientation:portrait), (max-width:699px){
+  .menu-screen .menu-card{grid-template-columns:1fr!important;grid-template-areas:"hero" "play" "tools" "footer"!important;width:min(520px,100%)!important}
+  .menu-screen .mode-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-template-rows:auto!important}
+  .menu-screen .menu-action-row{grid-template-columns:1fr!important}
+  .menu-screen #crewBtn,.menu-screen #settingsBtn{grid-column:auto!important}
+  .menu-screen .menu-footer{grid-template-columns:1fr!important}.menu-screen .sound-btn{width:100%!important}
+
+  #supportTabs{display:flex!important;overflow-x:auto!important;scrollbar-width:none!important}
+  #supportTabs button{flex:0 0 auto!important;width:auto!important;min-width:128px!important;white-space:nowrap!important}
+  #supportContent .support-form{grid-template-columns:1fr!important}
+  #supportContent .support-form>*{grid-column:1!important}
+  #supportContent .support-form .admin-form-actions{grid-column:1!important;justify-content:stretch!important}
+  #supportContent .admin-action{width:100%!important}
+}
+
+/* V7 regression fixes: local race menu must remain truly hidden; support success is explicit. */
+.support-form-status.success{border-color:rgba(141,255,73,.28)!important;background:rgba(141,255,73,.07)!important;color:#cfffad!important;font-weight:950!important;letter-spacing:.06em!important}
+@media (max-width:1024px){.menu-screen.hidden{display:none!important}}
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE UI V8 — navigation stability + store/settings phone rebuild.        */
+/* Real-device target first: iPhone landscape, then smaller phones.           */
+/* -------------------------------------------------------------------------- */
+@media (max-width:1024px), (max-height:620px){
+  /* Hidden always wins, even when a mobile shell changes display/layout. */
+  .shop-screen.hidden,.settings-screen.hidden,.garage-screen.hidden{display:none!important}
+
+  /* Settings: compact, centered and scrollable without moving the viewport. */
+  .settings-screen{
+    align-items:center!important;justify-items:center!important;
+    padding:calc(var(--m-safe-t) + 5px) calc(var(--m-safe-r) + 5px) calc(var(--m-safe-b) + 5px) calc(var(--m-safe-l) + 5px)!important;
+    overflow:hidden!important;
+  }
+  .settings-panel{
+    width:min(760px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 10px))!important;
+    max-width:100%!important;
+    max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 10px)!important;
+    margin:0 auto!important;padding:11px 12px 10px!important;border-radius:16px!important;
+    overflow-y:auto!important;overflow-x:hidden!important;
+  }
+  .settings-header{position:relative!important;top:auto!important;margin:0 0 7px!important;padding:0 1px 5px!important;background:transparent!important;backdrop-filter:none!important}
+  .settings-header h2{font-size:20px!important;line-height:1!important;margin:3px 0 0!important}
+  .settings-header .eyebrow{font-size:6px!important;letter-spacing:.18em!important}
+  .settings-badge{padding:6px 8px!important;font-size:6.5px!important}
+  .settings-section{padding:8px!important;margin-bottom:6px!important;border-radius:11px!important}
+  .settings-section .section-label{font-size:6.7px!important;margin-bottom:5px!important}
+  .control-mode-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}
+  .control-mode-grid button{min-height:54px!important;padding:7px 8px!important;border-radius:9px!important}
+  .control-mode-grid strong{font-size:9px!important}.control-mode-grid small{font-size:7px!important;line-height:1.25!important;margin-top:3px!important}
+  .settings-selected{margin-top:5px!important;font-size:7px!important}
+  .control-layout-settings{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important}
+  .control-layout-settings-copy{min-width:0!important}.control-layout-settings-copy strong{font-size:9px!important}.control-layout-settings-copy small{display:block;margin-top:3px;font-size:7px!important;line-height:1.3!important}
+  .control-layout-open-btn{width:auto!important;min-width:112px!important;min-height:38px!important;margin:0!important;padding:0 10px!important;font-size:7px!important}
+  .settings-message{min-height:20px!important;margin:2px 2px 5px!important;font-size:8px!important;line-height:1.25!important}
+  .settings-back-btn{position:sticky!important;bottom:0!important;z-index:6!important;width:100%!important;min-height:40px!important;margin:0!important;border-radius:10px!important;background:linear-gradient(180deg,rgba(35,53,51,.98),rgba(19,34,33,.98))!important;font-size:8px!important}
+
+  /* Store landing: two clean cards that stay inside the safe-area. */
+  .shop-screen{
+    align-items:center!important;justify-items:center!important;
+    padding:calc(var(--m-safe-t) + 5px) calc(var(--m-safe-r) + 5px) calc(var(--m-safe-b) + 5px) calc(var(--m-safe-l) + 5px)!important;
+    overflow:hidden!important;
+  }
+  .shop-entry-panel{
+    width:min(820px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 10px))!important;
+    max-width:100%!important;max-height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 10px)!important;
+    margin:0 auto!important;padding:11px 12px 10px!important;border-radius:16px!important;overflow-y:auto!important;overflow-x:hidden!important;
+  }
+  .shop-entry-header{margin:0 0 8px!important;gap:9px!important;align-items:center!important}
+  .shop-entry-header>div{min-width:0!important}.shop-entry-header .eyebrow{font-size:6px!important;letter-spacing:.18em!important}
+  .shop-entry-header h2{font-size:20px!important;line-height:1!important;margin:3px 0 1px!important}.shop-entry-header p{font-size:6.5px!important}
+  .shop-entry-back{width:auto!important;min-width:86px!important;min-height:38px!important;margin:0!important;padding:0 11px!important;border-radius:10px!important;font-size:7px!important}
+  .shop-entry-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+  .shop-entry-card{min-width:0!important;min-height:128px!important;padding:11px 12px!important;border-radius:12px!important;gap:6px!important}
+  .shop-entry-icon{left:11px!important;top:11px!important;width:34px!important;height:34px!important;border-radius:9px!important}.shop-entry-icon svg{width:18px!important;height:18px!important}
+  .shop-entry-copy{min-width:0!important;gap:2px!important}.shop-entry-copy small{font-size:6px!important}.shop-entry-copy strong{font-size:17px!important}.shop-entry-copy em{font-size:7px!important;line-height:1.25!important;white-space:normal!important}
+  .shop-entry-card>b{right:12px!important;bottom:10px!important;font-size:20px!important}
+  .market-entry-chart{right:12px!important;top:12px!important;transform:scale(.72) skewX(-8deg)!important;transform-origin:top right!important;opacity:.34!important}
+  .shop-entry-market .shop-entry-live{right:10px!important;top:10px!important;padding:4px 6px!important;font-size:5.5px!important}
+  .shop-entry-note{margin-top:7px!important;font-size:6.3px!important;line-height:1.25!important}
+
+  /* Personal shop + garage: fixed app-like frame; only the catalog list scrolls. */
+  .shop-panel.catalog-panel{
+    width:min(940px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 10px))!important;
+    height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 10px)!important;
+    max-width:100%!important;max-height:100%!important;margin:0 auto!important;
+    display:grid!important;grid-template-rows:auto minmax(0,1fr) auto!important;
+    padding:9px 10px 7px!important;border-radius:15px!important;overflow:hidden!important;
+  }
+  .shop-panel.catalog-panel.hidden{display:none!important}
+  .shop-header{position:relative!important;top:auto!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;align-items:center!important;gap:7px!important;margin:0 0 7px!important;padding:0 0 5px!important;background:transparent!important;backdrop-filter:none!important}
+  .shop-header>div{min-width:0!important}.shop-header .eyebrow{font-size:5.8px!important;letter-spacing:.16em!important}.shop-header h2{font-size:19px!important;line-height:1!important;margin:3px 0 0!important}
+  .credits-pill{margin:0!important;padding:7px 9px!important;border-radius:10px!important;font-size:9px!important;line-height:1!important}
+  .shop-header .secondary-btn{width:auto!important;min-width:76px!important;min-height:36px!important;margin:0!important;padding:0 9px!important;border-radius:9px!important;font-size:7px!important}
+  .shop-body{min-width:0!important;min-height:0!important;height:100%!important;display:grid!important;grid-template-columns:minmax(185px,.58fr) minmax(0,1.42fr)!important;gap:9px!important;overflow:hidden!important}
+  .garage-preview{min-width:0!important;min-height:0!important;height:100%!important;align-self:stretch!important;display:grid!important;grid-template-rows:minmax(0,1fr) auto auto auto!important;align-content:center!important;overflow:hidden!important;padding:4px 6px 5px!important;border:1px solid rgba(255,255,255,.045)!important}
+  .garage-preview>canvas{width:100%!important;height:100%!important;max-height:190px!important;min-height:0!important;object-fit:contain!important;align-self:center!important}
+  .garage-preview>strong{font-size:12px!important;line-height:1.1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}.garage-preview>small{font-size:7px!important;margin-top:2px!important}.garage-preview p{margin:4px 0 0!important;font-size:6.5px!important;line-height:1.25!important}
+  .shop-catalog{min-width:0!important;min-height:0!important;height:100%!important;display:grid!important;grid-template-rows:auto auto minmax(0,1fr)!important;overflow:hidden!important}
+  #shopTabs,#garageTabs{margin:0 0 5px!important;gap:4px!important}#shopTabs button,#garageTabs button{height:34px!important;min-height:34px!important;font-size:7px!important}
+  .car-category-tabs{display:flex!important;gap:4px!important;margin:0 0 5px!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;-webkit-overflow-scrolling:touch!important}.car-category-tabs::-webkit-scrollbar{display:none!important}.car-category-tabs button{flex:0 0 auto!important;min-width:64px!important;height:31px!important;min-height:31px!important;padding:0 7px!important;font-size:6.5px!important;border-radius:8px!important}
+  .shop-items{min-width:0!important;min-height:0!important;height:100%!important;overflow-y:auto!important;overflow-x:hidden!important;align-content:start!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important;padding:0 2px 3px 0!important;scrollbar-width:thin!important}
+  .shop-item{min-width:0!important;padding:5px!important;border-radius:9px!important}.item-preview{min-height:34px!important;padding-top:3px!important}.item-preview canvas{width:min(100%,150px)!important}.item-title{font-size:8px!important}.item-price{margin:3px 0 1px!important;font-size:7px!important}.item-price strong{font-size:8px!important}.item-price span{font-size:6px!important}.item-shortfall{min-height:9px!important;margin-bottom:2px!important;font-size:5.7px!important}.purchase-btn{min-height:32px!important;border-radius:7px!important;font-size:6.5px!important}
+  .shop-message{min-height:15px!important;margin:5px 0 0!important;font-size:7px!important;line-height:1.2!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+
+  /* Market stays independent from catalog layout and fills the same safe frame. */
+  #shopMarketPanel.market-panel{width:min(940px,calc(100vw - var(--m-safe-l) - var(--m-safe-r) - 10px))!important;height:calc(100dvh - var(--m-safe-t) - var(--m-safe-b) - 10px)!important;margin:0 auto!important}
+  #shopMarketPanel.hidden{display:none!important}
+}
+
+@media (orientation:landscape) and (max-height:460px) and (max-width:1024px){
+  .settings-panel{padding:8px 10px 8px!important}.settings-section{padding:6px 7px!important;margin-bottom:5px!important}.control-mode-grid button{min-height:48px!important}.control-layout-settings-copy small{display:none!important}.settings-message{font-size:7px!important}
+  .shop-entry-card{min-height:112px!important}.shop-entry-copy strong{font-size:15px!important}.shop-entry-note{display:none!important}
+  .shop-panel.catalog-panel{padding:7px 8px 6px!important}.shop-body{grid-template-columns:minmax(160px,.52fr) minmax(0,1.48fr)!important;gap:7px!important}.garage-preview>canvas{max-height:145px!important}.garage-preview p{display:none!important}.shop-header{margin-bottom:5px!important}.shop-message{margin-top:3px!important}
+}
+
+@media (orientation:landscape) and (max-width:700px){
+  .settings-panel{width:100%!important}.control-mode-grid small{display:none!important}.control-layout-open-btn{min-width:92px!important}
+  .shop-entry-panel,.shop-panel.catalog-panel,#shopMarketPanel.market-panel{width:100%!important}
+  .shop-entry-card{min-height:104px!important}.market-entry-chart{display:none!important}
+  .shop-body{grid-template-columns:minmax(125px,.42fr) minmax(0,1.58fr)!important}.garage-preview>small,.garage-preview p{display:none!important}.shop-items{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}

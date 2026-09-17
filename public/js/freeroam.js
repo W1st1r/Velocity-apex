@@ -37,7 +37,7 @@
   const state={
     active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,
     room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,activityPending:false,liveEvent:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
-    speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,driftPhysicsTime:0
+    speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,driftPhysicsTime:0,paused:false
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
   const car=R.Car?new R.Car({player:true,maxSpeed:SOLO_PHYS.maxSpeed,accel:SOLO_PHYS.accel,brakePower:SOLO_PHYS.brakePower,turnRate:SOLO_PHYS.turnRate}):{x:2320,y:1590,vx:0,vy:0,angle:-Math.PI/2,speed:0};
@@ -82,8 +82,8 @@
 
   function loadout(){
     const s=loadSave();
-    const liveryId=R.carAvailable(s.selectedLivery)?(s.selectedLivery||'apexLime'):'apexLime',effectId=s.selectedEffect||'standard';
-    return {liveryId,effectId,livery:R.LIVERIES?.[liveryId]||R.LIVERIES?.apexLime||null};
+    const liveryId=R.carAvailable(s.selectedLivery)?(s.selectedLivery||'apexLime'):'apexLime',effectId=s.selectedEffect||'standard',style=R.getCarCustomization?.(s,liveryId)||{colorId:'stock',vinylId:'none'};
+    return {liveryId,effectId,colorId:style.colorId,vinylId:style.vinylId,livery:R.LIVERIES?.[liveryId]||R.LIVERIES?.apexLime||null};
   }
 
   function expRequired(level){const l=Math.max(0,Math.min(99,Math.floor(Number(level)||0))),raw=100+10*l+.25*l*l;return Math.floor((raw+5-1e-9)/10)*10;}
@@ -100,7 +100,7 @@
   function renderEventHud(){
     const hud=$('freeEventHud'),e=state.liveEvent;if(!hud)return;
     const active=!!e&&['waiting','countdown','running'].includes(e.status);roam.classList.toggle('event-active',!!e);
-    if(!e){hud.classList.add('hidden');hud.classList.remove('final','result','ending');return;}hud.classList.remove('hidden');hud.classList.toggle('final',!!e.finalZone);hud.classList.toggle('result',e.status==='result');$('freeEventTitle').textContent=eventTitle(e.activity);$('freeEventMode').textContent=e.status==='result'?'SERVER RESULT':'LIVE EVENT';const leave=$('freeEventLeave');if(leave)leave.classList.toggle('hidden',!active);const zone=e.zone?.label||e.zoneId||'';$('freeEventZone').textContent=e.activity==='koth'?(e.finalZone?'FINAL ZONE · ':'ACTIVE ZONE · ')+(zone||'—'):(zone?`ZONE · ${String(zone).toUpperCase()}`:'');const root=$('freeEventStandings');root.replaceChildren();const rows=(e.results||e.standings||[]).slice(0,6);if(!rows.length){const empty=document.createElement('div');empty.className='free-event-row';empty.textContent=e.status==='waiting'?'ОЖИДАЕМ ИГРОКОВ…':'ПОДГОТОВКА…';root.appendChild(empty);}else rows.forEach((r,i)=>{const row=document.createElement('div');row.className='free-event-row'+(r.id===state.playerId?' me':'')+(r.eligible===false?' ineligible':'');const place=document.createElement('b');place.textContent=String(r.place||i+1);const name=document.createElement('strong');name.textContent=`${r.name||'RACER'} [${Number(r.level)||0}]`;const score=document.createElement('span');score.textContent=e.activity==='drift_battle'?Number(r.score||0).toLocaleString('ru-RU'):String(Math.floor(Number(r.score)||0));row.append(place,name,score);if(e.status==='result'){const reward=document.createElement('small');reward.textContent=r.eligible===false?(e.activity==='drift_battle'?'НАГРАДА НЕ ВЫДАНА · НУЖНО АКТИВНО ДРИФТИТЬ':'НАГРАДА НЕ ВЫДАНА · НУЖНО УЧАСТВОВАТЬ'):`+${r.exp||0} EXP · +${r.credits||0} CR${r.capped?' · CR LIMIT':''}`;row.append(reward);}root.appendChild(row);});
+    if(!e){hud.classList.add('hidden');hud.classList.remove('final','result','ending');return;}hud.classList.remove('hidden');hud.classList.toggle('final',!!e.finalZone);hud.classList.toggle('result',e.status==='result');$('freeEventTitle').textContent=eventTitle(e.activity);$('freeEventMode').textContent=e.status==='result'?'SERVER RESULT':'LIVE EVENT';const leave=$('freeEventLeave');if(leave)leave.classList.toggle('hidden',!active);const zone=e.zone?.label||e.zoneId||'';$('freeEventZone').textContent=e.activity==='koth'?(e.finalZone?'FINAL ZONE · ':'ACTIVE ZONE · ')+(zone||'—'):(zone?`ZONE · ${String(zone).toUpperCase()}`:'');const root=$('freeEventStandings');root.replaceChildren();const rows=(e.results||e.standings||[]).slice(0,6);if(!rows.length){const empty=document.createElement('div');empty.className='free-event-row';empty.textContent=e.status==='waiting'?'ОЖИДАЕМ ИГРОКОВ…':'ПОДГОТОВКА…';root.appendChild(empty);}else rows.forEach((r,i)=>{const row=document.createElement('div');row.className='free-event-row'+(r.id===state.playerId?' me':'')+(r.eligible===false?' ineligible':'');const place=document.createElement('b');place.textContent=String(r.place||i+1);const name=document.createElement('strong');appendPlayerName(name,r.name||'RACER',false,Number(r.level)||0,r.adminLevel??null);const score=document.createElement('span');score.textContent=e.activity==='drift_battle'?Number(r.score||0).toLocaleString('ru-RU'):String(Math.floor(Number(r.score)||0));row.append(place,name,score);if(e.status==='result'){const reward=document.createElement('small');reward.textContent=r.eligible===false?(e.activity==='drift_battle'?'НАГРАДА НЕ ВЫДАНА · НУЖНО АКТИВНО ДРИФТИТЬ':'НАГРАДА НЕ ВЫДАНА · НУЖНО УЧАСТВОВАТЬ'):`+${r.exp||0} EXP · +${r.credits||0} CR${r.capped?' · CR LIMIT':''}`;row.append(reward);}root.appendChild(row);});
   }
   function updateEventClock(now){
     const e=state.liveEvent,hud=$('freeEventHud');if(!e||!hud||hud.classList.contains('hidden'))return;const phase=$('freeEventPhase'),clock=$('freeEventTime');
@@ -112,10 +112,10 @@
     phase.textContent=e.finalZone?'FINAL ZONE':'TIME';clock.textContent=formatEventTime(overallLeft);
   }
 
-  function createVisual(liveryId,effectId){
+  function createVisual(liveryId,effectId,colorId='stock',vinylId='none'){
     if(!R.Car)return null;
     const visual=new R.Car();
-    visual.setLoadout(liveryId||'apexLime',effectId||'standard','full');
+    visual.setLoadout(liveryId||'apexLime',effectId||'standard','full');visual.setCustomization(R.getCarStyleByIds?.(colorId,vinylId));
     visual.throttleVisual=.92;
     return visual;
   }
@@ -124,10 +124,10 @@
     state.loadout=loadout();
     if(R.Car&&car.setLoadout){
       car.maxSpeed=SOLO_PHYS.maxSpeed;car.baseMaxSpeed=SOLO_PHYS.maxSpeed;car.accel=SOLO_PHYS.accel;car.brakePower=SOLO_PHYS.brakePower;car.turnRate=SOLO_PHYS.turnRate;
-      car.setLoadout(state.loadout.liveryId,state.loadout.effectId,'full');
+      car.setLoadout(state.loadout.liveryId,state.loadout.effectId,'full');car.setCustomization(R.getCarStyleByIds?.(state.loadout.colorId,state.loadout.vinylId));
       R.applyCarPerformance(car,state.loadout.liveryId,loadSave());
       state.playerVisual=car;
-    }else state.playerVisual=createVisual(state.loadout.liveryId,state.loadout.effectId);
+    }else state.playerVisual=createVisual(state.loadout.liveryId,state.loadout.effectId,state.loadout.colorId,state.loadout.vinylId);
     const currentCar=$('freeCurrentCar');
     if(currentCar)currentCar.textContent=(state.loadout.livery?.name||state.loadout.liveryId||'APEX CAR').toUpperCase();
   }
@@ -212,7 +212,7 @@
     refreshPlayerLoadout();
     msg('ПОДКЛЮЧЕНИЕ К '+server.name+'…');
     try{
-      const d=await jsonFetch(`/api/free/${server.id}/join`,{method:'POST',body:JSON.stringify({name:accountName(),loadout:{liveryId:state.loadout.liveryId,effectId:state.loadout.effectId}})});
+      const d=await jsonFetch(`/api/free/${server.id}/join`,{method:'POST',body:JSON.stringify({name:accountName(),loadout:{liveryId:state.loadout.liveryId,effectId:state.loadout.effectId,colorId:state.loadout.colorId,vinylId:state.loadout.vinylId}})});
       state.server=server;
       state.playerId=d.playerId;
       state.token=d.sessionToken;
@@ -268,7 +268,8 @@
       if(!r){r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',level:0,liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};state.remotes.set(m.playerId,r);}
       pushRemoteSnapshot(r,m.state,m.serverTime);return;
     }
-    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0);return;}
+    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0);return;}
+    if(m.type==='free_chat_blocked'){const left=Math.max(0,Number(m.expiresAt||0)-Date.now()),mins=Math.max(1,Math.ceil(left/60000));setBanner(`ЧАТ ЗАБЛОКИРОВАН · ${mins} МИН · ${m.reason||'Нарушение правил'}`,4200);return;}
     if(m.type==='free_record'){
       if(state.room)state.room.records={...(state.room.records||{}),[m.kind]:m.value};
       addSystem(`${m.name}: новый рекорд ${m.kind==='speed'?m.value+' km/h':m.value+' drift'}.`);return;
@@ -341,10 +342,10 @@
       let r=state.remotes.get(p.id);
       if(!r){
         const s=p.state||{x:2320,y:1590,angle:0};
-        r={x:s.x,y:s.y,angle:s.angle,target:s,snapshots:[],name:p.name,level:Number(p.level)||0,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',visual:createVisual(p.liveryId,p.effectId)};pushRemoteSnapshot(r,s,s.sampleTime||s.serverTime||Date.now()+state.serverOffset);state.remotes.set(p.id,r);
+        r={x:s.x,y:s.y,angle:s.angle,target:s,snapshots:[],name:p.name,adminLevel:Number(p.adminLevel)||0,level:Number(p.level)||0,liveryId:p.liveryId||'apexLime',effectId:p.effectId||'standard',colorId:p.colorId||'stock',vinylId:p.vinylId||'none',visual:createVisual(p.liveryId,p.effectId,p.colorId,p.vinylId)};pushRemoteSnapshot(r,s,s.sampleTime||s.serverTime||Date.now()+state.serverOffset);state.remotes.set(p.id,r);
       }
-      r.name=p.name;r.owner=p.owner===true;r.level=Number(p.level)||0;
-      if(r.liveryId!==p.liveryId||r.effectId!==p.effectId||!r.visual){r.liveryId=p.liveryId||'apexLime';r.effectId=p.effectId||'standard';r.visual=createVisual(r.liveryId,r.effectId);}
+      r.name=p.name;r.owner=p.owner===true;r.adminLevel=Number(p.adminLevel)||0;r.level=Number(p.level)||0;
+      if(r.liveryId!==p.liveryId||r.effectId!==p.effectId||r.colorId!==(p.colorId||'stock')||r.vinylId!==(p.vinylId||'none')||!r.visual){r.liveryId=p.liveryId||'apexLime';r.effectId=p.effectId||'standard';r.colorId=p.colorId||'stock';r.vinylId=p.vinylId||'none';r.visual=createVisual(r.liveryId,r.effectId,r.colorId,r.vinylId);}
       if(p.state)pushRemoteSnapshot(r,p.state,p.state.sampleTime||p.state.serverTime||Date.now()+state.serverOffset);
     }
     for(const id of state.remotes.keys())if(!live.has(id))state.remotes.delete(id);
@@ -357,7 +358,8 @@
     state.chatUnread=0;
     state.chat.length=0;
     state.driftScore=0;
-    state.driftInside=false;
+    state.driftInside=false;state.paused=false;
+    $('freePausePanel')?.classList.add('hidden');roam.classList.remove('paused');
     refreshPlayerLoadout();
     if(state.playerVisual)state.playerVisual.effectTime=0;
     car.x=2320;car.y=1590;car.vx=0;car.vy=0;car.angle=-Math.PI/2;car.speed=0;car.yawRate=0;car.steerInput=0;car.gripDisturbance=0;state.driftPhysicsTime=0;
@@ -383,7 +385,7 @@
     state.drag=null;
     state.dragQueued=false;
     state.activityPending=false;
-    state.liveEvent=null;renderEventHud();toggleLevels(false);
+    state.liveEvent=null;state.paused=false;renderEventHud();toggleLevels(false);$('freePausePanel')?.classList.add('hidden');roam.classList.remove('paused');
     state.chatUnread=0;
     updateUnreadBadge();
     roam.classList.add('hidden');
@@ -410,11 +412,12 @@
   function update(dt){
     const now=Date.now()+state.serverOffset;
     const crewModalOpen=window.VelocityCrews?.active;
-    if(crewModalOpen){input.left=false;input.right=false;input.gas=false;input.brake=false;input.handbrake=false;}
+    if(crewModalOpen||state.paused){input.left=false;input.right=false;input.gas=false;input.brake=false;input.handbrake=false;}
     const dragLock=state.drag&&now<state.drag.startAt;
     let steer=(input.right?1:0)-(input.left?1:0);
     let throttle=input.gas?1:0,brake=input.brake?1:0,handbrake=input.handbrake?1:0;
     if(dragLock||crewModalOpen){steer=0;throttle=0;brake=1;handbrake=0;}
+    else if(state.paused){steer=0;throttle=0;brake=0;handbrake=0;}
 
     const prevX=car.x,prevY=car.y;
     if(R.Car&&typeof car.update==='function'){
@@ -511,18 +514,28 @@
   }
 
   const isQueenName=name=>String(name||'').trim().replace(/^@/,'').toLowerCase()==='mary';
+  const ADMIN_PREFIXES=Object.freeze({
+    1:{label:'HELPER',key:'helper',fill:'#0e7c76',stroke:'#47e3d2',glow:'#2fd9c7',text:'#e9fffc'},
+    2:{label:'MODER',key:'moder',fill:'#145fa8',stroke:'#66b8ff',glow:'#3d9eff',text:'#eef8ff'},
+    3:{label:'ST.MODER',key:'st-moder',fill:'#6540a8',stroke:'#b28aff',glow:'#9567ee',text:'#f8f2ff'},
+    4:{label:'ADMIN',key:'admin',fill:'#a35d12',stroke:'#ffc166',glow:'#ffa43d',text:'#fff8e8'},
+    5:{label:'CURATOR',key:'curator',fill:'#8d7410',stroke:'#ffe26e',glow:'#ffd447',text:'#fffce8'}
+  });
+  const adminPrefix=level=>ADMIN_PREFIXES[Math.max(0,Math.min(5,Math.floor(Number(level)||0)))]||null;
 
-  function appendPlayerName(el,name,owner,level=null){
-    if(owner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
+  function appendPlayerName(el,name,owner,level=null,adminLevel=null){
+    const player=state.room?.players?.find(p=>p.name===name),isOwner=owner===true||player?.owner===true,rank=adminPrefix(adminLevel===null?player?.adminLevel:adminLevel);
+    if(isOwner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
     else if(isQueenName(name)){const badge=document.createElement('span');badge.className='free-queen-badge';badge.textContent='QUEEN';el.append(badge);}
-    const crew=state.room?.players?.find(p=>p.name===name)?.crew;if(crew){const tag=document.createElement('span');tag.className='crew-tag';tag.style.setProperty('--crew-color',crew.color);tag.textContent='['+crew.tag+'] ';el.append(tag);}
+    else if(rank){const badge=document.createElement('span');badge.className=`free-admin-badge admin-${rank.key}`;badge.textContent=rank.label;el.append(badge);}
+    const crew=player?.crew;if(crew){const tag=document.createElement('span');tag.className='crew-tag';tag.style.setProperty('--crew-color',crew.color);tag.textContent='['+crew.tag+'] ';el.append(tag);}
     el.append(document.createTextNode(name||'RACER'));
-    const player=state.room?.players?.find(p=>p.name===name);if(player?.userId){el.classList.add('crew-profile-link');el.tabIndex=0;el.setAttribute('role','button');el.onclick=()=>window.VelocityCrews?.profile({id:player.userId});el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click();}};}
+    if(player?.userId){el.classList.add('crew-profile-link');el.tabIndex=0;el.setAttribute('role','button');el.onclick=()=>window.VelocityCrews?.profile({id:player.userId});el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();el.click();}};}
     if(level!==null&&Number.isFinite(Number(level))){const tag=document.createElement('span');tag.className='free-level-tag';tag.textContent=`[${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`;el.append(document.createTextNode(' '),tag);}
   }
 
-  function addChat(name,text,mine=false,owner=false,level=0){
-    state.chat.push({name,text,mine,owner,level,system:false,time:Date.now()});
+  function addChat(name,text,mine=false,owner=false,level=0,adminLevel=0){
+    state.chat.push({name,text,mine,owner,level,adminLevel,system:false,time:Date.now()});
     if(state.chat.length>80)state.chat.shift();
     if($('freeChatPanel').classList.contains('hidden')&&!mine){state.chatUnread++;updateUnreadBadge();}
     renderChat();
@@ -542,7 +555,7 @@
     for(const m of state.chat.slice(-50)){
       const row=document.createElement('div');
       row.className='free-chat-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,m.system?null:m.level);
+      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,m.system?null:m.level,m.system?0:m.adminLevel);
       const t=document.createElement('span');t.textContent=m.text;
       row.append(n,t);log.appendChild(row);
     }
@@ -564,7 +577,7 @@
     for(const m of entries){
       const row=document.createElement('div');
       row.className='free-chat-preview-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,m.system?null:m.level);
+      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,m.system?null:m.level,m.system?0:m.adminLevel);
       const text=document.createElement('span');text.textContent=m.text;
       row.append(name,text);
       root.appendChild(row);
@@ -598,8 +611,8 @@
     drawZone(ctx,ZONES.meet,'#8dff49','CAR MEET');
     if(state.liveEvent?.activity==='koth'&&state.liveEvent.zone){drawZone(ctx,{...state.liveEvent.zone,kind:'koth'},state.liveEvent.finalZone?'#ffd86a':'#ff8f4f',state.liveEvent.finalZone?'FINAL ZONE':'ACTIVE ZONE');}
     if(state.waypoint)drawWaypoint(ctx,state.waypoint);
-    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner,r.level||0);
-    const me=state.room?.players?.find(p=>p.id===state.playerId);drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,me?.name||accountName(),true,'#a9ff5a',me?.owner===true,me?.level??state.progress.level??0);
+    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner,r.level||0,r.adminLevel||0);
+    const me=state.room?.players?.find(p=>p.id===state.playerId);drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,me?.name||accountName(),true,'#a9ff5a',me?.owner===true,me?.level??state.progress.level??0,me?.adminLevel||0);
     ctx.restore();
     if(!$('freeMapPanel').classList.contains('hidden')&&performance.now()-lastMapDraw>80){lastMapDraw=performance.now();drawMiniMap();}
   }
@@ -615,8 +628,8 @@
     c.restore();
   }
 
-  function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor,owner=false,level=0){
-    const queen=!owner&&isQueenName(name);
+  function drawVisualCar(c,visual,x,y,a,name,me,fallbackColor,owner=false,level=0,adminLevel=0){
+    const queen=!owner&&isQueenName(name),rank=!owner&&!queen?adminPrefix(adminLevel):null;
     c.save();
     if(visual){
       visual.x=x;visual.y=y;visual.angle=a;
@@ -632,8 +645,9 @@
     c.save();
     c.font='900 14px system-ui';
     const crew=state.room?.players?.find(p=>p.name===name)?.crew;
-    const label=`${crew?'['+crew.tag+'] ':''}${name||'RACER'} [${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`,nameWidth=c.measureText(label).width,badgeWidth=(owner||queen)?65:0,total=nameWidth+badgeWidth+20,left=x-total/2;
-    c.fillStyle='#101a1eef';roundRect(c,left,y-52,total,26,8,true,false);
+    const label=`${crew?'['+crew.tag+'] ':''}${name||'RACER'} [${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`,nameWidth=c.measureText(label).width;
+    let badgeWidth=0;if(owner||queen)badgeWidth=65;else if(rank){c.font='900 10px system-ui';badgeWidth=Math.max(58,Math.ceil(c.measureText(rank.label).width)+18);c.font='900 14px system-ui';}
+    const total=nameWidth+badgeWidth+20,left=x-total/2;c.fillStyle='#101a1eef';roundRect(c,left,y-52,total,26,8,true,false);
     if(owner){
       c.shadowColor='#ff304f';c.shadowBlur=9;c.fillStyle='#b51232';roundRect(c,left+4,y-48,57,18,5,true,false);c.shadowBlur=0;
       c.strokeStyle='#ff687c';c.lineWidth=1;roundRect(c,left+4,y-48,57,18,5,false,true);
@@ -642,6 +656,8 @@
       c.shadowColor='#ff4fbd';c.shadowBlur=11;c.fillStyle='#b51678';roundRect(c,left+4,y-48,57,18,5,true,false);c.shadowBlur=0;
       c.strokeStyle='#ff86d2';c.lineWidth=1;roundRect(c,left+4,y-48,57,18,5,false,true);
       c.fillStyle='#fff0fa';c.font='900 10px system-ui';c.textAlign='center';c.fillText('QUEEN',left+32.5,y-35);
+    }else if(rank){
+      const w=badgeWidth-8;c.shadowColor=rank.glow;c.shadowBlur=9;c.fillStyle=rank.fill;roundRect(c,left+4,y-48,w,18,5,true,false);c.shadowBlur=0;c.strokeStyle=rank.stroke;c.lineWidth=1;roundRect(c,left+4,y-48,w,18,5,false,true);c.fillStyle=rank.text;c.font='900 10px system-ui';c.textAlign='center';c.fillText(rank.label,left+4+w/2,y-35);
     }
     c.font='900 14px system-ui';c.textAlign='left';c.fillStyle=owner?'#ffd6dd':queen?'#ffd9f1':me?'#dfffcb':'#dce9e5';
     c.fillText(label,left+10+badgeWidth,y-34);
@@ -719,7 +735,7 @@
     if(k){input[k]=true;e.preventDefault();}
     if(e.code==='KeyM')toggleMap();
     if(e.code==='Enter')toggleChat();
-    if(e.code==='Escape'){toggleChat(false);toggleMap(false);toggleLevels(false);}
+    if(e.code==='Escape'){if(!$('freeChatPanel').classList.contains('hidden')||!$('freeMapPanel').classList.contains('hidden')||!$('freeLevelsPanel').classList.contains('hidden')){toggleChat(false);toggleMap(false);toggleLevels(false);}else togglePause(!state.paused);}
   });
   addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)input[k]=false;});
 
@@ -737,9 +753,15 @@
   }
   for(const b of document.querySelectorAll('#freeMobileControls [data-control]')){
     const k=b.dataset.control;
-    const on=e=>{e.preventDefault();input[k]=true;};
+    const on=e=>{e.preventDefault();if(!state.paused)input[k]=true;};
     const off=e=>{e.preventDefault();input[k]=false;};
     b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('pointerleave',off);
+  }
+
+  function togglePause(force){
+    const panel=$('freePausePanel');if(!panel||!state.active)return;
+    const show=force??panel.classList.contains('hidden');state.paused=!!show;panel.classList.toggle('hidden',!show);panel.setAttribute('aria-hidden',String(!show));roam.classList.toggle('paused',show);clearInputs();
+    if(show){toggleChat(false);toggleMap(false);toggleLevels(false);}
   }
 
   function toggleChat(force){
@@ -776,6 +798,12 @@
   });
   $('freeChatBtn').addEventListener('click',()=>toggleChat());
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));
+  $('freePauseBtn')?.addEventListener('click',()=>togglePause(true));
+  $('freePauseContinue')?.addEventListener('click',()=>togglePause(false));
+  $('freePauseControls')?.addEventListener('click',()=>window.VelocityControlLayout?.open?.());
+  $('freePauseChat')?.addEventListener('click',()=>{togglePause(false);toggleChat(true);});
+  $('freePauseMap')?.addEventListener('click',()=>{togglePause(false);toggleMap(true);});
+  $('freePauseLeave')?.addEventListener('click',leave);
   $('freeLevelPill')?.addEventListener('click',()=>toggleLevels());
   $('freeLevelsClose')?.addEventListener('click',()=>toggleLevels(false));
   $('freeEventLeave')?.addEventListener('click',()=>{const e=state.liveEvent;if(!e||!['waiting','countdown','running'].includes(e.status))return;if(!confirm('Выйти из '+eventTitle(e.activity)+'? Награда за этот ивент не будет выдана.'))return;if(send({type:'activity_leave',v:1,activity:e.activity,eventId:e.id})){$('freeEventLeave').disabled=true;setTimeout(()=>{if($('freeEventLeave'))$('freeEventLeave').disabled=false;},1500);}});

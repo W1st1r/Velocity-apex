@@ -35,6 +35,40 @@
   R.normalizeSpriteSrc=normalizeSpriteSrc;
   R.preloadSprite=preloadSprite;
 
+  const styledSpriteCache=new Map();
+  function drawVinylLayer(ctx,w,h,vinylId){
+    if(!vinylId||vinylId==='none')return;
+    ctx.save();
+    if(vinylId==='racing-stripe'){
+      ctx.globalAlpha=.88;ctx.fillStyle='#f4f7f2';ctx.fillRect(0,h*.43,w,h*.055);ctx.fillRect(0,h*.505,w,h*.055);
+    }else if(vinylId==='apex-cut'){
+      ctx.globalAlpha=.9;ctx.fillStyle='#11171a';ctx.translate(w*.57,h*.5);ctx.rotate(-.42);ctx.fillRect(-w*.34,-h*.12,w*.68,h*.09);ctx.fillStyle='#8dff49';ctx.fillRect(-w*.18,h*.02,w*.46,h*.055);
+    }else if(vinylId==='carbon-edge'){
+      ctx.globalAlpha=.72;ctx.fillStyle='#090d10';ctx.fillRect(0,h*.18,w,h*.14);ctx.fillRect(0,h*.68,w,h*.14);ctx.globalAlpha=.5;ctx.fillStyle='#394046';for(let x=0;x<w;x+=Math.max(10,w*.03)){ctx.fillRect(x,h*.205,Math.max(3,w*.009),h*.09);ctx.fillRect(x,h*.705,Math.max(3,w*.009),h*.09);}
+    }else if(vinylId==='neon-slash'){
+      ctx.globalAlpha=.94;ctx.translate(w*.6,h*.5);ctx.rotate(-.52);ctx.fillStyle='#8dff49';ctx.fillRect(-w*.20,-h*.21,w*.08,h*.42);ctx.fillStyle='#40c8ff';ctx.fillRect(-w*.08,-h*.21,w*.045,h*.42);ctx.fillStyle='#ff4fb8';ctx.fillRect(w*.01,-h*.21,w*.035,h*.42);
+    }else if(vinylId==='heritage'){
+      ctx.globalAlpha=.9;ctx.fillStyle='#f4f3ec';ctx.fillRect(0,h*.455,w,h*.09);ctx.fillStyle='#e73548';ctx.fillRect(0,h*.485,w,h*.03);ctx.globalAlpha=.8;ctx.fillStyle='#11161a';ctx.fillRect(w*.2,h*.39,w*.11,h*.22);ctx.fillRect(w*.69,h*.39,w*.11,h*.22);
+    }else if(vinylId==='velocity-wave'){
+      ctx.globalAlpha=.92;ctx.strokeStyle='#8dff49';ctx.lineWidth=Math.max(8,h*.055);ctx.beginPath();ctx.moveTo(w*.04,h*.66);ctx.bezierCurveTo(w*.26,h*.20,w*.51,h*.82,w*.96,h*.30);ctx.stroke();ctx.globalAlpha=.58;ctx.strokeStyle='#ffffff';ctx.lineWidth=Math.max(3,h*.022);ctx.beginPath();ctx.moveTo(w*.06,h*.70);ctx.bezierCurveTo(w*.28,h*.28,w*.54,h*.88,w*.94,h*.36);ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function styledSprite(image,style){
+    if(!image||!image.naturalWidth||!image.naturalHeight)return image;
+    const color=style?.color||'',vinylId=style?.vinylId||'none';
+    if(!color&&vinylId==='none')return image;
+    const key=[image.currentSrc||image.src,image.naturalWidth,image.naturalHeight,color,vinylId].join('|');
+    if(styledSpriteCache.has(key))return styledSpriteCache.get(key);
+    const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+    const c=canvas.getContext('2d');c.drawImage(image,0,0);
+    if(color){c.save();c.globalCompositeOperation='source-atop';c.globalAlpha=.52;c.fillStyle=color;c.fillRect(0,0,canvas.width,canvas.height);c.restore();}
+    if(vinylId!=='none'){
+      const layer=document.createElement('canvas');layer.width=canvas.width;layer.height=canvas.height;const l=layer.getContext('2d');drawVinylLayer(l,layer.width,layer.height,vinylId);l.globalCompositeOperation='destination-in';l.drawImage(image,0,0);c.drawImage(layer,0,0);
+    }
+    styledSpriteCache.set(key,canvas);if(styledSpriteCache.size>30)styledSpriteCache.delete(styledSpriteCache.keys().next().value);return canvas;
+  }
+
   const positive=(value,fallback)=>Number.isFinite(value)&&value>0?value:fallback;
   function resolveSpriteSize(spriteSpec,imageWidth,imageHeight,preview=false){
     const spec=spriteSpec||{},iw=Number(imageWidth),ih=Number(imageHeight);
@@ -111,7 +145,7 @@
       // The drawing spans about x=-34..37 and y=-22..22, whose visual centre is +1.5px.
       this.collisionLength=71;this.collisionWidth=44;this.collisionOffsetX=1.5;this.collisionOffsetY=0;
       this.collisionRadius=Math.hypot(this.collisionLength*.5,this.collisionWidth*.5);
-      this.paintOverride=null;
+      this.paintOverride=null;this.customization={colorId:'stock',color:null,vinylId:'none'};
       this.trackIndex=0;this.progress=0;this.prevProgress=0;this.laps=0;this.checkpoint=0;
       this.onRoad=true;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.collisionThisLap=false;this.offroadThisLap=false;
       this.lastImpact=0;this.steerVisual=0;this.throttleVisual=0;this.brakeVisual=0;
@@ -362,6 +396,7 @@
       this.liveryId=Object.prototype.hasOwnProperty.call(R.LIVERIES,liveryId)?liveryId:'apexLime';
       this.livery=R.LIVERIES[this.liveryId]||R.LIVERIES.apexLime;
       this.color=this.livery.primary;this.accent=this.livery.secondary;this.paintOverride=null;
+      this.customization={colorId:'stock',color:null,vinylId:'none'};
       this.effect=Object.prototype.hasOwnProperty.call(R.EFFECTS,effectId)?effectId:'standard';
       this.spriteSpec=this.livery.sprite||null;this.spriteAssetMode=assetMode;
       const collision=this.livery.collision;
@@ -384,6 +419,10 @@
 
     setPaintOverride(paint=null){
       this.paintOverride=paint&&typeof paint==='object'?{...paint}:null;
+    }
+
+    setCustomization(style=null){
+      this.customization=style&&typeof style==='object'?{colorId:style.colorId||'stock',color:style.color||null,vinylId:style.vinylId||'none'}:{colorId:'stock',color:null,vinylId:'none'};
     }
 
     drawExhaust(ctx,resolvedLength=0){
@@ -426,7 +465,7 @@
 
     draw(ctx,scale=1){
       const livery=this.livery,paint=this.paintOverride||livery;
-      const primary=paint?paint.primary:this.color,secondary=paint?paint.secondary:this.accent;
+      const primary=this.customization?.color||(paint?paint.primary:this.color),secondary=paint?paint.secondary:this.accent;
       const stripe=paint?.stripe||secondary,detail=paint?.accent||secondary;
       const speedLoad=clamp(this.speed/330,0,1),lean=this.steerVisual*speedLoad*1.35,brakeDive=this.brakeVisual*speedLoad*.8;
 
@@ -448,7 +487,11 @@
       if(spriteReady){
         const ox=spritePreview?(this.spriteSpec.previewOffsetX??this.spriteSpec.offsetX??0):(this.spriteSpec.raceOffsetX??this.spriteSpec.offsetX??0);
         const oy=spritePreview?(this.spriteSpec.previewOffsetY??this.spriteSpec.offsetY??0):(this.spriteSpec.raceOffsetY??this.spriteSpec.offsetY??0);
-        ctx.drawImage(this.spriteImage,ox-spriteLength*.5,oy-spriteWidth*.5,spriteLength,spriteWidth);
+        const customStyle=this.customization&&(this.customization.color||this.customization.vinylId&&this.customization.vinylId!=='none');
+        if(customStyle){
+          const spriteSource=styledSprite(this.spriteImage,this.customization);
+          ctx.drawImage(spriteSource,ox-spriteLength*.5,oy-spriteWidth*.5,spriteLength,spriteWidth);
+        }else ctx.drawImage(this.spriteImage,ox-spriteLength*.5,oy-spriteWidth*.5,spriteLength,spriteWidth);
         if(DEBUG_COLLIDERS){ctx.strokeStyle='#00ff9c';ctx.lineWidth=1.5;ctx.globalAlpha=.9;ctx.strokeRect(this.collisionOffsetX-this.collisionLength*.5,this.collisionOffsetY-this.collisionWidth*.5,this.collisionLength,this.collisionWidth);ctx.globalAlpha=1;}
         ctx.restore();return;
       }

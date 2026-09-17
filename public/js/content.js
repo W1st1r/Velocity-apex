@@ -355,6 +355,63 @@
     save.credits-=cost;levels[key]++;save.carUpgrades[id]=levels;
     return {status:'purchased',cost,level:levels[key]};
   };
+
+  R.CAR_COLORS=Object.freeze([
+    Object.freeze({id:'stock',name:'ЗАВОДСКОЙ',hex:null,multiplier:0}),
+    Object.freeze({id:'obsidian',name:'OBSIDIAN',hex:'#161a1d',multiplier:1.00}),
+    Object.freeze({id:'arctic',name:'ARCTIC',hex:'#eef3f4',multiplier:1.00}),
+    Object.freeze({id:'apex-lime',name:'APEX LIME',hex:'#8dff49',multiplier:1.08}),
+    Object.freeze({id:'velocity-red',name:'VELOCITY RED',hex:'#ff334f',multiplier:1.08}),
+    Object.freeze({id:'electric-blue',name:'ELECTRIC BLUE',hex:'#39a9ff',multiplier:1.08}),
+    Object.freeze({id:'royal-purple',name:'ROYAL PURPLE',hex:'#9c63ff',multiplier:1.12}),
+    Object.freeze({id:'sunset-orange',name:'SUNSET ORANGE',hex:'#ff7a2f',multiplier:1.08}),
+    Object.freeze({id:'champagne',name:'CHAMPAGNE',hex:'#d8c7a0',multiplier:1.16}),
+    Object.freeze({id:'queen-pink',name:'QUEEN PINK',hex:'#ff4fb8',multiplier:1.16})
+  ]);
+  R.CAR_COLOR_MAP=Object.freeze(Object.fromEntries(R.CAR_COLORS.map(x=>[x.id,x])));
+  R.VINYLS=Object.freeze([
+    Object.freeze({id:'none',name:'БЕЗ ВИНИЛА',description:'Чистый кузов',multiplier:0}),
+    Object.freeze({id:'racing-stripe',name:'RACING STRIPE',description:'Двойная продольная полоса',multiplier:.018}),
+    Object.freeze({id:'apex-cut',name:'APEX CUT',description:'Резкие диагональные акценты',multiplier:.024}),
+    Object.freeze({id:'carbon-edge',name:'CARBON EDGE',description:'Тёмные боковые панели',multiplier:.030}),
+    Object.freeze({id:'neon-slash',name:'NEON SLASH',description:'Контрастные неоновые штрихи',multiplier:.038}),
+    Object.freeze({id:'heritage',name:'HERITAGE',description:'Классическая центральная графика',multiplier:.045}),
+    Object.freeze({id:'velocity-wave',name:'VELOCITY WAVE',description:'Динамичная волна по кузову',multiplier:.052})
+  ]);
+  R.VINYL_MAP=Object.freeze(Object.fromEntries(R.VINYLS.map(x=>[x.id,x])));
+  const safeCustomization=(raw,item)=>{
+    const colorId=R.CAR_COLOR_MAP[raw?.colorId]?raw.colorId:'stock',vinylId=R.VINYL_MAP[raw?.vinylId]?raw.vinylId:'none';
+    const ownedColors=Array.from(new Set(['stock',...(Array.isArray(raw?.ownedColors)?raw.ownedColors.filter(id=>R.CAR_COLOR_MAP[id]):[])]));
+    const ownedVinyls=Array.from(new Set(['none',...(Array.isArray(raw?.ownedVinyls)?raw.ownedVinyls.filter(id=>R.VINYL_MAP[id]):[])]));
+    return {colorId:ownedColors.includes(colorId)?colorId:'stock',vinylId:ownedVinyls.includes(vinylId)?vinylId:'none',ownedColors,ownedVinyls};
+  };
+  R.getCarCustomization=function(save,id){return safeCustomization(save?.carCustomizations?.[id],R.LIVERIES[id]);};
+  R.getCarStyleByIds=function(colorId='stock',vinylId='none'){
+    const color=R.CAR_COLOR_MAP[colorId]||R.CAR_COLOR_MAP.stock,vinyl=R.VINYL_MAP[vinylId]||R.VINYL_MAP.none;
+    return {colorId:color.id,color:color.hex,vinylId:vinyl.id,vinyl};
+  };
+  R.getCarStyle=function(save,id){const c=R.getCarCustomization(save,id);return R.getCarStyleByIds(c.colorId,c.vinylId);};
+  R.getPaintCost=function(id,colorId){
+    if(!has(R.LIVERIES,id)||!R.CAR_COLOR_MAP[colorId]||colorId==='stock')return 0;
+    const price=Math.max(2800,Number(R.LIVERIES[id].price)||0),mult=R.CAR_COLOR_MAP[colorId].multiplier||1;
+    return Math.ceil(Math.max(250,price*.012*mult)/50)*50;
+  };
+  R.getVinylCost=function(id,vinylId){
+    if(!has(R.LIVERIES,id)||!R.VINYL_MAP[vinylId]||vinylId==='none')return 0;
+    const price=Math.max(2800,Number(R.LIVERIES[id].price)||0),mult=R.VINYL_MAP[vinylId].multiplier||.02;
+    return Math.ceil(Math.max(450,price*mult)/50)*50;
+  };
+  R.buyCarStyle=function(save,id,kind,value){
+    if(!save?.ownedLiveries?.includes(id)||!has(R.LIVERIES,id))return {status:'invalid'};
+    if(!save.carCustomizations||typeof save.carCustomizations!=='object'||Array.isArray(save.carCustomizations))save.carCustomizations={};
+    const c=safeCustomization(save.carCustomizations[id],R.LIVERIES[id]);
+    const isColor=kind==='color',catalog=isColor?R.CAR_COLOR_MAP:R.VINYL_MAP,ownedKey=isColor?'ownedColors':'ownedVinyls',selectedKey=isColor?'colorId':'vinylId';
+    if(!catalog[value])return {status:'invalid'};
+    if(c[ownedKey].includes(value)){c[selectedKey]=value;save.carCustomizations[id]=c;return {status:'applied',cost:0};}
+    const cost=isColor?R.getPaintCost(id,value):R.getVinylCost(id,value);
+    if(!Number.isFinite(save.credits)||save.credits<cost)return {status:'insufficient',cost};
+    save.credits-=cost;c[ownedKey].push(value);c[selectedKey]=value;save.carCustomizations[id]=c;return {status:'purchased',cost};
+  };
   R.normalizeSave=function(raw){
     const d=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
     const own=(value,catalog,free)=>Array.from(new Set([free,...(Array.isArray(value)?value.filter(id=>typeof id==='string'&&has(catalog,id)):[])]));
@@ -368,6 +425,7 @@
       difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',
       driftBotCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.driftBotCount,d.botCount??7)))),driftDifficulty:has(R.DIFFICULTY_LABELS,d.driftDifficulty)?d.driftDifficulty:'medium',driftTrackId:has(R.DRIFT_TRACKS,d.driftTrackId)?d.driftTrackId:'sierraFlow',
       controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,caseInventory,carUpgrades:Object.fromEntries(ownedLiveries.filter(id=>d.carUpgrades&&has(d.carUpgrades,id)).map(id=>[id,R.getUpgradeLevels(d,id)])),
+      carCustomizations:Object.fromEntries(ownedLiveries.map(id=>[id,safeCustomization(d.carCustomizations?.[id],R.LIVERIES[id])])),
       selectedLivery:ownedLiveries.includes(d.selectedLivery)?d.selectedLivery:'apexLime',selectedEffect:ownedEffects.includes(d.selectedEffect)?d.selectedEffect:'standard'};
   };
   R.shopAction=function(save,kind,id){

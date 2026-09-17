@@ -64,6 +64,7 @@
   const audio=new R.AudioSystem();audio.setMuted(save.muted);
   let track=new R.Track(R.TRACKS[raceSettings.trackId]);
   let raceRewardClaimed=false,currentRaceRewardKey='',modeSelectReadyAt=0,catalogReturn='menu',settingsReturn='menu',settingsNotice='',settingsNoticeKind='';
+  let sharedTapHandledAt=-Infinity;
   let raceMode='offline',onlineRace=null,onlineLocalPaused=false,onlineFinishSent=false,onlineLocalFinished=false;
 
   let W=innerWidth,H=innerHeight,DPR=1,last=performance.now(),state='menu',raceTime=0,lapTime=0,raceBestLap=0,score=0,scoreCarry=0;
@@ -174,25 +175,30 @@
   rootConsole=new R.RootConsole({save,onChange:syncRootChange,onBack:returnFromRoot,onView:()=>{last=performance.now();}});
   function openRoot(){if(state!=='settings'||!window.VelocityAccount?.isAdmin)return;state='root';UI.settings.classList.add('hidden');rootConsole.open();last=performance.now();}
   function openCatalog(mode){
+    if(!['menu','setup'].includes(state)||!$(mode))return;
     catalogReturn=state==='setup'?'setup':'menu';state=mode;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');$(mode).classList.remove('hidden');garage.open(mode);
   }
   function closeCatalog(mode){
-    state=catalogReturn;$(mode).classList.add('hidden');(state==='setup'?UI.setup:UI.menu).classList.remove('hidden');syncSetupUI();updateMenuStats();
+    if(state!==mode||!$(mode))return;
+    state=catalogReturn;$(mode).classList.add('hidden');(state==='setup'?UI.setup:UI.menu).classList.remove('hidden');syncSetupUI();updateMenuStats();last=performance.now();
   }
   function showShopLanding(){
+    if(state!=='shop')return;
     $('shopLanding').classList.remove('hidden');$('shopPersonalPanel').classList.add('hidden');$('shopMarketPanel')?.classList.add('hidden');
   }
   function showPersonalShop(){
+    if(state!=='shop')return;
     $('shopLanding').classList.add('hidden');$('shopMarketPanel')?.classList.add('hidden');$('shopPersonalPanel').classList.remove('hidden');garage.open('shop');
   }
   function showMarketShop(){
+    if(state!=='shop')return;
     $('shopLanding').classList.add('hidden');$('shopPersonalPanel').classList.add('hidden');$('shopMarketPanel')?.classList.remove('hidden');window.VelocityMarket?.open?.();
   }
-  const openShop=()=>{openCatalog('shop');showShopLanding();},openGarage=()=>openCatalog('garage');
-  $('shopBtn').addEventListener('click',openShop);$('garageBtn').addEventListener('click',openGarage);$('loadoutBtn').addEventListener('click',openGarage);
-  $('shopPersonalBtn').addEventListener('click',showPersonalShop);$('shopMarketBtn')?.addEventListener('click',showMarketShop);
-  $('shopLandingBackBtn').addEventListener('click',()=>closeCatalog('shop'));
-  $('shopBackBtn').addEventListener('click',showShopLanding);$('marketBackBtn')?.addEventListener('click',showShopLanding);$('garageBackBtn').addEventListener('click',()=>closeCatalog('garage'));
+  const openShop=()=>{openCatalog('shop');if(state==='shop')showShopLanding();},openGarage=()=>openCatalog('garage');
+  bindTap($('shopBtn'),openShop);bindTap($('garageBtn'),openGarage);bindTap($('loadoutBtn'),openGarage);
+  bindTap($('shopPersonalBtn'),showPersonalShop);bindTap($('shopMarketBtn'),showMarketShop);
+  bindTap($('shopLandingBackBtn'),()=>closeCatalog('shop'));
+  bindTap($('shopBackBtn'),showShopLanding);bindTap($('marketBackBtn'),showShopLanding);bindTap($('garageBackBtn'),()=>closeCatalog('garage'));
 
   function controlNotice(message,kind='warn'){
     settingsNotice=message;settingsNoticeKind=kind;syncSettingsUI();
@@ -209,12 +215,21 @@
     UI.settingsMessage.classList.toggle('warning',settingsNoticeKind==='bad');
   }
   function openSettings(){
-    settingsReturn=state==='paused'?'paused':'menu';settingsNotice='';settingsNoticeKind='';controlInput.setActive(false);state='settings';
+    const fromOnlinePause=raceMode==='online'&&onlineLocalPaused&&(state==='onlineRacing'||state==='onlineFinished');
+    if(state!=='menu'&&state!=='paused'&&!fromOnlinePause)return;
+    settingsReturn=fromOnlinePause?'onlinePaused':state;settingsNotice='';settingsNoticeKind='';controlInput.setActive(false);state='settings';
     UI.menu.classList.add('hidden');UI.pause.classList.add('hidden');UI.settings.classList.remove('hidden');syncSettingsUI();last=performance.now();
   }
   function closeSettings(){
-    if(state!=='settings')return;UI.settings.classList.add('hidden');state=settingsReturn;
-    if(state==='paused')UI.pause.classList.remove('hidden');else UI.menu.classList.remove('hidden');
+    if(state!=='settings')return;
+    UI.settings.classList.add('hidden');
+    if(settingsReturn==='onlinePaused'){
+      state=onlineLocalFinished?'onlineFinished':'onlineRacing';UI.pause.classList.remove('hidden');UI.menu.classList.add('hidden');UI.controls.classList.add('hidden');setPauseButton(false,true);
+    }else if(settingsReturn==='paused'){
+      state='paused';UI.pause.classList.remove('hidden');UI.menu.classList.add('hidden');UI.controls.classList.add('hidden');setPauseButton(false,true);
+    }else{
+      state='menu';UI.pause.classList.add('hidden');UI.menu.classList.remove('hidden');showRaceUI(false);
+    }
     syncSettingsUI();last=performance.now();
   }
   async function selectControlMode(mode){
@@ -267,18 +282,23 @@
   // click can be cancelled when another finger is holding a control or touchmove is
   // prevented, so relying on click alone makes Pause/Continue feel intermittent.
   function bindTap(el,handler){
-    let activePointer=null,lastHandled=-Infinity,touchActive=false;
+    if(!el||typeof handler!=='function')return;
+    let activePointer=null,touchActive=false;
+    const run=(e)=>{sharedTapHandledAt=performance.now();handler(e);};
     if(window.PointerEvent){
       el.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'&&e.button!==0)return;activePointer=e.pointerId;try{el.setPointerCapture(e.pointerId);}catch(_){}});
-      el.addEventListener('pointerup',e=>{if(activePointer!==e.pointerId)return;activePointer=null;e.preventDefault();lastHandled=performance.now();handler(e);});
+      el.addEventListener('pointerup',e=>{if(activePointer!==e.pointerId)return;activePointer=null;e.preventDefault();run(e);});
       el.addEventListener('pointercancel',e=>{if(activePointer===e.pointerId)activePointer=null;});
       el.addEventListener('lostpointercapture',e=>{if(activePointer===e.pointerId)activePointer=null;});
     }else{
       el.addEventListener('touchstart',()=>{touchActive=true;},{passive:true});
-      el.addEventListener('touchend',e=>{if(!touchActive)return;touchActive=false;e.preventDefault();lastHandled=performance.now();handler(e);},{passive:false});
+      el.addEventListener('touchend',e=>{if(!touchActive)return;touchActive=false;e.preventDefault();run(e);},{passive:false});
       el.addEventListener('touchcancel',()=>{touchActive=false;},{passive:true});
     }
-    el.addEventListener('click',e=>{if(performance.now()-lastHandled<700){e.preventDefault();return;}handler(e);});
+    // iOS can synthesize a click after pointerup and retarget it to the button that
+    // was just revealed underneath a closing panel. Use one shared timestamp for
+    // all bindTap controls so a Back tap can never immediately reopen the screen.
+    el.addEventListener('click',e=>{if(performance.now()-sharedTapHandledAt<650){e.preventDefault();e.stopPropagation();return;}handler(e);});
   }
 
   function setMute(v){save.muted=v;audio.setMuted(v);writeSave();updateMuteUI();}
@@ -309,7 +329,7 @@
         c.setLoadout('apexLime','standard');
         const paint=OFFLINE_BOT_PAINTS[botPaint++%OFFLINE_BOT_PAINTS.length];
         c.setPaintOverride({primary:paint[0],secondary:paint[1],accent:paint[1],stripe:paint[1]});
-      }else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);}
+      }else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);c.setCustomization(R.getCarStyle?.(save,save.selectedLivery));}
       R.applyCarPerformance(c,save.selectedLivery,save);
       cars.push(c);
     }
@@ -324,7 +344,7 @@
     for(let i=0;i<order.length;i++){
       const pd=room.players.find(p=>p.id===order[i]);if(!pd)continue;const isPlayer=pd.id===localId;
       const c=new R.Car({id:pd.id,name:(pd.crew?'['+pd.crew.tag+'] ':'')+pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
-      c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');R.applyCarPerformance(c,c.liveryId,isPlayer?save:null);const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
+      c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');c.setCustomization(R.getCarStyleByIds?.(pd.colorId,pd.vinylId));R.applyCarPerformance(c,c.liveryId,isPlayer?save:null);const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
     }
     if(!player)return false;rankBuffer=cars.slice();updateRanks();prevRank=player.rank;cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftChainTime=0;driftIdleTime=0;driftLastProgress=player.progress;driftLastValid=false;driftPeakCombo=1;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);updateHUD();return true;
   }

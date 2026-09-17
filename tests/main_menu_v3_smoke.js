@@ -18,5 +18,5 @@ for(const token of [
   '@media(max-height:470px)',
   '@media(max-width:520px)'
 ]) assert.ok(css.includes(token),`menu responsive CSS missing ${token}`);
-assert.ok(html.includes('style.css?v=20260916-market1'),'main menu stylesheet cache-bust missing');
+assert.ok(html.includes('style.css?v=20260916-adminprefix1'),'main menu stylesheet cache-bust missing');
 console.log('main_menu_v3_smoke: OK (structured 2x3 tools, truncation, compact landscape breakpoints)');

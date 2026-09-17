@@ -15,9 +15,11 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260916-market1" />
+  <link rel="stylesheet" href="css/style.css?v=20260916-adminprefix1" />
 <link rel="stylesheet" href="css/owner-panel.css?v=owner1">
-  <link rel="stylesheet" href="css/crews.css?v=20260916-crews1">
+  <link rel="stylesheet" href="css/crews.css?v=20260916-crews2">
+  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5">
+  <link rel="stylesheet" href="css/mobile-ui.css?v=20260916-mobile7-v8">
 </head>
 <body>
   <div id="app">
@@ -96,6 +98,7 @@
             <div class="eyebrow">TOP-DOWN ARCADE RACING</div>
             <h1>VELOCITY <span>APEX</span></h1>
             <p class="tagline">CHASE THE PERFECT LINE</p>
+            <div class="menu-hub-badges" aria-hidden="true"><span>RACING HUB</span><span>CREWS</span><span>MARKET</span></div>
           </div>
         </header>
 
@@ -108,7 +111,7 @@
         </section>
 
         <section class="menu-section menu-tools-section" aria-label="Главные разделы">
-          <div class="menu-section-head"><span>ГАРАЖ И ПРОФИЛЬ</span><i aria-hidden="true"></i></div>
+          <div class="menu-section-head"><span>БЫСТРЫЙ ДОСТУП</span><i aria-hidden="true"></i></div>
           <div class="menu-action-row">
             <button id="crewBtn" class="secondary-btn menu-tile" type="button"><span class="menu-tile-icon">⚡</span><span class="menu-tile-copy"><span>КЛАН</span><strong>CREW · РЕЙТИНГ</strong></span></button>
             <button id="shopBtn" class="secondary-btn menu-tile shop-menu-btn" type="button">
@@ -130,6 +133,14 @@
             <button id="promoBtn" class="secondary-btn menu-tile promo-menu-btn" type="button">
               <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm-1-4h18v4H3V5Z"/><path d="M12 5v15M8.2 5c-1.4 0-2.2-.7-2.2-1.7S6.8 2 7.8 2C10 2 12 5 12 5s2-3 4.2-3c1 0 1.8.4 1.8 1.3S17.2 5 15.8 5"/></svg></span>
               <span class="menu-tile-copy"><span>ПРОМОКОД</span><strong>ВВЕСТИ КОД</strong></span>
+            </button>
+            <button id="supportBtn" class="secondary-btn menu-tile support-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true">?</span>
+              <span class="menu-tile-copy"><span>ПОДДЕРЖКА</span><strong>ВОПРОСЫ · ЖАЛОБЫ</strong></span>
+            </button>
+            <button id="staffAdminBtn" class="secondary-btn menu-tile admin-menu-btn hidden" type="button">
+              <span class="menu-tile-icon" aria-hidden="true">A</span>
+              <span class="menu-tile-copy"><span>ADMIN PANEL</span><strong id="staffAdminRank">АДМИНИСТРАЦИЯ</strong></span>
             </button>
             <button id="settingsBtn" class="secondary-btn menu-tile settings-menu-btn" type="button">
               <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7.3 7.3 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7.2 7.2 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7.2 7.2 0 0 0-1.8 1l-2.4-1-2 3.4L5 11a7.3 7.3 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.2 7.2 0 0 0 1.8 1l.4 3.1h4.8l.4-3.1a7.2 7.2 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"/></svg></span>
@@ -243,7 +254,7 @@
       <div class="free-hud">
         <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><button id="freeLevelPill" class="free-level-pill" type="button"><span>APEX LEVEL</span><strong id="freeLevelValue">0</strong></button><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div><div class="free-car-pill"><span>МАШИНА</span><strong id="freeCurrentCar">APEX LIME</strong></div></div>
         <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div><div id="freeDragHud" class="free-drag-hud hidden" aria-live="polite"><div class="free-drag-top"><span id="freeDragState">SERVER LIVE</span><span id="freeDragNet">PING 0 MS</span></div><strong id="freeDragLead">READY</strong><small id="freeDragGap">СИНХРОНИЗАЦИЯ</small><div class="free-drag-track"><b class="free-drag-finish"></b><i id="freeDragMine" class="mine"></i><i id="freeDragRival" class="rival"></i></div></div><div id="freeEventHud" class="free-event-hud hidden" aria-live="polite"><div class="free-event-head"><div><small id="freeEventMode">LIVE EVENT</small><strong id="freeEventTitle">DRIFT BATTLE</strong></div><div class="free-event-clock"><span id="freeEventPhase">WAITING</span><b id="freeEventTime">--:--</b></div></div><div id="freeEventZone" class="free-event-zone"></div><div id="freeEventStandings" class="free-event-standings"></div><button id="freeEventLeave" class="free-event-leave" type="button">ВЫЙТИ ИЗ ИВЕНТА</button></div></div>
-        <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ <b id="freeChatUnread" class="free-chat-unread hidden">0</b></button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
+        <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ <b id="freeChatUnread" class="free-chat-unread hidden">0</b></button><button id="freePauseBtn" class="free-pause-btn" type="button" aria-label="Пауза и настройки">Ⅱ</button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
       </div>
       <div id="freeChatPreview" class="free-chat-preview" aria-live="polite"></div>
       <button id="freeContextAction" class="free-context-action hidden" type="button"></button>
@@ -251,6 +262,16 @@
         <div class="free-chat-head"><strong>ЧАТ СЕРВЕРА</strong><button id="freeChatClose" type="button">×</button></div>
         <div id="freeChatLog" class="free-chat-log"></div>
         <form id="freeChatForm" class="free-chat-form"><input id="freeChatInput" maxlength="180" autocomplete="off" placeholder="Сообщение всем игрокам…"><button type="submit">ОТПРАВИТЬ</button></form>
+      </div>
+      <div id="freePausePanel" class="free-pause-panel hidden" aria-hidden="true">
+        <section class="free-pause-card glass">
+          <div class="eyebrow">APEX BAY / ONLINE</div><h2>ПАУЗА</h2><p>Управление временно отключено, но машина продолжает естественно катиться по инерции. Онлайн-сервер и другие игроки продолжают движение.</p>
+          <button id="freePauseContinue" class="primary-btn" type="button">ПРОДОЛЖИТЬ</button>
+          <button id="freePauseControls" class="secondary-btn" type="button">НАСТРОИТЬ КНОПКИ</button>
+          <button id="freePauseChat" class="secondary-btn" type="button">ОТКРЫТЬ ЧАТ</button>
+          <button id="freePauseMap" class="secondary-btn" type="button">ОТКРЫТЬ КАРТУ</button>
+          <button id="freePauseLeave" class="free-pause-leave" type="button">ВЫЙТИ ИЗ СВОБОДНОГО РЕЖИМА</button>
+        </section>
       </div>
       <div id="freeMapPanel" class="free-map-panel hidden">
         <header><div><small>APEX BAY / LIVE MAP</small><strong>ГОРОД У МОРЯ</strong></div><div class="free-map-actions"><button id="freeMapClear" class="free-map-clear" type="button" disabled>УБРАТЬ МЕТКУ</button><button id="freeMapClose" type="button">×</button></div></header>
@@ -493,9 +514,14 @@
             <b aria-hidden="true">›</b>
           </button>
           <button id="shopMarketBtn" class="shop-entry-card shop-entry-market" type="button">
-            <span class="shop-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm2-4h12l2 4H4l2-4Z"/><path d="M9 13h6M9 17h4"/></svg></span>
-            <span class="shop-entry-copy"><small>ТОРГОВЛЯ С ИГРОКАМИ</small><strong>РЫНОК</strong><em>Покупка · продажа · заявки</em></span>
-            <span class="shop-entry-live">LIVE</span>
+            <span class="shop-entry-icon market-entry-icon" aria-hidden="true">
+              <svg viewBox="0 0 40 40"><path class="market-roof" d="M7 15h26l-3.2-6H10.2L7 15Z"/><path d="M9 16.5h22V32H9V16.5Z"/><path d="M14 21h7v11M25 21h3"/><path class="market-trend" d="M13 26l4-4 4 2 7-7"/><path class="market-trend" d="M25 17h3v3"/></svg>
+              <i class="market-entry-pulse"></i>
+            </span>
+            <span class="market-entry-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="shop-entry-copy"><small>PLAYER MARKET · LIVE</small><strong>РЫНОК</strong><em>Машины игроков · заявки · история сделок</em></span>
+            <span class="shop-entry-live"><i></i> LIVE</span>
+            <b aria-hidden="true">›</b>
           </button>
         </div>
         <div class="shop-entry-note">Рынок работает между аккаунтами: машины и кредиты передаются через защищённую серверную сделку.</div>
@@ -589,11 +615,20 @@
     </div>
 
     <dialog id="tuningModal" class="tuning-modal" aria-labelledby="tuningTitle">
-      <header class="tuning-header"><div><div class="eyebrow">APEX / PERFORMANCE LAB</div><h2 id="tuningTitle"></h2><small id="tuningCategory"></small></div><button id="tuningClose" type="button" aria-label="Закрыть настройки">✕</button></header>
+      <header class="tuning-header"><div><div class="eyebrow">APEX / GARAGE LAB</div><h2 id="tuningTitle"></h2><small id="tuningCategory"></small></div><button id="tuningClose" type="button" aria-label="Закрыть настройки">✕</button></header>
       <div class="tuning-wallet"><span>БАЛАНС</span><strong id="tuningCredits"></strong></div>
-      <p class="tuning-intro">Настройте машину под себя. 3 ветки, 5 уровней в каждой. Разгон и тормоза указаны в игровых единицах: больше — лучше.</p>
-      <div id="tuningRows" class="tuning-rows"></div>
-      <div id="tuningPurchase" class="tuning-purchase hidden"><p id="tuningPurchaseText"></p><div><button id="tuningCancel" type="button">ОТМЕНА</button><button id="tuningConfirm" type="button">КУПИТЬ И УСТАНОВИТЬ</button></div></div>
+      <div class="tuning-tabs" role="tablist" aria-label="Раздел тюнинга"><button type="button" class="selected" data-tuning-tab="performance">УЛУЧШЕНИЯ</button><button type="button" data-tuning-tab="appearance">ВНЕШНИЙ ВИД</button></div>
+      <section id="tuningPerformancePanel" class="tuning-panel">
+        <p class="tuning-intro">Настройте характеристики машины. 3 ветки, 5 уровней в каждой. Разгон и тормоза указаны в игровых единицах: больше — лучше.</p>
+        <div id="tuningRows" class="tuning-rows"></div>
+        <div id="tuningPurchase" class="tuning-purchase hidden"><p id="tuningPurchaseText"></p><div><button id="tuningCancel" type="button">ОТМЕНА</button><button id="tuningConfirm" type="button">КУПИТЬ И УСТАНОВИТЬ</button></div></div>
+      </section>
+      <section id="tuningAppearancePanel" class="tuning-panel hidden">
+        <div class="tuning-look-hero"><div id="tuningLookPreview" class="tuning-look-preview" aria-hidden="true"><i></i><b></b><em></em></div><div><small>ТЕКУЩИЙ СТИЛЬ</small><strong id="tuningLookCurrent">ЗАВОДСКОЙ · БЕЗ ВИНИЛА</strong><p>Цвет и винил сохраняются отдельно для каждой машины и отображаются в заездах.</p></div></div>
+        <div class="tuning-look-section"><div class="tuning-look-title"><div><small>PAINT SHOP</small><strong>ЦВЕТ КУЗОВА</strong></div><span>Цена зависит от стоимости машины</span></div><div id="tuningColorGrid" class="tuning-color-grid"></div></div>
+        <div class="tuning-look-section"><div class="tuning-look-title"><div><small>VINYL STUDIO</small><strong>ГОТОВЫЕ ВИНИЛЫ</strong></div><span>Покупаются один раз для этой машины</span></div><div id="tuningVinylGrid" class="tuning-vinyl-grid"></div></div>
+        <div id="tuningStylePurchase" class="tuning-purchase hidden"><p id="tuningStylePurchaseText"></p><div><button id="tuningStyleCancel" type="button">ОТМЕНА</button><button id="tuningStyleConfirm" type="button">КУПИТЬ И ПРИМЕНИТЬ</button></div></div>
+      </section>
       <p id="tuningStatus" class="tuning-status" role="status" aria-live="polite"></p>
     </dialog>
     <div id="garage" class="overlay shop-screen garage-screen hidden">
@@ -719,6 +754,7 @@
             <span class="root-tab-group-label">УПРАВЛЕНИЕ ИГРОКАМИ</span>
             <div class="root-tab-group-buttons">
               <button type="button" data-root-tab="accounts"><b>USR</b><span>АККАУНТЫ</span></button>
+              <button type="button" data-root-tab="admins"><b>ADM</b><span>АДМИНИСТРАТОРЫ</span></button>
               <button type="button" id="crewOwnerReports"><b>REP</b><span>ЖАЛОБЫ</span></button>
               <button type="button" data-root-tab="blocked"><b>BAN</b><span>БЛОКИРОВКИ</span></button>
             </div>
@@ -830,6 +866,12 @@
           </div>
         </div>
 
+        <div id="rootPaneAdmins" class="root-pane hidden" data-root-pane="admins">
+          <div id="ownerAdminSystem" class="owner-admin-system">
+            <div class="admin-system-loading">ЗАГРУЗКА АДМИНИСТРАЦИИ…</div>
+          </div>
+        </div>
+
         <div id="rootPaneBlocked" class="root-pane hidden" data-root-pane="blocked">
           <div class="root-account-workspace">
             <section class="root-module root-account-module root-account-sidebar">
@@ -855,6 +897,21 @@
           <button id="rootConfirmCancel" class="secondary-btn" type="button">CANCEL</button>
           <button id="rootConfirmApply" class="secondary-btn root-danger-btn" type="button">CONFIRM</button>
         </div>
+      </section>
+    </div>
+
+    <div id="supportOverlay" class="overlay admin-system-screen hidden" aria-hidden="true">
+      <section class="admin-system-panel glass" aria-labelledby="supportTitle">
+        <header class="admin-system-header"><div><div class="eyebrow">VELOCITY APEX / SUPPORT</div><h2 id="supportTitle">ПОДДЕРЖКА</h2><p>Вопросы, жалобы на игроков и жалобы на администрацию.</p></div><button id="supportCloseBtn" class="secondary-btn" type="button" aria-label="Назад">← НАЗАД</button></header>
+        <nav class="admin-system-tabs" id="supportTabs"><button class="active" type="button" data-support-tab="question">ВОПРОС</button><button type="button" data-support-tab="player">ЖАЛОБА НА ИГРОКА</button><button type="button" data-support-tab="admin">ЖАЛОБА НА АДМИНА</button><button type="button" data-support-tab="mine">МОИ ОБРАЩЕНИЯ</button></nav>
+        <div id="supportContent" class="admin-system-content"></div>
+      </section>
+    </div>
+
+    <div id="staffAdminOverlay" class="overlay admin-system-screen hidden" aria-hidden="true">
+      <section class="admin-system-panel staff-admin-panel glass" aria-labelledby="staffAdminTitle">
+        <header class="admin-system-header"><div><div class="eyebrow">VELOCITY APEX / ADMINISTRATION</div><h2 id="staffAdminTitle">ADMIN PANEL</h2><p id="staffAdminSubtitle">Работа с обращениями игроков.</p></div><button id="staffAdminCloseBtn" class="secondary-btn" type="button" aria-label="Назад">← НАЗАД</button></header>
+        <div id="staffAdminContent" class="admin-system-content"></div>
       </section>
     </div>
 
@@ -956,26 +1013,27 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260915-owner1"></script>
+  <script src="js/content.js?v=20260916-tuning2"></script>
   <script src="js/racing-line.js?v=20260915-owner1"></script>
   <script src="js/track.js?v=20260915-owner1"></script>
   <script src="js/audio.js?v=20260915-owner1"></script>
-  <script src="js/car.js?v=20260915-owner1"></script>
+  <script src="js/car.js?v=20260916-tuning2"></script>
   <script src="js/ai.js?v=20260915-owner1"></script>
-  <script src="js/garage.js?v=20260915-owner1"></script>
+  <script src="js/garage.js?v=20260916-tuning2"></script>
   <script src="js/root-console.js?v=20260915-owner1"></script>
-  <script src="js/control-layout.js?v=20260916-wheel1"></script>
+  <script src="js/control-layout.js?v=20260916-pause2"></script>
   <script src="js/controls.js?v=20260915-owner1"></script>
   <script src="js/network.js?v=20260915-owner1"></script>
   <script src="js/account.js?v=20260915-owner1"></script>
-  <script src="js/market.js?v=20260916-market1"></script>
+  <script src="js/admin-system.js?v=20260916-admin5"></script>
+  <script src="js/market.js?v=20260916-tuning2"></script>
   <script src="js/promo.js?v=20260915-001"></script>
-  <script src="js/online.js?v=20260916-crews1"></script>
+  <script src="js/online.js?v=20260916-adminprefix1"></script>
   <script src="js/friends.js?v=20260916-crews1"></script>
   <script src="js/free-city.js?v=20260916-crews1"></script>
-  <script src="js/freeroam.js?v=20260916-crews1"></script>
+  <script src="js/freeroam.js?v=20260916-adminprefix1"></script>
   <script src="js/owner-panel.js?v=owner1"></script>
   <script src="js/crews.js?v=20260916-crews1"></script>
-  <script src="js/game.js?v=20260916-crews1"></script>
+  <script src="js/game.js?v=20260916-tuning2"></script>
 </body>
 </html>

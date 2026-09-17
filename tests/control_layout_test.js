@@ -8,7 +8,7 @@ function ok(value,message){if(!value)throw new Error(message);}
 ok(html.includes('id="controlLayoutOpenBtn"'),'settings layout button missing');
 ok(html.includes('id="controlLayoutEditor"'),'layout editor missing');
 for(const key of ['left','right','wheel','brake','handbrake','gas'])ok(html.includes(`data-layout-control="${key}"`),`editor node ${key} missing`);
-ok(html.includes('js/control-layout.js?v=20260916-wheel1'),'control layout script not loaded');
+ok(html.includes('js/control-layout.js?v=20260916-pause2'),'control layout script not loaded');
 ok(css.includes('#controls.control-layout-custom .control-btn[data-layout-key]'),'race custom layout CSS missing');
 ok(css.includes('#freeMobileControls.control-layout-custom button[data-layout-key]'),'free roam custom layout CSS missing');
 ok(css.includes('#controls.control-layout-custom .steering-wheel[data-layout-key]'),'wheel custom layout CSS missing');

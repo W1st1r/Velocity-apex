@@ -42,6 +42,6 @@ const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),css=fs.re
 for(const token of ['id="rootOpenBtn"','id="rootAuth"','id="rootPassword"','inputmode="numeric"','id="rootConsole"','id="rootCars"','id="rootEffects"','id="rootDiagnostics"','js/root-console.js'])assert(html.includes(token),`missing ROOT UI token ${token}`);
 assert(css.includes('#app *:not(input)')&&css.includes('-webkit-touch-callout:none')&&css.includes('#app input,')&&css.includes('#app textarea,'),'central iOS interaction hardening missing');
 for(const type of ['selectstart','dragstart','contextmenu','dblclick','copy'])assert(game.includes(`'${type}'`),`app gesture guard missing ${type}`);
-assert(game.includes('performance.now()-lastHandled<700'),'bindTap synthetic-click guard missing');
+assert(game.includes('performance.now()-sharedTapHandledAt<650'),'bindTap synthetic-click guard missing');
 
 console.log(JSON.stringify({ok:true,cars:Object.keys(R.LIVERIES).length,effects:Object.keys(R.EFFECTS).length,maxCreditsTested:Number.MAX_SAFE_INTEGER},null,2));

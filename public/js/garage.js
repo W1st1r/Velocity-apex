@@ -33,7 +33,7 @@
 
   class Garage{
     constructor(save,onChange){
-      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.previewLoadToken=0;this.catalogPreloadToken=0;
+      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.previewLoadToken=0;this.catalogPreloadToken=0;this.tuningTab='performance';this.tuningStylePurchase=null;
       this.state={
         shop:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect,previewCase:'all'},
         garage:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect}
@@ -102,7 +102,8 @@
       const modal=$('tuningModal');if(!modal)return;
       $('tuningClose').addEventListener('click',()=>modal.close());
       modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
-      modal.addEventListener('close',()=>{this.tuningPurchase=null;this.tuningTrigger?.focus();});
+      modal.addEventListener('close',()=>{this.tuningPurchase=null;this.tuningStylePurchase=null;this.tuningTrigger?.focus();});
+      modal.querySelectorAll('[data-tuning-tab]').forEach(b=>b.addEventListener('click',()=>{this.tuningTab=b.dataset.tuningTab==='appearance'?'appearance':'performance';this.tuningPurchase=null;this.tuningStylePurchase=null;this.renderTuning();}));
       $('tuningRows').addEventListener('click',e=>{
         const b=e.target.closest('[data-upgrade]');if(!b||b.disabled)return;
         this.tuningPurchase={key:b.dataset.upgrade,level:Number(b.dataset.level)};this.renderTuning();$('tuningConfirm').focus();
@@ -114,23 +115,49 @@
         if(result.status==='purchased'){this.onChange();this.render();}
         this.renderTuning();$('tuningStatus').textContent=result.status==='purchased'?`Установлено · уровень ${result.level} · −${formatCredits(result.cost)} CR`:result.status==='insufficient'?'Недостаточно CR. Покупка не выполнена.':'Данные изменились. Выберите улучшение заново.';
       });
+      const styleClick=e=>{
+        const b=e.target.closest('[data-paint],[data-vinyl]');if(!b||b.disabled)return;
+        const kind=b.dataset.paint?'color':'vinyl',value=b.dataset.paint||b.dataset.vinyl,c=R.getCarCustomization(this.save,this.tuningId),owned=kind==='color'?c.ownedColors:c.ownedVinyls;
+        if(owned.includes(value)){
+          const result=R.buyCarStyle(this.save,this.tuningId,kind,value);if(result.status==='applied'){this.onChange();this.render();this.renderTuning();$('tuningStatus').textContent='Стиль применён. Машина обновлена во всех режимах.';}
+        }else{this.tuningStylePurchase={kind,value};this.renderTuning();$('tuningStyleConfirm').focus();}
+      };
+      $('tuningColorGrid').addEventListener('click',styleClick);$('tuningVinylGrid').addEventListener('click',styleClick);
+      $('tuningStyleCancel').addEventListener('click',()=>{this.tuningStylePurchase=null;this.renderTuning();});
+      $('tuningStyleConfirm').addEventListener('click',()=>{
+        const pending=this.tuningStylePurchase;if(!pending)return;this.tuningStylePurchase=null;
+        const result=R.buyCarStyle(this.save,this.tuningId,pending.kind,pending.value);
+        if(result.status==='purchased'||result.status==='applied'){this.onChange();this.render();}
+        this.renderTuning();$('tuningStatus').textContent=result.status==='purchased'?`Куплено и применено · −${formatCredits(result.cost)} CR`:result.status==='applied'?'Стиль применён.':result.status==='insufficient'?'Недостаточно CR для этого оформления.':'Не удалось применить оформление.';
+      });
     }
     openTuning(id){
       if(!this.save.ownedLiveries.includes(id))return;
-      this.tuningId=id;this.tuningPurchase=null;this.tuningTrigger=document.activeElement;this.renderTuning();$('tuningStatus').textContent='Улучшения постоянные и устанавливаются сразу после покупки.';
+      this.tuningId=id;this.tuningPurchase=null;this.tuningStylePurchase=null;this.tuningTab='performance';this.tuningTrigger=document.activeElement;this.renderTuning();$('tuningStatus').textContent='Улучшения, цвет и винилы сохраняются отдельно для каждой машины.';
       $('tuningModal').showModal();$('tuningClose').focus();
     }
     renderTuning(){
       const id=this.tuningId,item=R.LIVERIES[id];if(!item)return;
-      const levels=R.getUpgradeLevels(this.save,id),stats=R.getCarPerformance(id,this.save),base=R.CAR_PERFORMANCE[id];
+      const levels=R.getUpgradeLevels(this.save,id),stats=R.getCarPerformance(id,this.save),base=R.CAR_PERFORMANCE[id],appearance=this.tuningTab==='appearance';
       $('tuningTitle').textContent=item.name;$('tuningCredits').textContent=formatCredits(this.save.credits)+' CR';
       $('tuningCategory').textContent=R.CAR_CATEGORIES[categoryOf(item)].label+' / '+Object.values(levels).reduce((a,b)=>a+b,0)+' ИЗ 15 УЛУЧШЕНИЙ';
-      $('tuningRows').innerHTML=Object.entries(R.UPGRADE_TYPES).map(([key,type])=>{
-        const level=levels[key],cost=R.getUpgradeCost(id,key,level),max=level>=5,next=Math.round(base[type.stat]*(1+(level+1)*type.step)),missing=Math.max(0,(cost||0)-this.save.credits);
-        return `<article class="tuning-row"><div class="tuning-row-heading"><strong>${type.name}</strong><span>УРОВЕНЬ ${level} / 5</span></div><p>${type.description}</p><div class="tuning-levels" aria-hidden="true">${Array.from({length:5},(_,i)=>`<i class="${i<level?'filled':''}"></i>`).join('')}</div><div class="tuning-values"><span>БАЗА <b>${base[type.stat]}</b></span><span>СЕЙЧАС <b>${stats[type.stat]}${key==='speed'?' км/ч':''}</b></span>${max?'':`<span>ДАЛЕЕ <b>${next}</b></span>`}</div><button type="button" data-upgrade="${key}" data-level="${level}" ${max||missing?'disabled':''}>${max?'✓ МАКСИМУМ':`УРОВЕНЬ ${level+1} · ${formatCredits(cost)} CR`}</button>${missing?`<small>Не хватает ${formatCredits(missing)} CR</small>`:''}</article>`;
-      }).join('');
-      const pending=this.tuningPurchase;$('tuningPurchase').classList.toggle('hidden',!pending);
-      if(pending){const cost=R.getUpgradeCost(id,pending.key,pending.level);$('tuningPurchaseText').textContent=`${R.UPGRADE_TYPES[pending.key].name}: уровень ${pending.level+1}. Списать ${formatCredits(cost)} CR?`;$('tuningConfirm').disabled=cost===null||cost>this.save.credits;}
+      document.querySelectorAll('#tuningModal [data-tuning-tab]').forEach(b=>b.classList.toggle('selected',(b.dataset.tuningTab==='appearance')===appearance));
+      $('tuningPerformancePanel').classList.toggle('hidden',appearance);$('tuningAppearancePanel').classList.toggle('hidden',!appearance);
+      if(!appearance){
+        $('tuningRows').innerHTML=Object.entries(R.UPGRADE_TYPES).map(([key,type])=>{
+          const level=levels[key],cost=R.getUpgradeCost(id,key,level),max=level>=5,next=Math.round(base[type.stat]*(1+(level+1)*type.step)),missing=Math.max(0,(cost||0)-this.save.credits);
+          return `<article class="tuning-row"><div class="tuning-row-heading"><strong>${type.name}</strong><span>УРОВЕНЬ ${level} / 5</span></div><p>${type.description}</p><div class="tuning-levels" aria-hidden="true">${Array.from({length:5},(_,i)=>`<i class="${i<level?'filled':''}"></i>`).join('')}</div><div class="tuning-values"><span>БАЗА <b>${base[type.stat]}</b></span><span>СЕЙЧАС <b>${stats[type.stat]}${key==='speed'?' км/ч':''}</b></span>${max?'':`<span>ДАЛЕЕ <b>${next}</b></span>`}</div><button type="button" data-upgrade="${key}" data-level="${level}" ${max||missing?'disabled':''}>${max?'✓ МАКСИМУМ':`УРОВЕНЬ ${level+1} · ${formatCredits(cost)} CR`}</button>${missing?`<small>Не хватает ${formatCredits(missing)} CR</small>`:''}</article>`;
+        }).join('');
+        const pending=this.tuningPurchase;$('tuningPurchase').classList.toggle('hidden',!pending);
+        if(pending){const cost=R.getUpgradeCost(id,pending.key,pending.level);$('tuningPurchaseText').textContent=`${R.UPGRADE_TYPES[pending.key].name}: уровень ${pending.level+1}. Списать ${formatCredits(cost)} CR?`;$('tuningConfirm').disabled=cost===null||cost>this.save.credits;}
+        return;
+      }
+      const c=R.getCarCustomization(this.save,id),style=R.getCarStyle(this.save,id),colorMeta=R.CAR_COLOR_MAP[c.colorId],vinylMeta=R.VINYL_MAP[c.vinylId],look=$('tuningLookPreview');
+      look.style.setProperty('--paint',style.color||item.primary||'#8dff49');look.dataset.vinyl=c.vinylId;$('tuningLookCurrent').textContent=`${colorMeta.name} · ${vinylMeta.name}`;
+      $('tuningColorGrid').innerHTML=R.CAR_COLORS.map(opt=>{const owned=c.ownedColors.includes(opt.id),selected=c.colorId===opt.id,cost=R.getPaintCost(id,opt.id),missing=!owned&&cost>this.save.credits;return `<button type="button" class="tuning-color ${selected?'selected':''}" data-paint="${opt.id}" ${missing?'disabled':''}><i style="--swatch:${opt.hex||item.primary||'#8dff49'}"></i><span><strong>${opt.name}</strong><small>${selected?'УСТАНОВЛЕНО':owned?'КУПЛЕНО':formatCredits(cost)+' CR'}</small></span>${selected?'<b>✓</b>':''}</button>`;}).join('');
+      $('tuningVinylGrid').innerHTML=R.VINYLS.map(opt=>{const owned=c.ownedVinyls.includes(opt.id),selected=c.vinylId===opt.id,cost=R.getVinylCost(id,opt.id),missing=!owned&&cost>this.save.credits;return `<button type="button" class="tuning-vinyl ${selected?'selected':''}" data-vinyl="${opt.id}" data-vinyl-preview="${opt.id}" ${missing?'disabled':''}><i><em></em><b></b></i><span><strong>${opt.name}</strong><small>${opt.description}</small><mark>${selected?'УСТАНОВЛЕНО':owned?'КУПЛЕНО':formatCredits(cost)+' CR'}</mark></span></button>`;}).join('');
+      const pending=this.tuningStylePurchase;$('tuningStylePurchase').classList.toggle('hidden',!pending);
+      if(pending){const meta=pending.kind==='color'?R.CAR_COLOR_MAP[pending.value]:R.VINYL_MAP[pending.value],cost=pending.kind==='color'?R.getPaintCost(id,pending.value):R.getVinylCost(id,pending.value);$('tuningStylePurchaseText').textContent=`${meta.name}: купить для ${item.name} за ${formatCredits(cost)} CR? После покупки можно переключать бесплатно.`;$('tuningStyleConfirm').disabled=cost>this.save.credits;}
     }
     prewarmLivery(id){
       const item=R.LIVERIES[id],src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);
@@ -140,9 +167,9 @@
       queue.forEach(([id,item],index)=>setTimeout(()=>{if(token!==this.catalogPreloadToken)return;const src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);},35+index*65));
     }
     setPreviewCar(liveryId,effectId){
-      const item=R.LIVERIES[liveryId],src=item?.sprite?.src,token=++this.previewLoadToken;
-      if(!src||!R.preloadSprite){this.car.setLoadout(liveryId,effectId,'preview');return;}
-      R.preloadSprite(src).then(()=>{if(token!==this.previewLoadToken)return;const s=this.state[this.mode];if(s?.previewLivery!==liveryId||s?.previewEffect!==effectId)return;this.car.setLoadout(liveryId,effectId,'preview');});
+      const item=R.LIVERIES[liveryId],src=item?.sprite?.src,token=++this.previewLoadToken,apply=()=>{this.car.setLoadout(liveryId,effectId,'preview');this.car.setCustomization(R.getCarStyle(this.save,liveryId));};
+      if(!src||!R.preloadSprite){apply();return;}
+      R.preloadSprite(src).then(()=>{if(token!==this.previewLoadToken)return;const s=this.state[this.mode];if(s?.previewLivery!==liveryId||s?.previewEffect!==effectId)return;apply();});
     }
     syncPreviewChip(card,isPreview,isSelected){
       if(!card)return;card.classList.toggle('previewing',isPreview);card.dataset.previewed=isPreview?'true':'false';
@@ -171,7 +198,7 @@
     syncFromSave(){
       for(const s of Object.values(this.state)){s.previewLivery=this.save.selectedLivery;s.previewEffect=this.save.selectedEffect;}
       this.render();
-      if($('tuningModal')?.open){this.tuningPurchase=null;if(this.save.ownedLiveries.includes(this.tuningId))this.renderTuning();else $('tuningModal').close();}
+      if($('tuningModal')?.open){this.tuningPurchase=null;this.tuningStylePurchase=null;if(this.save.ownedLiveries.includes(this.tuningId))this.renderTuning();else $('tuningModal').close();}
       if(this.activeCaseId&&!this.caseDialog().modal.classList.contains('hidden')&&!this.caseSpinning)this.refreshCaseDialogInventory();
     }
     render(){
@@ -202,7 +229,7 @@
           const shortfall=Math.max(0,(item.price||0)-this.save.credits),shortfallText=mode==='shop'&&!isOwned&&shortfall>0?`<div class="item-shortfall">ЕЩЁ ${formatCredits(shortfall)} CR</div>`:'';
           let button='';if(mode==='shop')button=isOwned?`<button type="button" class="purchase-btn owned" disabled>КУПЛЕНО</button>`:`<button type="button" class="purchase-btn">КУПИТЬ — ${formatCredits(item.price)} CR</button>`;else button=`<button type="button" class="select-btn ${isSelected?'equipped':''}" ${isSelected?'disabled':''}>${isSelected?'✓ АКТИВНО':'ВЫБРАТЬ'}</button>`;
           if(isCars&&!R.carAvailable(id))button='<button type="button" class="select-btn" disabled>ВРЕМЕННО НЕДОСТУПНА</button>';
-          if(isCars&&mode==='garage')button+=`<button type="button" class="tuning-gear" data-tune="${id}" aria-label="Настроить ${item.name}">⚙ <span>УЛУЧШЕНИЯ</span></button>`;
+          if(isCars&&mode==='garage')button+=`<button type="button" class="tuning-gear" data-tune="${id}" aria-label="Настроить ${item.name}">⚙ <span>ТЮНИНГ</span></button>`;
           const classes=['shop-item',isSelected?'selected equipped-card':'',isPreview?'previewing':'',isCars?'car-card '+R.CAR_CATEGORIES[cat].className:'effect-card'].filter(Boolean).join(' ');
           const effectStyle=!isCars?` style="--effect-a:${item.rainbow?'#70ff9d':(item.outer||'#61e8ff')};--effect-b:${item.rainbow?'#ff58ce':(item.inner||'#efffff')}"`:'';
           const stateChip=isSelected?'<span class="item-preview-state active">АКТИВНО</span>':isPreview?'<span class="item-preview-state">ПРОСМОТР</span>':'';
@@ -214,7 +241,7 @@
         const mark=()=>visual&&visual.classList.add('asset-error');
         if(img.complete&&!img.naturalWidth)mark();else img.addEventListener('error',mark,{once:true});
       });
-      this.cards=Array.from(v.items.querySelectorAll('.shop-item[data-item] canvas.catalog-fallback-canvas')).map(canvas=>{const el=canvas.closest('.shop-item[data-item]'),car=new R.Car();car.x=140;car.y=56;car.speed=280;car.throttleVisual=1;car.setLoadout(el.dataset.item,s.previewEffect,'thumbnail');return {car,canvas};});
+      this.cards=Array.from(v.items.querySelectorAll('.shop-item[data-item] canvas.catalog-fallback-canvas')).map(canvas=>{const el=canvas.closest('.shop-item[data-item]'),car=new R.Car();car.x=140;car.y=56;car.speed=280;car.throttleVisual=1;car.setLoadout(el.dataset.item,s.previewEffect,'thumbnail');car.setCustomization(R.getCarStyle(this.save,el.dataset.item));return {car,canvas};});
       if(isCars)this.scheduleCatalogPreload(entries,mode);
       if(!this.categoryEmpty)this.setPreviewCar(s.previewLivery,s.previewEffect);
       if(this.categoryEmpty){const meta=R.CAR_CATEGORIES[s.category]||R.CAR_CATEGORIES.all;v.previewName.textContent=meta.label;v.previewEffect.textContent=mode==='shop'?'НОВЫЕ МОДЕЛИ ГОТОВЯТСЯ':'ПОПОЛНИТЕ КОЛЛЕКЦИЮ В МАГАЗИНЕ';}

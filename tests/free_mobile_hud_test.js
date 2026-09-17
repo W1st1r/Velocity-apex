@@ -12,6 +12,10 @@ ok(css.includes('bottom:calc(72px + var(--safe-b))'),'open chat must sit above p
 ok(css.includes('nth-last-child(n+3)'),'phone chat preview should be limited to newest lines');
 ok(js.includes("roam.classList.toggle('drag-active',!!d)"),'drag-active UI state missing');
 ok(js.includes('toggleChat(false);'),'drag start must close open chat/keyboard');
-ok(html.includes('css/style.css?v=20260916-market1'),'CSS cache version not bumped');
-ok(html.includes('js/freeroam.js?v=20260916-crews1'),'Free Roam cache version not bumped');
+ok(html.includes('css/style.css?v=20260916-adminprefix1'),'CSS cache version not bumped');
+ok(html.includes('js/freeroam.js?v=20260916-adminprefix1'),'Free Roam cache version not bumped');
+ok(js.includes("else if(state.paused){steer=0;throttle=0;brake=0;handbrake=0;}"),'pause must coast without forced braking');
+ok(!js.includes("if(state.paused){car.vx=0;car.vy=0;car.speed=0"),'pause must not zero vehicle velocity');
+ok(css.includes('Tuning mobile compact pass'),'compact tuning mobile stylesheet missing');
+
 console.log('free mobile HUD test: OK');
