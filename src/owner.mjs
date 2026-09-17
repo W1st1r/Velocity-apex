@@ -1,6 +1,7 @@
 import {CARS} from './car-catalog.mjs';
 import {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse} from './auth.mjs';
 import {getProgression,setProgressionLevel} from './progression.mjs';
+import {queryGameLogs,ensureGameLogs} from './logs.mjs';
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json','cache-control':'no-store'}});
 const schema=new WeakMap();
 export async function ensureOwner(env){if(!env.DB)return;let p=schema.get(env.DB);if(!p){p=env.DB.batch([
@@ -8,16 +9,18 @@ export async function ensureOwner(env){if(!env.DB)return;let p=schema.get(env.DB
  env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_activity (user_id TEXT PRIMARY KEY,seen INTEGER NOT NULL,location TEXT NOT NULL,total_ms INTEGER NOT NULL DEFAULT 0,started INTEGER NOT NULL)'),
  env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_tuning (user_id TEXT NOT NULL,car_id TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(user_id,car_id))'),
  env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_grants (car_id TEXT PRIMARY KEY,created_at INTEGER NOT NULL)'),
- env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_results (race_id TEXT NOT NULL,user_id TEXT NOT NULL,kind TEXT NOT NULL,won INTEGER NOT NULL,time_ms INTEGER NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(race_id,user_id))')
+ env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_results (race_id TEXT NOT NULL,user_id TEXT NOT NULL,kind TEXT NOT NULL,won INTEGER NOT NULL,time_ms INTEGER NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(race_id,user_id))'),
+ env.DB.prepare(`UPDATE owner_settings SET value=json_set(value,'$.cars',json(COALESCE((SELECT json_group_object(key,json(CASE WHEN json_type(value,'$.price') IN ('integer','real') THEN json_set(value,'$.price',MIN(999999999,CAST(ROUND(json_extract(value,'$.price')*1.25) AS INTEGER))) ELSE value END)) FROM json_each(owner_settings.value,'$.cars')),'{}')),'$.economyVersion',13) WHERE id='config' AND COALESCE(json_extract(value,'$.economyVersion'),0)<13`)
+
  ]).catch(e=>{schema.delete(env.DB);throw e;});schema.set(env.DB,p);}await p;}
-export async function settings(env){await ensureOwner(env);const row=await env.DB.prepare("SELECT value FROM owner_settings WHERE id='config'").first();return row?JSON.parse(row.value):{maintenance:false,cars:{}};}
+export async function settings(env){await ensureOwner(env);const row=await env.DB.prepare("SELECT value FROM owner_settings WHERE id='config'").first();return row?JSON.parse(row.value):{maintenance:false,cars:{},economyVersion:13};}
 export async function maintenanceGate(env,request){if(!env.DB)return null;const cfg=await settings(env);if(!cfg.maintenance)return null;const s=await currentSession(env,request);return s?.user.isAdmin?null:json({error:'MAINTENANCE',message:'Технические работы. Вход временно закрыт.'},503);}
 export async function recordResult(env,raceId,userId,kind,won,time){if(!env.DB||!userId)return;await ensureOwner(env);await env.DB.prepare('INSERT OR IGNORE INTO owner_results VALUES (?,?,?,?,?,?)').bind(raceId,userId,kind,won?1:0,Math.max(0,Math.round(time)),Date.now()).run();}
 async function rooms(env,path,body){return Promise.all(Array.from({length:6},async(_,i)=>{const server='city-0'+(i+1);const r=await env.ROOMS.get(env.ROOMS.idFromName('FREE:'+server)).fetch(new Request('https://room.internal'+path,{method:'POST',body:JSON.stringify(body)}));if(!r.ok)throw Error('ROOM_UNAVAILABLE');return {server,...await r.json()};}));}
 export async function ownerRequest(request,env,url){
  if(!url.pathname.startsWith('/api/owner/'))return null;if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
  try{
- await ensureOwner(env);await ensureAdminSchema(env);await ensureRewardSchema(env);await ensureSocialSchema(env);
+ await ensureOwner(env);await ensureAdminSchema(env);await ensureRewardSchema(env);await ensureSocialSchema(env);await ensureGameLogs(env);
  if(request.method!=='GET'&&request.headers.get('origin')&&request.headers.get('origin')!==url.origin)return json({error:'ORIGIN_REJECTED'},403);
  const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
  const cfg=await settings(env),id=session.user.id,t=Date.now();
@@ -37,6 +40,10 @@ export async function ownerRequest(request,env,url){
   await recordResult(env,'client:'+b.raceId,id,b.kind,b.won===true,b.time);return json({ok:true});
  }
  const access=await requireAdmin(env,request);if(access.error)return access.error;
+ if(url.pathname==='/api/owner/logs'&&request.method==='GET'){
+  const category=url.searchParams.get('category')||'all',q=url.searchParams.get('q')||'',server=url.searchParams.get('server')||'',eventType=url.searchParams.get('eventType')||'',actorRole=url.searchParams.get('actorRole')||'',from=Number(url.searchParams.get('from')||0),to=Number(url.searchParams.get('to')||0),before=Number(url.searchParams.get('before')||0),limit=Number(url.searchParams.get('limit')||50);
+  const result=await queryGameLogs(env,{category,q,server,eventType,actorRole,from,to,before,limit});return json({ok:true,...result,serverTime:t});
+ }
  if(url.pathname==='/api/owner/summary'&&request.method==='GET'){
   const active=(await env.DB.prepare('SELECT a.user_id,u.username,a.location FROM owner_activity a JOIN users u ON u.id=a.user_id WHERE a.seen>?').bind(t-45000).all()).results||[];
   const live=await rooms(env,'/free/owner-status',{}),ids=new Set(active.map(x=>x.user_id));let guests=0;for(const r of live)for(const p of r.players){if(p.userId)ids.add(p.userId);else guests++;}

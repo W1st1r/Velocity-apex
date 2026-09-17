@@ -800,7 +800,9 @@
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));
   $('freePauseBtn')?.addEventListener('click',()=>togglePause(true));
   $('freePauseContinue')?.addEventListener('click',()=>togglePause(false));
-  $('freePauseControls')?.addEventListener('click',()=>window.VelocityControlLayout?.open?.());
+  $('freePauseControls')?.addEventListener('click',()=>{const panel=$('freePausePanel');panel?.classList.add('hidden');panel?.setAttribute('aria-hidden','true');window.VelocityControlLayout?.open?.();});
+  addEventListener('velocity-control-layout-close',()=>{if(state.active&&state.paused){const panel=$('freePausePanel');panel?.classList.remove('hidden');panel?.setAttribute('aria-hidden','false');}});
+  addEventListener('velocity-control-layout-change',()=>window.VelocityControlLayout?.apply?.());
   $('freePauseChat')?.addEventListener('click',()=>{togglePause(false);toggleChat(true);});
   $('freePauseMap')?.addEventListener('click',()=>{togglePause(false);toggleMap(true);});
   $('freePauseLeave')?.addEventListener('click',leave);

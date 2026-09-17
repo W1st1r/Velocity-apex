@@ -1,4 +1,5 @@
 import {maintenanceGate,settings} from './owner.mjs';
+import {writeGameLog,classifyAuditAction,detectSavePurchases} from './logs.mjs';
 const SESSION_COOKIE='va_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
 const PASSWORD_ITERATIONS=100000;
@@ -104,7 +105,12 @@ async function ensureAdminSchema(env){
 }
 async function audit(env,adminId,targetId,action,details={}){
   let text='{}';try{text=JSON.stringify(details).slice(0,2000);}catch{}
-  await env.DB.prepare('INSERT INTO admin_audit (admin_user_id,target_user_id,action,details,created_at) VALUES (?,?,?,?,?)').bind(adminId,targetId||null,action,text,now()).run();
+  const createdAt=now();
+  await env.DB.prepare('INSERT INTO admin_audit (admin_user_id,target_user_id,action,details,created_at) VALUES (?,?,?,?,?)').bind(adminId,targetId||null,action,text,createdAt).run();
+  try{
+    const amount=Number.isFinite(Number(details?.delta))?Number(details.delta):Number.isFinite(Number(details?.paidAmount))?Number(details.paidAmount):null;
+    await writeGameLog(env,{category:classifyAuditAction(action),eventType:action,actorUserId:adminId,targetUserId:targetId||null,source:'ADMIN_AUDIT',subject:String(action||'system').replace(/_/g,' '),reason:details?.reason||details?.comment||'',amount,currency:amount===null?'':'CR',relatedId:details?.ticketId||details?.reportId||details?.id||'',metadata:details,createdAt});
+  }catch(e){console.error('game log audit',e);}
 }
 async function createSession(env,request,userId){
   const raw=b64url(randomBytes(32)),hash=await sha256(raw),t=now(),expires=t+SESSION_TTL_MS;
@@ -262,6 +268,7 @@ async function processReferral(env,{invitedUserId,inviter,signals,t}){
   }
   await env.DB.prepare(`INSERT OR IGNORE INTO referrals (invited_user_id,inviter_user_id,status,reward_credits,reason,network_hash,device_hash,created_at,rewarded_at) VALUES (?,?,?,?,?,?,?,?,?)`)
     .bind(invitedUserId,inviter.id,rewarded?'rewarded':'rejected',rewarded?REFERRAL_REWARD_CREDITS:0,reason,signals.networkHash||null,signals.deviceHash||null,t,rewarded?t:null).run();
+  if(rewarded){try{await writeGameLog(env,{category:'system',eventType:'referral_reward',actorRole:'SYSTEM',targetUserId:inviter.id,targetUsername:inviter.username,source:'REFERRAL',subject:'Награда за приглашение',amount:REFERRAL_REWARD_CREDITS,currency:'CR',relatedId:invitedUserId,metadata:{invitedUserId,rewardCredits:REFERRAL_REWARD_CREDITS},createdAt:t});}catch(e){console.error('referral log',e);}}
   return {provided:true,rewarded,rewardCredits:rewarded?REFERRAL_REWARD_CREDITS:0,reason};
 }
 function promoPublic(row){let reward={};try{reward=JSON.parse(row.reward_json||'{}');}catch{}const t=now();return {id:row.id,code:row.code,title:row.title||'',reward,maxUses:Number(row.max_uses)||0,usesCount:Number(row.uses_count)||0,startsAt:Number(row.starts_at)||0,expiresAt:Number(row.expires_at)||0,enabled:!!row.enabled,active:!!row.enabled&&Number(row.starts_at)<=t&&(!Number(row.expires_at)||Number(row.expires_at)>t),createdAt:Number(row.created_at)||0,updatedAt:Number(row.updated_at)||0};}
@@ -281,6 +288,7 @@ async function handlePromoRequest(request,env,url){
     catch(e){await env.DB.prepare('UPDATE promo_codes SET uses_count=MAX(0,uses_count-1),updated_at=? WHERE id=?').bind(now(),promo.id).run();return json({error:'PROMO_ALREADY_USED'},409);}
     const changed=await mutateTargetSave(env,access.session.user.id,save=>applyPromoReward(save,reward));
     if(changed.error){await env.DB.batch([env.DB.prepare('DELETE FROM promo_redemptions WHERE id=?').bind(redemptionId),env.DB.prepare('UPDATE promo_codes SET uses_count=MAX(0,uses_count-1),updated_at=? WHERE id=?').bind(now(),promo.id)]);return json({error:changed.error},changed.error==='SAVE_CONFLICT'?409:500);}
+    try{await writeGameLog(env,{category:'system',eventType:'promo_redeem',actorUserId:access.session.user.id,actorUsername:access.session.user.username,actorRole:access.session.user.isAdmin?'OWNER':'PLAYER',targetUserId:access.session.user.id,targetUsername:access.session.user.username,source:'PROMOCODE',subject:`Промокод ${promo.code}`,amount:Number(changed.result?.creditsAdded)||0,currency:'CR',relatedId:redemptionId,metadata:{promoId:promo.id,code:promo.code,title:promo.title||'',reward,result:changed.result},createdAt:t});}catch(e){console.error('promo log',e);}
     return json({ok:true,code:promo.code,title:promo.title||'',reward,result:changed.result,revision:changed.revision,updatedAt:changed.updatedAt});
   }
   return json({error:'NOT_FOUND'},404);
@@ -565,8 +573,10 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     if(url.pathname==='/api/account/save'&&(request.method==='PUT'||request.method==='POST')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
       const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
-      const b=await readBody(request),expectedRevision=Number.isInteger(b?.revision)?b.revision:null,result=await writeSave(env,session.user.id,b?.save,expectedRevision);
-      if(!result.ok)return json({error:result.error,save:result.save??null,revision:result.revision||0,updatedAt:result.updatedAt||0},result.error==='SAVE_CONFLICT'?409:400);return json(result);
+      const b=await readBody(request),expectedRevision=Number.isInteger(b?.revision)?b.revision:null,before=await saveRow(env,session.user.id),result=await writeSave(env,session.user.id,b?.save,expectedRevision);
+      if(!result.ok)return json({error:result.error,save:result.save??null,revision:result.revision||0,updatedAt:result.updatedAt||0},result.error==='SAVE_CONFLICT'?409:400);
+      try{const purchase=detectSavePurchases(before.save,b?.save);if(purchase){const one=purchase.items.length===1?purchase.items[0]:null,subject=one?`${one.kind}: ${one.carId?one.carId+' / ':''}${one.id}`:`Пакет покупок · ${purchase.items.length}`;await writeGameLog(env,{category:'purchases',eventType:one?'purchase':'purchase_batch',actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'STORE_CLOUD_SAVE',subject,amount:purchase.spent,currency:'CR',metadata:purchase});}}catch(e){console.error('purchase log',e);}
+      return json(result);
     }
     return json({error:'NOT_FOUND'},404);
   }catch(e){

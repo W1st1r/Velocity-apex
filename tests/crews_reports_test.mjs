@@ -7,15 +7,20 @@ const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');for(cons
 let failPayout=false;
 const DB={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async first(){return db.prepare(sql).get(...args)||null;},async all(){return{results:db.prepare(sql).all(...args)};},async run(){if(failPayout&&sql.startsWith('UPDATE player_saves')){failPayout=false;throw Error('simulated payment write failure');}return{meta:{changes:Number(db.prepare(sql).run(...args).changes)}};}};},async batch(statements){db.exec('BEGIN');try{const result=[];for(const s of statements)result.push(await s.run());db.exec('COMMIT');return result;}catch(e){db.exec('ROLLBACK');throw e;}}};
 const env={DB},t=Date.now(),DAY=86400000,hash=async s=>Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))).toString('base64url');
-for(const name of ['w1st1r','leader','member','poor','outsider']){db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(name,name,name,'x','x',t,t);db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?)').run(await hash(name),name,t,t+DAY,t);db.prepare('INSERT INTO player_saves VALUES(?,?,?,?,?)').run(name,JSON.stringify({credits:name==='poor'?10:30000,selectedLivery:'apexLime',ownedLiveries:['apexLime']}),1,t,t);}
+for(const name of ['w1st1r','leader','member','poor','outsider','applicant']){db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(name,name,name,'x','x',t,t);db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?)').run(await hash(name),name,t,t+DAY,t);db.prepare('INSERT INTO player_saves VALUES(?,?,?,?,?)').run(name,JSON.stringify({credits:name==='poor'?10:30000,selectedLivery:'apexLime',ownedLiveries:['apexLime']}),1,t,t);}
 async function call(path,body,who='leader'){const r=await worker.fetch(new Request('https://apex.test'+path,{method:body===undefined?'GET':'POST',headers:{cookie:'va_session='+who,origin:'https://apex.test','content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),env);return {status:r.status,...await r.json()};}
 const form={name:'Night Crew',tag:'NIGHT',emblem:'⚡',color:'#a9ff5a'};
 assert.equal((await call('/api/crews/create',form,'poor')).status,409);
 let result=await call('/api/crews/create',form);assert.equal(result.status,200);const crew=result.crew.id;
 const balance=u=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(u).save_json).credits;
-assert.equal(balance('leader'),12000);
+assert.equal(balance('leader'),7500);
 assert.equal((await call('/api/crews/create',form,'outsider')).status,409);assert.equal(balance('outsider'),30000);
 assert.equal((await call('/api/crews?search=NIGHT')).ranking.length,1);assert.equal((await call('/api/crews?search=missing')).ranking.length,0);
+result=await call('/api/crews/settings',{...form,privacy:'private'});assert.equal(result.status,200);assert.equal(result.crew.privacy,'private');
+let pending=await call('/api/crews/join',{crewId:crew},'applicant');assert.equal(pending.status,200);assert.equal(pending.requestPending,true);assert.equal((await call('/api/crews',undefined,'leader')).requests.length,1);
+assert.equal((await call('/api/crews/requests/approve',{userId:'applicant'})).status,200);assert.equal((await call('/api/crews',undefined,'applicant')).crew.id,crew);assert.equal((await call('/api/crews/leave',{},'applicant')).status,200);
+pending=await call('/api/crews/join',{crewId:crew},'outsider');assert.equal(pending.requestPending,true);assert.equal((await call('/api/crews/requests/reject',{userId:'outsider'})).status,200);assert.equal((await call('/api/crews',undefined,'leader')).requests.length,0);
+result=await call('/api/crews/settings',{...form,privacy:'public'});assert.equal(result.crew.privacy,'public');
 assert.equal((await call('/api/crews/join',{crewId:crew},'member')).status,200);
 assert.equal((await call('/api/crews/join',{crewId:crew},'member')).status,409);
 assert.equal((await call('/api/crews/transfer',{userId:'outsider'},'member')).status,400);
@@ -36,9 +41,9 @@ assert.equal((await call('/api/reports/owner',{id:report.id,status:'reviewed'},'
 // Close a full week, including offline recipients, and retry: exactly one payment.
 const w=weekStart(t)-7*DAY;db.prepare('UPDATE crew_members SET joined_at=?').run(w);
 for(const user of ['leader','member'])db.prepare('INSERT INTO street_rep VALUES(?,?,?,?,?,?,?)').run(user,'drift','lastweek',crew,w,500,w+DAY);
-failPayout=true;await assert.rejects(()=>settleCrews(env,t));assert.equal(balance('leader'),12000);assert.equal(db.prepare('SELECT COUNT(*) n FROM crew_payouts').get().n,0);
-await settleCrews(env,t);assert.equal(balance('leader'),24000);assert.equal(balance('member'),34000);
-await settleCrews(env,t);assert.equal(balance('leader'),24000);assert.equal(balance('member'),34000);
+failPayout=true;await assert.rejects(()=>settleCrews(env,t));assert.equal(balance('leader'),7500);assert.equal(db.prepare('SELECT COUNT(*) n FROM crew_payouts').get().n,0);
+await settleCrews(env,t);assert.equal(balance('leader'),19500);assert.equal(balance('member'),34000);
+await settleCrews(env,t);assert.equal(balance('leader'),19500);assert.equal(balance('member'),34000);
 assert.equal(db.prepare('SELECT COUNT(*) n FROM crew_payouts').get().n,2);
 assert.equal((await call('/api/crews/disband',{})).status,400);
 assert.equal((await call('/api/crews/leave',{})).status,400);

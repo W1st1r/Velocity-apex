@@ -19,5 +19,5 @@ for(const rule of ['.shop-screen.hidden,.settings-screen.hidden,.garage-screen.h
   '.shop-panel.catalog-panel.hidden{display:none!important}', '#shopMarketPanel.hidden{display:none!important}',
   'grid-template-rows:auto minmax(0,1fr) auto!important', 'overflow-y:auto!important;overflow-x:hidden!important;align-content:start!important'])
   assert.ok(css.includes(rule),`mobile V8 containment rule missing: ${rule}`);
-assert.ok(html.includes('mobile7-v8'),'mobile V8 cache bust missing');
+assert.ok(html.includes('20260917-pause1'),'mobile V10 cache bust missing');
 console.log('mobile_ui_v8_navigation_store: OK');

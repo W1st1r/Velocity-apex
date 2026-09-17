@@ -16,10 +16,10 @@
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
   <link rel="stylesheet" href="css/style.css?v=20260916-adminprefix1" />
-<link rel="stylesheet" href="css/owner-panel.css?v=owner1">
-  <link rel="stylesheet" href="css/crews.css?v=20260916-crews2">
+<link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12">
+  <link rel="stylesheet" href="css/crews.css?v=20260917-clans1">
   <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5">
-  <link rel="stylesheet" href="css/mobile-ui.css?v=20260916-mobile7-v8">
+  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1">
 </head>
 <body>
   <div id="app">
@@ -155,7 +155,7 @@
             <div><span>BEST LAP</span><strong id="menuBestLap">--:--.---</strong></div>
             <div><span>MAX LAPS</span><strong id="menuMaxLaps">0</strong></div>
           </div>
-          <button id="menuMute" class="sound-btn" type="button" aria-label="Переключить звук"><span class="sound-dot" aria-hidden="true"></span><strong>SOUND ON</strong></button>
+          <button id="menuMute" class="sound-btn" type="button" aria-label="Переключить звук"><span class="sound-dot" aria-hidden="true"></span><strong>ЗВУК ВКЛ</strong></button>
         </footer>
       </div>
     </div>
@@ -293,7 +293,7 @@
 
     <div id="localMode" class="overlay local-mode-screen hidden">
       <section class="local-mode-card glass enter-panel" aria-labelledby="localModeTitle">
-        <div class="eyebrow">VELOCITY APEX / SOLO</div>
+        <div class="eyebrow">VELOCITY APEX / ОДИНОЧНАЯ ИГРА</div>
         <h2 id="localModeTitle">ВЫБЕРИТЕ РЕЖИМ</h2>
         <p class="local-mode-lead">Обычная гонка сохраняет прежнюю механику. Drift — отдельные трассы, ручник и очки за контролируемый занос.</p>
         <div class="local-mode-grid">
@@ -438,7 +438,7 @@
       <section class="setup-card glass enter-panel" aria-labelledby="setupTitle">
         <header class="setup-header">
           <div>
-            <div id="setupEyebrow" class="eyebrow">RACE EVENT</div>
+            <div id="setupEyebrow" class="eyebrow">ОДИНОЧНЫЙ ЗАЕЗД</div>
             <h2 id="setupTitle">НАСТРОЙКА ЗАЕЗДА</h2>
           </div>
           <div class="event-badge"><span>VA</span><strong id="setupEventBadge">01</strong></div>
@@ -763,6 +763,7 @@
             <span class="root-tab-group-label">СИСТЕМА</span>
             <div class="root-tab-group-buttons">
               <button type="button" data-root-tab="promocodes"><b>CODE</b><span>ПРОМОКОДЫ</span></button>
+              <button type="button" data-root-tab="logs"><b>LOG</b><span>ЛОГИ</span></button>
             </div>
           </div>
         </nav>
@@ -852,6 +853,40 @@
             </section>
           </div>
         </div>
+        <div id="rootPaneLogs" class="root-pane hidden" data-root-pane="logs">
+          <section class="owner-logs-shell">
+            <header class="owner-logs-head">
+              <div><small>OWNER SECURITY / AUDIT</small><h3>LOGS / ЛОГИ</h3><p>Полная серверная история действий игроков, администрации и игровых систем.</p></div>
+              <button id="ownerLogsRefresh" type="button">ОБНОВИТЬ</button>
+            </header>
+            <div class="owner-logs-toolbar">
+              <label class="owner-log-search"><span>ПОИСК ПО ВСЕМ ПОЛЯМ</span><div><input id="ownerLogsSearch" type="search" autocomplete="off" placeholder="@player, ID, причина, сообщение, сервер, Log ID"><button id="ownerLogsSearchBtn" type="button">НАЙТИ</button></div></label>
+              <label><span>ПЕРИОД</span><select id="ownerLogsDate"><option value="24h" selected>Последние 24 часа</option><option value="today">Сегодня</option><option value="7d">Последние 7 дней</option><option value="30d">Последние 30 дней</option><option value="all">За всё время</option><option value="custom">Свой период</option></select></label>
+              <label><span>СЕРВЕР</span><input id="ownerLogsServer" type="search" autocomplete="off" placeholder="city-01 / race"></label>
+              <label><span>КТО ВЫПОЛНИЛ</span><select id="ownerLogsRole"><option value="ALL">Все</option><option value="OWNER">OWNER</option><option value="ADMIN">ADMIN</option><option value="SYSTEM">SYSTEM</option><option value="PLAYER">PLAYER</option></select></label>
+              <label><span>ТИП ДЕЙСТВИЯ</span><input id="ownerLogsEvent" type="search" autocomplete="off" placeholder="ban / mute / purchase"></label>
+              <button id="ownerLogsReset" class="owner-log-reset" type="button">СБРОСИТЬ ФИЛЬТРЫ</button>
+            </div>
+            <div id="ownerLogsCustomDates" class="owner-logs-custom hidden">
+              <label><span>С</span><input id="ownerLogsFrom" type="datetime-local"></label>
+              <label><span>ДО</span><input id="ownerLogsTo" type="datetime-local"></label>
+            </div>
+            <nav id="ownerLogsCategories" class="owner-log-categories" aria-label="Категории логов">
+              <button class="active" type="button" data-log-category="all">ВСЕ</button>
+              <button type="button" data-log-category="blocks">БЛОКИРОВКИ</button>
+              <button type="button" data-log-category="mutes">МУТЫ</button>
+              <button type="button" data-log-category="joins">ЗАХОДЫ</button>
+              <button type="button" data-log-category="purchases">ПОКУПКИ</button>
+              <button type="button" data-log-category="sales">ПРОДАЖИ</button>
+              <button type="button" data-log-category="system">СИСТЕМА</button>
+              <button type="button" data-log-category="chat">ЧАТ</button>
+            </nav>
+            <div class="owner-log-list-head"><span id="ownerLogsCaption">ВСЕ СОБЫТИЯ</span><small id="ownerLogsStatus">Загрузка…</small></div>
+            <div id="ownerLogsList" class="owner-log-list"><div class="root-loading">ЗАГРУЗКА…</div></div>
+            <button id="ownerLogsMore" class="owner-logs-more hidden" type="button">ПОКАЗАТЬ ЕЩЁ</button>
+          </section>
+        </div>
+
         <div id="rootPaneAccounts" class="root-pane hidden" data-root-pane="accounts">
           <div class="root-account-workspace">
             <section class="root-module root-account-module root-account-sidebar">
@@ -965,14 +1000,15 @@
 
     <div id="pause" class="overlay pause-screen hidden">
       <div class="menu-card glass small enter-panel">
-        <div class="eyebrow">RACE PAUSED</div>
-        <h2>PAUSE</h2>
-        <button id="continueBtn" class="primary-btn" type="button">CONTINUE</button>
+        <div class="eyebrow">ГОНКА ПРИОСТАНОВЛЕНА</div>
+        <h2>ПАУЗА</h2>
+        <button id="continueBtn" class="primary-btn" type="button">ПРОДОЛЖИТЬ</button>
         <div id="onlinePauseNote" class="online-pause-note hidden">ONLINE ГОНКА ПРОДОЛЖАЕТСЯ</div>
         <button id="pauseSettingsBtn" class="secondary-btn" type="button">НАСТРОЙКИ</button>
-        <button id="restartBtn" class="secondary-btn" type="button">RESTART</button>
-        <button id="mainMenuBtn" class="secondary-btn" type="button">MAIN MENU</button>
-        <button id="pauseMute" class="sound-btn" type="button"><span class="sound-dot" aria-hidden="true"></span><strong>SOUND ON</strong></button>
+        <button id="pauseControlsBtn" class="secondary-btn" type="button">НАСТРОИТЬ КНОПКИ</button>
+        <button id="restartBtn" class="secondary-btn" type="button">ПЕРЕЗАПУСТИТЬ</button>
+        <button id="mainMenuBtn" class="secondary-btn" type="button">ГЛАВНОЕ МЕНЮ</button>
+        <button id="pauseMute" class="sound-btn" type="button"><span class="sound-dot" aria-hidden="true"></span><strong>ЗВУК ВКЛ</strong></button>
       </div>
     </div>
 
@@ -989,11 +1025,11 @@
 
     <div id="finish" class="overlay finish-screen hidden">
       <section class="finish-card glass enter-panel" aria-labelledby="finishTitle">
-        <div class="finish-topline"><span id="finishEyebrow" class="eyebrow">OFFICIAL RESULT</span><span id="finishDifficultyBadge" class="difficulty-badge">СРЕДНЕ</span></div>
+        <div class="finish-topline"><span id="finishEyebrow" class="eyebrow">РЕЗУЛЬТАТ ЗАЕЗДА</span><span id="finishDifficultyBadge" class="difficulty-badge">СРЕДНЕ</span></div>
         <div class="finish-hero">
-          <div id="finishPlace" class="finish-place">1ST</div>
+          <div id="finishPlace" class="finish-place">1 МЕСТО</div>
           <div>
-            <h2 id="finishTitle">RACE FINISHED</h2>
+            <h2 id="finishTitle">ЗАЕЗД ЗАВЕРШЁН</h2>
             <p id="finishTrack">APEX CIRCUIT</p>
           </div>
         </div>
@@ -1004,7 +1040,7 @@
           <div><span id="finishBestLabel">ЛУЧШИЙ КРУГ</span><strong id="finishBestLap">--:--.---</strong></div>
           <div><span id="finishScoreLabel">SCORE</span><strong id="finishScore">0</strong></div>
         </div>
-        <div class="reward-panel"><span><b id="finishRewardLabel">RACE REWARD</b><strong id="finishReward">+0 CR</strong></span><span>BALANCE<strong id="finishBalance">200 CR</strong></span></div>
+        <div class="reward-panel"><span><b id="finishRewardLabel">НАГРАДА ЗА ЗАЕЗД</b><strong id="finishReward">+0 CR</strong></span><span>БАЛАНС<strong id="finishBalance">200 CR</strong></span></div>
         <div class="finish-actions">
           <button id="finishMenuBtn" class="secondary-btn" type="button">ГЛАВНОЕ МЕНЮ</button>
           <button id="againBtn" class="primary-btn" type="button">ЕЩЁ РАЗ <span aria-hidden="true">↻</span></button>
@@ -1013,15 +1049,15 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260916-tuning2"></script>
+  <script src="js/content.js?v=20260917-economy13"></script>
   <script src="js/racing-line.js?v=20260915-owner1"></script>
   <script src="js/track.js?v=20260915-owner1"></script>
   <script src="js/audio.js?v=20260915-owner1"></script>
   <script src="js/car.js?v=20260916-tuning2"></script>
   <script src="js/ai.js?v=20260915-owner1"></script>
   <script src="js/garage.js?v=20260916-tuning2"></script>
-  <script src="js/root-console.js?v=20260915-owner1"></script>
-  <script src="js/control-layout.js?v=20260916-pause2"></script>
+  <script src="js/root-console.js?v=ownerlogs12"></script>
+  <script src="js/control-layout.js?v=20260917-pause3"></script>
   <script src="js/controls.js?v=20260915-owner1"></script>
   <script src="js/network.js?v=20260915-owner1"></script>
   <script src="js/account.js?v=20260915-owner1"></script>
@@ -1032,8 +1068,8 @@
   <script src="js/friends.js?v=20260916-crews1"></script>
   <script src="js/free-city.js?v=20260916-crews1"></script>
   <script src="js/freeroam.js?v=20260916-adminprefix1"></script>
-  <script src="js/owner-panel.js?v=owner1"></script>
-  <script src="js/crews.js?v=20260916-crews1"></script>
-  <script src="js/game.js?v=20260916-tuning2"></script>
+  <script src="js/owner-panel.js?v=20260917-economy13"></script>
+  <script src="js/crews.js?v=20260917-economy13"></script>
+  <script src="js/game.js?v=20260917-pause1"></script>
 </body>
 </html>

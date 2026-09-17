@@ -3,7 +3,7 @@ const ROOT=path.resolve(__dirname,'..');
 const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8');
 const css=fs.readFileSync(path.join(ROOT,'public/css/mobile-ui.css'),'utf8');
 const admin=fs.readFileSync(path.join(ROOT,'public/js/admin-system.js'),'utf8');
-assert.ok(html.includes('css/mobile-ui.css?v=20260916-mobile7'),'mobile UI V6 cache-bust missing');
+assert.ok(html.includes('css/mobile-ui.css?v=20260917-pause1'),'mobile UI V6 cache-bust missing');
 assert.ok(html.includes('css/admin-system.css?v=20260916-admin5'),'admin CSS cache-bust missing');
 assert.ok(html.includes('js/admin-system.js?v=20260916-admin5'),'admin JS cache-bust missing');
 for(const token of [

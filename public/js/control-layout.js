@@ -200,6 +200,7 @@
 
   function openEditor(){
     if(opened)return;
+    savedLayout=readLayout();
     opened=true;changed=false;pointerId=null;dragKey=null;
     beforeOpen=savedLayout?clone(savedLayout.layout):null;
     workingLayout=clone(savedLayout?.layout||DEFAULT_LAYOUT);if(!activeKeys().includes(selectedKey))selectedKey='gas';
@@ -208,6 +209,7 @@
     editor?.classList.remove('hidden');
     editor?.setAttribute('aria-hidden','false');
     document.body.classList.add('control-layout-editing');
+    window.dispatchEvent(new CustomEvent('velocity-control-layout-open'));
     renderEditor();
   }
 
@@ -217,10 +219,11 @@
     $('controlLayoutEditor')?.classList.add('hidden');
     $('controlLayoutEditor')?.setAttribute('aria-hidden','true');
     document.body.classList.remove('control-layout-editing');
+    window.dispatchEvent(new CustomEvent('velocity-control-layout-close'));
   }
 
   function saveAndClose(){
-    if(changed){workingLayout=writeLayout(workingLayout);apply(workingLayout);}
+    if(changed){workingLayout=writeLayout(workingLayout);apply(workingLayout);window.dispatchEvent(new CustomEvent('velocity-control-layout-change',{detail:{layout:clone(workingLayout)}}));}
     else apply(savedLayout?.layout);
     closeEditor();
   }

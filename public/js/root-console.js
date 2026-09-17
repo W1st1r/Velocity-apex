@@ -82,7 +82,7 @@
     message(text,kind='ok'){this.lastMessage=text;if(this.notice){this.notice.textContent=text;this.notice.className='root-notice '+kind;}}
     changed(reason){this.onChange(reason);this.renderLocal();}
     switchTab(tab){
-      const allowed=['money','cars','effects','cases','promocodes','accounts','admins','blocked'];if(!allowed.includes(tab))tab='money';this.tab=tab;
+      const allowed=['money','cars','effects','cases','promocodes','accounts','admins','blocked','logs'];if(!allowed.includes(tab))tab='money';this.tab=tab;
       this.tabs.querySelectorAll('[data-root-tab]').forEach(b=>b.classList.toggle('active',b.dataset.rootTab===tab));this.console.querySelectorAll('[data-root-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.rootPane!==tab));
       if(tab==='accounts')this.searchAccounts(false);if(tab==='blocked')this.searchAccounts(true);if(tab==='promocodes')this.loadPromocodes();if(tab==='admins')window.VelocityAdminSystem?.openOwner?.();this.renderLocal();
     }

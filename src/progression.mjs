@@ -1,8 +1,9 @@
-import {awardCrewRep} from './crews.mjs';
-import {mutateTargetSave} from './auth.mjs';
+import {awardCrewRep,ensureCrews,crewRepStatement} from './crews.mjs';
+import {writeGameLog} from './logs.mjs';
 
 export const MAX_LEVEL=100;
 export const PROGRESSION_REWARDS=Object.freeze({
+  ONLINE_FINISH:{exp:90,credits:0},
   DRIFT_FIRST:{exp:180,credits:450},
   DRIFT_SECOND:{exp:140,credits:320},
   DRIFT_THIRD:{exp:110,credits:240},
@@ -97,18 +98,6 @@ export async function setProgressionLevel(env,userId,targetLevel){
   }catch(e){console.error('set progression level',e);return {ok:false,error:'PROGRESSION_WRITE_FAILED'};}
 }
 
-async function rewardCap(env,userId,source,requested,t){
-  if(requested<=0)return {credits:0,capped:false,hourTotal:0,dayTotal:0,onlineDayTotal:0};
-  const hour=await env.DB.prepare('SELECT COALESCE(SUM(credits),0) AS total FROM progression_rewards WHERE user_id=? AND created_at>=?').bind(userId,t-60*60*1000).first();
-  const day=await env.DB.prepare('SELECT COALESCE(SUM(credits),0) AS total FROM progression_rewards WHERE user_id=? AND created_at>=?').bind(userId,t-24*60*60*1000).first();
-  const hourTotal=clampInt(hour?.total),dayTotal=clampInt(day?.total);let allowed=Math.min(requested,Math.max(0,REWARD_LIMITS.ACTIVITY_CR_ROLLING_HOUR-hourTotal),Math.max(0,REWARD_LIMITS.ACTIVITY_CR_ROLLING_24H-dayTotal));let onlineDayTotal=0;
-  if(source==='online_time'){
-    const online=await env.DB.prepare("SELECT COALESCE(SUM(credits),0) AS total FROM progression_rewards WHERE user_id=? AND source='online_time' AND created_at>=?").bind(userId,t-24*60*60*1000).first();
-    onlineDayTotal=clampInt(online?.total);allowed=Math.min(allowed,Math.max(0,REWARD_LIMITS.ONLINE_CR_ROLLING_24H-onlineDayTotal));
-  }
-  allowed=Math.max(0,Math.floor(allowed));return {credits:allowed,capped:allowed<requested,hourTotal,dayTotal,onlineDayTotal};
-}
-
 export async function awardProgression(env,userId,{source,eventId,exp=0,credits=0,meta={}}={}){
   if(!env?.DB||!userId||!source||!eventId)return {ok:false,error:'REWARD_IDENTITY_MISSING'};
   let t,safeSource,safeEvent,requestedExp,requestedCredits,existing,cap,rewardId,metaText='{}';
@@ -116,19 +105,30 @@ export async function awardProgression(env,userId,{source,eventId,exp=0,credits=
     await ensureProgressionSchema(env);t=now();safeSource=String(source).slice(0,40);safeEvent=String(eventId).slice(0,120);requestedExp=clampInt(exp,0,100000);requestedCredits=clampInt(credits,0,1000000);
     existing=await env.DB.prepare('SELECT exp,credits,requested_credits,created_at,meta_json FROM progression_rewards WHERE user_id=? AND source=? AND event_id=? LIMIT 1').bind(userId,safeSource,safeEvent).first();
     if(existing){await awardCrewRep(env,userId,safeSource,safeEvent,existing.exp);const progress=await getProgression(env,userId);return {ok:true,duplicate:true,expAdded:0,creditsAdded:0,requestedCredits:clampInt(existing.requested_credits),...progress};}
-    cap=await rewardCap(env,userId,safeSource,requestedCredits,t);rewardId=crypto.randomUUID();try{metaText=JSON.stringify(meta||{}).slice(0,3000);}catch{}
-    const reserved=await env.DB.prepare('INSERT OR IGNORE INTO progression_rewards (id,user_id,source,event_id,exp,credits,requested_credits,created_at,meta_json) VALUES (?,?,?,?,?,?,?,?,?)').bind(rewardId,userId,safeSource,safeEvent,requestedExp,0,requestedCredits,t,metaText).run();
-    if(Number(reserved?.meta?.changes||0)!==1){const progress=await getProgression(env,userId);return {ok:true,duplicate:true,expAdded:0,creditsAdded:0,requestedCredits,...progress};}
-    const before=await getProgression(env,userId),afterTotal=Math.max(0,before.totalExp+requestedExp);
-    await env.DB.prepare('UPDATE player_progress SET total_exp=?,updated_at=? WHERE user_id=?').bind(afterTotal,t,userId).run();
-    let creditsAdded=0,balance=null;
-    if(cap.credits>0){
-      const changed=await mutateTargetSave(env,userId,save=>{const old=clampInt(save.credits,0,999999999),next=Math.min(999999999,old+cap.credits);save.credits=next;return {before:old,after:next,delta:next-old};});
-      if(changed.ok){creditsAdded=clampInt(changed.result?.delta);balance=clampInt(changed.result?.after);}
-    }
-    await env.DB.prepare('UPDATE progression_rewards SET credits=? WHERE id=?').bind(creditsAdded,rewardId).run();
-    await awardCrewRep(env,userId,safeSource,safeEvent,requestedExp);
-    const info={totalExp:afterTotal,...levelFromTotalExp(afterTotal)};
+    rewardId=crypto.randomUUID();try{metaText=JSON.stringify(meta||{}).slice(0,3000);}catch{}
+    const before=await getProgression(env,userId);await ensureCrews(env);
+    // D1 batches are atomic. Only the freshly inserted UUID may change balances.
+    const writes=await env.DB.batch([
+      env.DB.prepare(`INSERT OR IGNORE INTO player_saves(user_id,save_json,revision,created_at,updated_at) VALUES (?,json_object('credits',0),1,?,?)`).bind(userId,t,t),
+      env.DB.prepare(`INSERT OR IGNORE INTO progression_rewards(id,user_id,source,event_id,exp,credits,requested_credits,created_at,meta_json)
+        SELECT ?,?,?,?,?,MAX(0,MIN(?,
+          ?-COALESCE((SELECT SUM(credits) FROM progression_rewards WHERE user_id=? AND created_at>=?),0),
+          ?-COALESCE((SELECT SUM(credits) FROM progression_rewards WHERE user_id=? AND created_at>=?),0),
+          CASE WHEN ?='online_time' THEN ?-COALESCE((SELECT SUM(credits) FROM progression_rewards WHERE user_id=? AND source='online_time' AND created_at>=?),0) ELSE ? END,
+          999999999-COALESCE((SELECT json_extract(save_json,'$.credits') FROM player_saves WHERE user_id=?),0))),?,?,?`)
+        .bind(rewardId,userId,safeSource,safeEvent,requestedExp,requestedCredits,
+          REWARD_LIMITS.ACTIVITY_CR_ROLLING_HOUR,userId,t-3600000,
+          REWARD_LIMITS.ACTIVITY_CR_ROLLING_24H,userId,t-86400000,
+          safeSource,REWARD_LIMITS.ONLINE_CR_ROLLING_24H,userId,t-86400000,requestedCredits,userId,requestedCredits,t,metaText),
+      env.DB.prepare('UPDATE player_progress SET total_exp=total_exp+?,updated_at=? WHERE user_id=? AND EXISTS(SELECT 1 FROM progression_rewards WHERE id=?)').bind(requestedExp,t,userId,rewardId),
+      env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',COALESCE(json_extract(save_json,'$.credits'),0)+(SELECT credits FROM progression_rewards WHERE id=?)),revision=revision+1,updated_at=? WHERE user_id=? AND EXISTS(SELECT 1 FROM progression_rewards WHERE id=?)`).bind(rewardId,t,userId,rewardId),
+      crewRepStatement(env,userId,safeSource,safeEvent,requestedExp,t)
+    ]);
+    if(Number(writes[1]?.meta?.changes||0)!==1)return {ok:true,duplicate:true,expAdded:0,creditsAdded:0,requestedCredits,...await getProgression(env,userId)};
+    const recorded=await env.DB.prepare('SELECT credits FROM progression_rewards WHERE id=?').bind(rewardId).first();
+    const creditsAdded=clampInt(recorded?.credits),saved=await env.DB.prepare('SELECT save_json FROM player_saves WHERE user_id=?').bind(userId).first();
+    const balance=clampInt(JSON.parse(saved.save_json).credits),info=await getProgression(env,userId);
+    try{await writeGameLog(env,{category:'system',eventType:'progress_reward',actorRole:'SYSTEM',targetUserId:userId,source:'PROGRESSION',subject:`Награда · ${safeSource}`,amount:creditsAdded,currency:'CR',relatedId:safeEvent,metadata:{rewardId,source:safeSource,eventId:safeEvent,expAdded:requestedExp,creditsAdded,requestedCredits,capped:creditsAdded<requestedCredits,balance,levelBefore:before.level,levelAfter:info.level,meta},createdAt:t});}catch(e){console.error('progression log',e);}
     return {ok:true,duplicate:false,expAdded:requestedExp,creditsAdded,requestedCredits,capped:creditsAdded<requestedCredits,balance,levelBefore:before.level,...info};
   }catch(e){console.error('progression reward',e);return {ok:false,error:'REWARD_WRITE_FAILED'};}
 }

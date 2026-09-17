@@ -15,7 +15,7 @@ assert.ok(R.getCatalogEntries(save,'shop','livery','basic').every(([,x])=>R.norm
 assert.ok(R.getCatalogEntries(save,'shop','livery','premium').some(([id])=>id==='porsche-911'),'Porsche missing from premium');
 assert.equal(R.getCatalogEntries(save,'garage','livery','premium').length,0,'unowned Porsche leaked into garage');
 assert.equal(R.selectOwned(save,'livery','porsche-911'),'locked','garage must not select unowned car');
-save.credits=68000;const before=save.credits;assert.equal(R.shopAction(save,'livery','porsche-911'),'purchased','shop purchase failed');assert.equal(save.credits,before-68000);assert.ok(R.getCatalogEntries(save,'garage','livery','all').some(([id])=>id==='porsche-911'),'purchased car missing from garage');
+save.credits=85000;const before=save.credits;assert.equal(R.shopAction(save,'livery','porsche-911'),'purchased','shop purchase failed');assert.equal(save.credits,before-85000);assert.ok(R.getCatalogEntries(save,'garage','livery','all').some(([id])=>id==='porsche-911'),'purchased car missing from garage');
 assert.equal(R.selectOwned(save,'livery','porsche-911'),'selected');assert.equal(save.selectedLivery,'porsche-911');
 assert.equal(R.selectOwned(save,'effect','redFlame'),'selected');assert.equal(save.selectedEffect,'redFlame');
 const persisted=R.normalizeSave(JSON.parse(JSON.stringify(save)));assert.equal(persisted.selectedLivery,'porsche-911');assert.equal(persisted.selectedEffect,'redFlame');assert.equal(persisted.bestScore,321);assert.equal(persisted.bestLap,4567);assert.equal(persisted.controlMode,'wheel');

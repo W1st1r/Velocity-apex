@@ -60,3 +60,8 @@
   .crew-stats>div{padding:6px}
   .crew-stats b{font-size:16px}
 }
+
+/* Clan privacy + leader settings. */
+.crew-hero-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px}.crew-privacy{display:inline-flex;align-items:center;width:max-content;padding:4px 7px;border:1px solid #ffffff17;border-radius:999px;background:#ffffff08;color:#b9cbc8;font-size:9px;font-weight:900;letter-spacing:.05em}.crew-privacy.public{border-color:#8dff4930;color:#caffad;background:#8dff490b}.crew-privacy.private{border-color:#ffcf6633;color:#ffe0a1;background:#ffc85a0b}#crewDialog .crew-settings-btn{min-height:30px;padding:5px 8px;font-size:9px}.crew-requests>p{font-size:12px}.crew-request{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #ffffff12}.crew-request-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px}.crew-request-actions button{min-width:88px}.crew-settings-head{display:flex;align-items:center;gap:10px}.crew-settings-head>div{min-width:0}.crew-settings-note{padding:9px;border-radius:10px;background:#ffffff08;font-size:11px!important}
+@media(max-width:760px){.crew-privacy{padding:3px 6px;font-size:7px}.crew-request{grid-template-columns:1fr}.crew-request-actions{width:100%}.crew-request-actions button{min-width:0}.crew-settings-head{gap:7px}.crew-settings-note{font-size:9px!important}}
+@media(orientation:landscape) and (max-height:540px) and (max-width:1024px){.crew-request{grid-template-columns:minmax(0,1fr) auto;padding:4px 0}.crew-request-actions button{min-width:64px}.crew-privacy{font-size:6px;padding:2px 5px}}

@@ -341,7 +341,7 @@
   R.getUpgradeCost=function(id,key,level){
     if(!has(R.LIVERIES,id)||!has(R.UPGRADE_TYPES,key)||!Number.isInteger(level)||level<0||level>=5)return null;
     const tune=R.ownerCars?.[id]?.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||R.UPGRADE_TYPES[key];
-    return Math.ceil(Math.max(2800,R.LIVERIES[id].price||0)*[.04,.07,.11,.16,.22][level]*(tune.priceFactor??R.UPGRADE_TYPES[key].priceFactor)/10)*10;
+    return Math.ceil(Math.max(2800,R.LIVERIES[id].basePrice??R.LIVERIES[id].price??0)*[.04,.07,.11,.16,.22][level]*(tune.priceFactor??R.UPGRADE_TYPES[key].priceFactor)/10)*10;
   };
   // expectedLevel prevents double taps or stale purchase buttons buying another level.
   R.buyCarUpgrade=function(save,id,key,expectedLevel){
@@ -393,12 +393,12 @@
   R.getCarStyle=function(save,id){const c=R.getCarCustomization(save,id);return R.getCarStyleByIds(c.colorId,c.vinylId);};
   R.getPaintCost=function(id,colorId){
     if(!has(R.LIVERIES,id)||!R.CAR_COLOR_MAP[colorId]||colorId==='stock')return 0;
-    const price=Math.max(2800,Number(R.LIVERIES[id].price)||0),mult=R.CAR_COLOR_MAP[colorId].multiplier||1;
+    const price=Math.max(2800,Number(R.LIVERIES[id].basePrice??R.LIVERIES[id].price)||0),mult=R.CAR_COLOR_MAP[colorId].multiplier||1;
     return Math.ceil(Math.max(250,price*.012*mult)/50)*50;
   };
   R.getVinylCost=function(id,vinylId){
     if(!has(R.LIVERIES,id)||!R.VINYL_MAP[vinylId]||vinylId==='none')return 0;
-    const price=Math.max(2800,Number(R.LIVERIES[id].price)||0),mult=R.VINYL_MAP[vinylId].multiplier||.02;
+    const price=Math.max(2800,Number(R.LIVERIES[id].basePrice??R.LIVERIES[id].price)||0),mult=R.VINYL_MAP[vinylId].multiplier||.02;
     return Math.ceil(Math.max(450,price*mult)/50)*50;
   };
   R.buyCarStyle=function(save,id,kind,value){
@@ -487,4 +487,10 @@
     const scoreReward=Math.min(160,safeScore/85);
     return Math.max(1,Math.round((completionReward+gridReward+placementReward+scoreReward)*difficultyMultiplier));
   };
+  // V13: reprice after deriving performance and case odds from the original catalog.
+  const raisePrice=value=>Math.round(Number(value)*1.25);
+  for(const item of Object.values(R.LIVERIES)){item.basePrice=item.price;item.price=raisePrice(item.price);}
+  for(const item of Object.values(R.EFFECTS))item.price=raisePrice(item.price);
+  R.CASES=Object.freeze(Object.fromEntries(Object.entries(R.CASES).map(([id,box])=>[id,Object.freeze({...box,price:raisePrice(box.price),expectedValue:raisePrice(box.expectedValue),rewards:Object.freeze(box.rewards.map(r=>Object.freeze({...r,price:raisePrice(r.price)})))})])));
+  for(const key of ['getUpgradeCost','getPaintCost','getVinylCost']){const original=R[key];R[key]=(...args)=>{const value=original(...args);return value==null?value:raisePrice(value);};}
 })();

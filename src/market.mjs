@@ -1,5 +1,6 @@
 import {currentSession,mutateTargetSave,accountDetail,banResponse} from './auth.mjs';
 import {CARS} from './car-catalog.mjs';
+import {writeGameLog} from './logs.mjs';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const now=()=>Date.now();
@@ -143,7 +144,7 @@ async function buyListing(env,buyerId,id){
   const row=await env.DB.prepare("SELECT * FROM market_sell_listings WHERE id=? AND status='active' LIMIT 1").bind(id).first();if(!row)return json({error:'LISTING_NOT_FOUND'},404);if(row.seller_user_id===buyerId)return json({error:'CANNOT_BUY_OWN'},400);
   const claimed=await env.DB.prepare("UPDATE market_sell_listings SET status='processing',updated_at=? WHERE id=? AND status='active'").bind(now(),id).run();if(Number(claimed?.meta?.changes||0)!==1)return json({error:'LISTING_UNAVAILABLE'},409);
   const upgrades=parseUpgrades(row.upgrades_json),price=Number(row.price)||0;
-  const buyer=await mutateTargetSave(env,buyerId,save=>{const credit=changeCredits(save,-price);if(credit.error)return credit;const car=giveCar(save,row.car_id,upgrades);if(car.error){changeCredits(save,price);return car;}return {price,carId:row.car_id};});
+  const buyer=await mutateTargetSave(env,buyerId,save=>{const credit=changeCredits(save,-price);if(credit.error)return credit;const car=giveCar(save,row.car_id,upgrades);if(car.error){changeCredits(save,price);return car;}return {price,carId:row.car_id,before:credit.before,after:credit.after};});
   if(buyer.error){await env.DB.prepare("UPDATE market_sell_listings SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:buyer.error},buyer.error==='INSUFFICIENT_CREDITS'?400:409);}
   const seller=await mutateTargetSave(env,row.seller_user_id,save=>changeCredits(save,price));
   if(seller.error){
@@ -155,6 +156,13 @@ async function buyListing(env,buyerId,id){
     env.DB.prepare("UPDATE market_sell_listings SET status='sold',buyer_user_id=?,sold_at=?,updated_at=? WHERE id=? AND status='processing'").bind(buyerId,t,t,id),
     env.DB.prepare("INSERT INTO market_history (id,kind,source_id,car_id,price,buyer_user_id,seller_user_id,upgrades_json,created_at) VALUES (?,'listing',?,?,?,?,?,?,?)").bind(historyId,id,row.car_id,price,buyerId,row.seller_user_id,row.upgrades_json||'{}',t)
   ]);
+  try{
+    const meta={transactionId:historyId,listingId:id,carId:row.car_id,upgrades,buyerBalanceBefore:Number(buyer.result?.before)||0,buyerBalanceAfter:Number(buyer.result?.after)||0,sellerBalanceBefore:Number(seller.result?.before)||0,sellerBalanceAfter:Number(seller.result?.after)||0};
+    await Promise.all([
+      writeGameLog(env,{category:'purchases',eventType:'market_purchase',actorUserId:buyerId,actorRole:'PLAYER',targetUserId:row.seller_user_id,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t}),
+      writeGameLog(env,{category:'sales',eventType:'market_sale',actorUserId:row.seller_user_id,actorRole:'PLAYER',targetUserId:buyerId,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t})
+    ]);
+  }catch(e){console.error('market log',e);}
   return json({ok:true});
 }
 
@@ -166,6 +174,7 @@ async function createBuyOrder(env,buyerId,body){
   const id=crypto.randomUUID(),t=now();
   try{await env.DB.prepare("INSERT INTO market_buy_orders (id,buyer_user_id,car_id,price,status,created_at,updated_at) VALUES (?,?,?,?,'active',?,?)").bind(id,buyerId,carId,price,t,t).run();}
   catch(e){await refund(env,buyerId,price);throw e;}
+  try{await writeGameLog(env,{category:'purchases',eventType:'market_buy_order',actorUserId:buyerId,actorRole:'PLAYER',targetUserId:buyerId,source:'MARKET',subject:carId,amount:price,currency:'CR',relatedId:id,metadata:{orderId:id,carId,balanceBefore:Number(reserved.result?.before)||0,balanceAfter:Number(reserved.result?.after)||0,status:'reserved'},createdAt:t});}catch(e){console.error('market order log',e);}
   return json({ok:true,id},201);
 }
 
@@ -194,6 +203,13 @@ async function fulfillBuyOrder(env,sellerId,id){
     env.DB.prepare("UPDATE market_buy_orders SET status='filled',seller_user_id=?,filled_at=?,updated_at=? WHERE id=? AND status='processing'").bind(sellerId,t,t,id),
     env.DB.prepare("INSERT INTO market_history (id,kind,source_id,car_id,price,buyer_user_id,seller_user_id,upgrades_json,created_at) VALUES (?,'buy_order',?,?,?,?,?,?,?)").bind(historyId,id,row.car_id,price,row.buyer_user_id,sellerId,JSON.stringify(upgrades),t)
   ]);
+  try{
+    const meta={transactionId:historyId,orderId:id,carId:row.car_id,upgrades,reservedAtOrder:true,sellerBalanceBefore:Number(seller.result?.before)||0,sellerBalanceAfter:Number(seller.result?.after)||0};
+    await Promise.all([
+      writeGameLog(env,{category:'purchases',eventType:'market_purchase',actorUserId:row.buyer_user_id,actorRole:'PLAYER',targetUserId:sellerId,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t}),
+      writeGameLog(env,{category:'sales',eventType:'market_sale',actorUserId:sellerId,actorRole:'PLAYER',targetUserId:row.buyer_user_id,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t})
+    ]);
+  }catch(e){console.error('market log',e);}
   return json({ok:true});
 }
 

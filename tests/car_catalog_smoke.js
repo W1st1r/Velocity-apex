@@ -15,7 +15,7 @@ const ids=Object.keys(expectedPrices);assert.equal(ids.length,42);assert.equal(R
 assert.deepEqual(new Set(R.REAL_CAR_IDS),new Set(ids),'catalog IDs differ from required list');
 const counts={},prices=[];
 for(const id of ids){
-  const car=R.LIVERIES[id];assert.ok(car,`missing ${id}`);assert.equal(car.price,expectedPrices[id],`${id} price`);prices.push(car.price);counts[car.category]=(counts[car.category]||0)+1;
+  const car=R.LIVERIES[id];assert.ok(car,`missing ${id}`);assert.equal(car.price,Math.round(expectedPrices[id]*1.25),`${id} price`);prices.push(car.price);counts[car.category]=(counts[car.category]||0)+1;
   assert.equal(car.currency,'CR');assert.equal(car.realCar,true);assert.ok(car.sprite,`${id} sprite metadata`);assert.equal(car.sprite.orientation,'nose-right',`${id} orientation`);
   for(const key of ['visualLength','visualWidth','raceScale','previewScale'])assert.ok(Number.isFinite(car.sprite[key])&&car.sprite[key]>0,`${id} invalid ${key}`);
   assert.equal(car.sprite.preserveAspectRatio,true,`${id} source aspect ratio must be preserved`);
@@ -28,8 +28,8 @@ assert.deepEqual(counts,{basic:6,sport:7,premium:6,rare:7,legendary:7,lux:9});as
 const luxIds=R.REAL_CAR_IDS.filter(id=>R.LIVERIES[id].category==='lux');assert.ok(luxIds.includes('aston-martin-valkyrie-mary')&&luxIds.includes('apollo-evo')&&luxIds.length===9,'Mary/LUX catalog mismatch');
 assert.ok(R.LIVERIES['mercedes-cls-63-amg'].sprite.visualLength/R.LIVERIES['mercedes-cls-63-amg'].sprite.visualWidth>2.1,'CLS should retain its long source silhouette');
 assert.ok(R.LIVERIES['bugatti-chiron-super-sport'].sprite.visualLength/R.LIVERIES['bugatti-chiron-super-sport'].sprite.visualWidth<1.65,'Chiron contain bounds should retain its compact source silhouette');
-const mary=R.LIVERIES['aston-martin-valkyrie-mary'];assert.equal(mary.name,'Mary');assert.equal(mary.category,'lux');assert.equal(mary.price,280000);assert.equal(mary.bodyColor.toLowerCase(),'#ff3fae');
-const apollo=R.LIVERIES['apollo-evo'];assert.equal(apollo.name,'Apollo EVO');assert.equal(apollo.category,'lux');assert.equal(apollo.price,318000);assert.equal(apollo.limited,true);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].maxSpeed,558);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].turnRate,2.52);assert.equal(apollo.upgrades.speed.step,.028);
+const mary=R.LIVERIES['aston-martin-valkyrie-mary'];assert.equal(mary.name,'Mary');assert.equal(mary.category,'lux');assert.equal(mary.price,350000);assert.equal(mary.bodyColor.toLowerCase(),'#ff3fae');
+const apollo=R.LIVERIES['apollo-evo'];assert.equal(apollo.name,'Apollo EVO');assert.equal(apollo.category,'lux');assert.equal(apollo.price,397500);assert.equal(apollo.limited,true);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].maxSpeed,558);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].turnRate,2.52);assert.equal(apollo.upgrades.speed.step,.028);
 const r8=R.LIVERIES['audi-r8'];assert.equal(r8.brownVisual,true);assert.match(r8.bodyColor,/^#5a3527$/i);
 for(const legacy of ['apexLime','crimsonVelocity','iceVector','auroraPulse'])assert.ok(R.LIVERIES[legacy]?.legacy&&R.LIVERIES[legacy]?.shopHidden,`legacy ${legacy} support missing`);
 let old=R.normalizeSave({credits:777,ownedLiveries:['apexLime','crimsonVelocity','porsche-911'],ownedEffects:['standard','redFlame'],selectedLivery:'porsche-911',selectedEffect:'redFlame',bestScore:99,bestLap:1234,maxLaps:8,botCount:13,raceLaps:15,difficulty:'hard',trackId:'neonHarbor',controlMode:'wheel',tiltSensitivity:'high',muted:true});
