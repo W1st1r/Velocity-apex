@@ -3,6 +3,7 @@ import {currentSession,requireAdmin,ensureAdminSchema,accountDetail,audit,mutate
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const now=()=>Date.now();
 const DAY_MS=86400000;
+const ADMIN_DAY_OFFSET_MS=3*60*60*1000;
 const RANKS=Object.freeze({
   1:{name:'HELPER',label:'Helper',norm:12,base:600,maxMuteMs:0,maxBanMs:0},
   2:{name:'MODER',label:'Moder',norm:16,base:1200,maxMuteMs:60*60*1000,maxBanMs:0},
@@ -12,8 +13,9 @@ const RANKS=Object.freeze({
 });
 const schema=new WeakMap();
 
-function dayKey(ts=now()){return new Date(ts).toISOString().slice(0,10);}
-function dayStart(ts=now()){const d=new Date(ts);d.setUTCHours(0,0,0,0);return d.getTime();}
+function dayKey(ts=now()){return new Date(ts+ADMIN_DAY_OFFSET_MS).toISOString().slice(0,10);}
+function dayBounds(day=dayKey()){const start=Date.parse(day+'T00:00:00.000Z')-ADMIN_DAY_OFFSET_MS;return {start,end:start+DAY_MS};}
+function dayStart(ts=now()){return dayBounds(dayKey(ts)).start;}
 function clean(v,max=4000){return String(v||'').trim().replace(/\r/g,'').slice(0,max);}
 function safeCategory(v){return clean(v,48).replace(/[^\p{L}\p{N}_\- ]/gu,'').slice(0,48)||'Другое';}
 function publicTicket(row){
@@ -82,15 +84,37 @@ async function ticketRow(env,id){return env.DB.prepare(`SELECT t.*,ru.username r
 async function ticketMessages(env,id){const r=await env.DB.prepare(`SELECT m.id,m.author_user_id,m.author_role,m.message,m.created_at,u.username FROM support_messages m JOIN users u ON u.id=m.author_user_id WHERE m.ticket_id=? ORDER BY m.created_at ASC LIMIT 200`).bind(id).all();return (r.results||[]).map(x=>({id:Number(x.id),authorId:x.author_user_id,author:x.username,role:x.author_role,message:x.message,createdAt:Number(x.created_at)||0}));}
 async function activeWarnings(env,userId){const r=await env.DB.prepare('SELECT id,reason,created_at FROM staff_admin_warnings WHERE user_id=? AND active=1 ORDER BY created_at DESC').bind(userId).all();return (r.results||[]).map(x=>({id:x.id,reason:x.reason,createdAt:Number(x.created_at)||0}));}
 async function dailyWork(env,userId,day=dayKey()){const row=await env.DB.prepare('SELECT * FROM staff_daily_work WHERE user_id=? AND day=?').bind(userId,day).first();return {questions:Number(row?.questions_closed)||0,reports:Number(row?.reports_closed)||0,activeMs:Number(row?.active_ms)||0,reopened:Number(row?.reopened)||0,reversed:Number(row?.reversed_actions)||0};}
+async function handledTickets(env,userId,start,end){
+  try{const r=await env.DB.prepare(`SELECT
+      SUM(CASE WHEN type='question' THEN 1 ELSE 0 END) questions,
+      SUM(CASE WHEN type='player' THEN 1 ELSE 0 END) reports
+    FROM support_tickets
+    WHERE assigned_admin_id=? AND closed_at>=? AND closed_at<? AND status IN ('resolved','rejected') AND type IN ('question','player')`).bind(userId,start,end).first();
+    return {questions:Number(r?.questions)||0,reports:Number(r?.reports)||0};
+  }catch{return {questions:0,reports:0};}
+}
 async function verifiedReferrals(env,userId,start=dayStart(),end=start+DAY_MS){
-  try{const r=await env.DB.prepare(`SELECT COUNT(*) n FROM referrals r JOIN owner_activity a ON a.user_id=r.invited_user_id WHERE r.inviter_user_id=? AND r.status='rewarded' AND r.created_at>=? AND r.created_at<? AND a.total_ms>=1800000`).bind(userId,start,end).first();return Number(r?.n)||0;}catch{return 0;}
+  try{const r=await env.DB.prepare(`SELECT COUNT(*) n FROM referrals WHERE inviter_user_id=? AND status='rewarded' AND created_at>=? AND created_at<?`).bind(userId,start,end).first();return Number(r?.n)||0;}catch{return 0;}
 }
 async function workSnapshot(env,userId,level,day=dayKey()){
-  const work=await dailyWork(env,userId,day),start=Date.parse(day+'T00:00:00.000Z'),refs=await verifiedReferrals(env,userId,start,start+DAY_MS);
-  const onlinePoints=Math.min(4,Math.floor(work.activeMs/(30*60*1000))),refPoints=Math.min(3,refs),points=Math.max(0,work.questions+work.reports*2+onlinePoints+refPoints-work.reversed*2-work.reopened);
-  return {day,level,questions:work.questions,reports:work.reports,activeMs:work.activeMs,referrals:refs,onlinePoints,referralPoints:refPoints,reopened:work.reopened,reversedActions:work.reversed,points,...salaryFor(level,points)};
+  const work=await dailyWork(env,userId,day),bounds=dayBounds(day),handled=await handledTickets(env,userId,bounds.start,bounds.end),refs=await verifiedReferrals(env,userId,bounds.start,bounds.end);
+  const questions=handled.questions,reports=handled.reports,onlinePoints=Math.min(4,Math.floor(work.activeMs/(30*60*1000))),refPoints=Math.min(3,refs),points=Math.max(0,questions+reports*2+onlinePoints+refPoints-work.reversed*2-work.reopened);
+  return {day,dayStart:bounds.start,dayEnd:bounds.end,timezone:'UTC+03:00',level,questions,reports,activeMs:work.activeMs,referrals:refs,onlinePoints,referralPoints:refPoints,reopened:work.reopened,reversedActions:work.reversed,points,...salaryFor(level,points)};
 }
 async function bumpClosed(env,userId,type){const day=dayKey(),q=type==='question'?1:0,r=type==='player'?1:0,t=now();await env.DB.prepare(`INSERT INTO staff_daily_work (user_id,day,questions_closed,reports_closed,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET questions_closed=questions_closed+excluded.questions_closed,reports_closed=reports_closed+excluded.reports_closed,updated_at=excluded.updated_at`).bind(userId,day,q,r,t).run();}
+export async function recordStaffRuntimeHeartbeat(env,userId,t=now()){
+  if(!env?.DB||!userId)return {staff:false,addedMs:0};
+  await ensureAdminSystem(env);
+  const staff=await env.DB.prepare('SELECT 1 ok FROM staff_admins WHERE user_id=? AND active=1 LIMIT 1').bind(userId).first();
+  if(!staff)return {staff:false,addedMs:0};
+  const day=dayKey(t),p=await env.DB.prepare('SELECT last_heartbeat,last_day FROM staff_presence WHERE user_id=?').bind(userId).first();
+  let delta=0;if(p&&p.last_day===day){const d=t-Number(p.last_heartbeat||0);if(d>0&&d<=90000)delta=Math.min(d,60000);}
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO staff_presence (user_id,last_heartbeat,last_day) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET last_heartbeat=excluded.last_heartbeat,last_day=excluded.last_day').bind(userId,t,day),
+    env.DB.prepare('INSERT INTO staff_daily_work (user_id,day,active_ms,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET active_ms=active_ms+excluded.active_ms,updated_at=excluded.updated_at').bind(userId,day,delta,t)
+  ]);
+  return {staff:true,day,addedMs:delta};
+}
 async function addMessage(env,ticketId,user,role,message){const text=clean(message,2000);if(!text)return;await env.DB.prepare('INSERT INTO support_messages (ticket_id,author_user_id,author_role,message,created_at) VALUES (?,?,?,?,?)').bind(ticketId,user.id,role,text,now()).run();}
 
 async function supportRoutes(request,env,url){
@@ -118,12 +142,7 @@ async function supportRoutes(request,env,url){
 
 async function staffRoutes(request,env,url){
   const access=await requireStaff(env,request,1);if(access.error)return access.error;const me=access.session.user,level=access.level;
-  if(url.pathname==='/api/staff-admin/heartbeat'&&request.method==='POST'){
-    const t=now(),day=dayKey(t),p=await env.DB.prepare('SELECT last_heartbeat,last_day FROM staff_presence WHERE user_id=?').bind(me.id).first();let delta=0;if(p&&p.last_day===day){const d=t-Number(p.last_heartbeat||0);if(d>0&&d<=90000)delta=Math.min(d,60000);}await env.DB.batch([
-      env.DB.prepare('INSERT INTO staff_presence (user_id,last_heartbeat,last_day) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET last_heartbeat=excluded.last_heartbeat,last_day=excluded.last_day').bind(me.id,t,day),
-      env.DB.prepare('INSERT INTO staff_daily_work (user_id,day,active_ms,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id,day) DO UPDATE SET active_ms=active_ms+excluded.active_ms,updated_at=excluded.updated_at').bind(me.id,day,delta,t)
-    ]);return json({ok:true,addedMs:delta});
-  }
+  if(url.pathname==='/api/staff-admin/heartbeat'&&request.method==='POST'){const beat=await recordStaffRuntimeHeartbeat(env,me.id);return json({ok:true,addedMs:beat.addedMs,day:beat.day});}
   if(url.pathname==='/api/staff-admin/dashboard'&&request.method==='GET'){
     const qTypes=level>=2?['question','player']:['question'];const placeholders=qTypes.map(()=>'?').join(',');const r=await env.DB.prepare(`SELECT t.*,ru.username reporter_username,tu.username target_username,au.username target_admin_username,sa.username assigned_admin_username FROM support_tickets t JOIN users ru ON ru.id=t.reporter_user_id LEFT JOIN users tu ON tu.id=t.target_user_id LEFT JOIN users au ON au.id=t.target_admin_user_id LEFT JOIN users sa ON sa.id=t.assigned_admin_id WHERE t.type IN (${placeholders}) AND t.status NOT IN ('resolved','rejected') ORDER BY CASE t.status WHEN 'new' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,t.created_at ASC LIMIT 100`).bind(...qTypes).all();const snapshot=await workSnapshot(env,me.id,level);return json({ok:true,staff:{level,rank:RANKS[level],warnings:await activeWarnings(env,me.id)},snapshot,tickets:(r.results||[]).map(publicTicket)});
   }
@@ -154,9 +173,9 @@ async function staffRoutes(request,env,url){
 async function ownerRoutes(request,env,url){
   const access=await requireAdmin(env,request);if(access.error)return access.error;const owner=access.session.user;if(request.method!=='GET'&&!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
   if(url.pathname==='/api/admin-system/owner/summary'&&request.method==='GET'){
-    const today=dayKey(),t=now(),staff=(await env.DB.prepare(`SELECT s.user_id,s.level,s.appointed_at,u.username,u.display_name,p.last_heartbeat FROM staff_admins s JOIN users u ON u.id=s.user_id LEFT JOIN staff_presence p ON p.user_id=s.user_id WHERE s.active=1 ORDER BY s.level DESC,lower(u.username)`).all()).results||[];const rows=[];
+    const today=dayKey(),bounds=dayBounds(today),t=now(),staff=(await env.DB.prepare(`SELECT s.user_id,s.level,s.appointed_at,u.username,u.display_name,p.last_heartbeat FROM staff_admins s JOIN users u ON u.id=s.user_id LEFT JOIN staff_presence p ON p.user_id=s.user_id WHERE s.active=1 ORDER BY s.level DESC,lower(u.username)`).all()).results||[];const rows=[];
     for(const s of staff){const work=await workSnapshot(env,s.user_id,Number(s.level),today),warnings=await activeWarnings(env,s.user_id),reports=await env.DB.prepare("SELECT COUNT(*) n FROM staff_reports WHERE user_id=? AND status='accepted'").bind(s.user_id).first(),rejected=await env.DB.prepare("SELECT COUNT(*) n FROM staff_reports WHERE user_id=? AND status='rejected'").bind(s.user_id).first(),paid=await env.DB.prepare("SELECT COALESCE(SUM(paid_amount),0) n FROM staff_reports WHERE user_id=?").bind(s.user_id).first();rows.push({id:s.user_id,username:s.username,displayName:s.display_name,level:Number(s.level),rank:RANKS[Number(s.level)],appointedAt:Number(s.appointed_at)||0,online:Number(s.last_heartbeat||0)>t-90000,warnings,work,acceptedReports:Number(reports?.n)||0,rejectedReports:Number(rejected?.n)||0,totalSalary:Number(paid?.n)||0});}
-    const counts=await env.DB.prepare(`SELECT SUM(CASE WHEN type='player' AND status NOT IN ('resolved','rejected') THEN 1 ELSE 0 END) player_reports,SUM(CASE WHEN type='question' AND status NOT IN ('resolved','rejected') THEN 1 ELSE 0 END) questions,SUM(CASE WHEN type='admin' AND status NOT IN ('resolved','rejected') THEN 1 ELSE 0 END) admin_reports FROM support_tickets`).first();const pending=await env.DB.prepare("SELECT COUNT(*) n FROM staff_reports WHERE status='pending'").first();return json({ok:true,summary:{online:rows.filter(x=>x.online).length,total:rows.length,playerReports:Number(counts?.player_reports)||0,questions:Number(counts?.questions)||0,pendingReports:Number(pending?.n)||0,adminComplaints:Number(counts?.admin_reports)||0},staff:rows});
+    const counts=await env.DB.prepare(`SELECT SUM(CASE WHEN type='player' AND status NOT IN ('resolved','rejected') THEN 1 ELSE 0 END) player_reports,SUM(CASE WHEN type='question' AND status NOT IN ('resolved','rejected') THEN 1 ELSE 0 END) questions,SUM(CASE WHEN type='admin' AND status NOT IN ('resolved','rejected') THEN 1 ELSE 0 END) admin_reports FROM support_tickets`).first();const pending=await env.DB.prepare("SELECT COUNT(*) n FROM staff_reports WHERE status='pending'").first();return json({ok:true,summary:{online:rows.filter(x=>x.online).length,total:rows.length,playerReports:Number(counts?.player_reports)||0,questions:Number(counts?.questions)||0,pendingReports:Number(pending?.n)||0,adminComplaints:Number(counts?.admin_reports)||0,day:today,dayStart:bounds.start,dayEnd:bounds.end,timezone:'UTC+03:00'},staff:rows});
   }
   if(url.pathname==='/api/admin-system/owner/assign'&&request.method==='POST'){const b=await readBody(request),level=Number(b.level),target=await userByUsername(env,b.username);if(!target)return json({error:'USER_NOT_FOUND'},404);if(target.id===owner.id)return json({error:'OWNER_ALREADY_PRIVILEGED'},400);if(!RANKS[level])return json({error:'INVALID_LEVEL'},400);const t=now(),before=await env.DB.prepare('SELECT level,active FROM staff_admins WHERE user_id=?').bind(target.id).first();await env.DB.prepare(`INSERT INTO staff_admins (user_id,level,active,appointed_at,updated_at,appointed_by) VALUES (?,?,1,?,?,?) ON CONFLICT(user_id) DO UPDATE SET level=excluded.level,active=1,updated_at=excluded.updated_at,appointed_by=excluded.appointed_by`).bind(target.id,level,t,t,owner.id).run();await audit(env,owner.id,target.id,before?'admin_rank_change':'admin_appointed',{before:before?Number(before.level):0,after:level});return json({ok:true});}
   const rank=url.pathname.match(/^\/api\/admin-system\/owner\/staff\/([0-9a-f-]{16,64})\/rank$/i);if(rank&&request.method==='POST'){const b=await readBody(request),level=Number(b.level);if(!RANKS[level])return json({error:'INVALID_LEVEL'},400);const prev=await env.DB.prepare('SELECT level FROM staff_admins WHERE user_id=? AND active=1').bind(rank[1]).first();if(!prev)return json({error:'STAFF_NOT_FOUND'},404);await env.DB.prepare('UPDATE staff_admins SET level=?,updated_at=? WHERE user_id=?').bind(level,now(),rank[1]).run();await audit(env,owner.id,rank[1],'admin_rank_change',{before:Number(prev.level),after:level});return json({ok:true});}
@@ -190,4 +209,4 @@ export async function handleAdminSystemRequest(request,env,url=new URL(request.u
   try{await ensureAdminSystem(env);if(url.pathname.startsWith('/api/support/'))return supportRoutes(request,env,url);if(url.pathname.startsWith('/api/staff-admin/'))return staffRoutes(request,env,url);if(url.pathname.startsWith('/api/admin-system/owner/'))return ownerRoutes(request,env,url);return json({error:'NOT_FOUND'},404);}catch(e){console.error('admin-system',e);return json({error:'ADMIN_SYSTEM_ERROR'},500);}
 }
 
-export {RANKS,salaryFor,workSnapshot};
+export {RANKS,salaryFor,workSnapshot,dayKey,dayBounds};

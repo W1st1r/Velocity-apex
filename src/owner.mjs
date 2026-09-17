@@ -2,6 +2,7 @@ import {CARS} from './car-catalog.mjs';
 import {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse} from './auth.mjs';
 import {getProgression,setProgressionLevel} from './progression.mjs';
 import {queryGameLogs,ensureGameLogs} from './logs.mjs';
+import {recordStaffRuntimeHeartbeat} from './admin-system.mjs';
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json','cache-control':'no-store'}});
 const schema=new WeakMap();
 export async function ensureOwner(env){if(!env.DB)return;let p=schema.get(env.DB);if(!p){p=env.DB.batch([
@@ -28,6 +29,7 @@ export async function ownerRequest(request,env,url){
   if(cfg.maintenance&&!session.user.isAdmin)return json({error:'MAINTENANCE'},503);
   const b=await request.json(),locations=['menu','garage','shop','racing','drift','online','freeroam','settings','owner','paused'];const location=locations.includes(b.location)?b.location:'menu';
   await env.DB.prepare(`INSERT INTO owner_activity VALUES (?,?,?,0,?) ON CONFLICT(user_id) DO UPDATE SET total_ms=total_ms+CASE WHEN ?>seen AND ?-seen<=45000 THEN ?-seen ELSE 0 END,seen=MAX(seen,?),location=?`).bind(id,t,location,t,t,t,t,t,location).run();
+  await recordStaffRuntimeHeartbeat(env,id,t);
   const grants=(await env.DB.prepare('SELECT car_id FROM owner_grants').all()).results||[];
   // Grant lazily to every account, including accounts offline at the time of issuance.
   if(grants.length){const d=await accountDetail(env,id);if(grants.some(g=>!d.save.ownedLiveries.includes(g.car_id)))await mutateTargetSave(env,id,s=>{s.ownedLiveries=Array.from(new Set([...(s.ownedLiveries||['apexLime']),...grants.map(g=>g.car_id)]));});}
