@@ -1,0 +1,19 @@
+set -e
+cd /workspaces/Velocity-apex
+rm -rf velocity-apex-v65-release
+mkdir -p velocity-apex-v65-release
+unzip -oq 'Velocity-Apex-Online-NetSmooth-V65.zip' -d velocity-apex-v65-release
+cd velocity-apex-v65-release
+npm install
+node --check public/js/network.js
+node --check public/js/freeroam.js
+node --check src/worker.mjs
+node tests/online_network_test.js
+node tests/network_smoothing_v65_test.mjs
+node tests/free_network_v24_test.mjs
+node tests/free_minigames_v21_test.mjs
+node tests/free_minigames_v22_quality_test.mjs
+node tests/free_football_v33_test.mjs
+node tests/free_football_smooth_v61_test.mjs
+node tests/free_drag_sync_test.mjs
+npx wrangler deploy --config "$PWD/wrangler.jsonc"

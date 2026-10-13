@@ -1,0 +1,22 @@
+Velocity Apex V62 — Upgrade Odds + Border Landing
+
+Загрузите Velocity-Apex-Garage-Upgrade-Odds-Border-V62.zip в корень проекта Codespaces (/workspaces/Velocity-apex), затем вставьте:
+
+set -e
+cd /workspaces/Velocity-apex
+rm -rf velocity-apex-v62-release
+mkdir -p velocity-apex-v62-release
+unzip -oq 'Velocity-Apex-Garage-Upgrade-Odds-Border-V62.zip' -d velocity-apex-v62-release
+cd velocity-apex-v62-release
+test -f wrangler.jsonc
+grep -q 'upgrade=20260920-v62' public/index.html
+npm install
+node tests/garage_upgrade_v62_odds_boundary_test.mjs
+node tests/garage_upgrade_v52_test.mjs
+node tests/garage_layout_v54_test.mjs
+node tests/garage_nav_v56_test.mjs
+node tests/garage_confirm_v57_test.mjs
+node tests/free_football_smooth_v61_test.mjs
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+Изменение базы данных для V62 не требуется.

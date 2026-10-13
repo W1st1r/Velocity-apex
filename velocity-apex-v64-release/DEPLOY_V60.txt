@@ -1,0 +1,18 @@
+Velocity Apex V60 — Garage Upgrade visual odds x4.5; real server odds unchanged.
+
+Upload Velocity-Apex-Garage-Upgrade-Visual-Odds-V60.zip to the Codespaces workspace root, then paste:
+
+set -e
+cd /workspaces/Velocity-apex
+rm -rf velocity-apex-v60-release
+mkdir -p velocity-apex-v60-release
+unzip -oq "Velocity-Apex-Garage-Upgrade-Visual-Odds-V60.zip" -d velocity-apex-v60-release
+cd velocity-apex-v60-release
+grep -q 'chanceDivisor:6' src/upgrade-config.mjs
+grep -q 'UPGRADE_VISUAL_MULTIPLIER=4.5' public/js/garage.js
+node tests/garage_upgrade_v60_visual_odds_test.mjs
+npm install
+npm test
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+No database migration is required. Cloudflare login must already be configured.

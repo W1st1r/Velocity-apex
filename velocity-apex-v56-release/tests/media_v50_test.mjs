@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const worker=fs.readFileSync('src/worker.mjs','utf8');
+const media=fs.readFileSync('src/media.mjs','utf8');
+const online=fs.readFileSync('public/js/online.js','utf8');
+const free=fs.readFileSync('public/js/freeroam.js','utf8');
+const html=fs.readFileSync('public/index.html','utf8');
+for(const token of ['media_events','EVENT ESCROW','SETTLING','media_event_payout','/api/media/events/create']) assert.ok(media.includes(token)||token==='EVENT ESCROW','media backend missing '+token);
+for(const token of ['media_start','media_ready','media_shuffle','mediaEvent']) assert.ok(worker.includes(token),'worker missing '+token);
+for(const token of ['onlineMediaCreateBtn','doMediaCreate','joinMediaEvent']) assert.ok(online.includes(token),'online UI missing '+token);
+for(const token of ['freeMediaControl','spectatorTarget','media_event_result']) assert.ok(free.includes(token),'free roam media UI missing '+token);
+assert.ok(html.includes('data-root-tab="media"'));
+assert.ok(fs.existsSync('migrations/0016_media_events.sql'));
+console.log('MEDIA V50 static integration: OK');

@@ -465,11 +465,19 @@
     if(state!=='paused')return;resetInput();audio.init();state='racing';UI.pause.classList.add('hidden');UI.controls.classList.remove('hidden');controlInput.setActive(true);setPauseButton(true,true);last=performance.now();if(player)audio.updateEngine(player.speed,0,true);
   }
   function restartRace(){if(raceMode==='online')return;countdownToken++;resetInput();audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.finish.classList.add('hidden');startRace();}
+
+  function openTelegramChannel(){
+    const url='https://t.me/wistirapex';
+    try{
+      const win=window.open(url,'_blank','noopener,noreferrer');
+      if(win)win.opener=null;else window.location.href=url;
+    }catch(_){window.location.href=url;}
+  }
   function mainMenu(){
     countdownToken++;resetInput();persistRecords();if(raceMode==='online'&&window.VelocityOnline){window.VelocityOnline.leave();resetOnlineMode();}state='menu';audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.countdown.classList.add('hidden');UI.menu.classList.remove('hidden');UI.toasts.replaceChildren();showRaceUI(false);loadLocalSettings('normal');loadTrack();controlInput.setDriftMode(false);updateMenuStats();if(deferredAccountSave){const pending=deferredAccountSave;deferredAccountSave=null;applyAccountSave(pending);}last=performance.now();
   }
 
-  bindTap(UI.play,openModeSelect);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>chooseLocalMode('normal'));bindTap(UI.driftMode,()=>chooseLocalMode('drift'));bindTap(UI.careerMode,()=>chooseLocalMode('career'));bindTap(UI.careerBack,closeCareer);bindTap(UI.careerStart,startCareer);bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.pauseControlsBtn,openControlLayoutFromPause);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,()=>localMode==='career'?backToCareerFromFinish():mainMenu());bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);
+  bindTap(UI.play,openModeSelect);bindTap($('telegramBanner'),openTelegramChannel);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>chooseLocalMode('normal'));bindTap(UI.driftMode,()=>chooseLocalMode('drift'));bindTap(UI.careerMode,()=>chooseLocalMode('career'));bindTap(UI.careerBack,closeCareer);bindTap(UI.careerStart,startCareer);bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.pauseControlsBtn,openControlLayoutFromPause);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,()=>localMode==='career'?backToCareerFromFinish():mainMenu());bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);
   UI.controlModeSelector.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>selectControlMode(btn.dataset.controlMode)));
   UI.tiltSensitivitySelector.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>{controlInput.setSensitivity(btn.dataset.tiltSensitivity);settingsNotice='';settingsNoticeKind='';syncSettingsUI();}));
   const keyMap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'gas',KeyW:'gas',ArrowDown:'brake',KeyS:'brake',Space:'handbrake'};

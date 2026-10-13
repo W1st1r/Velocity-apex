@@ -28,7 +28,7 @@ export const CARS={
   },
   "crimsonVelocity": {
     "name": "CRIMSON VELOCITY",
-    "price": 1750,
+    "price": 2750,
     "category": "basic",
     "maxSpeed": 304,
     "accel": 194,
@@ -55,7 +55,7 @@ export const CARS={
   },
   "iceVector": {
     "name": "ICE VECTOR",
-    "price": 4000,
+    "price": 6250,
     "category": "basic",
     "maxSpeed": 309,
     "accel": 198,
@@ -82,7 +82,7 @@ export const CARS={
   },
   "auroraPulse": {
     "name": "AURORA PULSE",
-    "price": 8125,
+    "price": 12500,
     "category": "basic",
     "maxSpeed": 319,
     "accel": 207,
@@ -109,7 +109,7 @@ export const CARS={
   },
   "vw-golf-gti": {
     "name": "Volkswagen Golf GTI",
-    "price": 3500,
+    "price": 5500,
     "category": "basic",
     "maxSpeed": 308,
     "accel": 197,
@@ -136,7 +136,7 @@ export const CARS={
   },
   "honda-civic-type-r": {
     "name": "Honda Civic Type R",
-    "price": 6500,
+    "price": 10000,
     "category": "basic",
     "maxSpeed": 315,
     "accel": 203,
@@ -163,7 +163,7 @@ export const CARS={
   },
   "toyota-gt86": {
     "name": "Toyota GT86",
-    "price": 5250,
+    "price": 8250,
     "category": "basic",
     "maxSpeed": 312,
     "accel": 201,
@@ -190,7 +190,7 @@ export const CARS={
   },
   "ford-mustang-gt": {
     "name": "Ford Mustang GT",
-    "price": 14750,
+    "price": 22750,
     "category": "basic",
     "maxSpeed": 335,
     "accel": 220,
@@ -217,7 +217,7 @@ export const CARS={
   },
   "subaru-wrx-sti": {
     "name": "Subaru WRX STI",
-    "price": 11500,
+    "price": 17750,
     "category": "basic",
     "maxSpeed": 327,
     "accel": 213,
@@ -244,7 +244,7 @@ export const CARS={
   },
   "bmw-330i": {
     "name": "BMW 330i",
-    "price": 9375,
+    "price": 14500,
     "category": "basic",
     "maxSpeed": 322,
     "accel": 209,
@@ -271,7 +271,7 @@ export const CARS={
   },
   "bmw-m5-f90": {
     "name": "BMW M5 F90",
-    "price": 35000,
+    "price": 56000,
     "category": "sport",
     "maxSpeed": 371,
     "accel": 251,
@@ -298,7 +298,7 @@ export const CARS={
   },
   "mercedes-cls-63-amg": {
     "name": "Mercedes-Benz CLS 63 AMG",
-    "price": 20625,
+    "price": 33000,
     "category": "sport",
     "maxSpeed": 350,
     "accel": 230,
@@ -325,7 +325,7 @@ export const CARS={
   },
   "bmw-m4-competition": {
     "name": "BMW M4 Competition",
-    "price": 27500,
+    "price": 44000,
     "category": "sport",
     "maxSpeed": 360,
     "accel": 240,
@@ -352,7 +352,7 @@ export const CARS={
   },
   "mercedes-amg-c63-s": {
     "name": "Mercedes-AMG C63 S",
-    "price": 30625,
+    "price": 49000,
     "category": "sport",
     "maxSpeed": 364,
     "accel": 244,
@@ -379,7 +379,7 @@ export const CARS={
   },
   "audi-rs5": {
     "name": "Audi RS5",
-    "price": 23750,
+    "price": 38000,
     "category": "sport",
     "maxSpeed": 354,
     "accel": 234,
@@ -406,7 +406,7 @@ export const CARS={
   },
   "nissan-gtr-r35": {
     "name": "Nissan GT-R R35",
-    "price": 45000,
+    "price": 72000,
     "category": "sport",
     "maxSpeed": 385,
     "accel": 265,
@@ -433,7 +433,7 @@ export const CARS={
   },
   "chevrolet-corvette-c8": {
     "name": "Chevrolet Corvette C8",
-    "price": 40000,
+    "price": 64000,
     "category": "sport",
     "maxSpeed": 378,
     "accel": 258,
@@ -460,7 +460,7 @@ export const CARS={
   },
   "porsche-911": {
     "name": "Porsche 911 Turbo S",
-    "price": 85000,
+    "price": 144500,
     "category": "premium",
     "maxSpeed": 430,
     "accel": 310,
@@ -487,7 +487,7 @@ export const CARS={
   },
   "mercedes-amg-gt-63-s": {
     "name": "Mercedes-AMG GT 63 S",
-    "price": 71250,
+    "price": 121000,
     "category": "premium",
     "maxSpeed": 417,
     "accel": 295,
@@ -514,7 +514,7 @@ export const CARS={
   },
   "bmw-m8-competition": {
     "name": "BMW M8 Competition",
-    "price": 65000,
+    "price": 110500,
     "category": "premium",
     "maxSpeed": 411,
     "accel": 288,
@@ -541,7 +541,7 @@ export const CARS={
   },
   "bentley-continental-gt": {
     "name": "Bentley Continental GT",
-    "price": 58750,
+    "price": 100000,
     "category": "premium",
     "maxSpeed": 405,
     "accel": 281,
@@ -568,7 +568,7 @@ export const CARS={
   },
   "aston-martin-vantage": {
     "name": "Aston Martin Vantage",
-    "price": 53750,
+    "price": 91500,
     "category": "premium",
     "maxSpeed": 400,
     "accel": 275,
@@ -595,7 +595,7 @@ export const CARS={
   },
   "maserati-mc20": {
     "name": "Maserati MC20",
-    "price": 77500,
+    "price": 132000,
     "category": "premium",
     "maxSpeed": 423,
     "accel": 302,
@@ -622,7 +622,7 @@ export const CARS={
   },
   "audi-r8": {
     "name": "Audi R8",
-    "price": 97500,
+    "price": 170500,
     "category": "rare",
     "maxSpeed": 445,
     "accel": 320,
@@ -649,7 +649,7 @@ export const CARS={
   },
   "lamborghini-huracan": {
     "name": "Lamborghini Huracán",
-    "price": 115000,
+    "price": 201500,
     "category": "rare",
     "maxSpeed": 453,
     "accel": 328,
@@ -676,7 +676,7 @@ export const CARS={
   },
   "ferrari-488-gtb": {
     "name": "Ferrari 488 GTB",
-    "price": 107500,
+    "price": 188000,
     "category": "rare",
     "maxSpeed": 449,
     "accel": 324,
@@ -703,7 +703,7 @@ export const CARS={
   },
   "mclaren-720s": {
     "name": "McLaren 720S",
-    "price": 126250,
+    "price": 221000,
     "category": "rare",
     "maxSpeed": 458,
     "accel": 333,
@@ -730,7 +730,7 @@ export const CARS={
   },
   "porsche-918-spyder": {
     "name": "Porsche 918 Spyder",
-    "price": 165000,
+    "price": 289000,
     "category": "rare",
     "maxSpeed": 475,
     "accel": 350,
@@ -757,7 +757,7 @@ export const CARS={
   },
   "lamborghini-aventador": {
     "name": "Lamborghini Aventador",
-    "price": 140000,
+    "price": 245000,
     "category": "rare",
     "maxSpeed": 464,
     "accel": 339,
@@ -784,7 +784,7 @@ export const CARS={
   },
   "ford-gt": {
     "name": "Ford GT",
-    "price": 151250,
+    "price": 264500,
     "category": "rare",
     "maxSpeed": 469,
     "accel": 344,
@@ -811,7 +811,7 @@ export const CARS={
   },
   "bugatti-veyron": {
     "name": "Bugatti Veyron",
-    "price": 260000,
+    "price": 481000,
     "category": "legendary",
     "maxSpeed": 515,
     "accel": 385,
@@ -838,7 +838,7 @@ export const CARS={
   },
   "ferrari-enzo": {
     "name": "Ferrari Enzo",
-    "price": 197500,
+    "price": 365500,
     "category": "legendary",
     "maxSpeed": 495,
     "accel": 365,
@@ -865,7 +865,7 @@ export const CARS={
   },
   "mclaren-p1": {
     "name": "McLaren P1",
-    "price": 245000,
+    "price": 453500,
     "category": "legendary",
     "maxSpeed": 510,
     "accel": 380,
@@ -892,7 +892,7 @@ export const CARS={
   },
   "lamborghini-sian": {
     "name": "Lamborghini Sian",
-    "price": 230000,
+    "price": 425500,
     "category": "legendary",
     "maxSpeed": 505,
     "accel": 375,
@@ -919,7 +919,7 @@ export const CARS={
   },
   "pagani-huayra": {
     "name": "Pagani Huayra",
-    "price": 215000,
+    "price": 398000,
     "category": "legendary",
     "maxSpeed": 501,
     "accel": 371,
@@ -946,7 +946,7 @@ export const CARS={
   },
   "koenigsegg-agera-rs": {
     "name": "Koenigsegg Agera RS",
-    "price": 277500,
+    "price": 513000,
     "category": "legendary",
     "maxSpeed": 520,
     "accel": 390,
@@ -973,7 +973,7 @@ export const CARS={
   },
   "mercedes-benz-slr-mclaren": {
     "name": "Mercedes-Benz SLR McLaren",
-    "price": 181250,
+    "price": 335500,
     "category": "legendary",
     "maxSpeed": 490,
     "accel": 360,
@@ -1000,7 +1000,7 @@ export const CARS={
   },
   "ferrari-laferrari": {
     "name": "Ferrari LaFerrari",
-    "price": 306250,
+    "price": 613000,
     "category": "lux",
     "maxSpeed": 535,
     "accel": 400,
@@ -1027,7 +1027,7 @@ export const CARS={
   },
   "bugatti-chiron-super-sport": {
     "name": "Bugatti Chiron Super Sport",
-    "price": 375000,
+    "price": 750000,
     "category": "lux",
     "maxSpeed": 552,
     "accel": 417,
@@ -1054,7 +1054,7 @@ export const CARS={
   },
   "bugatti-divo": {
     "name": "Bugatti Divo",
-    "price": 343750,
+    "price": 688000,
     "category": "lux",
     "maxSpeed": 544,
     "accel": 409,
@@ -1081,7 +1081,7 @@ export const CARS={
   },
   "koenigsegg-jesko": {
     "name": "Koenigsegg Jesko",
-    "price": 387500,
+    "price": 775000,
     "category": "lux",
     "maxSpeed": 555,
     "accel": 420,
@@ -1108,7 +1108,7 @@ export const CARS={
   },
   "pagani-huayra-bc": {
     "name": "Pagani Huayra BC",
-    "price": 318750,
+    "price": 638000,
     "category": "lux",
     "maxSpeed": 538,
     "accel": 403,
@@ -1135,7 +1135,7 @@ export const CARS={
   },
   "lamborghini-veneno": {
     "name": "Lamborghini Veneno",
-    "price": 356250,
+    "price": 713000,
     "category": "lux",
     "maxSpeed": 547,
     "accel": 412,
@@ -1162,7 +1162,7 @@ export const CARS={
   },
   "mercedes-amg-one": {
     "name": "Mercedes-AMG ONE",
-    "price": 331250,
+    "price": 663000,
     "category": "lux",
     "maxSpeed": 541,
     "accel": 406,
@@ -1189,7 +1189,7 @@ export const CARS={
   },
   "aston-martin-valkyrie-mary": {
     "name": "Mary",
-    "price": 350000,
+    "price": 700000,
     "category": "lux",
     "maxSpeed": 546,
     "accel": 411,
@@ -1216,7 +1216,7 @@ export const CARS={
   },
   "apollo-evo": {
     "name": "Apollo EVO",
-    "price": 397500,
+    "price": 795000,
     "category": "lux",
     "maxSpeed": 558,
     "accel": 428,

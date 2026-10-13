@@ -1,0 +1,6 @@
+rm -rf apex-v37
+mkdir -p apex-v37
+unzip -o "Velocity-Apex-Event-Hubs-V37.zip" -d apex-v37
+cd apex-v37
+npm install
+npx wrangler deploy

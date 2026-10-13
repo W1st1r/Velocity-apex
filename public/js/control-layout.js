@@ -24,6 +24,7 @@
   let beforeOpen=null;
   let pointerId=null;
   let dragKey=null;
+  let openSource='settings';
 
   function sanitizeLayout(raw){
     const source=raw&&typeof raw==='object'?raw:{};
@@ -187,29 +188,37 @@
     $('controlSizeRange')?.addEventListener('input',event=>setScale(Number(event.target.value)/100));
     for(const node of editorNodes()){
       node.addEventListener('pointerdown',event=>startDrag(event,node),{passive:false});
-      node.addEventListener('pointermove',moveDrag,{passive:false});
-      node.addEventListener('pointerup',endDrag,{passive:false});
-      node.addEventListener('pointercancel',endDrag,{passive:false});
-      node.addEventListener('lostpointercapture',endDrag,{passive:false});
-      node.addEventListener('click',event=>{event.preventDefault();setSelected(node.dataset.layoutControl);});
+      node.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();setSelected(node.dataset.layoutControl);});
       node.addEventListener('contextmenu',event=>event.preventDefault());
     }
+    // Track the drag at window level. Safari can lose element-level pointermove events
+    // when a button is moved quickly or under another fixed panel, especially in PWA mode.
+    window.addEventListener('pointermove',moveDrag,{passive:false,capture:true});
+    window.addEventListener('pointerup',endDrag,{passive:false,capture:true});
+    window.addEventListener('pointercancel',endDrag,{passive:false,capture:true});
     addEventListener('resize',()=>{if(opened)renderEditor();},{passive:true});
     addEventListener('orientationchange',()=>setTimeout(()=>{if(opened)renderEditor();},120),{passive:true});
   }
 
-  function openEditor(){
+  function openEditor(options={}){
     if(opened)return;
+    openSource=options&&options.source==='freeRoam'?'freeRoam':'settings';
     savedLayout=readLayout();
     opened=true;changed=false;pointerId=null;dragKey=null;
     beforeOpen=savedLayout?clone(savedLayout.layout):null;
     workingLayout=clone(savedLayout?.layout||DEFAULT_LAYOUT);if(!activeKeys().includes(selectedKey))selectedKey='gas';
-    const settings=$('settings'),editor=$('controlLayoutEditor');
+    const settings=$('settings'),editor=$('controlLayoutEditor'),freeRoam=$('freeRoam');
     settings?.classList.add('layout-editing');
     editor?.classList.remove('hidden');
     editor?.setAttribute('aria-hidden','false');
+    // Free Roam lives on z-index 260. The editor must be above it and the game layer
+    // must not receive touches while the player is moving/resizing controls.
+    if(openSource==='freeRoam'&&freeRoam){
+      freeRoam.classList.add('control-layout-underlay');
+      try{freeRoam.inert=true;}catch(_){}
+    }
     document.body.classList.add('control-layout-editing');
-    window.dispatchEvent(new CustomEvent('velocity-control-layout-open'));
+    window.dispatchEvent(new CustomEvent('velocity-control-layout-open',{detail:{source:openSource}}));
     renderEditor();
   }
 
@@ -218,8 +227,14 @@
     $('settings')?.classList.remove('layout-editing');
     $('controlLayoutEditor')?.classList.add('hidden');
     $('controlLayoutEditor')?.setAttribute('aria-hidden','true');
+    const freeRoam=$('freeRoam');
+    if(freeRoam){
+      freeRoam.classList.remove('control-layout-underlay');
+      try{freeRoam.inert=false;}catch(_){}
+    }
     document.body.classList.remove('control-layout-editing');
-    window.dispatchEvent(new CustomEvent('velocity-control-layout-close'));
+    const source=openSource;openSource='settings';
+    window.dispatchEvent(new CustomEvent('velocity-control-layout-close',{detail:{source}}));
   }
 
   function saveAndClose(){

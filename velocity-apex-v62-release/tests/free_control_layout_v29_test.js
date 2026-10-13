@@ -1,0 +1,14 @@
+const fs=require('fs');
+const path=require('path');
+const root=path.join(__dirname,'..');
+const css=fs.readFileSync(path.join(root,'public/css/style.css'),'utf8');
+const js=fs.readFileSync(path.join(root,'public/js/control-layout.js'),'utf8');
+const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+const zEditor=Number((css.match(/\.control-layout-editor\{[^}]*z-index:(\d+)/)||[])[1]);
+const zFree=Number((css.match(/\.free-roam\{[^}]*z-index:(\d+)/)||[])[1]);
+if(!(zEditor>zFree)) throw new Error(`control editor z-index ${zEditor} must be above free roam ${zFree}`);
+if(!css.includes('body.control-layout-editing #freeRoam{pointer-events:none}')) throw new Error('Free Roam must stop receiving pointer events during layout editing');
+if(!js.includes("freeRoam.inert=true")) throw new Error('Free Roam inert guard missing on editor open');
+if(!js.includes("window.addEventListener('pointermove',moveDrag")) throw new Error('window-level drag tracking missing');
+if(!html.includes('control-layout.js?v=20260918-v29')) throw new Error('control layout cache-bust not updated');
+console.log('Free Roam control layout V29 regression checks passed');

@@ -1,0 +1,16 @@
+Velocity Apex V56 — Garage tabs and mobile layout repair
+
+In the Codespaces terminal, paste the whole block. Put the ZIP at the workspace root shown in the screenshot:
+
+set -e
+cd /workspaces/Velocity-apex
+mkdir -p velocity-apex-v56-release
+unzip -oq "Velocity-Apex-Garage-Upgrade-iPhone-V56.zip" -d velocity-apex-v56-release
+cd velocity-apex-v56-release
+grep -q 'garageNav=20260920-v56' public/index.html
+npm install
+npm test
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+The deploy output must say it reads assets from velocity-apex-v56-release/public.
+No new database migration was added in V56.

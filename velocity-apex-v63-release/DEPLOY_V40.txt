@@ -1,0 +1,6 @@
+rm -rf apex-v40
+mkdir -p apex-v40
+unzip -o "Velocity-Apex-DriftZone-Minigames-V40.zip" -d apex-v40
+cd apex-v40
+npm install
+npx wrangler deploy

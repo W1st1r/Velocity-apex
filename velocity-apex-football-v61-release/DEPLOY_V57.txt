@@ -1,0 +1,15 @@
+Velocity Apex V57 — centered Garage Upgrade confirmation and history
+
+Place Velocity-Apex-Garage-Upgrade-iPhone-V57.zip at the Codespaces workspace root, then paste:
+
+set -e
+cd /workspaces/Velocity-apex
+mkdir -p velocity-apex-v57-release
+unzip -oq "Velocity-Apex-Garage-Upgrade-iPhone-V57.zip" -d velocity-apex-v57-release
+cd velocity-apex-v57-release
+grep -q 'confirm=20260920-v57' public/index.html
+npm install
+npm test
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+The assets path printed during deploy must end in velocity-apex-v57-release/public. This update adds no database migration.

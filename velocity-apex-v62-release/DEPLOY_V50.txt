@@ -1,0 +1,2 @@
+chmod +x deploy_velocity_apex_media_v50.sh
+./deploy_velocity_apex_media_v50.sh Velocity-Apex-FreeRoam-Checkpoint-Center-V50-MEDIA.zip

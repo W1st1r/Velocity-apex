@@ -1,0 +1,9 @@
+Velocity Apex V42 deployment
+
+cd /workspaces/Velocity-apex
+rm -rf apex-v42
+mkdir -p apex-v42
+unzip -o "Velocity-Apex-FreeRoam-Visual-HD-V42.zip" -d apex-v42
+cd apex-v42
+npm install
+npx wrangler deploy --config ./wrangler.jsonc

@@ -1,0 +1,6 @@
+rm -rf apex-v35
+mkdir -p apex-v35
+unzip -o "Velocity-Apex-Free-Roam-Map-Football-UI-V35.zip" -d apex-v35
+cd apex-v35
+npm install
+npx wrangler deploy

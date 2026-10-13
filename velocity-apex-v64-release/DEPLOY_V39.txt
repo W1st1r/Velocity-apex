@@ -1,0 +1,6 @@
+rm -rf apex-v39
+mkdir -p apex-v39
+unzip -o "Velocity-Apex-iPhone-Pause-PWA 2.zip" -d apex-v39
+cd apex-v39
+npm install
+npx wrangler deploy

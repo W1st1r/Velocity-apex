@@ -1,0 +1,7 @@
+rm -rf apex-v32
+mkdir -p apex-v32
+unzip -o "Velocity-Apex-Admin-Hierarchy-V32.zip" -d apex-v32
+cd apex-v32
+npm install
+npx wrangler d1 migrations apply velocity-apex-db --remote
+npx wrangler deploy

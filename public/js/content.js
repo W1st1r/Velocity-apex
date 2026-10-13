@@ -75,98 +75,150 @@
     career10:{id:'career10',name:'BLACK SUMMIT',type:'CAREER 10 / APEX',description:'Финал первой главы: самая узкая и динамичная трасса, где каждая ошибка ломает рекорд.',targetLength:24000,roadWidth:180,curbWidth:7,barrierMargin:34,
       points:points([[-2150,-730],[-1810,-1030],[-1430,-820],[-1160,-500],[-850,-900],[-500,-1140],[-120,-910],[180,-540],[480,-940],[830,-1130],[1180,-850],[1510,-1050],[1900,-890],[2250,-570],[2330,-210],[2100,30],[1770,-100],[1980,220],[2290,470],[2130,770],[1750,1010],[1390,780],[1120,1010],[760,1110],[450,820],[120,1050],[-220,850],[-480,560],[-800,910],[-1160,1010],[-1500,790],[-1800,930],[-2110,650],[-2190,330],[-1940,80],[-2270,-160],[-1910,-430]]),
       theme:{kind:'alpine',ground:'#233b3a',road:'#2f373b',curb:'#9fc6cf',barrier:'#edf4f4',accent:'#ffffff',surface:'grass',drag:1.12,dust:'#a8c0ba'}},
-    career11:{id:'career11',name:'RAIN DISTRICT',type:'CAREER 11 / WET STREET',description:'Мокрый городской маршрут: быстрые дуги, отражающие улицы и серия поздних торможений.',targetLength:25000,roadWidth:178,curbWidth:7,barrierMargin:34,detailLevel:3,
+    career11:{id:'career11',name:'RAIN DISTRICT',type:'CAREER 11 / WET STREET',description:'Мокрый городской маршрут: быстрые дуги, отражающие улицы и серия поздних торможений.',targetLength:25000,roadWidth:178,curbWidth:7,barrierMargin:34,detailLevel:4,
       points:points([[2302,-9],[2442,253],[2297,517],[1561,590],[1284,757],[848,847],[452,927],[23,1060],[-549,1103],[-1032,1043],[-1327,810],[-1788,675],[-2068,480],[-2113,230],[-2163,-8],[-1864,-201],[-1705,-385],[-1567,-586],[-1483,-900],[-1136,-1112],[-536,-1098],[-17,-1048],[444,-980],[964,-972],[1198,-732],[1645,-631],[1859,-423],[2184,-234]]),
       theme:{kind:'neon',ground:'#0b1624',road:'#222a36',curb:'#30d9ed',barrier:'#7c5bd7',accent:'#d765ff',surface:'runoff',drag:.68,dust:'#7895b4'}},
-    career12:{id:'career12',name:'RED CANYON',type:'CAREER 12 / CANYON PRO',description:'Красный каньон с обманчиво быстрыми входами, длинной связкой и жёсткой шпилькой.',targetLength:24947,roadWidth:176,curbWidth:7,barrierMargin:34,detailLevel:3,
+    career12:{id:'career12',name:'RED CANYON',type:'CAREER 12 / CANYON PRO',description:'Красный каньон с обманчиво быстрыми входами, длинной связкой и жёсткой шпилькой.',targetLength:24947,roadWidth:176,curbWidth:7,barrierMargin:34,detailLevel:4,
       points:points([[2156,13],[2098,236],[2312,557],[2012,804],[1795,1088],[1403,1285],[736,1190],[203,1035],[-204,1107],[-688,1133],[-1063,999],[-1627,988],[-1922,775],[-2284,564],[-2579,284],[-2549,-5],[-2467,-287],[-1814,-426],[-1575,-629],[-1299,-773],[-1045,-963],[-712,-1225],[-265,-1439],[300,-1503],[682,-1140],[1165,-1083],[1478,-899],[1832,-739],[2036,-495],[2098,-256]]),
       theme:{kind:'desert',ground:'#a76e42',road:'#323130',curb:'#f09b4f',barrier:'#efc589',accent:'#ff6f3d',surface:'sand',drag:1.48,dust:'#e7b979'}},
-    career13:{id:'career13',name:'FROSTLINE',type:'CAREER 13 / ALPINE PRO',description:'Холодный горный круг: узкие перекладки, слепые дуги и ритмичная серия S-поворотов.',targetLength:24895,roadWidth:175,curbWidth:7,barrierMargin:33,detailLevel:3,
+    career13:{id:'career13',name:'FROSTLINE',type:'CAREER 13 / ALPINE PRO',description:'Холодный горный круг: узкие перекладки, слепые дуги и ритмичная серия S-поворотов.',targetLength:24895,roadWidth:175,curbWidth:7,barrierMargin:33,detailLevel:4,
       points:points([[2375,-2],[2236,198],[2003,369],[1801,559],[1849,868],[1685,1144],[1126,1231],[553,1246],[-3,1081],[-406,969],[-743,808],[-1215,816],[-1724,793],[-2059,641],[-2651,510],[-2486,237],[-2489,2],[-2389,-216],[-2448,-463],[-2014,-610],[-1573,-723],[-1179,-824],[-725,-825],[-437,-1045],[25,-1004],[514,-1261],[1131,-1228],[1530,-1066],[1824,-842],[1919,-594],[2116,-389],[1960,-182]]),
       theme:{kind:'alpine',ground:'#334b49',road:'#30383b',curb:'#a8cad1',barrier:'#eef4f3',accent:'#b7eeff',surface:'grass',drag:1.10,dust:'#aec7c0'}},
-    career14:{id:'career14',name:'OCEAN KNIFE',type:'CAREER 14 / COAST PRO',description:'Побережье с быстрыми гребнями, короткими прямыми и резкими сменами направления.',targetLength:24842,roadWidth:174,curbWidth:7,barrierMargin:33,detailLevel:3,
+    career14:{id:'career14',name:'OCEAN KNIFE',type:'CAREER 14 / COAST PRO',description:'Побережье с быстрыми гребнями, короткими прямыми и резкими сменами направления.',targetLength:24842,roadWidth:174,curbWidth:7,barrierMargin:33,detailLevel:4,
       points:points([[2046,-7],[2064,209],[2170,425],[2142,705],[2180,1057],[1926,1332],[1290,1307],[731,1293],[226,1327],[-232,1257],[-636,1139],[-1046,1110],[-1342,933],[-1599,771],[-2155,694],[-2473,496],[-2789,262],[-2802,-14],[-2998,-275],[-2526,-511],[-2041,-656],[-1616,-776],[-1243,-862],[-1150,-1175],[-627,-1123],[-220,-1386],[216,-1353],[717,-1290],[1193,-1266],[1726,-1177],[2161,-1003],[2225,-704],[2432,-493],[2142,-212]]),
       theme:{kind:'coast',ground:'#196f7d',road:'#354044',curb:'#58c7d0',barrier:'#e3e9df',accent:'#65f2e5',surface:'sand',drag:1.20,dust:'#e4d3ae'}},
-    career15:{id:'career15',name:'INDUSTRIAL LOOP',type:'CAREER 15 / STREET MASTER',description:'Индустриальный сектор: стены близко, торможения поздние, а выходы требуют точной траектории.',targetLength:24789,roadWidth:173,curbWidth:7,barrierMargin:33,detailLevel:3,
+    career15:{id:'career15',name:'INDUSTRIAL LOOP',type:'CAREER 15 / STREET MASTER',description:'Индустриальный сектор: стены близко, торможения поздние, а выходы требуют точной траектории.',targetLength:24789,roadWidth:173,curbWidth:7,barrierMargin:33,detailLevel:4,
       points:points([[1995,2],[2156,219],[2146,432],[1953,609],[1765,800],[1575,997],[1143,1087],[809,1174],[429,1243],[-10,1220],[-315,998],[-657,947],[-953,873],[-1180,759],[-1666,766],[-2082,663],[-2423,476],[-2370,223],[-2373,2],[-2184,-196],[-1851,-368],[-1790,-554],[-1621,-732],[-1484,-946],[-940,-894],[-720,-1100],[-383,-1137],[-19,-1188],[387,-1179],[816,-1229],[1226,-1167],[1500,-974],[1807,-836],[1751,-561],[1760,-340],[1814,-176]]),
       theme:{kind:'neon',ground:'#0b1624',road:'#222a36',curb:'#30d9ed',barrier:'#7c5bd7',accent:'#d765ff',surface:'runoff',drag:.68,dust:'#7895b4'}},
-    career16:{id:'career16',name:'SOLAR DUNES',type:'CAREER 16 / DESERT MASTER',description:'Пустынный скоростной экзамен с длинными дугами и серией затяжных технических поворотов.',targetLength:24737,roadWidth:172,curbWidth:7,barrierMargin:33,detailLevel:3,
+    career16:{id:'career16',name:'SOLAR DUNES',type:'CAREER 16 / DESERT MASTER',description:'Пустынный скоростной экзамен с длинными дугами и серией затяжных технических поворотов.',targetLength:24737,roadWidth:172,curbWidth:7,barrierMargin:33,detailLevel:4,
       points:points([[2316,-9],[2235,231],[2000,428],[1489,510],[1440,759],[1212,1060],[729,1149],[166,1210],[-389,1132],[-856,944],[-1079,706],[-1514,646],[-1877,513],[-2088,314],[-2521,126],[-2271,-107],[-2263,-349],[-1908,-519],[-1852,-785],[-1367,-935],[-744,-861],[-341,-917],[120,-866],[617,-1010],[1020,-872],[1691,-907],[2056,-700],[2194,-474],[2341,-221]]),
       theme:{kind:'desert',ground:'#a76e42',road:'#323130',curb:'#f09b4f',barrier:'#efc589',accent:'#ff6f3d',surface:'sand',drag:1.48,dust:'#e7b979'}},
-    career17:{id:'career17',name:'GLACIER PASS',type:'CAREER 17 / MOUNTAIN ELITE',description:'Горный перевал с чередованием тесных шпилек и участков на максимальной скорости.',targetLength:24684,roadWidth:171,curbWidth:7,barrierMargin:32,detailLevel:3,
+    career17:{id:'career17',name:'GLACIER PASS',type:'CAREER 17 / MOUNTAIN ELITE',description:'Горный перевал с чередованием тесных шпилек и участков на максимальной скорости.',targetLength:24684,roadWidth:171,curbWidth:7,barrierMargin:32,detailLevel:4,
       points:points([[2928,3],[2551,263],[2132,479],[1661,600],[1499,817],[1233,1040],[779,1099],[385,1209],[-140,1250],[-643,1270],[-1042,1117],[-1728,1141],[-2044,920],[-2183,634],[-2243,372],[-2023,95],[-2152,-125],[-2049,-343],[-2236,-632],[-2037,-910],[-1657,-1128],[-1094,-1160],[-591,-1239],[-144,-1364],[329,-1121],[811,-1090],[1139,-944],[1443,-793],[1916,-673],[2439,-530],[2777,-307]]),
       theme:{kind:'alpine',ground:'#334b49',road:'#30383b',curb:'#a8cad1',barrier:'#eef4f3',accent:'#b7eeff',surface:'grass',drag:1.10,dust:'#aec7c0'}},
-    career18:{id:'career18',name:'NIGHT GRID',type:'CAREER 18 / NIGHT MASTER',description:'Плотная ночная сетка улиц: короткий разгон, мгновенное торможение и двойные апексы.',targetLength:24632,roadWidth:170,curbWidth:7,barrierMargin:32,detailLevel:3,
+    career18:{id:'career18',name:'NIGHT GRID',type:'CAREER 18 / NIGHT MASTER',description:'Плотная ночная сетка улиц: короткий разгон, мгновенное торможение и двойные апексы.',targetLength:24632,roadWidth:170,curbWidth:7,barrierMargin:32,detailLevel:4,
       points:points([[2679,-5],[2868,257],[2929,501],[2315,646],[1909,801],[1500,927],[914,855],[520,914],[92,1032],[-366,1113],[-744,966],[-1320,993],[-1786,882],[-2154,748],[-2758,607],[-2810,371],[-2671,104],[-2033,-85],[-2031,-270],[-1752,-384],[-1765,-596],[-1748,-882],[-1499,-1119],[-1055,-1336],[-389,-1124],[134,-1203],[592,-1060],[1056,-1023],[1365,-831],[1771,-729],[1850,-513],[1970,-347],[2465,-202]]),
       theme:{kind:'neon',ground:'#0b1624',road:'#222a36',curb:'#30d9ed',barrier:'#7c5bd7',accent:'#d765ff',surface:'runoff',drag:.68,dust:'#7895b4'}},
-    career19:{id:'career19',name:'TEMPEST COAST',type:'CAREER 19 / GT ELITE',description:'Штормовое побережье с быстрыми связками и узкими выходами после длинных торможений.',targetLength:24579,roadWidth:169,curbWidth:7,barrierMargin:32,detailLevel:3,
+    career19:{id:'career19',name:'TEMPEST COAST',type:'CAREER 19 / GT ELITE',description:'Штормовое побережье с быстрыми связками и узкими выходами после длинных торможений.',targetLength:24579,roadWidth:169,curbWidth:7,barrierMargin:32,detailLevel:4,
       points:points([[1900,4],[1928,213],[1920,426],[1797,635],[1851,980],[1682,1258],[1143,1265],[674,1265],[268,1232],[-82,1222],[-410,1087],[-856,1245],[-1215,1103],[-1416,889],[-1757,783],[-1913,542],[-2171,356],[-2309,125],[-2453,-120],[-2304,-401],[-2039,-593],[-1582,-686],[-1334,-838],[-1084,-1015],[-743,-1052],[-488,-1341],[-101,-1426],[328,-1404],[664,-1276],[1016,-1174],[1489,-1114],[1580,-848],[2117,-783],[2105,-466],[1944,-220]]),
       theme:{kind:'coast',ground:'#196f7d',road:'#354044',curb:'#58c7d0',barrier:'#e3e9df',accent:'#65f2e5',surface:'sand',drag:1.20,dust:'#e4d3ae'}},
-    career20:{id:'career20',name:'TITAN RING',type:'CAREER 20 / CHAPTER II FINAL',description:'Финал второй главы: быстрый и тесный круг, где темп нельзя терять ни в одной секции.',targetLength:24526,roadWidth:168,curbWidth:7,barrierMargin:32,detailLevel:3,
+    career20:{id:'career20',name:'TITAN RING',type:'CAREER 20 / CHAPTER II FINAL',description:'Финал второй главы: быстрый и тесный круг, где темп нельзя терять ни в одной секции.',targetLength:24526,roadWidth:168,curbWidth:7,barrierMargin:32,detailLevel:4,
       points:points([[2254,5],[2063,189],[1711,322],[1523,434],[1617,666],[1732,991],[1436,1167],[1025,1266],[543,1330],[82,1229],[-255,1067],[-631,1065],[-1061,1064],[-1319,905],[-1772,858],[-1735,590],[-1969,444],[-1852,249],[-2231,94],[-2559,-125],[-2532,-335],[-2581,-586],[-2212,-751],[-1824,-902],[-1119,-793],[-924,-925],[-578,-935],[-292,-1100],[85,-1184],[500,-1188],[875,-1138],[1107,-919],[1711,-1004],[1856,-775],[2275,-642],[2399,-445],[2470,-208]]),
       theme:{kind:'aurora',ground:'#0d393c',road:'#2d3639',curb:'#78eadb',barrier:'#d8e8e3',accent:'#9bff62',surface:'grass',drag:1.08,dust:'#86b5aa'}},
-    career21:{id:'career21',name:'OBSIDIAN CITY',type:'CAREER 21 / ELITE STREET',description:'Тёмный мегаполис: узкие коридоры, агрессивные S-секции и минимум места для коррекции.',targetLength:24474,roadWidth:167,curbWidth:7,barrierMargin:31,detailLevel:3,
+    career21:{id:'career21',name:'OBSIDIAN CITY',type:'CAREER 21 / ELITE STREET',description:'Тёмный мегаполис: узкие коридоры, агрессивные S-секции и минимум места для коррекции.',targetLength:24474,roadWidth:167,curbWidth:7,barrierMargin:31,detailLevel:4,
       points:points([[2181,2],[2021,189],[1899,375],[1641,519],[1678,785],[1456,1098],[883,1173],[275,1158],[-260,1031],[-749,956],[-1019,771],[-1475,709],[-1827,578],[-2069,400],[-2414,233],[-2689,0],[-2666,-254],[-2377,-460],[-2059,-641],[-1512,-706],[-1022,-770],[-647,-829],[-210,-965],[283,-1119],[710,-967],[1328,-986],[1832,-856],[2145,-659],[2412,-477],[2402,-215]]),
       theme:{kind:'neon',ground:'#0b1624',road:'#222a36',curb:'#30d9ed',barrier:'#7c5bd7',accent:'#d765ff',surface:'runoff',drag:.68,dust:'#7895b4'}},
-    career22:{id:'career22',name:'VORTEX RIDGE',type:'CAREER 22 / RIDGE ELITE',description:'Высотный маршрут с нестабильным ритмом: длинная дуга мгновенно переходит в техничную связку.',targetLength:24421,roadWidth:166,curbWidth:7,barrierMargin:31,detailLevel:3,
+    career22:{id:'career22',name:'VORTEX RIDGE',type:'CAREER 22 / RIDGE ELITE',description:'Высотный маршрут с нестабильным ритмом: длинная дуга мгновенно переходит в техничную связку.',targetLength:24421,roadWidth:166,curbWidth:7,barrierMargin:31,detailLevel:4,
       points:points([[2856,9],[2932,291],[2783,574],[2151,704],[1854,924],[1460,1081],[963,1161],[480,1131],[20,1083],[-484,1134],[-765,934],[-1504,1089],[-2065,1005],[-2459,793],[-2824,577],[-2545,234],[-2285,0],[-1837,-175],[-1965,-398],[-1930,-619],[-1707,-850],[-1421,-1073],[-990,-1201],[-541,-1425],[-10,-1309],[598,-1434],[1075,-1243],[1331,-982],[1596,-767],[1808,-595],[2050,-405],[2192,-209]]),
       theme:{kind:'alpine',ground:'#334b49',road:'#30383b',curb:'#a8cad1',barrier:'#eef4f3',accent:'#b7eeff',surface:'grass',drag:1.10,dust:'#aec7c0'}},
-    career23:{id:'career23',name:'PHANTOM BAY',type:'CAREER 23 / COAST ELITE',description:'Бухта с быстрыми переходами, длинными апексами и тяжёлыми зонами торможения.',targetLength:24368,roadWidth:165,curbWidth:7,barrierMargin:31,detailLevel:3,
+    career23:{id:'career23',name:'PHANTOM BAY',type:'CAREER 23 / COAST ELITE',description:'Бухта с быстрыми переходами, длинными апексами и тяжёлыми зонами торможения.',targetLength:24368,roadWidth:165,curbWidth:7,barrierMargin:31,detailLevel:4,
       points:points([[2369,3],[2212,213],[1926,388],[1566,503],[1501,707],[1410,939],[919,955],[553,973],[210,1052],[-204,1073],[-557,1044],[-1121,1159],[-1494,1023],[-1700,791],[-1973,611],[-1850,366],[-1828,180],[-1827,1],[-2066,-209],[-2104,-401],[-1922,-597],[-1733,-816],[-1322,-909],[-1088,-1116],[-559,-1038],[-214,-1163],[226,-1101],[553,-966],[852,-851],[1140,-759],[1529,-719],[1723,-541],[2417,-468],[2485,-233]]),
       theme:{kind:'coast',ground:'#196f7d',road:'#354044',curb:'#58c7d0',barrier:'#e3e9df',accent:'#65f2e5',surface:'sand',drag:1.20,dust:'#e4d3ae'}},
-    career24:{id:'career24',name:'IRON SERPENT',type:'CAREER 24 / PRECISION ELITE',description:'Железный серпантин: серия поворотов разного радиуса без полноценной зоны отдыха.',targetLength:24316,roadWidth:164,curbWidth:7,barrierMargin:31,detailLevel:3,
+    career24:{id:'career24',name:'IRON SERPENT',type:'CAREER 24 / PRECISION ELITE',description:'Железный серпантин: серия поворотов разного радиуса без полноценной зоны отдыха.',targetLength:24316,roadWidth:164,curbWidth:7,barrierMargin:31,detailLevel:4,
       points:points([[2654,13],[2271,240],[2016,413],[1527,506],[1484,713],[1523,1030],[1101,1112],[815,1265],[439,1385],[0,1398],[-398,1234],[-850,1360],[-1236,1261],[-1566,1061],[-1999,977],[-1821,604],[-1841,387],[-1750,181],[-2079,-11],[-2211,-221],[-2412,-497],[-2371,-795],[-2040,-988],[-1717,-1202],[-1047,-1050],[-782,-1228],[-401,-1228],[-2,-1231],[394,-1247],[782,-1210],[1043,-1044],[1240,-854],[1835,-880],[2038,-680],[2420,-515],[2737,-259]]),
       theme:{kind:'aurora',ground:'#0d393c',road:'#2d3639',curb:'#78eadb',barrier:'#d8e8e3',accent:'#9bff62',surface:'grass',drag:1.08,dust:'#86b5aa'}},
-    career25:{id:'career25',name:'ARCTIC EDGE',type:'CAREER 25 / APEX ELITE',description:'Холодная трасса на грани сцепления: узкая дорога и быстрые связки требуют идеальной линии.',targetLength:24263,roadWidth:163,curbWidth:7,barrierMargin:30,detailLevel:3,
+    career25:{id:'career25',name:'ARCTIC EDGE',type:'CAREER 25 / APEX ELITE',description:'Холодная трасса на грани сцепления: узкая дорога и быстрые связки требуют идеальной линии.',targetLength:24263,roadWidth:163,curbWidth:7,barrierMargin:30,detailLevel:4,
       points:points([[2353,2],[2636,230],[2784,479],[2414,628],[2199,836],[1829,977],[1265,950],[854,959],[555,1049],[169,1112],[-167,1017],[-596,1152],[-942,1068],[-1204,914],[-1749,936],[-2045,768],[-2406,620],[-2481,405],[-2865,246],[-2423,-13],[-2320,-185],[-1800,-308],[-1660,-427],[-1693,-638],[-1379,-722],[-1414,-1037],[-1049,-1172],[-637,-1221],[-193,-1277],[210,-1190],[626,-1239],[937,-1045],[1540,-1155],[1659,-874],[1711,-665],[1892,-496],[1972,-331],[1945,-170]]),
       theme:{kind:'alpine',ground:'#334b49',road:'#30383b',curb:'#a8cad1',barrier:'#eef4f3',accent:'#b7eeff',surface:'grass',drag:1.10,dust:'#aec7c0'}},
-    career26:{id:'career26',name:'CRIMSON MAZE',type:'CAREER 26 / MASTER+',description:'Красный лабиринт поворотов: ложные апексы, быстрые перекладки и тяжёлые торможения.',targetLength:24211,roadWidth:162,curbWidth:7,barrierMargin:30,detailLevel:3,
+    career26:{id:'career26',name:'CRIMSON MAZE',type:'CAREER 26 / MASTER+',description:'Красный лабиринт поворотов: ложные апексы, быстрые перекладки и тяжёлые торможения.',targetLength:24211,roadWidth:162,curbWidth:7,barrierMargin:30,detailLevel:4,
       points:points([[2739,-12],[2774,231],[2670,481],[2036,587],[1808,790],[1515,994],[866,949],[345,919],[-122,939],[-574,910],[-925,797],[-1632,866],[-2246,809],[-2573,601],[-2908,376],[-2558,95],[-2373,-90],[-1952,-245],[-2032,-458],[-1865,-660],[-1492,-782],[-1152,-969],[-695,-1070],[-154,-1224],[377,-1083],[961,-1087],[1311,-885],[1525,-662],[1671,-489],[1975,-345],[2389,-208]]),
       theme:{kind:'desert',ground:'#a76e42',road:'#323130',curb:'#f09b4f',barrier:'#efc589',accent:'#ff6f3d',surface:'sand',drag:1.48,dust:'#e7b979'}},
-    career27:{id:'career27',name:'STORM CIRCUIT',type:'CAREER 27 / MASTER+',description:'Динамичный штормовой круг: высокие скорости сочетаются с очень короткими зонами реакции.',targetLength:24158,roadWidth:161,curbWidth:7,barrierMargin:30,detailLevel:3,
+    career27:{id:'career27',name:'STORM CIRCUIT',type:'CAREER 27 / MASTER+',description:'Динамичный штормовой круг: высокие скорости сочетаются с очень короткими зонами реакции.',targetLength:24158,roadWidth:161,curbWidth:7,barrierMargin:30,detailLevel:4,
       points:points([[2605,-13],[2295,238],[2010,453],[1464,538],[1390,777],[1234,987],[886,1079],[528,1235],[110,1219],[-318,1298],[-657,1096],[-1213,1225],[-1582,1065],[-1838,841],[-2113,620],[-1944,320],[-1925,118],[-1689,-84],[-1995,-344],[-2106,-638],[-1883,-867],[-1553,-1032],[-1131,-1124],[-794,-1277],[-269,-1120],[105,-1205],[506,-1215],[868,-1094],[1114,-882],[1486,-811],[1737,-635],[1876,-443],[2659,-288]]),
       theme:{kind:'coast',ground:'#196f7d',road:'#354044',curb:'#58c7d0',barrier:'#e3e9df',accent:'#65f2e5',surface:'sand',drag:1.20,dust:'#e4d3ae'}},
-    career28:{id:'career28',name:'VOID RUN',type:'CAREER 28 / NIGHT APEX',description:'Почти безошибочный ночной заезд: плотные стены, сложные S-секции и высокий средний темп.',targetLength:24105,roadWidth:160,curbWidth:7,barrierMargin:30,detailLevel:3,
+    career28:{id:'career28',name:'VOID RUN',type:'CAREER 28 / NIGHT APEX',description:'Почти безошибочный ночной заезд: плотные стены, сложные S-секции и высокий средний темп.',targetLength:24105,roadWidth:160,curbWidth:7,barrierMargin:30,detailLevel:4,
       points:points([[2534,-8],[2594,238],[2242,396],[1792,520],[1777,740],[1500,907],[1091,963],[728,1045],[265,1016],[-79,1010],[-457,942],[-934,1031],[-1490,1075],[-1947,960],[-2337,800],[-2127,488],[-2179,279],[-1793,75],[-2098,-95],[-2099,-283],[-1975,-446],[-1835,-657],[-1543,-790],[-1427,-1025],[-877,-966],[-529,-1138],[-138,-1267],[332,-1198],[750,-1083],[1035,-935],[1191,-728],[1371,-568],[1815,-522],[2135,-394],[2554,-217]]),
       theme:{kind:'neon',ground:'#0b1624',road:'#222a36',curb:'#30d9ed',barrier:'#7c5bd7',accent:'#d765ff',surface:'runoff',drag:.68,dust:'#7895b4'}},
-    career29:{id:'career29',name:'APEX INFERNO',type:'CAREER 29 / FINAL TRIAL',description:'Предфинальный экзамен: длинные скоростные дуги разбиваются резкими техническими секциями.',targetLength:24053,roadWidth:158,curbWidth:6,barrierMargin:30,detailLevel:3,
+    career29:{id:'career29',name:'APEX INFERNO',type:'CAREER 29 / FINAL TRIAL',description:'Предфинальный экзамен: длинные скоростные дуги разбиваются резкими техническими секциями.',targetLength:24053,roadWidth:158,curbWidth:6,barrierMargin:30,detailLevel:4,
       points:points([[2023,-11],[2294,212],[2406,470],[2191,651],[2139,957],[1925,1192],[1356,1174],[989,1304],[530,1323],[132,1370],[-307,1215],[-632,1157],[-977,1079],[-1187,890],[-1749,899],[-2031,733],[-2427,589],[-2613,356],[-2870,129],[-2782,-144],[-2451,-357],[-2087,-511],[-1714,-633],[-1633,-866],[-1222,-917],[-1076,-1195],[-735,-1277],[-285,-1317],[105,-1285],[531,-1323],[986,-1357],[1340,-1155],[1971,-1248],[1975,-861],[2024,-626],[1954,-373],[2003,-176]]),
       theme:{kind:'aurora',ground:'#0d393c',road:'#2d3639',curb:'#78eadb',barrier:'#d8e8e3',accent:'#9bff62',surface:'grass',drag:1.08,dust:'#86b5aa'}},
-    career30:{id:'career30',name:'FINAL ASCENT',type:'CAREER 30 / APEX ZERO',description:'Финал третьей главы: самая требовательная трасса карьеры — точность, скорость и стабильность без ошибок.',targetLength:24000,roadWidth:156,curbWidth:6,barrierMargin:30,detailLevel:3,
+    career30:{id:'career30',name:'FINAL ASCENT',type:'CAREER 30 / APEX ZERO',description:'Финал третьей главы: самая требовательная трасса карьеры — точность, скорость и стабильность без ошибок.',targetLength:24000,roadWidth:156,curbWidth:6,barrierMargin:30,detailLevel:4,
       points:points([[2709,-3],[2622,201],[2542,389],[2113,516],[2137,762],[1815,871],[1279,846],[951,931],[586,985],[278,1026],[-77,1029],[-580,1304],[-1079,1363],[-1610,1268],[-1918,1086],[-1990,825],[-2124,641],[-1954,382],[-2317,274],[-2316,96],[-2492,-101],[-2451,-273],[-2298,-468],[-2299,-663],[-1782,-727],[-1653,-948],[-1473,-1193],[-1035,-1295],[-614,-1359],[-87,-1241],[291,-1166],[542,-905],[877,-886],[1221,-811],[1555,-744],[2116,-739],[2427,-590],[2751,-433],[2501,-196]]),
       theme:{kind:'alpine',ground:'#334b49',road:'#30383b',curb:'#a8cad1',barrier:'#eef4f3',accent:'#b7eeff',surface:'grass',drag:1.10,dust:'#aec7c0'}}
   };
+  // Career chapters IV-V: 20 additional expert routes. These remix the proven
+  // non-self-intersecting late-career geometry with affine transforms, while keeping
+  // each route visually distinct and progressively narrower.
+  const careerRemixPoints=(sourceId,deg,sx,sy,mirror=false)=>{
+    const a=deg*Math.PI/180,c=Math.cos(a),sn=Math.sin(a),src=R.CAREER_TRACKS[sourceId].points;
+    const out=src.map(p=>{const x=(mirror?-p.x:p.x)*sx,y=p.y*sy;return{x:Math.round(x*c-y*sn),y:Math.round(x*sn+y*c)};});
+    return out;
+  };
+  const careerTheme=(sourceId,accent)=>({...R.CAREER_TRACKS[sourceId].theme,accent});
+  Object.assign(R.CAREER_TRACKS,{
+    career31:{id:'career31',name:'CHROME DISTRICT',type:'CAREER 31 / CHAPTER IV',description:'Холодный городской сектор: узкие стены, поздние торможения и быстрые перекладки.',targetLength:23980,roadWidth:155,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career11',11,1.04,.96,false),theme:careerTheme('career11','#8dff49')},
+    career32:{id:'career32',name:'AURORA VEIL',type:'CAREER 32 / CHAPTER IV',description:'Сумеречный маршрут с длинными дугами, слепыми входами и короткими зонами коррекции.',targetLength:23976,roadWidth:154,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career12',-14,.96,1.05,true),theme:careerTheme('career12','#85f5ff')},
+    career33:{id:'career33',name:'CINDER RIDGE',type:'CAREER 33 / CHAPTER IV',description:'Жаркий хребет: быстрые смены ритма, тяжёлые торможения и тесные выходы.',targetLength:23972,roadWidth:153,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career13',19,1.06,.94,false),theme:careerTheme('career13','#ff9a4d')},
+    career34:{id:'career34',name:'NEON SNAKE',type:'CAREER 34 / CHAPTER IV',description:'Неоновая змейка с плотными S-связками и почти непрерывной работой рулём.',targetLength:23968,roadWidth:152,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career14',-22,.95,1.07,true),theme:careerTheme('career14','#d765ff')},
+    career35:{id:'career35',name:'FROZEN DOCKS',type:'CAREER 35 / CHAPTER IV',description:'Ледяной порт: длинные разгоны резко переходят в узкие техничные секции.',targetLength:23964,roadWidth:151,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career15',27,1.08,.93,false),theme:careerTheme('career15','#b7eeff')},
+    career36:{id:'career36',name:'DUSTFALL',type:'CAREER 36 / CHAPTER IV',description:'Пыльная скоростная трасса: нестабильный ритм и минимум запаса у барьеров.',targetLength:23960,roadWidth:150,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career16',-31,.94,1.08,true),theme:careerTheme('career16','#ffb45f')},
+    career37:{id:'career37',name:'BLACK HARBOR',type:'CAREER 37 / CHAPTER IV',description:'Тёмный портовый круг: узкие коридоры, двойные апексы и позднее торможение.',targetLength:23956,roadWidth:149,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career17',35,1.07,.95,false),theme:careerTheme('career17','#53dfff')},
+    career38:{id:'career38',name:'SOLAR CIRCUIT',type:'CAREER 38 / CHAPTER IV',description:'Светлый скоростной круг с агрессивными связками и короткими прямыми между ними.',targetLength:23952,roadWidth:148,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career18',-39,.93,1.09,true),theme:careerTheme('career18','#f6e36a')},
+    career39:{id:'career39',name:'NIGHTFALL PASS',type:'CAREER 39 / CHAPTER IV',description:'Ночной перевал: слепые дуги, узкие зоны разгона и серия точных перекладок.',targetLength:23948,roadWidth:147,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career19',43,1.09,.92,false),theme:careerTheme('career19','#a86cff')},
+    career40:{id:'career40',name:'TITANIUM COAST',type:'CAREER 40 / CHAPTER IV FINAL',description:'Финал четвёртой главы: высокая средняя скорость, тесные барьеры и почти нет права на ошибку.',targetLength:23944,roadWidth:146,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career20',-47,.92,1.10,true),theme:careerTheme('career20','#6df0df')},
+    career41:{id:'career41',name:'GHOST GRID',type:'CAREER 41 / CHAPTER V',description:'Финальная глава начинается с плотной сетки поворотов и мгновенных смен направления.',targetLength:23940,roadWidth:145,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career21',52,1.10,.91,false),theme:careerTheme('career21','#d765ff')},
+    career42:{id:'career42',name:'VOLT RIDGE',type:'CAREER 42 / CHAPTER V',description:'Высотный электрический маршрут: быстрые дуги сменяются жёсткими торможениями.',targetLength:23936,roadWidth:144,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career22',-56,.91,1.11,true),theme:careerTheme('career22','#8dff49')},
+    career43:{id:'career43',name:'CRIMSON PORT',type:'CAREER 43 / CHAPTER V',description:'Красный порт: короткие разгоны, тесные коридоры и сложные двойные апексы.',targetLength:23932,roadWidth:143,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career23',61,1.11,.90,false),theme:careerTheme('career23','#ff5c5c')},
+    career44:{id:'career44',name:'ICE VELOCITY',type:'CAREER 44 / CHAPTER V',description:'Холодный скоростной экзамен с длинными связками и очень узкими точками выхода.',targetLength:23928,roadWidth:142,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career24',-65,.90,1.12,true),theme:careerTheme('career24','#b7eeff')},
+    career45:{id:'career45',name:'OBSIDIAN RING',type:'CAREER 45 / CHAPTER V',description:'Чёрное кольцо: ритм постоянно ломается, а запас между машиной и барьером минимален.',targetLength:23924,roadWidth:141,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career25',69,1.12,.90,false),theme:careerTheme('career25','#c36cff')},
+    career46:{id:'career46',name:'TEMPEST ZERO',type:'CAREER 46 / CHAPTER V',description:'Штормовая трасса без передышки: высокая скорость и серии поворотов на точность.',targetLength:23920,roadWidth:140,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career26',-73,.90,1.12,true),theme:careerTheme('career26','#65f2e5')},
+    career47:{id:'career47',name:'PHANTOM CIRCUIT',type:'CAREER 47 / CHAPTER V',description:'Призрачный круг с быстрыми переломами траектории и почти отсутствующим запасом времени.',targetLength:23916,roadWidth:139,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career27',77,1.13,.89,false),theme:careerTheme('career27','#53dfff')},
+    career48:{id:'career48',name:'APEX OVERDRIVE',type:'CAREER 48 / CHAPTER V',description:'Предфинальный разгон: техничные секции идут подряд, а средний темп должен оставаться максимальным.',targetLength:23912,roadWidth:138,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career28',-81,.89,1.13,true),theme:careerTheme('career28','#8dff49')},
+    career49:{id:'career49',name:'LAST HORIZON',type:'CAREER 49 / FINAL TRIAL',description:'Последний экзамен перед финалом: длинные дуги, тесные стены и жёсткие торможения без запаса.',targetLength:23908,roadWidth:137,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career29',85,1.13,.89,false),theme:careerTheme('career29','#ffd96d')},
+    career50:{id:'career50',name:'VELOCITY CROWN',type:'CAREER 50 / GRAND FINAL',description:'Гранд-финал карьеры: самый узкий и требовательный маршрут. Ошибка в любой секции может стоить результата.',targetLength:23904,roadWidth:136,curbWidth:6,barrierMargin:30,detailLevel:4,points:careerRemixPoints('career30',-89,.89,1.14,true),theme:careerTheme('career30','#ffcf4a')}
+  });
+
   R.CAREER_LEVELS=Object.freeze([
-    {level:1,trackId:'career01',gold:112,silver:123,bronze:138,rewards:{gold:1800,silver:1350,bronze:900}},
-    {level:2,trackId:'career02',gold:108,silver:119,bronze:134,rewards:{gold:2200,silver:1650,bronze:1100}},
-    {level:3,trackId:'career03',gold:104,silver:115,bronze:130,rewards:{gold:2600,silver:1950,bronze:1300}},
-    {level:4,trackId:'career04',gold:100,silver:111,bronze:126,rewards:{gold:3000,silver:2250,bronze:1500}},
-    {level:5,trackId:'career05',gold:96,silver:107,bronze:122,rewards:{gold:3400,silver:2550,bronze:1700}},
-    {level:6,trackId:'career06',gold:92,silver:103,bronze:118,rewards:{gold:3900,silver:2925,bronze:1950}},
-    {level:7,trackId:'career07',gold:88,silver:99,bronze:114,rewards:{gold:4400,silver:3300,bronze:2200}},
-    {level:8,trackId:'career08',gold:84,silver:95,bronze:110,rewards:{gold:5000,silver:3750,bronze:2500}},
-    {level:9,trackId:'career09',gold:80,silver:91,bronze:106,rewards:{gold:5700,silver:4275,bronze:2850}},
-    {level:10,trackId:'career10',gold:76,silver:87,bronze:102,rewards:{gold:6500,silver:4875,bronze:3250}},
-    {level:11,trackId:'career11',gold:74,silver:85,bronze:100,rewards:{gold:7200,silver:5400,bronze:3600}},
-    {level:12,trackId:'career12',gold:73,silver:84,bronze:99,rewards:{gold:7650,silver:5750,bronze:3825}},
-    {level:13,trackId:'career13',gold:72,silver:83,bronze:98,rewards:{gold:8100,silver:6075,bronze:4050}},
-    {level:14,trackId:'career14',gold:71,silver:82,bronze:97,rewards:{gold:8550,silver:6400,bronze:4275}},
-    {level:15,trackId:'career15',gold:70,silver:81,bronze:96,rewards:{gold:9000,silver:6750,bronze:4500}},
-    {level:16,trackId:'career16',gold:69,silver:80,bronze:95,rewards:{gold:9450,silver:7100,bronze:4725}},
-    {level:17,trackId:'career17',gold:68,silver:79,bronze:94,rewards:{gold:9900,silver:7425,bronze:4950}},
-    {level:18,trackId:'career18',gold:67,silver:78,bronze:93,rewards:{gold:10350,silver:7750,bronze:5175}},
-    {level:19,trackId:'career19',gold:66,silver:77,bronze:92,rewards:{gold:10800,silver:8100,bronze:5400}},
-    {level:20,trackId:'career20',gold:65,silver:76,bronze:91,rewards:{gold:11250,silver:8450,bronze:5625}},
-    {level:21,trackId:'career21',gold:64,silver:75,bronze:90,rewards:{gold:11700,silver:8775,bronze:5850}},
-    {level:22,trackId:'career22',gold:63,silver:74,bronze:89,rewards:{gold:12150,silver:9100,bronze:6075}},
-    {level:23,trackId:'career23',gold:62,silver:73,bronze:88,rewards:{gold:12600,silver:9450,bronze:6300}},
-    {level:24,trackId:'career24',gold:61,silver:72,bronze:87,rewards:{gold:13050,silver:9800,bronze:6525}},
-    {level:25,trackId:'career25',gold:60,silver:71,bronze:86,rewards:{gold:13500,silver:10125,bronze:6750}},
-    {level:26,trackId:'career26',gold:59,silver:70,bronze:85,rewards:{gold:13950,silver:10450,bronze:6975}},
-    {level:27,trackId:'career27',gold:58,silver:69,bronze:84,rewards:{gold:14400,silver:10800,bronze:7200}},
-    {level:28,trackId:'career28',gold:57,silver:68,bronze:83,rewards:{gold:14850,silver:11150,bronze:7425}},
-    {level:29,trackId:'career29',gold:56,silver:67,bronze:82,rewards:{gold:15300,silver:11475,bronze:7650}},
-    {level:30,trackId:'career30',gold:55,silver:66,bronze:81,rewards:{gold:15750,silver:11800,bronze:7875}}
+    {level:1,trackId:'career01',gold:66,silver:73,bronze:82,rewards:{gold:1950,silver:1750,bronze:1550}},
+    {level:2,trackId:'career02',gold:64,silver:70,bronze:79,rewards:{gold:2050,silver:1850,bronze:1650}},
+    {level:3,trackId:'career03',gold:62,silver:68,bronze:77,rewards:{gold:2150,silver:1950,bronze:1750}},
+    {level:4,trackId:'career04',gold:62,silver:69,bronze:76,rewards:{gold:2250,silver:2050,bronze:1850}},
+    {level:5,trackId:'career05',gold:59,silver:66,bronze:72,rewards:{gold:2350,silver:2150,bronze:1950}},
+    {level:6,trackId:'career06',gold:58,silver:64,bronze:70,rewards:{gold:2450,silver:2250,bronze:2050}},
+    {level:7,trackId:'career07',gold:57,silver:64,bronze:70,rewards:{gold:2550,silver:2350,bronze:2150}},
+    {level:8,trackId:'career08',gold:57,silver:63,bronze:69,rewards:{gold:2650,silver:2450,bronze:2250}},
+    {level:9,trackId:'career09',gold:61,silver:68,bronze:75,rewards:{gold:2750,silver:2550,bronze:2350}},
+    {level:10,trackId:'career10',gold:65,silver:72,bronze:79,rewards:{gold:2850,silver:2650,bronze:2450}},
+    {level:11,trackId:'career11',gold:48,silver:53,bronze:59,rewards:{gold:2950,silver:2750,bronze:2550}},
+    {level:12,trackId:'career12',gold:49,silver:54,bronze:59,rewards:{gold:3050,silver:2850,bronze:2650}},
+    {level:13,trackId:'career13',gold:54,silver:60,bronze:66,rewards:{gold:3150,silver:2950,bronze:2750}},
+    {level:14,trackId:'career14',gold:50,silver:56,bronze:61,rewards:{gold:3250,silver:3050,bronze:2850}},
+    {level:15,trackId:'career15',gold:48,silver:53,bronze:58,rewards:{gold:3350,silver:3150,bronze:2950}},
+    {level:16,trackId:'career16',gold:48,silver:54,bronze:59,rewards:{gold:3450,silver:3250,bronze:3050}},
+    {level:17,trackId:'career17',gold:50,silver:55,bronze:61,rewards:{gold:3550,silver:3350,bronze:3150}},
+    {level:18,trackId:'career18',gold:52,silver:57,bronze:63,rewards:{gold:3650,silver:3450,bronze:3250}},
+    {level:19,trackId:'career19',gold:48,silver:53,bronze:58,rewards:{gold:3750,silver:3550,bronze:3350}},
+    {level:20,trackId:'career20',gold:56,silver:63,bronze:69,rewards:{gold:3850,silver:3650,bronze:3450}},
+    {level:21,trackId:'career21',gold:48,silver:53,bronze:58,rewards:{gold:3950,silver:3750,bronze:3550}},
+    {level:22,trackId:'career22',gold:48,silver:54,bronze:59,rewards:{gold:4050,silver:3850,bronze:3650}},
+    {level:23,trackId:'career23',gold:48,silver:53,bronze:58,rewards:{gold:4150,silver:3950,bronze:3750}},
+    {level:24,trackId:'career24',gold:50,silver:56,bronze:61,rewards:{gold:4250,silver:4050,bronze:3850}},
+    {level:25,trackId:'career25',gold:56,silver:62,bronze:68,rewards:{gold:4350,silver:4150,bronze:3950}},
+    {level:26,trackId:'career26',gold:47,silver:52,bronze:57,rewards:{gold:4450,silver:4250,bronze:4050}},
+    {level:27,trackId:'career27',gold:50,silver:55,bronze:61,rewards:{gold:4550,silver:4350,bronze:4150}},
+    {level:28,trackId:'career28',gold:56,silver:62,bronze:68,rewards:{gold:4650,silver:4450,bronze:4250}},
+    {level:29,trackId:'career29',gold:49,silver:55,bronze:60,rewards:{gold:4750,silver:4550,bronze:4350}},
+    {level:30,trackId:'career30',gold:57,silver:63,bronze:69,rewards:{gold:4850,silver:4650,bronze:4450}},
+    {level:31,trackId:'career31',gold:48,silver:53,bronze:58,rewards:{gold:4950,silver:4750,bronze:4550}},
+    {level:32,trackId:'career32',gold:49,silver:53,bronze:58,rewards:{gold:5050,silver:4850,bronze:4650}},
+    {level:33,trackId:'career33',gold:54,silver:59,bronze:65,rewards:{gold:5150,silver:4950,bronze:4750}},
+    {level:34,trackId:'career34',gold:52,silver:57,bronze:62,rewards:{gold:5250,silver:5050,bronze:4850}},
+    {level:35,trackId:'career35',gold:49,silver:54,bronze:59,rewards:{gold:5350,silver:5150,bronze:4950}},
+    {level:36,trackId:'career36',gold:47,silver:52,bronze:57,rewards:{gold:5450,silver:5250,bronze:5050}},
+    {level:37,trackId:'career37',gold:50,silver:55,bronze:61,rewards:{gold:5550,silver:5350,bronze:5150}},
+    {level:38,trackId:'career38',gold:50,silver:56,bronze:61,rewards:{gold:5650,silver:5450,bronze:5250}},
+    {level:39,trackId:'career39',gold:48,silver:53,bronze:58,rewards:{gold:5750,silver:5550,bronze:5350}},
+    {level:40,trackId:'career40',gold:56,silver:61,bronze:68,rewards:{gold:5850,silver:5650,bronze:5450}},
+    {level:41,trackId:'career41',gold:48,silver:53,bronze:59,rewards:{gold:5950,silver:5750,bronze:5550}},
+    {level:42,trackId:'career42',gold:48,silver:53,bronze:59,rewards:{gold:6050,silver:5850,bronze:5650}},
+    {level:43,trackId:'career43',gold:48,silver:53,bronze:59,rewards:{gold:6150,silver:5950,bronze:5750}},
+    {level:44,trackId:'career44',gold:49,silver:54,bronze:59,rewards:{gold:6250,silver:6050,bronze:5850}},
+    {level:45,trackId:'career45',gold:56,silver:62,bronze:68,rewards:{gold:6350,silver:6150,bronze:5950}},
+    {level:46,trackId:'career46',gold:46,silver:51,bronze:56,rewards:{gold:6450,silver:6250,bronze:6050}},
+    {level:47,trackId:'career47',gold:50,silver:55,bronze:61,rewards:{gold:6550,silver:6350,bronze:6150}},
+    {level:48,trackId:'career48',gold:52,silver:58,bronze:64,rewards:{gold:6650,silver:6450,bronze:6250}},
+    {level:49,trackId:'career49',gold:50,silver:55,bronze:61,rewards:{gold:6750,silver:6550,bronze:6350}},
+    {level:50,trackId:'career50',gold:54,silver:60,bronze:66,rewards:{gold:6850,silver:6650,bronze:6450}}
   ].map(Object.freeze));
   R.getCareerLevel=level=>R.CAREER_LEVELS[Math.max(1,Math.min(R.CAREER_LEVELS.length,Math.round(Number(level)||1)))-1];
   R.careerTimeTier=function(level,timeSeconds){const c=R.getCareerLevel(level),t=Number(timeSeconds);if(!Number.isFinite(t)||t<=0)return null;if(t<=c.gold)return'gold';if(t<=c.silver)return'silver';if(t<=c.bronze)return'bronze';return null;};
@@ -549,11 +601,14 @@
     const tiltSensitivity=['low','medium','high'].includes(d.tiltSensitivity)?d.tiltSensitivity:'medium';
     const rawCases=d.caseInventory&&typeof d.caseInventory==='object'&&!Array.isArray(d.caseInventory)?d.caseInventory:{};
     const caseInventory=Object.fromEntries(R.CASE_ORDER.map(id=>[id,Math.max(0,Math.min(999,Math.floor(safeNumber(rawCases[id]))))]));
+    const careerCompleted=Array.from(new Set((Array.isArray(d.careerCompleted)?d.careerCompleted:[]).filter(id=>has(R.CAREER_TRACKS,id))));
+    const highestCareerCompleted=careerCompleted.reduce((m,id)=>Math.max(m,Math.round(Number(id.replace('career','')))||0),0);
+    const careerUnlocked=Math.max(1,Math.min(R.CAREER_LEVELS.length,Math.max(Math.round(safeNumber(d.careerUnlocked,1)),highestCareerCompleted?highestCareerCompleted+1:1)));
     return {saveVersion:6,bestScore:safeNumber(d.bestScore),bestLap:safeNumber(d.bestLap),bestDriftScore:Math.floor(safeNumber(d.bestDriftScore)),maxLaps:Math.floor(safeNumber(d.maxLaps)),muted:!!d.muted,
       botCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.botCount,7)))),raceLaps:[3,5,7,10,15].includes(d.raceLaps)?d.raceLaps:5,
       difficulty:has(R.DIFFICULTY_LABELS,d.difficulty)?d.difficulty:'medium',trackId:has(R.TRACKS,d.trackId)?d.trackId:'apexCircuit',
       driftBotCount:Math.max(1,Math.min(13,Math.round(safeNumber(d.driftBotCount,d.botCount??7)))),driftDifficulty:has(R.DIFFICULTY_LABELS,d.driftDifficulty)?d.driftDifficulty:'medium',driftTrackId:has(R.DRIFT_TRACKS,d.driftTrackId)?d.driftTrackId:'sierraFlow',
-      careerUnlocked:Math.max(1,Math.min(R.CAREER_LEVELS.length,Math.round(safeNumber(d.careerUnlocked,1)))),careerBestTimes:Object.fromEntries(Object.entries(d.careerBestTimes&&typeof d.careerBestTimes==='object'&&!Array.isArray(d.careerBestTimes)?d.careerBestTimes:{}).filter(([id,v])=>has(R.CAREER_TRACKS,id)&&Number.isFinite(Number(v))&&Number(v)>0).map(([id,v])=>[id,Math.round(Number(v))])),careerCompleted:Array.from(new Set((Array.isArray(d.careerCompleted)?d.careerCompleted:[]).filter(id=>has(R.CAREER_TRACKS,id)))),
+      careerUnlocked,careerBestTimes:Object.fromEntries(Object.entries(d.careerBestTimes&&typeof d.careerBestTimes==='object'&&!Array.isArray(d.careerBestTimes)?d.careerBestTimes:{}).filter(([id,v])=>has(R.CAREER_TRACKS,id)&&Number.isFinite(Number(v))&&Number(v)>0).map(([id,v])=>[id,Math.round(Number(v))])),careerCompleted,
       controlMode,tiltSensitivity,credits:Math.floor(safeNumber(d.credits,200)),ownedLiveries,ownedEffects,caseInventory,carUpgrades:Object.fromEntries(ownedLiveries.filter(id=>d.carUpgrades&&has(d.carUpgrades,id)).map(id=>[id,R.getUpgradeLevels(d,id)])),
       carCustomizations:Object.fromEntries(ownedLiveries.map(id=>[id,safeCustomization(d.carCustomizations?.[id],R.LIVERIES[id])])),
       selectedLivery:ownedLiveries.includes(d.selectedLivery)?d.selectedLivery:'apexLime',selectedEffect:ownedEffects.includes(d.selectedEffect)?d.selectedEffect:'standard'};
@@ -617,10 +672,110 @@
     const scoreReward=Math.min(160,safeScore/85);
     return Math.max(1,Math.round((completionReward+gridReward+placementReward+scoreReward)*difficultyMultiplier));
   };
-  // V13: reprice after deriving performance and case odds from the original catalog.
+  // V13 baseline: keep the previous 25% economy pass as the compatibility base.
   const raisePrice=value=>Math.round(Number(value)*1.25);
   for(const item of Object.values(R.LIVERIES)){item.basePrice=item.price;item.price=raisePrice(item.price);}
   for(const item of Object.values(R.EFFECTS))item.price=raisePrice(item.price);
   R.CASES=Object.freeze(Object.fromEntries(Object.entries(R.CASES).map(([id,box])=>[id,Object.freeze({...box,price:raisePrice(box.price),expectedValue:raisePrice(box.expectedValue),rewards:Object.freeze(box.rewards.map(r=>Object.freeze({...r,price:raisePrice(r.price)})))})])));
   for(const key of ['getUpgradeCost','getPaintCost','getVinylCost']){const original=R[key];R[key]=(...args)=>{const value=original(...args);return value==null?value:raisePrice(value);};}
+
+  // V39 economy rebalance. Store cars become 1.55x–2.00x more expensive than V38,
+  // while every case rises by ~25%. Car probabilities are deliberately reduced so
+  // the case system cannot bypass the longer vehicle progression or create a resale loop.
+  const ECONOMY_V39_CAR_MULTIPLIERS=Object.freeze({basic:1.55,sport:1.60,premium:1.70,rare:1.75,legendary:1.85,lux:2.00});
+  const economyCarRound=value=>{const v=Math.max(0,Number(value)||0),step=v<100000?250:v<500000?500:1000;return Math.round(v/step)*step;};
+  const economyCaseRound=value=>{const v=Math.max(1,Number(value)||1),step=v<100000?125:v<500000?500:1000;return Math.max(step,Math.round(v/step)*step);};
+  for(const [id,item] of Object.entries(R.LIVERIES)){if(!(Number(item.price)>0))continue;const mult=ECONOMY_V39_CAR_MULTIPLIERS[R.normalizeCarCategory(item.category)]||1.55;item.economyV38Price=item.price;item.price=economyCarRound(item.price*mult);}
+
+  const CASES_V38=R.CASES;
+  const groupWeights=(rewards,totalBps,weightFn)=>{
+    const target=Math.max(0,Math.min(10000,Math.round(totalBps))),weighted=rewards.map((reward,index)=>({index,weight:Math.max(Number.EPSILON,Number(weightFn(reward))||0)})),sum=weighted.reduce((a,x)=>a+x.weight,0);
+    const rows=weighted.map(x=>{const exact=x.weight/sum*target,floor=Math.floor(exact);return {...x,exact,bps:floor,fraction:exact-floor};});
+    let remainder=target-rows.reduce((a,x)=>a+x.bps,0);
+    [...rows].sort((a,b)=>b.fraction-a.fraction||a.index-b.index).slice(0,remainder).forEach(x=>rows[x.index].bps++);
+    return rewards.map((reward,index)=>Object.freeze({...reward,chanceBps:rows[index].bps}));
+  };
+  const weightedAverage=(rewards,weightFn)=>{const rows=rewards.map(r=>({r,w:Math.max(Number.EPSILON,Number(weightFn(r))||0)})),sum=rows.reduce((a,x)=>a+x.w,0);return rows.reduce((a,x)=>a+x.r.price*x.w,0)/sum;};
+  const oldChanceMap=box=>new Map((box?.rewards||[]).map(r=>[r.kind+':'+r.id,r.chanceBps]));
+  const oldWeight=(map,reward)=>Math.max(1,Number(map.get(reward.kind+':'+reward.id))||1);
+  const effectPoolV39=()=>effectCaseRewards();
+  const v39Cases={};
+  for(const id of CASE_ORDER){
+    const previous=CASES_V38[id],price=economyCaseRound(previous.price*1.25);
+    if(id==='effects'){
+      const rewards=effectPoolV39(),prev=oldChanceMap(previous),min=Math.min(...rewards.map(r=>r.price));
+      const weighted=groupWeights(rewards,10000,r=>oldWeight(prev,r)*Math.pow(min/r.price,.38));
+      const expectedValue=weighted.reduce((sum,r)=>sum+r.price*r.chanceBps/10000,0);
+      v39Cases[id]=Object.freeze({...CASE_META[id],id,price,expectedValue:Math.round(expectedValue),description:'Платные эффекты. Редкие и дорогие эффекты теперь выпадают заметно реже.',rewards:Object.freeze(weighted)});
+      continue;
+    }
+    if(id==='all'){
+      const cars=R.REAL_CAR_IDS.map(carId=>caseReward('livery',carId,R.LIVERIES[carId])),effects=effectPoolV39(),prev=oldChanceMap(previous);
+      const oldCarMass=(previous.rewards||[]).filter(r=>r.kind==='livery').reduce((sum,r)=>sum+r.chanceBps,0)/10000;
+      const oldEffectMass=Math.max(.0001,1-oldCarMass);
+      const carAverage=weightedAverage(cars,r=>oldWeight(prev,r));
+      const effectAverage=weightedAverage(effects,r=>oldWeight(prev,r));
+      const targetEv=price*.80;
+      const carShare=Math.max(.24,Math.min(oldCarMass*.90,(targetEv-effectAverage)/(carAverage-effectAverage)));
+      const carBps=Math.round(carShare*10000),carRewards=groupWeights(cars,carBps,r=>oldWeight(prev,r)),effectRewards=groupWeights(effects,10000-carBps,r=>oldWeight(prev,r));
+      const weighted=[...carRewards,...effectRewards],expectedValue=weighted.reduce((sum,r)=>sum+r.price*r.chanceBps/10000,0);
+      v39Cases[id]=Object.freeze({...CASE_META[id],id,price,expectedValue:Math.round(expectedValue),description:'Общий кейс: шанс автомобиля снижен, а RARE / LEGENDARY / LUX остаются особо редкими. Остальной пул — эффекты.',rewards:Object.freeze(weighted)});
+      continue;
+    }
+    const cars=carCaseRewards(id),effects=effectPoolV39(),prevCars=oldChanceMap(previous),prevEffects=oldChanceMap(CASES_V38.effects);
+    const carAverage=weightedAverage(cars,r=>oldWeight(prevCars,r)),effectAverage=weightedAverage(effects,r=>oldWeight(prevEffects,r)),targetEv=price*.80;
+    const rawShare=(targetEv-effectAverage)/(carAverage-effectAverage),carShare=Math.max(.45,Math.min(.82,rawShare));
+    const carBps=Math.round(carShare*10000),carRewards=groupWeights(cars,carBps,r=>oldWeight(prevCars,r)),effectRewards=groupWeights(effects,10000-carBps,r=>oldWeight(prevEffects,r));
+    const weighted=[...carRewards,...effectRewards],expectedValue=weighted.reduce((sum,r)=>sum+r.price*r.chanceBps/10000,0),pct=(carBps/100).toFixed(1).replace('.0','');
+    v39Cases[id]=Object.freeze({...CASE_META[id],id,price,expectedValue:Math.round(expectedValue),subtitle:`${CASE_META[id].label} · АВТО ${pct}%`,description:`Автомобили ${CASE_META[id].label}: суммарный шанс ${pct}%. Остальной пул — визуальные эффекты; дорогие машины внутри класса выпадают реже.`,rewards:Object.freeze(weighted)});
+  }
+  R.CASES=Object.freeze(v39Cases);
+  R.ECONOMY_VERSION=39;
+  R.ECONOMY_V39_CAR_MULTIPLIERS=ECONOMY_V39_CAR_MULTIPLIERS;
+
+  // Garage resale: the system pays 70% of the car's current catalog value plus
+  // every permanent tuning purchase tied to that car. The starter car is kept as
+  // a guaranteed fallback and cannot be sold.
+  R.CAR_SYSTEM_SELL_RATE=.70;
+  R.getCarInvestmentValue=function(save,id){
+    const item=R.LIVERIES?.[id];
+    if(!item||!save?.ownedLiveries?.includes(id))return {status:'invalid',id,total:0,payout:0,car:0,upgrades:0,appearance:0};
+    const car=Math.max(0,Math.floor(Number(item.price)||0));
+    let upgrades=0;
+    const levels=R.getUpgradeLevels(save,id);
+    for(const [key,level] of Object.entries(levels)){
+      for(let i=0;i<level;i++){
+        const cost=Number(R.getUpgradeCost(id,key,i));
+        if(Number.isFinite(cost)&&cost>0)upgrades+=cost;
+      }
+    }
+    let appearance=0;
+    const customization=R.getCarCustomization(save,id);
+    for(const colorId of customization.ownedColors||[]){
+      if(colorId==='stock')continue;
+      const cost=Number(R.getPaintCost(id,colorId));
+      if(Number.isFinite(cost)&&cost>0)appearance+=cost;
+    }
+    for(const vinylId of customization.ownedVinyls||[]){
+      if(vinylId==='none')continue;
+      const cost=Number(R.getVinylCost(id,vinylId));
+      if(Number.isFinite(cost)&&cost>0)appearance+=cost;
+    }
+    const total=Math.max(0,Math.floor(car+upgrades+appearance));
+    const payout=Math.max(0,Math.floor(total*R.CAR_SYSTEM_SELL_RATE));
+    return {status:id==='apexLime'?'protected':'ok',id,total,payout,car,upgrades,appearance,rate:R.CAR_SYSTEM_SELL_RATE};
+  };
+  R.sellOwnedCar=function(save,id,expectedPayout){
+    if(!save?.ownedLiveries?.includes(id)||!R.LIVERIES?.[id])return {status:'invalid'};
+    if(id==='apexLime')return {status:'protected'};
+    const quote=R.getCarInvestmentValue(save,id);
+    if(quote.status!=='ok'||quote.payout<=0)return {status:'invalid'};
+    if(Number.isFinite(Number(expectedPayout))&&Math.floor(Number(expectedPayout))!==quote.payout)return {status:'stale',quote};
+    save.credits=Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,Math.floor(Number(save.credits)||0))+quote.payout);
+    save.ownedLiveries=save.ownedLiveries.filter(carId=>carId!==id);
+    if(save.carUpgrades&&typeof save.carUpgrades==='object')delete save.carUpgrades[id];
+    if(save.carCustomizations&&typeof save.carCustomizations==='object')delete save.carCustomizations[id];
+    if(save.selectedLivery===id)save.selectedLivery=save.ownedLiveries.includes('apexLime')?'apexLime':(save.ownedLiveries[0]||'apexLime');
+    return {...quote,status:'sold',credits:save.credits,selectedLivery:save.selectedLivery};
+  };
 })();

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="78%">
+      <stop offset="0" stop-color="#123128"/>
+      <stop offset="0.52" stop-color="#071712"/>
+      <stop offset="1" stop-color="#020706"/>
+    </radialGradient>
+    <linearGradient id="track" x1="220" y1="760" x2="785" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.42" stop-color="#67f58a"/>
+      <stop offset="1" stop-color="#8dff49"/>
+    </linearGradient>
+    <linearGradient id="car" x1="510" y1="650" x2="510" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="0.18" stop-color="#dffff5"/>
+      <stop offset="0.34" stop-color="#8dff49"/>
+      <stop offset="1" stop-color="#3b7931"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <path d="M90 770 C280 712 404 724 518 650 C647 566 624 402 770 308 C832 268 884 232 934 170" fill="none" stroke="#8dff49" stroke-opacity="0.11" stroke-width="86" stroke-linecap="round" filter="url(#soft)"/>
+  <path d="M90 770 C280 712 404 724 518 650 C647 566 624 402 770 308 C832 268 884 232 934 170" fill="none" stroke="#0b221b" stroke-width="58" stroke-linecap="round"/>
+  <path d="M90 770 C280 712 404 724 518 650 C647 566 624 402 770 308 C832 268 884 232 934 170" fill="none" stroke="url(#track)" stroke-width="18" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M110 817 C302 758 430 766 548 692 C678 611 669 452 803 360" fill="none" stroke="#22d3ee" stroke-opacity="0.3" stroke-width="4" stroke-linecap="round"/>
+  <path d="M244 202 L500 754 L558 627 L442 627 L396 520 L601 520 L686 708 L765 708 L526 202 Z" fill="#8dff49" fill-opacity="0.08"/>
+  <path d="M245 705 L466 208 L542 208 L772 705 L659 705 L605 579 L397 579 L344 705 Z M438 483 L566 483 L502 334 Z" fill="#8dff49"/>
+  <path d="M502 331 L438 483 L470 483 L520 365 Z" fill="#caffab" fill-opacity="0.55"/>
+  <g transform="translate(512 689)" filter="url(#glow)">
+    <path d="M-80 38 L-61 -20 L-34 -36 L-24 -82 L-10 -112 L10 -112 L24 -82 L34 -36 L61 -20 L80 38 L50 38 L40 16 L23 20 L16 62 L-16 62 L-23 20 L-40 16 L-50 38 Z" fill="url(#car)"/>
+    <rect x="-76" y="-10" width="34" height="18" rx="6" fill="#07110f"/>
+    <rect x="42" y="-10" width="34" height="18" rx="6" fill="#07110f"/>
+    <rect x="-62" y="48" width="31" height="17" rx="5" fill="#07110f"/>
+    <rect x="31" y="48" width="31" height="17" rx="5" fill="#07110f"/>
+    <path d="M-28 -68 L28 -68 L17 -42 L-17 -42 Z" fill="#06100d" stroke="#22d3ee" stroke-width="5"/>
+  </g>
+  <circle cx="777" cy="306" r="13" fill="#d8ffc1" filter="url(#glow)"/>
+  <circle cx="777" cy="306" r="6" fill="#ffffff"/>
+</svg>

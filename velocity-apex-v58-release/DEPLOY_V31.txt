@@ -1,0 +1,18 @@
+VELOCITY APEX — REFERRAL LEVELS V31
+
+1) Распаковать архив:
+rm -rf apex-v31
+mkdir -p apex-v31
+unzip -o "Velocity-Apex-Referral-Levels-V31.zip" -d apex-v31
+cd apex-v31
+
+2) Установить зависимости:
+npm install
+
+3) Применить новые и накопленные D1-миграции:
+npx wrangler d1 migrations apply velocity-apex-db --remote
+
+4) Развернуть обновление:
+npx wrangler deploy
+
+Важно: миграция 0014 добавляет уровни реферальной системы и не удаляет существующих пользователей/рефералов.

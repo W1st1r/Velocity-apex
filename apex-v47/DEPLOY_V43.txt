@@ -1,0 +1,9 @@
+Velocity Apex V43 deployment
+
+cd /workspaces/Velocity-apex
+rm -rf apex-v43
+mkdir -p apex-v43
+unzip -o "Velocity-Apex-FreeRoam-Minigame-Visibility-V43.zip" -d apex-v43
+cd apex-v43
+npm install
+npx wrangler deploy --config ./wrangler.jsonc

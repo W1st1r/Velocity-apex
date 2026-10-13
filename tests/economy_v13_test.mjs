@@ -13,14 +13,14 @@ const env={DB},t=Date.now(),DAY=86400000,hash=async s=>Buffer.from(await crypto.
 for(const name of ['w1st1r','leader','member','poor','outsider','applicant']){db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(name,name,name,'x','x',t,t);db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?)').run(await hash(name),name,t,t+DAY,t);db.prepare('INSERT INTO player_saves VALUES(?,?,?,?,?)').run(name,JSON.stringify({credits:name==='poor'?10:30000,selectedLivery:'apexLime',ownedLiveries:['apexLime']}),1,t,t);}
 async function call(path,body,who='leader'){const r=await worker.fetch(new Request('https://apex.test'+path,{method:body===undefined?'GET':'POST',headers:{cookie:'va_session='+who,origin:'https://apex.test','content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),env);return {status:r.status,...await r.json()};}
 
-for(const [level,amount] of [[1,600],[2,1200],[3,2000],[4,3000],[5,4000]]){
+for(const [level,amount] of [[1,600],[2,1200],[3,2000],[4,3000],[5,3600],[6,4000],[7,5000],[8,6000]]){
  assert.equal(salaryFor(level,RANKS[level].norm).amount,amount);
  assert.equal(salaryFor(level,9999).amount,amount);
 }
 const balance=()=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('member').save_json).credits;
 db.prepare("INSERT OR REPLACE INTO owner_settings VALUES ('config',?)").run(JSON.stringify({maintenance:false,cars:{'porsche-911':{price:10000,maxSpeed:450}}}));
-assert.equal((await settings(env)).cars['porsche-911'].price,12500);
-assert.equal((await settings(env)).cars['porsche-911'].price,12500);
+assert.equal((await settings(env)).cars['porsche-911'].price,22500);
+assert.equal((await settings(env)).cars['porsche-911'].price,22500);
 assert.equal((await settings(env)).cars['porsche-911'].maxSpeed,450);
 await getProgression(env,'member');
 failPayout=true;
@@ -38,4 +38,4 @@ assert.equal(db.prepare('SELECT SUM(points) n FROM street_rep WHERE user_id=?').
 for(let i=0;i<15;i++)await awardProgression(env,'leader',{source:'online_time',eventId:'o'+i,exp:30,credits:60});
 assert.equal(db.prepare("SELECT SUM(credits) n FROM progression_rewards WHERE user_id='leader'").get().n,720);
 assert.equal((await getProgression(env,'leader')).totalExp,450);
-console.log('economy_v13_test: OK — salary caps, atomic rollback/retry, duplicate protection, EXP, REP and CR limits');
+console.log('economy_v39_test: OK — salary caps, atomic rollback/retry, duplicate protection, EXP, REP and CR limits');

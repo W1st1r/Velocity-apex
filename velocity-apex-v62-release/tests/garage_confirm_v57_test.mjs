@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
+const html=read('public/index.html'),css=read('public/css/style.css'),js=read('public/js/garage.js');
+const repair=css.slice(css.lastIndexOf('/* V57 · Native dialog positioning'));
+assert.match(html,/css\/style\.css[^"\n]*confirm=20260920-v57/);
+assert.match(html,/js\/garage\.js[^"\n]*confirm=20260920-v57/);
+assert.match(repair,/\.upgrade-confirm-modal\[open\],[\s\S]*?\.upgrade-history-modal\[open\]\{[^}]*position:fixed;[^}]*inset:0;[^}]*display:grid;[^}]*place-items:center;[^}]*width:100vw;[^}]*height:100vh;[^}]*height:100dvh;[^}]*margin:0;/);
+assert.match(repair,/\.upgrade-confirm-modal\[open\]>section,[\s\S]*?\.upgrade-history-modal\[open\]>section\{[^}]*max-height:100%;[^}]*overflow-y:auto;/);
+assert.match(js,/upgradeConfirmModal[^\n]*?\.close\(\)/);
+assert.match(js,/dlg\?\.showModal\(\)/);
+console.log('garage_confirm_v57_test: ok');

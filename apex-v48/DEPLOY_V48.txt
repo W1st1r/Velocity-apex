@@ -1,0 +1,6 @@
+rm -rf apex-v48
+mkdir -p apex-v48
+unzip -o "Velocity-Apex-FreeRoam-Garage-Polish-V48.zip" -d apex-v48
+cd apex-v48
+npm install
+npx wrangler deploy

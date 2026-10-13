@@ -1,0 +1,6 @@
+rm -rf apex-v29
+mkdir apex-v29
+unzip -o "Velocity-Apex-FreeRoam-Control-Fix-V29.zip" -d apex-v29
+cd apex-v29
+npm install
+npx wrangler deploy

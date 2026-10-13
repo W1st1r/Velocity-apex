@@ -1,0 +1,18 @@
+Velocity Apex V61 — плавный мяч в мини-футболе
+
+Загрузите Velocity-Apex-Mini-Football-Smooth-V61.zip в корень проекта Codespaces
+(/workspaces/Velocity-apex), затем вставьте в терминал:
+
+set -e
+cd /workspaces/Velocity-apex
+test -f 'Velocity-Apex-Mini-Football-Smooth-V61.zip'
+mkdir -p velocity-apex-football-v61-release
+unzip -oq 'Velocity-Apex-Mini-Football-Smooth-V61.zip' -d velocity-apex-football-v61-release
+cd velocity-apex-football-v61-release
+test -f wrangler.jsonc
+grep -q 'football=20260920-v61' public/index.html
+npm install
+npm test
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+Для мини-футбола изменение базы данных не требуется.

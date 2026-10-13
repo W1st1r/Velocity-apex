@@ -1,0 +1,15 @@
+{
+  "name": "velocity-apex",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node tests/run_all.js && node tests/free_control_layout_v29_test.js && node tests/online_protocol_test.mjs && node tests/online_network_test.js && node tests/online_room_test.mjs && node tests/online_ui_smoke.js && node tests/freeroam_social_smoke.js && node tests/presence_timeout_test.mjs && node tests/free_drag_sync_test.mjs && node tests/free_mobile_hud_test.js && node tests/owner_panel_test.mjs && node tests/progression_live_events_test.mjs && node tests/crews_reports_test.mjs && node tests/logs_system_test.mjs && node tests/economy_v13_test.mjs && node tests/admin_daily_stats_test.mjs && node tests/payments_yoomoney_test.mjs && node tests/payments_webhook_atomic_test.mjs && node tests/free_minigames_v21_test.mjs && node tests/free_minigames_v22_quality_test.mjs && node tests/free_network_v24_test.mjs && node tests/free_minigame_buildings_owner_v30_test.mjs && node tests/referral_levels_v31_test.mjs && node tests/admin_hierarchy_v32_test.mjs && node tests/free_football_v33_test.mjs && node tests/free_map_drag_v34_test.mjs && node tests/free_map_football_ui_v35_test.mjs && node tests/free_event_hubs_v37_test.mjs && node tests/free_minigame_visibility_v43_test.mjs",
+    "test:ai": "node tests/ai_benchmark.js",
+    "test:all": "npm test && npm run test:ai",
+    "test:map": "node tests/free_city_geometry_test.js && node tests/free_reference_map_v41_test.js && node tests/freeroam_social_smoke.js && node tests/interaction_guard_smoke.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.131.1"
+  }
+}

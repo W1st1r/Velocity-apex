@@ -1,0 +1,17 @@
+const fs=require('fs'),path=require('path'),assert=require('assert');
+const root=path.join(__dirname,'..');
+const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
+const account=fs.readFileSync(path.join(root,'public/js/account.js'),'utf8');
+const rootjs=fs.readFileSync(path.join(root,'public/js/root-console.js'),'utf8');
+const auth=fs.readFileSync(path.join(root,'src/auth.mjs'),'utf8');
+const css=fs.readFileSync(path.join(root,'public/css/style.css'),'utf8');
+for(const token of ['id="rootSettingsCard"','data-root-tab="money"','data-root-tab="cars"','data-root-tab="effects"','data-root-tab="cases"','data-root-tab="accounts"','data-root-tab="blocked"','id="rootAccountSearch"','id="rootBlockedSearch"','id="authGateBan"'])assert(html.includes(token),'missing admin UI '+token);
+assert(account.includes("classList.toggle('hidden',!state.user?.isAdmin)"),'ROOT button is not admin-only');
+assert(account.includes('ACCOUNT_BANNED'),'ban UI handling missing');
+assert(rootjs.includes('/api/admin/unlock'),'ROOT password must be verified server-side');
+for(const token of ["'/api/admin/accounts'","(credits|resource|ban|unban)","action==='credits'","action==='resource'","action==='ban'","action==='unban'"])assert(auth.includes(token),'missing admin route token '+token);
+assert(auth.includes("const ADMIN_USERNAME='w1st1r'"),'admin username guard missing');
+assert(auth.includes("ADMIN_PASSWORD_SHA256='dxEnsDF2QSbEDOepP2HFM_okaUwBB-fBg8fC90XrmIA'"),'existing ROOT password hash changed');
+assert(auth.includes('ADMIN_ACCOUNT_PROTECTED'),'admin self-ban protection missing');
+for(const selector of ['.root-tabs','.root-account-list','.root-admin-resource-list','.auth-ban-panel'])assert(css.includes(selector),'missing admin CSS '+selector);
+console.log('admin panel smoke: OK');

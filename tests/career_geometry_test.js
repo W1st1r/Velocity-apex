@@ -15,5 +15,5 @@ for(const level of R.CAREER_LEVELS){
   assert.ok(!hit,`${cfg.id}: sampled centerline self-intersection`);
 }
 const trackSrc=fs.readFileSync(path.join(ROOT,'public/js/track.js'),'utf8');
-for(const token of ['_drawCareerDetails','detailCount=this.isCareer?260:115','this.isCareer?3584:3072'])assert.ok(trackSrc.includes(token),`detail renderer missing ${token}`);
-console.log('career_geometry_test: OK — 30 unique long routes, no sampled self-intersections, tighter late roads, cached high-detail renderer');
+for(const token of ['_drawCareerDetails','detailCount=this.isCareer?Math.round(230+this.detailLevel*45):115','this.isCareer?(this.detailLevel>=4?4608:4096):3072','curbStep=this.isCareer?3:4','_drawCareerHDViewport','tileWorld=640','imageSmoothingQuality=\'high\''])assert.ok(trackSrc.includes(token),`detail renderer missing ${token}`);
+console.log('career_geometry_test: OK — 50 unique long routes, no sampled self-intersections, tighter late roads, viewport HD-tiled renderer');

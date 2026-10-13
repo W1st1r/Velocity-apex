@@ -1,0 +1,16 @@
+Velocity Apex V59 — Garage Upgrade: true success odds six times lower than V58.
+
+Upload Velocity-Apex-Garage-Upgrade-iPhone-V59.zip to the Codespaces workspace root, then paste:
+
+set -e
+cd /workspaces/Velocity-apex
+mkdir -p velocity-apex-v59-release
+unzip -oq "Velocity-Apex-Garage-Upgrade-iPhone-V59.zip" -d velocity-apex-v59-release
+cd velocity-apex-v59-release
+grep -q 'chanceDivisor:6' src/upgrade-config.mjs
+npm ci
+npm test
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+The deployed assets path should end in velocity-apex-v59-release/public.
+No database migration is required. Cloudflare login must already be configured.

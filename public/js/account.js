@@ -33,7 +33,8 @@
 
   function render(){
     const logged=!!state.user;els.guest.classList.toggle('hidden',logged);els.profile.classList.toggle('hidden',!logged);
-    els.menuStatus.textContent=logged?String(state.user.displayName||state.user.username).slice(0,12).toUpperCase():'ГОСТЬ';els.button.classList.toggle('account-active',logged);
+    const copy=els.button.querySelector('.menu-tile-copy>span');if(copy)copy.textContent=logged?'АККАУНТ':'ВОЙТИ / РЕГИСТРАЦИЯ';
+    els.menuStatus.textContent=logged?String(state.user.displayName||state.user.username).slice(0,12).toUpperCase():'ГОСТЕВОЙ РЕЖИМ';els.button.classList.toggle('account-active',logged);
     if(els.rootSettings)els.rootSettings.classList.toggle('hidden',!state.user?.isAdmin);
     if(logged){els.displayView.textContent=state.user.displayName;els.usernameView.textContent='@'+state.user.username;els.avatar.textContent=initials(state.user.displayName).toUpperCase();}
     window.dispatchEvent(new CustomEvent('velocity-account-changed',{detail:{user:state.user}}));
@@ -64,8 +65,12 @@
     els.root.classList.remove('hidden');els.root.setAttribute('aria-hidden','false');$('menu')?.classList.add('hidden');setMessage();setMessage('',false,true);setTimeout(()=>els.logout.focus(),30);
   }
   function close(){els.root.classList.add('hidden');els.root.setAttribute('aria-hidden','true');if(state.gameEntered)$('menu')?.classList.remove('hidden');}
+  function enterGuestGame(){
+    state.gameEntered=true;stopBanTimer();els.gate.classList.add('hidden');els.gate.setAttribute('aria-hidden','true');els.root.classList.add('hidden');els.root.setAttribute('aria-hidden','true');$('menu')?.classList.remove('hidden');setGateMessage();
+    window.dispatchEvent(new CustomEvent('velocity-account-entered',{detail:{user:null,guest:true}}));
+  }
   async function enterGame(){
-    if(!state.user)return;
+    if(!state.user){enterGuestGame();return;}
     try{const r=await fetch('/api/owner/runtime',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({location:'menu'})});const d=await r.json();if(!r.ok){setGateMessage(d.error==='MAINTENANCE'?'Технические работы. Вход временно закрыт.':'Не удалось проверить доступ. Попробуйте ещё раз.',true);return;}window.Racing.ownerCars=d.cars;window.Racing.ownerTuning=d.tuning;}catch(e){setGateMessage('Нет связи с сервером. Попробуйте ещё раз.',true);return;}
     state.gameEntered=true;els.gate.classList.add('hidden');els.gate.setAttribute('aria-hidden','true');$('menu')?.classList.remove('hidden');setGateMessage();
     window.dispatchEvent(new CustomEvent('velocity-account-entered',{detail:{user:state.user}}));
@@ -110,7 +115,7 @@
     let banned=null;
     try{const data=await api('/api/auth/me');if(data.authenticated){state.user=data.user;rememberAccount(state.user);render();await loadCloud();}else{state.user=null;render();}}
     catch(e){state.user=null;render();if(e.code==='ACCOUNT_BANNED')banned={ban:e.ban,user:e.data?.user};}
-    finally{state.bootstrapped=true;startStatusWatch();if(banned){if(banned.user)rememberAccount(banned.user);showBan(banned.ban,banned.user);}else{showGateChooser();if(!state.user&&readAccounts().length===0)showGateForm('login');}}
+    finally{state.bootstrapped=true;startStatusWatch();if(banned){if(banned.user)rememberAccount(banned.user);showBan(banned.ban,banned.user);}else if(state.user){enterGame();}else{enterGuestGame();}}
   }
   async function flushSave(){
     clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
@@ -125,6 +130,10 @@
     finally{state.syncing=false;}
   }
   function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
+  function referralMessage(ref){
+    if(!ref?.rewarded)return '';const parts=[];const credits=Math.max(0,Math.floor(Number(ref.inviteeReward?.credits)||0));if(credits)parts.push(credits.toLocaleString('ru-RU')+' CR');for(const [id,qty] of Object.entries(ref.inviteeReward?.cases||{}))if(Number(qty)>0)parts.push((window.Racing?.CASES?.[id]?.label||String(id).toUpperCase())+' ×'+Number(qty));
+    return `Реферальный бонус LVL ${Number(ref.inviterLevel)||1}: вы получили ${parts.join(' + ')||'бонус'}. Пригласителю начислено ${Number(ref.rewardCredits||0).toLocaleString('ru-RU')} CR.`;
+  }
   async function finishAuth(data){
     state.user=data.user;rememberAccount(state.user);state.lastSave=localSave();render();await loadCloud();
     try{if(!localStorage.getItem('velocityApex.onlineName'))localStorage.setItem('velocityApex.onlineName',state.user.displayName);}catch{}
@@ -137,7 +146,7 @@
         const displayName=els.display.value.trim();if(password!==els.confirm.value){setMessage('Пароли не совпадают.',true);return;}
         data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.inviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
-      await finishAuth(data);els.password.value='';els.confirm.value='';if(els.inviter)els.inviter.value='';setMessage(data.referral?.rewarded?`Пригласителю начислено ${Number(data.referral.rewardCredits||0).toLocaleString('ru-RU')} CR.`:'',false,true);
+      await finishAuth(data);els.password.value='';els.confirm.value='';if(els.inviter)els.inviter.value='';setMessage(referralMessage(data.referral),false,true);
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.submit.disabled=false;}
   }
   async function onGateSubmit(event){
@@ -155,7 +164,7 @@
     if(!state.user||!state.bootstrapped)return;
     try{
       const data=await api('/api/auth/me');
-      if(!data.authenticated){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');return;}
+      if(!data.authenticated){state.user=null;state.revision=0;render();enterGuestGame();return;}
       const remoteRevision=Number(data.saveRevision)||0;
       if(remoteRevision>state.revision&&!state.syncing)await loadCloud();
     }
@@ -165,13 +174,26 @@
 
   async function logout(){
     els.logout.disabled=true;setMessage('Сохраняем прогресс…',false,true);try{await flushSave();await api('/api/auth/logout',{method:'POST',body:'{}'});}catch{}
-    state.user=null;state.revision=0;state.lastSave=null;render();setMode('login');setMessage();els.logout.disabled=false;requireGate();
+    state.user=null;state.revision=0;state.lastSave=null;render();setMode('login');setMessage();els.logout.disabled=false;enterGuestGame();
+  }
+
+  function ensureAuthPrompt(){
+    let modal=$('onlineAuthPrompt');if(modal)return modal;
+    modal=document.createElement('div');modal.id='onlineAuthPrompt';modal.className='guest-auth-prompt hidden';modal.setAttribute('aria-hidden','true');
+    modal.innerHTML=`<section class="guest-auth-card glass" role="dialog" aria-modal="true" aria-labelledby="onlineAuthPromptTitle"><div class="eyebrow">VELOCITY APEX / ONLINE</div><h2 id="onlineAuthPromptTitle">ОНЛАЙН НЕДОСТУПЕН</h2><p id="onlineAuthPromptText">Чтобы играть с другими игроками, войдите в аккаунт или зарегистрируйтесь.</p><div class="guest-auth-actions"><button data-auth-action="login" class="primary-btn" type="button">ВОЙТИ</button><button data-auth-action="register" class="secondary-btn" type="button">РЕГИСТРАЦИЯ</button><button data-auth-action="cancel" class="secondary-btn guest-auth-cancel" type="button">ОТМЕНА</button></div></section>`;
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{const action=e.target.closest('[data-auth-action]')?.dataset.authAction;if(!action&&e.target!==modal)return;if(action==='login'){hideAuthPrompt();showGateForm('login');}else if(action==='register'){hideAuthPrompt();showGateForm('register');}else hideAuthPrompt();});
+    return modal;
+  }
+  function hideAuthPrompt(){const modal=$('onlineAuthPrompt');if(!modal)return;modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');}
+  function requestAuth(message='Чтобы играть с другими игроками, войдите в аккаунт или зарегистрируйтесь.'){
+    if(state.user)return true;const modal=ensureAuthPrompt(),text=$('onlineAuthPromptText');if(text)text.textContent=message;modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');return false;
   }
 
   els.button.addEventListener('click',open);els.close.addEventListener('click',close);els.loginTab.addEventListener('click',()=>setMode('login'));els.registerTab.addEventListener('click',()=>setMode('register'));els.form.addEventListener('submit',onSubmit);els.logout.addEventListener('click',logout);
   els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave,revision:state.revision}),keepalive:true}).catch(()=>{});});
-  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,open,enterGame};
+  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,open,enterGame,enterGuestGame,requestAuth};
   setMode('login');setGateMode('login');render();bootstrap();
 })();

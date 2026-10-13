@@ -1,0 +1,6 @@
+rm -rf apex-v33
+mkdir -p apex-v33
+unzip -o "Velocity-Apex-Mini-Football-Physics-V33.zip" -d apex-v33
+cd apex-v33
+npm install
+npx wrangler deploy

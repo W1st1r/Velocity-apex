@@ -10,12 +10,12 @@ for(const id of R.CASE_ORDER){
   assert.ok(box.rewards.every(x=>x.chanceBps>=1),`${id} zero-probability reward`);
   const ev=box.rewards.reduce((sum,x)=>sum+x.price*x.chanceBps/10000,0);assert.ok(box.price>ev,`${id} case price must exceed expected gross item value`);
 }
-assert.equal(R.CASES.all.rewards.length,49,'general case must contain 42 cars + 7 paid effects');
-for(const id of ['basic','sport','premium','rare','legendary','lux'])assert.ok(R.CASES[id].rewards.every(x=>x.kind==='livery'&&x.category===id),`${id} case category leak`);
+assert.equal(R.CASES.all.rewards.length,49,'general case must contain 42 cars + 7 paid effects');assert.ok(R.CASES.all.rewards.filter(x=>x.kind==='livery').reduce((s,x)=>s+x.chanceBps,0)<3300,'general car chance should be reduced below 33%');
+for(const id of ['basic','sport','premium','rare','legendary','lux']){const rewards=R.CASES[id].rewards,cars=rewards.filter(x=>x.kind==='livery'),effects=rewards.filter(x=>x.kind==='effect'),carChance=cars.reduce((sum,x)=>sum+x.chanceBps,0);assert.ok(cars.length>0&&cars.every(x=>x.category===id),`${id} car category leak`);assert.ok(effects.length===7&&effects.every(x=>x.price>0),`${id} fallback effects missing`);assert.ok(carChance>=4500&&carChance<8300,`${id} car chance not reduced: ${carChance}`);}
 assert.ok(R.CASES.effects.rewards.every(x=>x.kind==='effect'&&x.price>0),'effects case must contain paid effects only');
 const allLux=R.CASES.all.rewards.filter(x=>x.category==='lux');assert.equal(allLux.length,9);assert.ok(allLux.every(x=>x.chanceBps<=8),`general LUX should stay ultra-rare: ${allLux.map(x=>x.chanceBps)}`);
 const allLegendary=R.CASES.all.rewards.filter(x=>x.category==='legendary');assert.ok(allLegendary.every(x=>x.chanceBps<=14),'general legendary odds too generous');
-const cheapest=R.CASES.basic.rewards.reduce((a,b)=>a.price<b.price?a:b),priciest=R.CASES.basic.rewards.reduce((a,b)=>a.price>b.price?a:b);assert.ok(cheapest.chanceBps>priciest.chanceBps,'higher price should mean lower chance in category case');
+const basicCars=R.CASES.basic.rewards.filter(x=>x.kind==='livery'),cheapest=basicCars.reduce((a,b)=>a.price<b.price?a:b),priciest=basicCars.reduce((a,b)=>a.price>b.price?a:b);assert.ok(cheapest.chanceBps>priciest.chanceBps,'higher price should mean lower chance in category case');
 let save=R.normalizeSave({credits:R.CASES.basic.price-1});const before=save.credits;assert.equal(R.buyCase(save,'basic'),'insufficient');assert.equal(save.credits,before);assert.equal(save.caseInventory.basic,0);
 save=R.normalizeSave({credits:R.CASES.basic.price});assert.equal(R.buyCase(save,'basic'),'purchased');assert.equal(save.credits,0);assert.equal(save.caseInventory.basic,1);
 const first=R.CASES.basic.rewards[0];let result=R.openCase(save,'basic',()=>0);assert.equal(result.status,'opened');assert.equal(result.reward.id,first.id);assert.equal(save.caseInventory.basic,0);assert.ok(save.ownedLiveries.includes(first.id));assert.equal(result.duplicate,false);

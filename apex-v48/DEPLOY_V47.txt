@@ -1,0 +1,6 @@
+rm -rf apex-v47
+mkdir -p apex-v47
+unzip -o "Velocity-Apex-FreeRoam-Garage-Side-Lot-V47.zip" -d apex-v47
+cd apex-v47
+npm install
+npx wrangler deploy

@@ -1,0 +1,6 @@
+rm -rf apex-v41
+mkdir -p apex-v41
+unzip -o "Velocity-Apex-FreeRoam-Airport-Map-V41.zip" -d apex-v41
+cd apex-v41
+npm install
+npx wrangler deploy

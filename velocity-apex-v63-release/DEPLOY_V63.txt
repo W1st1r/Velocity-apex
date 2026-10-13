@@ -1,0 +1,16 @@
+Velocity Apex Economy Rebalance V63
+
+Archive: Velocity-Apex-Economy-Rebalance-V63.zip
+
+Deploy from the extracted project root:
+  npm install
+  node tests/economy_v63_test.mjs
+  node tests/economy_smoke.js
+  node tests/car_catalog_smoke.js
+  node tests/cases_smoke.js
+  node tests/payments_yoomoney_test.mjs
+  node tests/payments_webhook_atomic_test.mjs
+  node tests/garage_upgrade_v62_odds_boundary_test.mjs
+  npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+No database migration is required. Owner car-price overrides are upgraded lazily to economyVersion 63.

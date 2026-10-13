@@ -33,13 +33,13 @@
 
   class Garage{
     constructor(save,onChange){
-      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.previewLoadToken=0;this.catalogPreloadToken=0;this.tuningTab='performance';this.tuningStylePurchase=null;
+      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.previewLoadToken=0;this.catalogPreloadToken=0;this.tuningTab='performance';this.tuningStylePurchase=null;this.pendingSell=null;
       this.state={
         shop:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect,previewCase:'all'},
         garage:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect}
       };
       this.car=new R.Car();this.car.x=280;this.car.y=190;this.car.angle=-.20;this.car.speed=260;this.car.throttleVisual=1;
-      this.bindView('shop');this.bindView('garage');this.bindCaseDialog();this.bindTuning();
+      this.bindView('shop');this.bindView('garage');this.bindCaseDialog();this.bindTuning();this.bindSellDialog();
     }
     view(mode=this.mode){
       const prefix=mode==='shop'?'shop':'garage';
@@ -69,6 +69,60 @@
       d.modal.addEventListener('click',e=>{if(e.target===d.modal)this.closeCaseDialog();});
       document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!d.modal.classList.contains('hidden'))this.closeCaseDialog();});
     }
+    bindSellDialog(){
+      let modal=$('garageSellModal');
+      if(!modal){
+        modal=document.createElement('div');modal.id='garageSellModal';modal.className='garage-sell-modal hidden';modal.setAttribute('aria-hidden','true');
+        modal.innerHTML=`<section class="garage-sell-card" role="dialog" aria-modal="true" aria-labelledby="garageSellTitle">
+          <div class="garage-sell-kicker">СИСТЕМНАЯ ПРОДАЖА</div>
+          <h3 id="garageSellTitle">ПРОДАТЬ МАШИНУ?</h3>
+          <p id="garageSellQuestion"></p>
+          <div class="garage-sell-breakdown">
+            <span><small>МАШИНА + ТЮНИНГ</small><strong id="garageSellTotal">0 CR</strong></span>
+            <span class="garage-sell-payout"><small>ВЫ ПОЛУЧИТЕ · 70%</small><strong id="garageSellPayout">0 CR</strong></span>
+          </div>
+          <p class="garage-sell-warning">Машина, улучшения, купленные цвета и винилы будут удалены из гаража. Отменить продажу после подтверждения нельзя.</p>
+          <div class="garage-sell-actions"><button id="garageSellNo" type="button">НЕТ</button><button id="garageSellYes" type="button">ДА, ПРОДАТЬ</button></div>
+        </section>`;
+        document.body.appendChild(modal);
+      }
+      $('garageSellNo')?.addEventListener('click',()=>this.closeSellDialog());
+      $('garageSellYes')?.addEventListener('click',()=>this.confirmSell());
+      modal.addEventListener('click',e=>{if(e.target===modal)this.closeSellDialog();});
+      document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!modal.classList.contains('hidden'))this.closeSellDialog();});
+    }
+    openSellDialog(id){
+      const item=R.LIVERIES?.[id],quote=R.getCarInvestmentValue?.(this.save,id),modal=$('garageSellModal');
+      if(!item||!quote||quote.status!=='ok'||quote.payout<=0||!modal)return;
+      this.pendingSell={id,payout:quote.payout};
+      $('garageSellQuestion').textContent=`Вы точно хотите продать ${item.name} системе за 70% от всей вложенной суммы?`;
+      $('garageSellTotal').textContent=`${formatCredits(quote.total)} CR`;
+      $('garageSellPayout').textContent=`+${formatCredits(quote.payout)} CR`;
+      modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
+      $('garageSellNo')?.focus();
+    }
+    closeSellDialog(){
+      const modal=$('garageSellModal');if(!modal)return;
+      modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');this.pendingSell=null;
+    }
+    confirmSell(){
+      const pending=this.pendingSell;if(!pending)return;
+      const result=R.sellOwnedCar?.(this.save,pending.id,pending.payout),v=this.view('garage');
+      if(result?.status==='sold'){
+        this.pendingSell=null;this.closeSellDialog();
+        for(const s of Object.values(this.state)){if(s.previewLivery===pending.id)s.previewLivery=this.save.selectedLivery;}
+        v.message.textContent=`ПРОДАНО СИСТЕМЕ · +${formatCredits(result.payout)} CR · 70% ОТ МАШИНЫ И ТЮНИНГА`;
+        v.message.classList.remove('warning');
+        this.onChange();this.render();return;
+      }
+      if(result?.status==='stale'){
+        this.pendingSell={id:pending.id,payout:result.quote.payout};
+        $('garageSellTotal').textContent=`${formatCredits(result.quote.total)} CR`;
+        $('garageSellPayout').textContent=`+${formatCredits(result.quote.payout)} CR`;
+        v.message.textContent='Цена машины изменилась · сумма продажи пересчитана';v.message.classList.add('warning');return;
+      }
+      this.closeSellDialog();v.message.textContent=result?.status==='protected'?'БАЗОВАЯ МАШИНА НЕ ПРОДАЁТСЯ':'Продажа недоступна';v.message.classList.add('warning');this.render();
+    }
     handleItemsClick(mode,e){
       const tuning=e.target.closest('[data-tune]');if(tuning&&mode==='garage'){this.openTuning(tuning.dataset.tune);return;}
       const caseCard=e.target.closest('[data-case]');
@@ -79,12 +133,13 @@
         return;
       }
       const card=e.target.closest('[data-item]');if(!card)return;
-      this.mode=mode;const s=this.state[mode],id=card.dataset.item,action=e.target.closest('.purchase-btn,.select-btn');
+      this.mode=mode;const s=this.state[mode],id=card.dataset.item,action=e.target.closest('.purchase-btn,.select-btn,.sell-btn');
       const previewKey=s.tab==='livery'?'previewLivery':'previewEffect',changed=s[previewKey]!==id;s[previewKey]=id;
       // Preview taps are the hot path on iPhone. Do not rebuild dozens of car cards
       // just to move the preview highlight; update only the two affected cards and
       // the hero preview. Purchases/equips still use a full render because ownership changes.
       if(!action){if(changed)this.updatePreviewOnly(mode,id);return;}
+      if(action&&mode==='garage'&&action.classList.contains('sell-btn')){this.openSellDialog(id);return;}
       if(action&&mode==='shop'&&action.classList.contains('purchase-btn')){
         const kind=s.tab,result=R.shopAction(this.save,kind,id),v=this.view(mode);
         v.message.textContent=result==='insufficient'?'НЕДОСТАТОЧНО CR':result==='purchased'?'КУПЛЕНО · предмет уже доступен в ГАРАЖЕ':'Предмет недоступен';
@@ -229,7 +284,13 @@
           const shortfall=Math.max(0,(item.price||0)-this.save.credits),shortfallText=mode==='shop'&&!isOwned&&shortfall>0?`<div class="item-shortfall">ЕЩЁ ${formatCredits(shortfall)} CR</div>`:'';
           let button='';if(mode==='shop')button=isOwned?`<button type="button" class="purchase-btn owned" disabled>КУПЛЕНО</button>`:`<button type="button" class="purchase-btn">КУПИТЬ — ${formatCredits(item.price)} CR</button>`;else button=`<button type="button" class="select-btn ${isSelected?'equipped':''}" ${isSelected?'disabled':''}>${isSelected?'✓ АКТИВНО':'ВЫБРАТЬ'}</button>`;
           if(isCars&&!R.carAvailable(id))button='<button type="button" class="select-btn" disabled>ВРЕМЕННО НЕДОСТУПНА</button>';
-          if(isCars&&mode==='garage')button+=`<button type="button" class="tuning-gear" data-tune="${id}" aria-label="Настроить ${item.name}">⚙ <span>ТЮНИНГ</span></button>`;
+          if(isCars&&mode==='garage'){
+            button+=`<button type="button" class="tuning-gear" data-tune="${id}" aria-label="Настроить ${item.name}">⚙ <span>ТЮНИНГ</span></button>`;
+            const quote=R.getCarInvestmentValue?.(this.save,id);
+            button+=id==='apexLime'
+              ?`<button type="button" class="sell-btn protected" disabled>БАЗОВАЯ · НЕ ПРОДАЁТСЯ</button>`
+              :`<button type="button" class="sell-btn" data-sell="${id}">ПРОДАТЬ · ${formatCredits(quote?.payout||0)} CR</button>`;
+          }
           const classes=['shop-item',isSelected?'selected equipped-card':'',isPreview?'previewing':'',isCars?'car-card '+R.CAR_CATEGORIES[cat].className:'effect-card'].filter(Boolean).join(' ');
           const effectStyle=!isCars?` style="--effect-a:${item.rainbow?'#70ff9d':(item.outer||'#61e8ff')};--effect-b:${item.rainbow?'#ff58ce':(item.inner||'#efffff')}"`:'';
           const stateChip=isSelected?'<span class="item-preview-state active">АКТИВНО</span>':isPreview?'<span class="item-preview-state">ПРОСМОТР</span>':'';

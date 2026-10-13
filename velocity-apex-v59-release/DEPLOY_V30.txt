@@ -1,0 +1,6 @@
+rm -rf apex-v30
+mkdir apex-v30
+unzip -o "Velocity-Apex-Minigame-Buildings-Owner-V30.zip" -d apex-v30
+cd apex-v30
+npm install
+npx wrangler deploy

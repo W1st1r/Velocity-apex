@@ -12,16 +12,18 @@
   const CITY=window.ApexCity;
   if(!CITY)throw new Error("APEX BAY map module is missing");
   const WORLD={w:CITY.width,h:CITY.height};
-  const MAX=20;
+  const MAX=50;
   const ZONES={
     crews:{x:2020,y:1250,r:150,label:'КЛАНЫ',kind:'crews'},
     drag:{x:3120,y:2670,r:125,label:'AIRPORT DRAG',kind:'drag'},
     speed:{x:2020,y:430,r:120,label:'SPEED TRAP',kind:'speed'},
-    drift:{x:620,y:2290,r:310,label:'PORT DRIFT',kind:'drift',battleId:'harbor'},
-    driftIndustrial:{x:1110,y:1320,r:260,label:'INDUSTRIAL DRIFT',kind:'driftBattle',battleId:'industrial'},
-    driftParking:{x:3700,y:1710,r:285,label:'PARKING DRIFT',kind:'driftBattle',battleId:'parking'},
+    drift:{x:670,y:2310,r:320,label:'HARBOR DRIFT MEGAPARK',kind:'drift',battleId:'harbor'},
     koth:{x:2320,y:1590,r:100,label:'KING OF THE HILL',kind:'koth'},
     levels:{x:2470,y:1590,r:100,label:'LEVELS',kind:'levels'},
+    footballHub:{x:1835,y:300,r:112,label:'APEX STADIUM',kind:'minigame',hub:'football'},
+    checkpointHub:{x:3480,y:865,r:112,label:'RUSH CENTER',kind:'minigame',hub:'checkpoint'},
+    hotPotatoHub:{x:820,y:1410,r:105,label:'BOMB ARENA',kind:'minigame',hub:'hot_potato'},
+    garage:{x:2670,y:635,r:155,label:'GARAGE',kind:'garage'},
     meet:{x:2320,y:1590,r:260,label:'CAR MEET',kind:'meet'}
   };
   // MOUNTAIN PASS now follows the lakeside spline in free-city.js.
@@ -35,9 +37,9 @@
   };
 
   const state={
-    active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,
-    room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,activityPending:false,liveEvent:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
-    speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,driftPhysicsTime:0,paused:false
+    active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,reconnectTimer:0,reconnectAttempts:0,intentionalClose:false,
+    room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,dragWager:0,activityPending:false,liveEvent:null,minigame:null,minigameHub:null,minigameReturn:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
+    speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,paused:false,lastFootballTouchAt:0,minigameHudExpanded:false,minigameHudAutoCollapseAt:0,garageOpen:false,garageBusy:false
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
   const car=R.Car?new R.Car({player:true,maxSpeed:SOLO_PHYS.maxSpeed,accel:SOLO_PHYS.accel,brakePower:SOLO_PHYS.brakePower,turnRate:SOLO_PHYS.turnRate}):{x:2320,y:1590,vx:0,vy:0,angle:-Math.PI/2,speed:0};
@@ -47,7 +49,18 @@
   const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
   const TAU=Math.PI*2;
   const DRAG_START_X=3130,DRAG_FINISH_X=4710,DRAG_LENGTH=DRAG_FINISH_X-DRAG_START_X;
-  const FREE_SEND_MS=50,DRAG_SEND_MS=30,REMOTE_BACKTIME_MS=55,DRAG_REMOTE_BACKTIME_MS=32,REMOTE_EXTRAPOLATE_MS=260,KOTH_SWITCH_MS=[0,55000,110000,165000,210000];
+  const DRAG_WAGER_OPTIONS=Object.freeze([0,100,250,500,1000,2500,5000]);
+  const FREE_SEND_MS=62,FOOTBALL_SEND_MS=40,DRAG_SEND_MS=30,REMOTE_BACKTIME_MS=72,DRAG_REMOTE_BACKTIME_MS=34,REMOTE_EXTRAPOLATE_MS=220,KOTH_SWITCH_MS=[0,55000,110000,165000,210000];
+  const RECONNECT_DELAYS=[180,520,1100,2200];
+  const MINI_ARENA={x:2500,y:1500,left:1250,right:3750,top:750,bottom:2250};
+  const FOOTBALL_BALL_R=30,FOOTBALL_GOAL_HALF=245,FOOTBALL_CONTACT_R=78,FOOTBALL_MAX_BALL_SPEED=1050;
+  const miniCamera={x:MINI_ARENA.x,y:MINI_ARENA.y,zoom:.46,last:performance.now()};
+  const MINI_CONFIG={
+    football_3v3:{label:'МИНИ-ФУТБОЛ 3×3',desc:'6 игроков · 2:30 · до 5 голов',hub:'football'},
+    football_5v5:{label:'МИНИ-ФУТБОЛ 5×5',desc:'10 игроков · 3:00 · большая командная игра',hub:'football'},
+    checkpoint:{label:'CHECKPOINT RUSH',desc:'2–8 игроков · 1:45 · собирайте контрольные точки',hub:'checkpoint'},
+    hot_potato:{label:'HOT POTATO',desc:'2–8 игроков · 1:40 · передайте бомбу касанием',hub:'hot_potato'}
+  };
 
   let lastMapDraw=0;
   const mapView={zoom:1,x:WORLD.w/2,y:WORLD.h/2};
@@ -78,6 +91,28 @@
   function loadSave(){
     try{return R.normalizeSave?R.normalizeSave(JSON.parse(localStorage.getItem('velocityApex.v1')||'{}')):{};}
     catch{return R.normalizeSave?R.normalizeSave({}):{};}
+  }
+  const fmtCR=value=>Math.max(0,Math.floor(Number(value)||0)).toLocaleString('ru-RU')+' CR';
+  const walletBalance=()=>Math.max(0,Math.floor(Number(loadSave().credits)||0));
+  function renderDragBetPanel(){
+    const balance=walletBalance(),balanceEl=$('freeDragBetBalance'),potEl=$('freeDragBetPot'),join=$('freeDragBetJoin');if(balanceEl)balanceEl.textContent=fmtCR(balance);
+    let selected=DRAG_WAGER_OPTIONS.includes(Number(state.dragWager))?Number(state.dragWager):0;
+    if(selected>balance)selected=0;state.dragWager=selected;
+    document.querySelectorAll('#freeDragBetChoices [data-wager]').forEach(button=>{const amount=Number(button.dataset.wager)||0,disabled=amount>balance;button.disabled=disabled;button.classList.toggle('selected',amount===selected);button.setAttribute('aria-pressed',String(amount===selected));});
+    if(potEl)potEl.textContent=selected>0?`${fmtCR(selected)} × 2 = ${fmtCR(selected*2)}`:'БЕЗ СТАВКИ · ТРЕНИРОВОЧНЫЙ DRAG';
+    if(join){join.disabled=selected>balance;join.textContent=selected>0?`В ОЧЕРЕДЬ · ${fmtCR(selected)}`:'В ОЧЕРЕДЬ · БЕЗ СТАВКИ';}
+  }
+  function toggleDragBetPanel(force){
+    const panel=$('freeDragBetPanel');if(!panel)return;const show=force??panel.classList.contains('hidden');panel.classList.toggle('hidden',!show);panel.setAttribute('aria-hidden',String(!show));
+    if(show){toggleChat(false);toggleMap(false);toggleLevels(false);toggleMinigamePanel(false);try{const saved=Number(localStorage.getItem('velocityApex.freeDragWager')||0);if(DRAG_WAGER_OPTIONS.includes(saved))state.dragWager=saved;}catch{}renderDragBetPanel();}
+  }
+  async function joinDragQueue(){
+    if(state.drag||state.dragQueued)return;let wager=Number(state.dragWager)||0;if(!DRAG_WAGER_OPTIONS.includes(wager))wager=0;
+    if(wager>0&&!window.VelocityAccount?.authenticated){setBanner('DRAG · СТАВКИ ДОСТУПНЫ ТОЛЬКО В АККАУНТЕ',3200);return;}
+    if(wager>walletBalance()){setBanner(`DRAG · НЕДОСТАТОЧНО CR · БАЛАНС ${fmtCR(walletBalance())}`,3200);renderDragBetPanel();return;}
+    if(wager>0){await window.VelocityAccount?.flushSave?.();await window.VelocityAccount?.refreshCloud?.();if(wager>walletBalance()){setBanner(`DRAG · НЕДОСТАТОЧНО CR · БАЛАНС ${fmtCR(walletBalance())}`,3200);renderDragBetPanel();return;}}
+    state.dragWager=wager;state.dragQueued=true;try{localStorage.setItem('velocityApex.freeDragWager',String(wager));}catch{}
+    if(!send({type:'activity_join',v:1,activity:'drag',wager})){state.dragQueued=false;return;}toggleDragBetPanel(false);setBanner(wager?`DRAG · СТАВКА ${fmtCR(wager)} · ИЩЕМ СОПЕРНИКА`:'DRAG · ИЩЕМ СОПЕРНИКА',2600);
   }
 
   function loadout(){
@@ -112,6 +147,162 @@
     phase.textContent=e.finalZone?'FINAL ZONE':'TIME';clock.textContent=formatEventTime(overallLeft);
   }
 
+
+  function minigameTitle(key){return MINI_CONFIG[key]?.label||'APEX MINI GAME';}
+  function minigameKind(key){return String(key||'').startsWith('football')?'football':key;}
+  function teamColorId(team){return team==='red'?'velocity-red':team==='blue'?'electric-blue':'stock';}
+  function activeMinigameForPlayer(id){
+    return (state.room?.activities?.minigames||[]).find(e=>e?.participants?.includes(id)&&['waiting','countdown','running'].includes(e.status))||null;
+  }
+  function renderMinigameHud(){
+    const hud=$('freeMinigameHud'),e=state.minigame;if(!hud)return;const active=!!e&&['waiting','countdown','running'].includes(e.status);
+    roam.classList.toggle('minigame-active',!!e);
+    if(!e){hud.classList.add('hidden');hud.classList.remove('result','football-compact','minigame-compact','minigame-expanded');roam.classList.remove('football-playing','minigame-playing');state.minigameHudExpanded=false;state.minigameHudAutoCollapseAt=0;return;}
+    hud.classList.remove('hidden');hud.classList.toggle('result',e.status==='result');$('freeMinigameTitle').textContent=minigameTitle(e.gameKey);
+    const score=$('freeMinigameScore'),info=$('freeMinigameInfo'),root=$('freeMinigameStandings');score.replaceChildren();root.replaceChildren();
+    const kind=minigameKind(e.gameKey),compactPlaying=e.status==='running',footballCompact=kind==='football'&&compactPlaying,rows=(e.results||e.standings||[]).slice(0,8);
+    const autoIntro=compactPlaying&&performance.now()<(state.minigameHudAutoCollapseAt||0),expanded=!compactPlaying||state.minigameHudExpanded||autoIntro;
+    hud.classList.toggle('minigame-compact',compactPlaying);hud.classList.toggle('minigame-expanded',expanded);roam.classList.toggle('minigame-playing',compactPlaying);hud.classList.toggle('football-compact',footballCompact);roam.classList.toggle('football-playing',footballCompact);
+    const toggle=$('freeMinigameToggle');if(toggle){toggle.classList.toggle('hidden',!compactPlaying);toggle.textContent=expanded?'⌃':'⌄';toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-label',expanded?'Скрыть таблицу мини-игры':'Показать таблицу мини-игры');}
+    if(kind==='football'){
+      score.innerHTML=`<span class="red">RED ${Number(e.score?.red)||0}</span><b>:</b><span class="blue">${Number(e.score?.blue)||0} BLUE</span>`;
+      const mineTeam=e.teamByPlayer?.[state.playerId];info.textContent=e.status==='waiting'||e.status==='countdown'?`СОБРАНО ${e.participants?.length||0} / ${e.maxPlayers||e.minPlayers||0}`:`ВАША КОМАНДА · ${mineTeam==='red'?'КРАСНЫЕ':'СИНИЕ'}`;
+    }else if(kind==='checkpoint'){
+      const myScore=Number(e.points?.[state.playerId]??rows.find(r=>r.id===state.playerId)?.score)||0,target=(Number(e.checkpointIndex)||0)+1;
+      score.textContent=`CHECKPOINT #${target} · ${myScore} ВЗЯТО`;info.textContent=e.checkpoint?'ДОЕДЬТЕ ДО СВЕТЯЩЕЙСЯ ТОЧКИ':`СОБИРАЕМ ИГРОКОВ · ${e.participants?.length||0}/${e.minPlayers||2}`;
+    }else{
+      const holder=e.bombHolderId,holderName=e.names?.[holder]||state.room?.players?.find(p=>p.id===holder)?.name||'—';
+      score.textContent=`💣 ${holderName}`;info.textContent=holder===state.playerId?'БОМБА У ВАС · КОСНИТЕСЬ ДРУГОЙ МАШИНЫ':'НЕ ДАЙТЕ ПЕРЕДАТЬ БОМБУ ВАМ';
+    }
+    if(!rows.length){
+      for(const id of (e.participants||[]).slice(0,8)){const r={id,name:e.names?.[id]||state.room?.players?.find(p=>p.id===id)?.name||'RACER',level:e.levels?.[id]||0,team:e.teamByPlayer?.[id],score:e.points?.[id]??e.strikes?.[id]??0};rows.push(r);}
+    }
+    rows.forEach((r,i)=>{
+      const row=document.createElement('div');row.className='free-minigame-row'+(r.id===state.playerId?' me':'');
+      const lead=document.createElement('span');if(kind==='football'){lead.className='team-dot '+(r.team||e.teamByPlayer?.[r.id]||'');}else lead.textContent=String(r.place||i+1);
+      const name=document.createElement('strong');appendPlayerName(name,r.name||'RACER',false,Number(r.level)||0,r.adminLevel??null);
+      const val=document.createElement('span');if(kind==='football')val.textContent=(r.team||e.teamByPlayer?.[r.id]||'').toUpperCase();else if(kind==='hot_potato')val.textContent=`${Number(r.strikes??r.score)||0} 💥`;else val.textContent=String(Number(r.score)||0);
+      row.append(lead,name,val);root.appendChild(row);
+    });
+    const leave=$('freeMinigameLeave');if(leave)leave.classList.toggle('hidden',!active);
+    const ownerStart=$('freeMinigameOwnerStart'),me=ownPlayer(),ownerCanStart=!!me?.owner&&active&&['waiting','countdown'].includes(e.status);
+    if(ownerStart){ownerStart.classList.toggle('hidden',!ownerCanStart);ownerStart.disabled=!ownerCanStart;ownerStart.textContent=e.status==='countdown'?'OWNER · НАЧАТЬ СЕЙЧАС':'OWNER · ЗАПУСТИТЬ БЕЗ ОЖИДАНИЯ';}
+  }
+  function updateMinigameClock(now){
+    const e=state.minigame,hud=$('freeMinigameHud');if(!e||!hud||hud.classList.contains('hidden'))return;const phase=$('freeMinigamePhase'),clock=$('freeMinigameTime');
+    if(e.status==='waiting'){phase.textContent='WAITING';clock.textContent=`${e.participants?.length||1}/${e.minPlayers||2}`;return;}
+    if(e.status==='countdown'){phase.textContent='СТАРТ ЧЕРЕЗ';clock.textContent=String(Math.max(1,Math.ceil(((e.startAt||now)-now)/1000)));return;}
+    if(e.status==='result'){phase.textContent='FINISH';clock.textContent='00:00';return;}
+    if(minigameKind(e.gameKey)==='hot_potato'&&e.bombHolderId===state.playerId&&e.bombDeadline){phase.textContent='💣 ВЗРЫВ ЧЕРЕЗ';clock.textContent=(Math.max(0,e.bombDeadline-now)/1000).toFixed(1);return;}
+    phase.textContent='TIME';clock.textContent=formatEventTime(Math.max(0,(e.endAt||now)-now));
+  }
+  function openMinigamePanel(hub){
+    state.minigameHub=hub;const panel=$('freeMinigamePanel'),root=$('freeMinigameChoices');if(!panel||!root)return;
+    const titles={football:'APEX STADIUM',checkpoint:'RUSH CENTER',hot_potato:'BOMB ARENA'},texts={football:'Командный автомобильный футбол. Мяч синхронизируется сервером, а машины автоматически получают цвета команд.',checkpoint:'Аркадная гонка за контрольными точками. Новая цель появляется сразу после захвата предыдущей.',hot_potato:'Передавайте бомбу касанием другой машины. Каждые 12 секунд держатель получает взрывной штраф.'};
+    $('freeMinigamePanelTitle').textContent=titles[hub]||'МИНИ-ИГРЫ';$('freeMinigamePanelText').textContent=texts[hub]||'';root.replaceChildren();
+    const keys=Object.keys(MINI_CONFIG).filter(k=>MINI_CONFIG[k].hub===hub);for(const key of keys){const cfg=MINI_CONFIG[key],b=document.createElement('button');b.type='button';b.className='free-minigame-choice';b.innerHTML=`<b>${cfg.label}</b><span>${cfg.desc}</span><em>ВСТАТЬ В ОЧЕРЕДЬ</em>`;b.onclick=()=>{state.activityPending=true;if(send({type:'activity_join',v:1,activity:'minigame',gameKey:key})){toggleMinigamePanel(false);setBanner(`${cfg.label} · РЕГИСТРАЦИЯ`,2000);}else state.activityPending=false;};root.appendChild(b);}
+    panel.classList.remove('hidden');panel.setAttribute('aria-hidden','false');toggleChat(false);toggleMap(false);toggleLevels(false);
+  }
+  function toggleMinigamePanel(force){
+    const panel=$('freeMinigamePanel');if(!panel)return;const show=force??panel.classList.contains('hidden');panel.classList.toggle('hidden',!show);panel.setAttribute('aria-hidden',String(!show));if(!show)state.minigameHub=null;
+  }
+  function setOwnTeamStyle(team){
+    if(!R.Car||!car.setCustomization)return;const color=teamColorId(team);car.setCustomization(R.getCarStyleByIds?.(color,'none'));
+  }
+  function restoreOwnStyle(){refreshPlayerLoadout();}
+  function enterMinigameArena(m){
+    if(!state.minigameReturn)state.minigameReturn={x:car.x,y:car.y,angle:car.angle};
+    state.minigame={...(state.minigame||{}),...m,status:'running'};state.minigameHudExpanded=false;state.minigameHudAutoCollapseAt=performance.now()+1400;const spawn=m.spawns?.[state.playerId];if(spawn){car.x=spawn.x;car.y=spawn.y;car.angle=spawn.angle;car.vx=car.vy=car.speed=0;car.yawRate=0;}miniCamera.x=car.x;miniCamera.y=car.y;miniCamera.zoom=.46;miniCamera.last=performance.now();
+    if(minigameKind(m.gameKey)==='football')setOwnTeamStyle(m.teamByPlayer?.[state.playerId]);else restoreOwnStyle();
+    for(const id of m.participants||[]){if(id===state.playerId)continue;const r=state.remotes.get(id),sp=m.spawns?.[id];if(r&&sp){r.x=sp.x;r.y=sp.y;r.angle=sp.angle;r.snapshots=[];r.target={...sp,vx:0,vy:0,speed:0,sampleTime:Date.now()+state.serverOffset};pushRemoteSnapshot(r,r.target,r.target.sampleTime);}}
+    renderMinigameHud();toggleChat(false);toggleMap(false);toggleLevels(false);pingServer();
+  }
+  function leaveMinigameArena(){
+    const back=state.minigameReturn;state.minigame=null;state.activityPending=false;state.minigameReturn=null;state.minigameHudExpanded=false;state.minigameHudAutoCollapseAt=0;roam.classList.remove('minigame-active');renderMinigameHud();restoreOwnStyle();
+    if(back){car.x=back.x;car.y=back.y;car.angle=back.angle;car.vx=car.vy=car.speed=0;car.yawRate=0;sendFreeState(true);}
+  }
+  function resolveMinigameMotion(obj){
+    const pad=42,a=MINI_ARENA;if(obj.x<a.left+pad){obj.x=a.left+pad;obj.vx=Math.abs(obj.vx||0)*.25;}if(obj.x>a.right-pad){obj.x=a.right-pad;obj.vx=-Math.abs(obj.vx||0)*.25;}if(obj.y<a.top+pad){obj.y=a.top+pad;obj.vy=Math.abs(obj.vy||0)*.25;}if(obj.y>a.bottom-pad){obj.y=a.bottom-pad;obj.vy=-Math.abs(obj.vy||0)*.25;}obj.speed=Math.hypot(obj.vx||0,obj.vy||0);
+  }
+  function minigameRemoteVisual(r,id){
+    const team=state.minigame?.teamByPlayer?.[id];if(minigameKind(state.minigame?.gameKey)!=='football'||!team)return r.visual;
+    const key=`${r.liveryId}|${r.effectId}|${team}`;if(r._miniVisualKey!==key||!r._miniVisual){r._miniVisualKey=key;r._miniVisual=createVisual(r.liveryId,r.effectId,teamColorId(team),'none');}return r._miniVisual;
+  }
+  function drawMinigameEntrance(c,z,color,label){
+    // V37: the city artwork now contains real ENTRY / EXIT lanes and event gates.
+    // Keep only a restrained interaction beacon so no floating plate covers the venue.
+    c.save();c.translate(z.x,z.y);const pulse=1+Math.sin(performance.now()/260)*.08;c.globalAlpha=.78;c.strokeStyle=color;c.lineWidth=3;c.setLineDash([8,8]);c.beginPath();c.arc(0,0,34*pulse,0,TAU);c.stroke();c.setLineDash([]);c.globalAlpha=.9;c.fillStyle='rgba(11,27,30,.74)';roundRect(c,-43,-10,86,20,7,true,false);c.fillStyle=color;c.font='900 9px system-ui';c.textAlign='center';c.fillText('PLAY · '+label,0,3);c.restore();
+  }
+  function projectMinigameBall(e,serverNow=Date.now()+state.serverOffset){
+    const b=e?.ball;if(!b)return null;const syncAt=Number(e._ballServerTime)||Number(e.serverTime)||serverNow,age=clamp((serverNow-syncAt)/1000,0,.32),drag=Math.exp(-.58*age),travel=age>0?(1-drag)/.58:0;
+    let x=(Number(b.x)||MINI_ARENA.x)+(Number(b.vx)||0)*travel,y=(Number(b.y)||MINI_ARENA.y)+(Number(b.vy)||0)*travel,vx=(Number(b.vx)||0)*drag,vy=(Number(b.vy)||0)*drag;const a=MINI_ARENA,r=FOOTBALL_BALL_R,goalClear=FOOTBALL_GOAL_HALF-r*.45;
+    if(y<a.top+r){y=a.top+r;vy=Math.abs(vy)*.78;}else if(y>a.bottom-r){y=a.bottom-r;vy=-Math.abs(vy)*.78;}
+    if(Math.abs(y-a.y)>goalClear){if(x<a.left+r){x=a.left+r;vx=Math.abs(vx)*.78;}else if(x>a.right-r){x=a.right-r;vx=-Math.abs(vx)*.78;}}
+    return {x,y,vx,vy,seq:Number(b.seq)||0,lastTouchId:b.lastTouchId||null};
+  }
+  function minigameBallVisual(e){
+    const target=projectMinigameBall(e);if(!target)return null;const t=performance.now(),r=e._ballRender;
+    if(!r||Math.hypot(target.x-r.x,target.y-r.y)>360||target.seq-(r.seq||0)>3){e._ballRender={...target,_t:t};return e._ballRender;}
+    const dt=clamp((t-(r._t||t))/1000,0,.05),error=Math.hypot(target.x-r.x,target.y-r.y),rate=error>120?20:14,alpha=1-Math.exp(-rate*dt),velocityAlpha=1-Math.exp(-18*dt);r.x+=(target.x-r.x)*alpha;r.y+=(target.y-r.y)*alpha;r.vx+=(target.vx-r.vx)*velocityAlpha;r.vy+=(target.vy-r.vy)*velocityAlpha;r.seq=target.seq;r.lastTouchId=target.lastTouchId;r._t=t;return r;
+  }
+  function predictLocalFootballTouch(serverNow){
+    const e=state.minigame;if(!e||e.status!=='running'||minigameKind(e.gameKey)!=='football')return;const ball=projectMinigameBall(e,serverNow);if(!ball)return;
+    const dx=ball.x-car.x,dy=ball.y-car.y,d=Math.hypot(dx,dy);if(!Number.isFinite(d)||d<=0||d>FOOTBALL_CONTACT_R+7)return;if(serverNow-(state.lastFootballTouchAt||0)<34)return;
+    const nx=dx/d,ny=dy/d,cvx=Number(car.vx)||0,cvy=Number(car.vy)||0,ballNormal=ball.vx*nx+ball.vy*ny,carNormal=cvx*nx+cvy*ny,closing=carNormal-ballNormal;if(closing<=4&&d>FOOTBALL_CONTACT_R-4)return;
+    const speed=Math.hypot(cvx,cvy),forwardX=Math.cos(Number(car.angle)||0),forwardY=Math.sin(Number(car.angle)||0),drive=Math.max(0,forwardX*nx+forwardY*ny),impulse=Math.max(0,closing)*1.18+Math.max(0,speed-35)*.075+drive*Math.min(38,speed*.12);if(impulse<8)return;
+    let vx=ball.vx+nx*impulse+cvx*.12,vy=ball.vy+ny*impulse+cvy*.12,ballSpeed=Math.hypot(vx,vy);if(ballSpeed>FOOTBALL_MAX_BALL_SPEED){const k=FOOTBALL_MAX_BALL_SPEED/ballSpeed;vx*=k;vy*=k;}
+    const push=Math.max(FOOTBALL_CONTACT_R,d)+1,x=car.x+nx*push,y=car.y+ny*push,seq=(Number(e.ball?.seq)||0)+1;e.ball={...(e.ball||{}),x,y,vx,vy,seq,lastTouchId:state.playerId};e._ballServerTime=serverNow;e._ballRender={x,y,vx,vy,seq,lastTouchId:state.playerId,_t:performance.now()};state.lastFootballTouchAt=serverNow;
+    send({type:'football_touch',v:1,state:{x:car.x,y:car.y,vx:car.vx,vy:car.vy,angle:car.angle,speed:car.speed,sampleTime:Math.round(serverNow)}});
+  }
+  function minigameObjective(e,kind){
+    if(kind==='football')return projectMinigameBall(e);
+    if(kind==='checkpoint'&&e?.checkpoint)return {x:e.checkpoint.x,y:e.checkpoint.y};
+    if(kind==='hot_potato'&&e?.bombHolderId&&e.bombHolderId!==state.playerId){const r=state.remotes.get(e.bombHolderId);if(r)return {x:r.x,y:r.y};}
+    return null;
+  }
+  function updateMinigameCamera(e,kind){
+    const t=performance.now(),dt=clamp((t-(miniCamera.last||t))/1000,0,.05);miniCamera.last=t;
+    const speed=Math.hypot(Number(car.vx)||0,Number(car.vy)||0),look=clamp(speed*.18,0,105),fx=Math.cos(Number(car.angle)||0),fy=Math.sin(Number(car.angle)||0);
+    const baseX=car.x+fx*look,baseY=car.y+fy*look,objective=minigameObjective(e,kind);
+    let desiredX=baseX,desiredY=baseY,desiredZoom=(W>H&&H<=700)?.57:.62;
+    if(objective){
+      const dx=objective.x-car.x,dy=objective.y-car.y,d=Math.hypot(dx,dy),weight=kind==='football'?clamp(.28+d/9000,.28,.42):kind==='checkpoint'?clamp(.18+d/12000,.18,.31):.18;
+      desiredX=baseX+(objective.x-baseX)*weight;desiredY=baseY+(objective.y-baseY)*weight;
+      const safeW=Math.max(620,W-270),safeH=Math.max(330,H-165),fitX=safeW/(Math.abs(dx)+610),fitY=safeH/(Math.abs(dy)+520);
+      desiredZoom=Math.min(desiredZoom,fitX,fitY);
+    }
+    desiredZoom=clamp(desiredZoom,(W>H&&H<=700)?.31:.34,(W>H&&H<=700)?.60:.68);
+    const moveAlpha=1-Math.exp(-6.5*dt),zoomAlpha=1-Math.exp(-5*dt);miniCamera.x+=(desiredX-miniCamera.x)*moveAlpha;miniCamera.y+=(desiredY-miniCamera.y)*moveAlpha;miniCamera.zoom+=(desiredZoom-miniCamera.zoom)*zoomAlpha;
+    return {x:miniCamera.x,y:miniCamera.y,zoom:miniCamera.zoom,anchorX:W*.5,anchorY:H*.46};
+  }
+  function drawMinigameArena(){
+    const e=state.minigame,kind=minigameKind(e?.gameKey),a=MINI_ARENA;ctx.fillStyle='#071316';ctx.fillRect(0,0,W,H);
+    // V43: safe-zone camera follows the car and gently biases toward the active objective.
+    // It keeps gameplay out from under the top HUD and bottom touch controls instead of showing the entire arena at all times.
+    const cam=updateMinigameCamera(e,kind),zoom=cam.zoom;ctx.save();ctx.translate(cam.anchorX,cam.anchorY);ctx.scale(zoom,zoom);ctx.translate(-cam.x,-cam.y);
+    if(kind==='football'){
+      // Stadium apron and stands make the arena read as a separate polished location.
+      ctx.fillStyle='#10191b';ctx.fillRect(a.left-170,a.top-150,a.right-a.left+340,a.bottom-a.top+300);
+      ctx.fillStyle='#1c292b';for(let x=a.left-135;x<a.right+135;x+=105){ctx.fillRect(x,a.top-122,76,72);ctx.fillRect(x,a.bottom+50,76,72);}for(let y=a.top+10;y<a.bottom;y+=110){ctx.fillRect(a.left-142,y,78,76);ctx.fillRect(a.right+64,y,78,76);}
+      ctx.fillStyle='#244f37';ctx.fillRect(a.left,a.top,a.right-a.left,a.bottom-a.top);for(let x=a.left;x<a.right;x+=250){ctx.fillStyle=((x-a.left)/250)%2?'#2b5b3e':'#27543a';ctx.fillRect(x,a.top,250,a.bottom-a.top);}ctx.strokeStyle='#e9f0dd';ctx.lineWidth=8;ctx.strokeRect(a.left,a.top,a.right-a.left,a.bottom-a.top);ctx.beginPath();ctx.moveTo(a.x,a.top);ctx.lineTo(a.x,a.bottom);ctx.stroke();ctx.beginPath();ctx.arc(a.x,a.y,180,0,TAU);ctx.stroke();ctx.fillStyle='#e9f0dd';ctx.beginPath();ctx.arc(a.x,a.y,11,0,TAU);ctx.fill();
+      // Penalty boxes + goal frames/nets.
+      ctx.strokeStyle='#e9f0dd';ctx.lineWidth=7;ctx.strokeRect(a.left,a.y-330,260,660);ctx.strokeRect(a.right-260,a.y-330,260,660);ctx.strokeRect(a.left-90,a.y-245,90,490);ctx.strokeRect(a.right,a.y-245,90,490);
+      ctx.strokeStyle='rgba(230,242,235,.34)';ctx.lineWidth=3;for(let y=a.y-225;y<=a.y+225;y+=42){ctx.beginPath();ctx.moveTo(a.left-88,y);ctx.lineTo(a.left,y);ctx.stroke();ctx.beginPath();ctx.moveTo(a.right,y);ctx.lineTo(a.right+88,y);ctx.stroke();}for(let x=18;x<88;x+=18){ctx.beginPath();ctx.moveTo(a.left-x,a.y-242);ctx.lineTo(a.left-x,a.y+242);ctx.stroke();ctx.beginPath();ctx.moveTo(a.right+x,a.y-242);ctx.lineTo(a.right+x,a.y+242);ctx.stroke();}
+      const ball=minigameBallVisual(e);if(ball){ctx.save();ctx.shadowColor='rgba(255,255,255,.82)';ctx.shadowBlur=18;ctx.fillStyle='#f4f3e8';ctx.beginPath();ctx.arc(ball.x,ball.y,30,0,TAU);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#25323a';ctx.lineWidth=5;ctx.stroke();ctx.fillStyle='#26343a';for(let i=0;i<5;i++){const q=i*TAU/5-Math.PI/2;ctx.beginPath();ctx.arc(ball.x+Math.cos(q)*13,ball.y+Math.sin(q)*13,5,0,TAU);ctx.fill();}ctx.restore();}
+    }else{
+      const grad=ctx.createLinearGradient(a.left,a.top,a.right,a.bottom);grad.addColorStop(0,kind==='checkpoint'?'#132838':'#351a23');grad.addColorStop(1,'#081417');ctx.fillStyle=grad;ctx.fillRect(a.left,a.top,a.right-a.left,a.bottom-a.top);ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=6;ctx.strokeRect(a.left,a.top,a.right-a.left,a.bottom-a.top);for(let x=a.left+150;x<a.right;x+=220)for(let y=a.top+130;y<a.bottom;y+=220){ctx.fillStyle='rgba(255,255,255,.025)';ctx.fillRect(x,y,80,80);}
+      if(kind==='checkpoint'){
+        ctx.strokeStyle='rgba(126,255,140,.12)';ctx.lineWidth=5;ctx.setLineDash([18,24]);ctx.beginPath();const route=[[1550,980],[2500,860],[3450,980],[3480,1500],[3450,2020],[2500,2140],[1550,2020],[1520,1500]];route.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.stroke();ctx.setLineDash([]);
+        if(e.checkpoint){const pulse=1+Math.sin(performance.now()/150)*.12;ctx.shadowColor='#7eff8c';ctx.shadowBlur=24;ctx.strokeStyle='#7eff8c';ctx.lineWidth=14;ctx.beginPath();ctx.arc(e.checkpoint.x,e.checkpoint.y,72*pulse,0,TAU);ctx.stroke();ctx.shadowBlur=0;ctx.fillStyle='#c8ffcb';ctx.font='950 24px system-ui';ctx.textAlign='center';ctx.fillText('CHECKPOINT',e.checkpoint.x,e.checkpoint.y-95);}
+      }else{
+        const pulse=.5+.5*Math.sin(performance.now()/180);ctx.strokeStyle=`rgba(255,181,72,${.25+pulse*.35})`;ctx.lineWidth=12;ctx.beginPath();ctx.arc(a.x,a.y,320+pulse*22,0,TAU);ctx.stroke();ctx.strokeStyle='rgba(255,92,92,.18)';ctx.lineWidth=5;for(let r=520;r<=900;r+=190){ctx.beginPath();ctx.arc(a.x,a.y,r,0,TAU);ctx.stroke();}
+      }
+    }
+    const ids=new Set(e.participants||[]);for(const [id,r] of state.remotes){if(!ids.has(id))continue;const holder=kind==='hot_potato'&&e.bombHolderId===id;drawVisualCar(ctx,minigameRemoteVisual(r,id),r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner,r.level||0,r.adminLevel||0);if(holder){ctx.fillStyle='#ffb548';ctx.font='32px system-ui';ctx.textAlign='center';ctx.fillText('💣',r.x,r.y-76);}}
+    const me=ownPlayer(),holder=kind==='hot_potato'&&e.bombHolderId===state.playerId;drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,me?.name||accountName(),true,'#a9ff5a',me?.owner===true,me?.level??state.progress.level??0,me?.adminLevel||0);if(holder){ctx.fillStyle='#ffb548';ctx.font='34px system-ui';ctx.textAlign='center';ctx.fillText('💣',car.x,car.y-80);}
+    ctx.restore();
+  }
+
   function createVisual(liveryId,effectId,colorId='stock',vinylId='none'){
     if(!R.Car)return null;
     const visual=new R.Car();
@@ -130,6 +321,24 @@
     }else state.playerVisual=createVisual(state.loadout.liveryId,state.loadout.effectId,state.loadout.colorId,state.loadout.vinylId);
     const currentCar=$('freeCurrentCar');
     if(currentCar)currentCar.textContent=(state.loadout.livery?.name||state.loadout.liveryId||'APEX CAR').toUpperCase();
+  }
+
+  function ensureFreeGarage(){
+    let modal=$('freeGarageModal');if(modal)return modal;
+    modal=document.createElement('div');modal.id='freeGarageModal';modal.className='free-garage-modal hidden';modal.setAttribute('aria-hidden','true');
+    modal.innerHTML=`<section class="free-garage-card glass" role="dialog" aria-modal="true" aria-labelledby="freeGarageTitle"><header><div><div class="eyebrow">APEX BAY / LIVE GARAGE</div><h2 id="freeGarageTitle">ГАРАЖ</h2><p>Выберите автомобиль. Сервер останется подключён.</p></div><button id="freeGarageClose" type="button" class="secondary-btn">ЗАКРЫТЬ</button></header><div id="freeGarageList" class="free-garage-list"></div><div id="freeGarageStatus" class="free-garage-status">Машина меняется без выхода с сервера.</div></section>`;
+    document.body.appendChild(modal);$('freeGarageClose').addEventListener('click',closeFreeGarage);modal.addEventListener('click',e=>{if(e.target===modal)closeFreeGarage();});$('freeGarageList').addEventListener('click',e=>{const b=e.target.closest('[data-free-garage-car]');if(b&&!b.disabled)selectFreeGarageCar(b.dataset.freeGarageCar);});return modal;
+  }
+  function renderFreeGarage(){
+    const modal=ensureFreeGarage(),list=$('freeGarageList'),save=loadSave(),active=state.loadout?.liveryId||save.selectedLivery;
+    list.replaceChildren();for(const id of save.ownedLiveries||[]){const item=R.LIVERIES?.[id];if(!item||!R.carAvailable(id))continue;const card=document.createElement('button');card.type='button';card.className='free-garage-car'+(id===active?' selected':'');card.dataset.freeGarageCar=id;card.disabled=state.garageBusy;const src=item.sprite?.thumbnail||item.sprite?.src||'';card.innerHTML=`${src?`<img src="/${String(src).replace(/^\/?/,'')}" alt="">`:''}<span><strong>${item.name}</strong><small>${String(item.category||'basic').toUpperCase()}</small></span><b>${id===active?'ВЫБРАНО':'ВЫБРАТЬ'}</b>`;list.appendChild(card);}modal.classList.remove('hidden');modal.setAttribute('aria-hidden','false');
+  }
+  function openFreeGarage(){if(!window.VelocityAccount?.authenticated){window.VelocityAccount?.requestAuth?.();return;}if(state.drag||state.activityPending||state.liveEvent||state.minigame)return;state.garageOpen=true;clearInputs();toggleChat(false);toggleMap(false);renderFreeGarage();}
+  function closeFreeGarage(){const modal=$('freeGarageModal');if(modal){modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');}state.garageOpen=false;state.garageBusy=false;}
+  async function selectFreeGarageCar(id){
+    if(state.garageBusy)return;const save=loadSave();if(!save.ownedLiveries?.includes(id)||!R.carAvailable(id))return;state.garageBusy=true;const status=$('freeGarageStatus');if(status)status.textContent='ПРОВЕРКА МАШИНЫ НА СЕРВЕРЕ…';
+    const style=R.getCarCustomization?.(save,id)||{colorId:'stock',vinylId:'none'},requested={liveryId:id,effectId:save.selectedEffect||'standard',colorId:style.colorId,vinylId:style.vinylId};
+    const ok=send({type:'loadout_update',v:1,loadout:requested});if(!ok){state.garageBusy=false;if(status)status.textContent='Нет соединения с сервером.';renderFreeGarage();}
   }
 
   async function jsonFetch(url,opts={}){
@@ -181,7 +390,7 @@
       top.append(title,online);
       const meta=document.createElement('div');
       meta.className='free-server-meta';
-      meta.innerHTML=`<span>ГОРОД · LIVE</span><span>DRAG · DRIFT · SPEED</span><span>РЕКОРД ${Math.floor(s.records?.speed||0)} KM/H</span>`;
+      meta.innerHTML=`<span>ГОРОД · LIVE</span><span>DRAG · DRIFT · MINI GAMES</span><span>РЕКОРД ${Math.floor(s.records?.speed||0)} KM/H</span>`;
       const bar=document.createElement('div');
       bar.className='free-server-load';
       bar.innerHTML=`<i style="width:${load}%"></i>`;
@@ -193,6 +402,7 @@
   }
 
   function openBrowser(){
+    if(!window.VelocityAccount?.authenticated){window.VelocityAccount?.requestAuth?.('Свободный режим доступен только после входа или регистрации.');return;}
     refreshPlayerLoadout();
     window.VelocityOnline?.client?.leave?.();
     $('online')?.classList.add('hidden');
@@ -227,15 +437,21 @@
   }
 
   function stopClockSync(){clearInterval(state.pingTimer);state.pingTimer=0;}
+  function stopReconnect(){clearTimeout(state.reconnectTimer);state.reconnectTimer=0;}
   function pingServer(){if(state.ws?.readyState===WebSocket.OPEN)send({type:'ping',v:1,clientTime:Date.now()});}
-  function startClockSync(){stopClockSync();pingServer();state.pingTimer=setInterval(pingServer,2000);}
-  function connect(){
-    stopClockSync();try{state.ws?.close();}catch{}
-    const proto=location.protocol==='https:'?'wss:':'ws:';
+  function startClockSync(){stopClockSync();pingServer();state.pingTimer=setInterval(pingServer,1800);}
+  function reconnect(){
+    if(!state.active||state.intentionalClose)return;const attempt=state.reconnectAttempts++;if(attempt>=RECONNECT_DELAYS.length){setBanner('СЕРВЕР НЕДОСТУПЕН · ВОЗВРАТ В МЕНЮ',2600);setTimeout(()=>{if(state.active)leave(false);},700);return;}
+    stopReconnect();const delay=RECONNECT_DELAYS[attempt];setBanner(`ПЕРЕПОДКЛЮЧЕНИЕ · ${attempt+1}/${RECONNECT_DELAYS.length}`,Math.max(1200,delay+650));state.reconnectTimer=setTimeout(()=>{state.reconnectTimer=0;if(state.active&&!state.intentionalClose)connect(true);},delay);
+  }
+  function connect(isRetry=false){
+    stopClockSync();stopReconnect();const old=state.ws;state.ws=null;try{old?.close();}catch{}
+    state.intentionalClose=false;const proto=location.protocol==='https:'?'wss:':'ws:';
     const ws=state.ws=new WebSocket(`${proto}//${location.host}/api/free/${state.server.id}/ws?playerId=${encodeURIComponent(state.playerId)}&token=${encodeURIComponent(state.token)}`);
     ws.onopen=()=>{if(ws===state.ws)startClockSync();};
     ws.onmessage=e=>onMessage(e.data);
-    ws.onclose=e=>{if(ws!==state.ws)return;stopClockSync();if(e.code===4003){leave();alert('Вы отключены владельцем или начались технические работы.');return;}if(state.active)setBanner('СОЕДИНЕНИЕ ПОТЕРЯНО · ВОЗВРАТ В МЕНЮ',3500);};
+    ws.onerror=()=>{};
+    ws.onclose=e=>{if(ws!==state.ws)return;stopClockSync();state.ws=null;if(e.code===4003){state.intentionalClose=true;leave(false);alert(state.lastAdminKickReason||'Вы отключены владельцем или администрацией.');state.lastAdminKickReason='';return;}if(state.active&&!state.intentionalClose)reconnect();};
   }
 
   function send(o){
@@ -252,15 +468,21 @@
     try{m=JSON.parse(raw);}catch{return;}
     if(!m?.type)return;
     if(m.type==='error'){
-      if(['ACTIVITY_LOCATION','ACTIVITY_BUSY','ACTIVITY_RUNNING','ACTIVITY_FULL'].includes(m.code)){state.dragQueued=false;state.activityPending=false;}
+      if(['ACTIVITY_LOCATION','ACTIVITY_BUSY','ACTIVITY_RUNNING','ACTIVITY_FULL','INVALID_WAGER','INSUFFICIENT_CR','DRAG_ACCOUNT_REQUIRED','WAGER_LOCK_FAILED'].includes(m.code)){state.dragQueued=false;state.activityPending=false;renderDragBetPanel();}
+      if(['GARAGE_LOCATION','GARAGE_BUSY','CAR_NOT_OWNED','AUTH_REQUIRED'].includes(m.code)){state.garageBusy=false;const gs=$('freeGarageStatus');if(gs)gs.textContent=m.message||m.code;renderFreeGarage();}
       setBanner(m.message||m.code||'ОШИБКА СЕРВЕРА',3000);return;
     }
     if(m.type==='free_hello'){
-      state.serverOffset=(m.serverTime||Date.now())-Date.now();state.serverOffsetReady=true;
+      state.reconnectAttempts=0;stopReconnect();state.serverOffset=(m.serverTime||Date.now())-Date.now();state.serverOffsetReady=true;
       applyRoom(m.room);pingServer();addSystem('Подключено к '+state.server.name+'.');return;
     }
     if(m.type==='pong'&&Number.isFinite(m.clientTime)&&Number.isFinite(m.serverTime)){
       const recv=Date.now(),rtt=Math.max(0,recv-m.clientTime);if(rtt<1500){const estimate=m.serverTime+rtt*.5,offset=estimate-recv,alpha=!state.serverOffsetReady?1:(rtt<80?.36:rtt<180?.24:.14);state.serverOffset+=(offset-state.serverOffset)*alpha;state.serverOffsetReady=true;state.rtt=state.rtt?state.rtt*.72+rtt*.28:rtt;}if(typeof m.probeId==='string')send({type:'sync_echo',v:1,probeId:m.probeId});return;
+    }
+    if(m.type==='loadout_updated'){
+      state.garageBusy=false;if(m.loadout){const save=loadSave();if(save.ownedLiveries?.includes(m.loadout.liveryId)){save.selectedLivery=m.loadout.liveryId;try{localStorage.setItem('velocityApex.v1',JSON.stringify(save));}catch{}window.VelocityAccount?.queueSave?.(save);}refreshPlayerLoadout();state.loadout={...state.loadout,...m.loadout,livery:R.LIVERIES?.[m.loadout.liveryId]||state.loadout?.livery};if(car.setLoadout){car.setLoadout(m.loadout.liveryId,m.loadout.effectId,'full');car.setCustomization(R.getCarStyleByIds?.(m.loadout.colorId,m.loadout.vinylId));R.applyCarPerformance?.(car,m.loadout.liveryId,save);}}
+      if(m.spawn){car.x=Number(m.spawn.x)||2670;car.y=Number(m.spawn.y)||585;car.angle=Number.isFinite(m.spawn.angle)?m.spawn.angle:-Math.PI/2;car.vx=car.vy=car.speed=0;car.yawRate=0;}
+      closeFreeGarage();setBanner(`ГАРАЖ · ${state.loadout?.livery?.name||'МАШИНА'} ВЫБРАНА`,2600);return;
     }
     if(m.type==='free_room'){applyRoom(m.room);return;}
     if(m.type==='free_state'&&m.playerId!==state.playerId){
@@ -269,6 +491,10 @@
       pushRemoteSnapshot(r,m.state,m.serverTime);return;
     }
     if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0);return;}
+    if(m.type==='admin_announcement'){addSystem(`ADMIN ${m.adminLevel||''} @${m.by||'SYSTEM'}: ${m.message||''}`);setBanner(`ОБЪЯВЛЕНИЕ · ${m.message||''}`,5200);return;}
+    if(m.type==='admin_events_state'){if(state.room)state.room.eventsDisabled=!!m.disabled;if(m.cleared){state.liveEvent=null;state.minigame=null;state.drag=null;state.dragQueued=false;state.activityPending=false;renderEventHud();renderMinigameHud();updateDragHud(Date.now()+state.serverOffset);}setBanner(m.disabled?'ROOT · ИГРОВЫЕ АКТИВНОСТИ ОТКЛЮЧЕНЫ':'ИГРОВЫЕ АКТИВНОСТИ ВКЛЮЧЕНЫ',4200);return;}
+    if(m.type==='admin_kick'){state.lastAdminKickReason=m.reason||'Вы отключены администрацией.';return;}
+
     if(m.type==='free_chat_blocked'){const left=Math.max(0,Number(m.expiresAt||0)-Date.now()),mins=Math.max(1,Math.ceil(left/60000));setBanner(`ЧАТ ЗАБЛОКИРОВАН · ${mins} МИН · ${m.reason||'Нарушение правил'}`,4200);return;}
     if(m.type==='free_record'){
       if(state.room)state.room.records={...(state.room.records||{}),[m.kind]:m.value};
@@ -292,7 +518,41 @@
       setTimeout(()=>window.VelocityAccount?.refreshCloud?.(),180);return;
     }
     if(m.type==='drag_queue'){
-      if(state.dragQueued)setBanner(`DRAG · очередь ${m.count}/2`,1800);return;
+      if(state.dragQueued&&(m.wager===undefined||Number(m.wager)===Number(state.dragWager)))setBanner(`DRAG · ${m.wager?`СТАВКА ${fmtCR(m.wager)} · `:''}ОЧЕРЕДЬ ${m.count}/2`,1800);return;
+    }
+    if(m.type==='drag_queue_joined'){state.dragQueued=true;state.dragWager=Number(m.wager)||0;setBanner(`DRAG · ${state.dragWager?`СТАВКА ${fmtCR(state.dragWager)} · `:''}ОЖИДАЕМ СОПЕРНИКА`,2200);return;}
+    if(m.type==='drag_queue_left'){state.dragQueued=false;setBanner('DRAG · ВЫ ВЫШЛИ ИЗ ОЧЕРЕДИ',1800);return;}
+    if(m.type==='minigame_lobby'&&m.participants?.includes(state.playerId)){
+      state.activityPending=false;state.minigame={...state.minigame,...m,id:m.id||m.eventId,status:m.status||'waiting',results:null};renderMinigameHud();toggleMinigamePanel(false);toggleChat(false);setBanner(`${minigameTitle(m.gameKey)} · ${m.status==='countdown'?'СТАРТ СКОРО':'ОЖИДАЕМ ИГРОКОВ'}`,2400);return;
+    }
+    if(m.type==='minigame_start'&&m.participants?.includes(state.playerId)){
+      enterMinigameArena({...m,id:m.id||m.eventId,_ballServerTime:m.serverTime});setBanner(`${minigameTitle(m.gameKey)} · GO!`,2400);return;
+    }
+    if(m.type==='minigame_progress'&&state.minigame&&(state.minigame.id===(m.id||m.eventId)||state.minigame.gameKey===m.gameKey)){
+      state.minigame={...state.minigame,...m,id:m.id||m.eventId||state.minigame.id,status:'running',_ballServerTime:m.serverTime};renderMinigameHud();return;
+    }
+    if(m.type==='minigame_ball'&&state.minigame?.id===m.eventId){
+      state.minigame={...state.minigame,ball:m.ball||state.minigame.ball,_ballServerTime:m.serverTime};return;
+    }
+    if(m.type==='minigame_goal'&&state.minigame?.id===m.eventId){
+      state.minigame={...state.minigame,score:m.score,ball:m.ball||{x:MINI_ARENA.x,y:MINI_ARENA.y,vx:0,vy:0,seq:(Number(state.minigame.ball?.seq)||0)+1},_ballServerTime:m.serverTime,_ballRender:{x:MINI_ARENA.x,y:MINI_ARENA.y,vx:0,vy:0,seq:Number(m.ball?.seq)||0,_t:performance.now()}};renderMinigameHud();setBanner(`ГОЛ · ${String(m.team||'').toUpperCase()} · ${m.score?.red||0}:${m.score?.blue||0}`,2600);return;
+    }
+    if(m.type==='minigame_bomb_pass'&&state.minigame?.id===m.eventId){
+      state.minigame={...state.minigame,bombHolderId:m.bombHolderId,bombDeadline:m.bombDeadline};renderMinigameHud();return;
+    }
+    if(m.type==='minigame_bomb_burst'&&state.minigame?.id===m.eventId){
+      state.minigame={...state.minigame,bombHolderId:m.bombHolderId,bombDeadline:m.bombDeadline,strikes:m.strikes||state.minigame.strikes};renderMinigameHud();setBanner('💥 ВЗРЫВ · ШТРАФ ДЕРЖАТЕЛЮ',2200);return;
+    }
+    if(m.type==='minigame_left'){
+      const title=minigameTitle(m.gameKey);leaveMinigameArena();setBanner(`${title} · ВЫ ВЫШЛИ`,2500);return;
+    }
+    if(m.type==='minigame_cancelled'&&state.minigame&&(state.minigame.id===m.eventId||state.minigame.gameKey===m.gameKey)){
+      const title=minigameTitle(m.gameKey);leaveMinigameArena();setBanner(`${title} · ОЧЕРЕДЬ ОТМЕНЕНА`,3000);return;
+    }
+    if(m.type==='minigame_result'&&state.minigame&&(state.minigame.id===m.eventId||state.minigame.gameKey===m.gameKey)){
+      state.minigameHudExpanded=true;state.minigameHudAutoCollapseAt=0;state.minigame={...state.minigame,status:'result',score:m.score||state.minigame.score,results:m.results||[],standings:m.results||[]};renderMinigameHud();
+      const mine=(m.results||[]).find(r=>r.id===state.playerId);if(mine){const label=minigameKind(m.gameKey)==='football'?(mine.draw?'НИЧЬЯ':mine.won?'ПОБЕДА':'ПОРАЖЕНИЕ'):`#${mine.place||'—'}`;setBanner(`${minigameTitle(m.gameKey)} · ${label}${mine.eligible?` · +${mine.exp||0} EXP · +${mine.credits||0} CR`:' · БЕЗ НАГРАДЫ'}`,5600);}
+      const resultId=m.eventId;setTimeout(()=>{if(state.minigame?.id===resultId&&state.minigame.status==='result')leaveMinigameArena();},6500);return;
     }
     if(m.type==='activity_lobby'&&['drift_battle','koth'].includes(m.activity)&&m.participants?.includes(state.playerId)){
       state.activityPending=false;state.liveEvent={activity:m.activity,id:m.eventId,status:m.status||'waiting',participants:[...(m.participants||[])],minPlayers:m.minPlayers||2,maxPlayers:m.maxPlayers||8,startAt:m.startAt||0,endAt:m.startAt?(m.startAt+(m.durationMs||0)):0,zoneId:m.zoneId||null,zone:m.zone||null,standings:eventRowsFromParticipants(m),names:m.names||{},levels:m.levels||{}};
@@ -300,10 +560,10 @@
     }
     if(m.type==='activity_start'&&m.activity==='drag'&&m.participants.includes(state.playerId)){
       const lane=m.participants.indexOf(state.playerId),opponentId=m.participants.find(id=>id!==state.playerId)||null;
-      state.drag={id:m.challengeId,startAt:m.startAt,finishX:m.finishX||DRAG_FINISH_X,participants:[...m.participants],opponentId,finished:false,localCrossed:false,progress:null,confirmed:{},result:null};
-      state.dragQueued=false;car.x=DRAG_START_X;car.y=2635+lane*70;car.angle=0;car.vx=car.vy=car.speed=0;
+      state.drag={id:m.challengeId,startAt:m.startAt,finishX:m.finishX||DRAG_FINISH_X,participants:[...m.participants],opponentId,wager:Number(m.wager)||0,pot:Number(m.pot)||0,finished:false,localCrossed:false,progress:null,confirmed:{},result:null};
+      state.dragWager=Number(m.wager)||0;state.dragQueued=false;car.x=DRAG_START_X;car.y=2635+lane*70;car.angle=0;car.vx=car.vy=car.speed=0;
       m.participants.forEach((id,index)=>{if(id!==state.playerId)resetRemoteToGrid(id,index,m.startAt);});pingServer();toggleChat(false);
-      setBanner('DRAG · СИНХРОНИЗАЦИЯ СТАРТА',1800);updateDragHud(Date.now()+state.serverOffset);updateChatPreview();return;
+      setBanner(state.drag.wager?`DRAG · СТАВКА ${fmtCR(state.drag.wager)} · БАНК ${fmtCR(state.drag.pot)}`:'DRAG · СИНХРОНИЗАЦИЯ СТАРТА',2400);if(state.drag.wager)setTimeout(()=>window.VelocityAccount?.refreshCloud?.(),120);updateDragHud(Date.now()+state.serverOffset);updateChatPreview();return;
     }
     if(m.type==='activity_start'&&['drift_battle','koth'].includes(m.activity)&&m.participants?.includes(state.playerId)){
       const prev=state.liveEvent?.id===m.eventId?state.liveEvent:{};state.liveEvent={...prev,activity:m.activity,id:m.eventId,status:'running',participants:[...(m.participants||prev.participants||[])],startAt:m.startAt||0,endAt:m.endAt||0,zoneId:m.zoneId??prev.zoneId,zone:m.zone??prev.zone,zoneIndex:m.zoneIndex||0,finalZone:!!m.finalZone};renderEventHud();setBanner(`${eventTitle(m.activity)} · GO!`,2200);return;
@@ -312,12 +572,16 @@
     if(m.type==='activity_progress'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){state.liveEvent={...state.liveEvent,status:'running',startAt:m.startAt||state.liveEvent.startAt,endAt:m.endAt||state.liveEvent.endAt,zoneId:m.zoneId??state.liveEvent.zoneId,zone:m.zone??state.liveEvent.zone,zoneIndex:m.zoneIndex??state.liveEvent.zoneIndex,finalZone:!!m.finalZone,standings:m.standings||state.liveEvent.standings};renderEventHud();return;}
     if(m.type==='activity_zone'&&m.activity==='koth'&&state.liveEvent?.id===m.eventId){state.liveEvent={...state.liveEvent,zoneIndex:m.zoneIndex,zone:m.zone,finalZone:!!m.finalZone};renderEventHud();setBanner(m.finalZone?'KING OF THE HILL · FINAL ZONE':`НОВАЯ ЗОНА · ${m.zone?.label||''}`,2800);return;}
     if(m.type==='activity_finish_confirmed'&&m.activity==='drag'&&state.drag?.id===m.challengeId){state.drag.confirmed[m.playerId]=m.elapsedMs;if(m.playerId===state.playerId){state.drag.localCrossed=true;setBanner(`ФИНИШ ЗАФИКСИРОВАН · ${(m.elapsedMs/1000).toFixed(3)} сек`,1800);}return;}
-    if(m.type==='activity_cancelled'&&m.activity==='drag'&&state.drag?.id===m.challengeId){setBanner('DRAG ОТМЕНЁН · СОПЕРНИК ВЫШЕЛ',3000);state.drag=null;updateDragHud(Date.now()+state.serverOffset);return;}
+    if(m.type==='activity_cancelled'&&m.activity==='drag'&&state.drag?.id===m.challengeId){const refunded=m.wagerRefunded&&Number(m.wager)>0;setBanner(refunded?`DRAG ОТМЕНЁН · ${fmtCR(m.wager)} ВОЗВРАЩЕНО`:'DRAG ОТМЕНЁН · СОПЕРНИК ВЫШЕЛ',3400);state.drag=null;state.dragQueued=false;if(refunded)setTimeout(()=>window.VelocityAccount?.refreshCloud?.(),100);updateDragHud(Date.now()+state.serverOffset);return;}
     if(m.type==='activity_left'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){state.activityPending=false;state.liveEvent=null;renderEventHud();setBanner(`${eventTitle(m.activity)} · ВЫ ВЫШЛИ ИЗ ИВЕНТА`,2600);return;}
     if(m.type==='activity_cancelled'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){setBanner(`${eventTitle(m.activity)} ОТМЕНЁН · НЕДОСТАТОЧНО ИГРОКОВ`,3200);state.liveEvent=null;renderEventHud();return;}
     if(m.type==='activity_result'&&m.activity==='drag'){
-      const mine=m.times?.[state.playerId];if(Number.isFinite(mine)){const draw=m.draw===true,won=!draw&&m.winnerId===state.playerId,gap=Math.abs(Number(m.gapMs)||0),photo=m.photoFinish===true||gap<=100,label=draw?'НИЧЬЯ':photo?'PHOTO FINISH':(won?'ПОБЕДА':'ПОРАЖЕНИЕ');setBanner(`${label} · ${(mine/1000).toFixed(3)} сек · Δ ${(gap/1000).toFixed(3)}`,5200);if(state.drag?.id===m.challengeId){state.drag.finished=true;state.drag.result=m;const dragId=m.challengeId;setTimeout(()=>{if(state.drag?.id===dragId){state.drag=null;updateDragHud(Date.now()+state.serverOffset);}},5400);}}
-      if(m.draw)addSystem(`DRAG: ничья · ${((m.times?.[m.participants?.[0]]||0)/1000).toFixed(3)} сек.`);else addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил · ${(m.times?.[m.winnerId]/1000).toFixed(3)} сек${m.photoFinish?' · PHOTO FINISH':''}.`);return;
+      const stake=Number(m.wager)||0,pot=Number(m.pot)||0,won=m.winnerId===state.playerId,draw=m.draw===true,mine=m.times?.[state.playerId];
+      if(m.forfeit){setBanner(won?`DRAG · ПОБЕДА ТЕХНИЧЕСКИ${pot?` · +${fmtCR(pot)}`:''}`:'DRAG · ТЕХНИЧЕСКОЕ ПОРАЖЕНИЕ',5200);}
+      else if(Number.isFinite(mine)){const gap=Math.abs(Number(m.gapMs)||0),photo=m.photoFinish===true||gap<=100,label=draw?'НИЧЬЯ':photo?'PHOTO FINISH':(won?'ПОБЕДА':'ПОРАЖЕНИЕ'),money=stake?(draw?` · ${fmtCR(stake)} ВОЗВРАЩЕНО`:won?` · +${fmtCR(pot)}`:` · −${fmtCR(stake)}`):'';setBanner(`${label} · ${(mine/1000).toFixed(3)} сек · Δ ${(gap/1000).toFixed(3)}${money}`,5600);}
+      if(state.drag?.id===m.challengeId){state.drag.finished=true;state.drag.result=m;const dragId=m.challengeId;setTimeout(()=>{if(state.drag?.id===dragId){state.drag=null;updateDragHud(Date.now()+state.serverOffset);}},5600);}
+      if(stake)setTimeout(()=>window.VelocityAccount?.refreshCloud?.(),120);
+      if(m.forfeit)addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил технически${pot?` · банк ${fmtCR(pot)}`:''}.`);else if(m.draw)addSystem(`DRAG: ничья · ${((m.times?.[m.participants?.[0]]||0)/1000).toFixed(3)} сек${stake?' · ставки возвращены':''}.`);else addSystem(`DRAG: ${m.names?.[m.winnerId]||'RACER'} победил · ${(m.times?.[m.winnerId]/1000).toFixed(3)} сек${m.photoFinish?' · PHOTO FINISH':''}${pot?` · банк ${fmtCR(pot)}`:''}.`);return;
     }
     if(m.type==='activity_result'&&['drift_battle','koth'].includes(m.activity)&&state.liveEvent?.id===m.eventId){
       state.liveEvent={...state.liveEvent,status:'result',results:m.results||[],standings:m.results||[],endAt:m.serverTime||Date.now()+state.serverOffset};renderEventHud();const mine=m.results?.find(r=>r.id===state.playerId);if(mine){if(mine.eligible)setBanner(`${eventTitle(m.activity)} · #${mine.place} · +${mine.exp||0} EXP · +${mine.credits||0} CR`,5200);else setBanner(`${eventTitle(m.activity)} · НАГРАДА НЕ ВЫДАНА · НЕДОСТАТОЧНО АКТИВНОГО УЧАСТИЯ`,5200);}const id=m.eventId;setTimeout(()=>{if(state.liveEvent?.id===id&&state.liveEvent.status==='result'){state.liveEvent=null;renderEventHud();}},7600);return;
@@ -331,6 +595,15 @@
     const activity=active.activity,existing=state.liveEvent?.id===active.id?state.liveEvent:{};
     const standings=(active.participants||[]).map((id,i)=>{const p=room.players?.find(x=>x.id===id);return{id,name:p?.name||existing.names?.[id]||'RACER',level:Number(p?.level??existing.levels?.[id])||0,score:existing.standings?.find(r=>r.id===id)?.score||0,place:i+1};});
     state.liveEvent={...existing,activity,id:active.id,status:active.status,participants:[...(active.participants||[])],minPlayers:activity==='koth'?3:2,maxPlayers:activity==='koth'?12:8,startAt:active.startAt||0,endAt:active.endAt||0,zoneId:active.zoneId||existing.zoneId||null,zone:active.zone||existing.zone||null,zoneIndex:active.zoneIndex||0,finalZone:!!active.finalZone,standings};renderEventHud();
+  }
+
+  function syncMinigameFromRoom(room){
+    if(state.minigame?.status==='result')return;
+    const active=(room?.activities?.minigames||[]).find(e=>e?.participants?.includes(state.playerId)&&['waiting','countdown','running'].includes(e.status));
+    if(!active){if(state.minigame&&['waiting','countdown','running'].includes(state.minigame.status)){if(state.minigameReturn)leaveMinigameArena();else{state.minigame=null;renderMinigameHud();}}return;}
+    const existing=state.minigame?.id===active.id?state.minigame:{};
+    state.minigame={...existing,...active,id:active.id,status:active.status};
+    if(active.status==='running'&&!state.minigameReturn&&active.spawns)enterMinigameArena(state.minigame);else renderMinigameHud();
   }
 
   function applyRoom(room){
@@ -350,7 +623,7 @@
     }
     for(const id of state.remotes.keys())if(!live.has(id))state.remotes.delete(id);
     $('freePlayerCount').textContent=`${room.players.filter(p=>p.connected).length} / ${room.maxPlayers||MAX}`;
-    syncLiveEventFromRoom(room);
+    syncLiveEventFromRoom(room);syncMinigameFromRoom(room);
   }
 
   function startRoam(){
@@ -358,34 +631,37 @@
     state.chatUnread=0;
     state.chat.length=0;
     state.driftScore=0;
-    state.driftInside=false;state.paused=false;
+    state.driftInside=false;state.paused=false;state.intentionalClose=false;state.reconnectAttempts=0;stopReconnect();
     $('freePausePanel')?.classList.add('hidden');roam.classList.remove('paused');
     refreshPlayerLoadout();
     if(state.playerVisual)state.playerVisual.effectTime=0;
-    car.x=2320;car.y=1590;car.vx=0;car.vy=0;car.angle=-Math.PI/2;car.speed=0;car.yawRate=0;car.steerInput=0;car.gripDisturbance=0;state.driftPhysicsTime=0;
+    car.x=2320;car.y=1590;car.vx=0;car.vy=0;car.angle=-Math.PI/2;car.speed=0;car.yawRate=0;car.steerInput=0;car.gripDisturbance=0;
     updateUnreadBadge();
     $('freeChatLog').replaceChildren();
     updateChatPreview();
     roam.classList.remove('hidden');
     roam.setAttribute('aria-hidden','false');
     $('freeServerName').textContent=state.server.name;
-    if(state.room)applyRoom(state.room);renderEventHud();renderLevelsPanel();
+    if(state.room)applyRoom(state.room);renderEventHud();renderMinigameHud();renderLevelsPanel();
     resize();
     last=performance.now();
     cancelAnimationFrame(raf);
     raf=requestAnimationFrame(loop);
   }
 
-  function leave(){
-    state.active=false;
-    stopClockSync();send({type:'leave',v:1});
+  function leaveBeacon(){
+    if(!state.server?.id||!state.playerId||!state.token)return;const url=`/api/free/${state.server.id}/leave?playerId=${encodeURIComponent(state.playerId)}&token=${encodeURIComponent(state.token)}`;try{navigator.sendBeacon?.(url,'');}catch{}
+  }
+  function leave(notify=true){
+    state.active=false;state.intentionalClose=true;
+    stopClockSync();stopReconnect();if(notify){send({type:'leave',v:1});leaveBeacon();}
     try{state.ws?.close(1000,'leave');}catch{}
     state.ws=null;
     state.remotes.clear();
     state.drag=null;
-    state.dragQueued=false;
+    state.dragQueued=false;state.dragWager=0;toggleDragBetPanel(false);
     state.activityPending=false;
-    state.liveEvent=null;state.paused=false;renderEventHud();toggleLevels(false);$('freePausePanel')?.classList.add('hidden');roam.classList.remove('paused');
+    state.liveEvent=null;state.minigame=null;state.minigameReturn=null;state.paused=false;closeFreeGarage();renderEventHud();renderMinigameHud();toggleMinigamePanel(false);toggleLevels(false);$('freePausePanel')?.classList.add('hidden');roam.classList.remove('paused','minigame-active');
     state.chatUnread=0;
     updateUnreadBadge();
     roam.classList.add('hidden');
@@ -421,10 +697,11 @@
 
     const prevX=car.x,prevY=car.y;
     if(R.Car&&typeof car.update==='function'){
-      if(handbrake>0&&car.speed>34)state.driftPhysicsTime=1.2;
-      else state.driftPhysicsTime=Math.max(0,state.driftPhysicsTime-dt);
-      if(car.speed>92&&throttle>.5&&Math.abs(steer)>.82)state.driftPhysicsTime=Math.max(state.driftPhysicsTime,.48);
-      const driftActive=state.driftPhysicsTime>0;
+      // Free Roam now uses the high-grip race tyre model for every normal turn.
+      // Drift physics is opt-in only: it exists while the player is actually holding HB.
+      // Releasing HB immediately returns the car to normal grip, so a hard steering input
+      // or full throttle can no longer trigger an automatic slide.
+      const driftActive=handbrake>.05&&car.speed>28;
       car.update(dt,{steer,throttle,brake,handbrake,drift:driftActive},FREE_PHYS_TRACK);
     }else{
       const fx=Math.cos(car.angle),fy=Math.sin(car.angle);let signed=car.vx*fx+car.vy*fy;
@@ -433,23 +710,29 @@
       car.vx=Math.cos(car.angle)*signed;car.vy=Math.sin(car.angle)*signed;car.x+=car.vx*dt;car.y+=car.vy*dt;car.speed=Math.hypot(car.vx,car.vy);
     }
 
-    CITY.resolveCarMotion(car,prevX,prevY);
+    if(state.minigame&&['running','result'].includes(state.minigame.status))resolveMinigameMotion(car);else CITY.resolveCarMotion(car,prevX,prevY);
 
-    const remoteTargetTime=now-(state.drag?DRAG_REMOTE_BACKTIME_MS:REMOTE_BACKTIME_MS);
+    if(state.minigame?.status==='running'&&minigameKind(state.minigame.gameKey)==='football')predictLocalFootballTouch(now);
+
+    const jitterPad=state.drag?clamp((state.rtt||0)*.12,0,28):clamp((state.rtt||0)*.22,0,55),remoteTargetTime=now-(state.drag?DRAG_REMOTE_BACKTIME_MS:REMOTE_BACKTIME_MS)-jitterPad;
     for(const r of state.remotes.values()){
       const sampled=sampleRemote(r,remoteTargetTime);if(!sampled)continue;r.x=sampled.x;r.y=sampled.y;r.angle=sampled.angle;
       if(r.visual){r.visual.speed=Math.max(40,sampled.speed||0);r.visual.effectTime+=dt;r.visual.throttleVisual=.88;}
     }
 
-    const sendEvery=state.drag&&!state.drag.result?DRAG_SEND_MS:FREE_SEND_MS;if(performance.now()-state.lastSend>sendEvery)sendFreeState();
+    const sendEvery=freeSendInterval();if(performance.now()-state.lastSend>sendEvery)sendFreeState();
 
     $('freeSpeed').textContent=Math.round(car.speed);
-    $('freeLocation').textContent=district(car.x,car.y);
-    updateActivities(dt,now);updateDragHud(now);updateEventClock(now);
+    $('freeLocation').textContent=state.minigame&&['running','result'].includes(state.minigame.status)?minigameTitle(state.minigame.gameKey):district(car.x,car.y);
+    updateActivities(dt,now);updateDragHud(now);updateEventClock(now);updateMinigameClock(now);
   }
 
+  function freeSendInterval(){
+    if(state.drag&&!state.drag.result)return DRAG_SEND_MS;const buffered=state.ws?.bufferedAmount||0,rtt=Number(state.rtt)||0,football=state.minigame?.status==='running'&&minigameKind(state.minigame.gameKey)==='football';if(buffered>48000)return football?88:115;if(football){if(rtt>260)return 78;if(rtt>160)return 66;if(rtt>90)return 54;return FOOTBALL_SEND_MS;}if(rtt>260)return 96;if(rtt>160)return 82;if(rtt>90)return 72;return FREE_SEND_MS;
+  }
   function sendFreeState(force=false){
-    const t=performance.now(),every=state.drag&&!state.drag.result?DRAG_SEND_MS:FREE_SEND_MS;if(!force&&t-state.lastSend<every)return false;if(state.ws?.bufferedAmount>65536)return false;state.lastSend=t;
+    if(state.minigame?.status==='result')return false;
+    const t=performance.now(),every=freeSendInterval();if(!force&&t-state.lastSend<every)return false;if(!state.ws||state.ws.readyState!==WebSocket.OPEN||state.ws.bufferedAmount>98304)return false;state.lastSend=t;
     return send({type:'free_state',v:1,state:{seq:++state.seq,x:car.x,y:car.y,vx:car.vx,vy:car.vy,angle:car.angle,speed:car.speed,yawRate:Number(car.yawRate)||0,sampleTime:Math.round(Date.now()+state.serverOffset)}});
   }
 
@@ -459,21 +742,22 @@
     roam.classList.toggle('drag-active',!!d);
     if(!d){hud.classList.add('hidden');hud.classList.remove('win','lose','photo');return;}hud.classList.remove('hidden');
     const stateEl=$('freeDragState'),leadEl=$('freeDragLead'),gapEl=$('freeDragGap'),netEl=$('freeDragNet'),mineEl=$('freeDragMine'),rivalEl=$('freeDragRival');if(netEl)netEl.textContent=`PING ${Math.round(state.rtt||0)} MS`;
-    const remain=d.startAt-now;if(remain>0){const n=Math.max(1,Math.ceil(remain/1000));if(stateEl)stateEl.textContent='START SYNC';if(leadEl)leadEl.textContent=remain>3000?'READY':String(n);if(gapEl)gapEl.textContent='СТАРТ ПО СЕРВЕРНОМУ ТАЙМЕРУ';hud.classList.remove('win','lose','photo');}
-    else if(d.result){const mine=d.result.times?.[state.playerId],draw=d.result.draw===true,won=!draw&&d.result.winnerId===state.playerId,gap=Math.abs(Number(d.result.gapMs)||0);hud.classList.toggle('win',won);hud.classList.toggle('lose',!draw&&!won);hud.classList.toggle('photo',d.result.photoFinish===true||draw);if(stateEl)stateEl.textContent=draw?'DRAW':d.result.photoFinish?'PHOTO FINISH':'SERVER RESULT';if(leadEl)leadEl.textContent=draw?'DRAW':won?'YOU WIN':'YOU LOSE';if(gapEl)gapEl.textContent=`${(mine/1000).toFixed(3)} s · Δ ${(gap/1000).toFixed(3)} s`; }
+    const remain=d.startAt-now;if(remain>0){const n=Math.max(1,Math.ceil(remain/1000));if(stateEl)stateEl.textContent=d.wager?`BET ${fmtCR(d.wager).replace(' CR','')}`:'START SYNC';if(leadEl)leadEl.textContent=remain>3000?'READY':String(n);if(gapEl)gapEl.textContent=d.wager?`БАНК ${fmtCR(d.pot)} · СТАРТ ПО СЕРВЕРНОМУ ТАЙМЕРУ`:'СТАРТ ПО СЕРВЕРНОМУ ТАЙМЕРУ';hud.classList.remove('win','lose','photo');}
+    else if(d.result){const mine=d.result.times?.[state.playerId],draw=d.result.draw===true,won=!draw&&d.result.winnerId===state.playerId,gap=Math.abs(Number(d.result.gapMs)||0);hud.classList.toggle('win',won);hud.classList.toggle('lose',!draw&&!won);hud.classList.toggle('photo',d.result.photoFinish===true||draw);if(stateEl)stateEl.textContent=draw?'DRAW':d.result.photoFinish?'PHOTO FINISH':'SERVER RESULT';if(leadEl)leadEl.textContent=draw?'DRAW':won?'YOU WIN':'YOU LOSE';if(gapEl)gapEl.textContent=`${Number.isFinite(mine)?(mine/1000).toFixed(3)+' s · ':''}Δ ${(gap/1000).toFixed(3)} s${d.wager?` · БАНК ${fmtCR(d.pot)}`:''}`; }
     else{const p=d.progress,leadId=p?.leadId,gap=Math.abs(Number(p?.gap)||0),oppName=state.room?.players?.find(x=>x.id===d.opponentId)?.name||'RIVAL';if(stateEl)stateEl.textContent='SERVER LIVE';if(leadEl){if(!leadId||gap<3)leadEl.textContent='PHOTO FINISH';else leadEl.textContent=leadId===state.playerId?'YOU LEAD':`${oppName} LEADS`;}if(gapEl)gapEl.textContent=gap<3?'РАЗНИЦА МЕНЬШЕ НОСА МАШИНЫ':`ОТРЫВ ≈ ${(gap/54).toFixed(1)} КОРП.`;hud.classList.toggle('photo',gap<8);hud.classList.remove('win','lose');}
     const positions=d.progress?.positions||{},mineX=Number(positions[state.playerId]),rivalX=Number(positions[d.opponentId]);if(remain>0){if(mineEl)mineEl.style.left='0%';if(rivalEl)rivalEl.style.left='0%';}else{if(mineEl&&Number.isFinite(mineX))mineEl.style.left=(clamp((mineX-DRAG_START_X)/DRAG_LENGTH,0,1)*100)+'%';if(rivalEl&&Number.isFinite(rivalX))rivalEl.style.left=(clamp((rivalX-DRAG_START_X)/DRAG_LENGTH,0,1)*100)+'%';}
   }
 
   function updateActivities(dt,now){
     state.speedCooldown=Math.max(0,state.speedCooldown-dt);
+    if(state.minigame){const action=$('freeContextAction');if(action)action.classList.add('hidden');return;}
 
     if(dist(car.x,car.y,ZONES.speed.x,ZONES.speed.y)<ZONES.speed.r&&state.speedCooldown<=0&&car.speed>90){
       state.speedCooldown=4;const v=Math.round(car.speed);setBanner(`SPEED TRAP · ${v} KM/H`,2600);send({type:'record',v:1,kind:'speed',value:v});
     }
 
     const inDrift=dist(car.x,car.y,ZONES.drift.x,ZONES.drift.y)<ZONES.drift.r;
-    if(inDrift&&car.speed>55&&(input.handbrake||Math.abs((input.right?1:0)-(input.left?1:0))>.45)){
+    if(inDrift&&car.speed>55&&input.handbrake){
       state.driftScore+=car.speed*dt*4.9;state.driftInside=true;
     }else if(state.driftInside&&!inDrift){
       const score=Math.floor(state.driftScore);if(score>120){setBanner(`DRIFT ZONE · ${score.toLocaleString('ru-RU')}`,3000);send({type:'record',v:1,kind:'drift',value:score});}state.driftScore=0;state.driftInside=false;
@@ -482,7 +766,12 @@
     if(state.drag&&!state.drag.finished&&!state.drag.localCrossed&&now>=state.drag.startAt&&car.x>DRAG_FINISH_X&&car.y>2510&&car.y<2820){state.drag.localCrossed=true;sendFreeState(true);setBanner('ФИНИШ · СЕРВЕР ПРОВЕРЯЕТ РЕЗУЛЬТАТ',1800);}
 
     const action=$('freeContextAction');if(!action)return;action.onclick=null;
-    if(state.drag||state.dragQueued||state.activityPending||state.liveEvent){action.classList.add('hidden');return;}
+    if(state.drag||state.activityPending||state.liveEvent){action.classList.add('hidden');return;}
+    if(state.dragQueued){action.textContent=`DRAG · ОТМЕНИТЬ ОЧЕРЕДЬ${state.dragWager?` · ${fmtCR(state.dragWager)}`:''}`;action.classList.remove('hidden');action.onclick=()=>send({type:'activity_leave',v:1,activity:'drag'});return;}
+
+    if(dist(car.x,car.y,ZONES.garage.x,ZONES.garage.y)<ZONES.garage.r){
+      action.textContent='ГАРАЖ · ВОЙТИ';action.classList.remove('hidden');action.onclick=openFreeGarage;return;
+    }
 
     if(dist(car.x,car.y,ZONES.levels.x,ZONES.levels.y)<ZONES.levels.r){
       action.textContent='УРОВНИ · ОТКРЫТЬ';action.classList.remove('hidden');action.onclick=()=>toggleLevels(true);return;
@@ -492,15 +781,18 @@
       action.textContent='KING OF THE HILL · УЧАСТВОВАТЬ';action.classList.remove('hidden');action.onclick=()=>{state.activityPending=true;if(send({type:'activity_join',v:1,activity:'koth'})){action.classList.add('hidden');setBanner('KING OF THE HILL · РЕГИСТРАЦИЯ',1800);}else state.activityPending=false;};return;
     }
 
-    const driftZones=[ZONES.drift,ZONES.driftIndustrial,ZONES.driftParking],battle=driftZones.find(z=>dist(car.x,car.y,z.x,z.y)<88);
+    const driftZones=[ZONES.drift],battle=driftZones.find(z=>dist(car.x,car.y,z.x,z.y)<Math.min(150,z.r));
     if(battle){
       action.textContent='DRIFT BATTLE · УЧАСТВОВАТЬ';action.classList.remove('hidden');action.onclick=()=>{state.activityPending=true;if(send({type:'activity_join',v:1,activity:'drift_battle',zoneId:battle.battleId})){action.classList.add('hidden');setBanner('DRIFT BATTLE · РЕГИСТРАЦИЯ',1800);}else state.activityPending=false;};return;
     }
 
+    const miniHub=[ZONES.footballHub,ZONES.checkpointHub,ZONES.hotPotatoHub].find(z=>dist(car.x,car.y,z.x,z.y)<z.r);
+    if(miniHub){const labels={football:'МИНИ-ФУТБОЛ',checkpoint:'CHECKPOINT RUSH',hot_potato:'HOT POTATO'};action.textContent=`${labels[miniHub.hub]||'МИНИ-ИГРЫ'} · ОТКРЫТЬ`;action.classList.remove('hidden');action.onclick=()=>openMinigamePanel(miniHub.hub);return;}
+
     if(dist(car.x,car.y,ZONES.crews.x,ZONES.crews.y)<ZONES.crews.r){action.textContent='КЛАНЫ · РЕЙТИНГ';action.classList.remove('hidden');action.onclick=()=>window.VelocityCrews?.open();return;}
     const nearDrag=dist(car.x,car.y,ZONES.drag.x,ZONES.drag.y)<ZONES.drag.r;
     if(nearDrag){
-      action.textContent='DRAG · ВСТАТЬ В ОЧЕРЕДЬ';action.classList.remove('hidden');action.onclick=()=>{state.dragQueued=true;if(!send({type:'activity_join',v:1,activity:'drag'})){state.dragQueued=false;return;}action.classList.add('hidden');setBanner('DRAG · ОЖИДАЕМ СОПЕРНИКА');};return;
+      action.textContent='DRAG · ВЫБРАТЬ СТАВКУ';action.classList.remove('hidden');action.onclick=()=>toggleDragBetPanel(true);return;
     }
     action.classList.add('hidden');
   }
@@ -519,9 +811,12 @@
     2:{label:'MODER',key:'moder',fill:'#145fa8',stroke:'#66b8ff',glow:'#3d9eff',text:'#eef8ff'},
     3:{label:'ST.MODER',key:'st-moder',fill:'#6540a8',stroke:'#b28aff',glow:'#9567ee',text:'#f8f2ff'},
     4:{label:'ADMIN',key:'admin',fill:'#a35d12',stroke:'#ffc166',glow:'#ffa43d',text:'#fff8e8'},
-    5:{label:'CURATOR',key:'curator',fill:'#8d7410',stroke:'#ffe26e',glow:'#ffd447',text:'#fffce8'}
+    5:{label:'ST.ADMIN',key:'st-admin',fill:'#8b6517',stroke:'#ffd36b',glow:'#f3b83f',text:'#fff8de'},
+    6:{label:'CURATOR',key:'curator',fill:'#0d6b57',stroke:'#55f0c2',glow:'#28d7a4',text:'#ecfff9'},
+    7:{label:'GL.ADMIN',key:'gl-admin',fill:'#174fbd',stroke:'#6bb4ff',glow:'#3e8cff',text:'#eef6ff'},
+    8:{label:'ROOT',key:'root',fill:'#252b36',stroke:'#d6e0ef',glow:'#98a8c0',text:'#ffffff'}
   });
-  const adminPrefix=level=>ADMIN_PREFIXES[Math.max(0,Math.min(5,Math.floor(Number(level)||0)))]||null;
+  const adminPrefix=level=>ADMIN_PREFIXES[Math.max(0,Math.min(8,Math.floor(Number(level)||0)))]||null;
 
   function appendPlayerName(el,name,owner,level=null,adminLevel=null){
     const player=state.room?.players?.find(p=>p.name===name),isOwner=owner===true||player?.owner===true,rank=adminPrefix(adminLevel===null?player?.adminLevel:adminLevel);
@@ -592,6 +887,7 @@
   }
 
   function draw(){
+    if(state.minigame&&['running','result'].includes(state.minigame.status)){drawMinigameArena();return;}
     ctx.clearRect(0,0,W,H);
     const zoom=clamp(.82-Math.min(1,car.speed/580)*.10,.68,.85);
     const cx=car.x,cy=car.y;
@@ -604,14 +900,16 @@
     drawZone(ctx,ZONES.drag,'#67c6ff','DRAG');
     drawZone(ctx,ZONES.speed,'#f6e75d','SPEED');
     drawZone(ctx,ZONES.drift,'#c678ff','DRIFT BATTLE');
-    drawZone(ctx,ZONES.driftIndustrial,'#c678ff','DRIFT BATTLE');
-    drawZone(ctx,ZONES.driftParking,'#c678ff','DRIFT BATTLE');
     drawZone(ctx,ZONES.koth,'#ffad5a','KOTH');
     drawZone(ctx,ZONES.levels,'#ffd86a','LEVELS');
+    drawZone(ctx,ZONES.garage,'#8dff49','GARAGE');
+    drawMinigameEntrance(ctx,ZONES.footballHub,'#68d8ff','MINI FOOTBALL');
+    drawMinigameEntrance(ctx,ZONES.checkpointHub,'#7dff91','CHECKPOINT RUSH');
+    drawMinigameEntrance(ctx,ZONES.hotPotatoHub,'#ff8d66','HOT POTATO');
     drawZone(ctx,ZONES.meet,'#8dff49','CAR MEET');
     if(state.liveEvent?.activity==='koth'&&state.liveEvent.zone){drawZone(ctx,{...state.liveEvent.zone,kind:'koth'},state.liveEvent.finalZone?'#ffd86a':'#ff8f4f',state.liveEvent.finalZone?'FINAL ZONE':'ACTIVE ZONE');}
     if(state.waypoint)drawWaypoint(ctx,state.waypoint);
-    for(const [id,r] of state.remotes)drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner,r.level||0,r.adminLevel||0);
+    const viewHalfW=W/(2*zoom)+180,viewHalfH=H/(2*zoom)+180;for(const [id,r] of state.remotes){if(Math.abs(r.x-cx)>viewHalfW||Math.abs(r.y-cy)>viewHalfH)continue;const mg=(state.room?.activities?.minigames||[]).find(e=>e?.status==='running'&&e.participants?.includes(id));if(mg)continue;drawVisualCar(ctx,r.visual,r.x,r.y,r.angle,r.name||'RACER',false,colorFor(id),r.owner,r.level||0,r.adminLevel||0);}
     const me=state.room?.players?.find(p=>p.id===state.playerId);drawVisualCar(ctx,state.playerVisual,car.x,car.y,car.angle,me?.name||accountName(),true,'#a9ff5a',me?.owner===true,me?.level??state.progress.level??0,me?.adminLevel||0);
     ctx.restore();
     if(!$('freeMapPanel').classList.contains('hidden')&&performance.now()-lastMapDraw>80){lastMapDraw=performance.now();drawMiniMap();}
@@ -704,7 +1002,7 @@
   }
 
   function drawMapZone(c,z,sx,sy){
-    const color=z.kind==='drag'?'#67c6ff':z.kind==='speed'?'#f6e75d':(z.kind==='drift'||z.kind==='driftBattle')?'#c678ff':z.kind==='koth'?'#ff9c52':z.kind==='levels'?'#ffd86a':'#8dff49';
+    const color=z.kind==='drag'?'#67c6ff':z.kind==='speed'?'#f6e75d':(z.kind==='drift'||z.kind==='driftBattle')?'#c678ff':z.kind==='koth'?'#ff9c52':z.kind==='levels'?'#ffd86a':z.kind==='minigame'?'#69dcff':z.kind==='garage'?'#8dff49':'#8dff49';
     c.save();c.translate(z.x*sx,z.y*sy);c.rotate(Math.PI/4);
     c.fillStyle=color;c.globalAlpha=.88;c.fillRect(-6,-6,12,12);c.restore();
   }
@@ -735,7 +1033,7 @@
     if(k){input[k]=true;e.preventDefault();}
     if(e.code==='KeyM')toggleMap();
     if(e.code==='Enter')toggleChat();
-    if(e.code==='Escape'){if(!$('freeChatPanel').classList.contains('hidden')||!$('freeMapPanel').classList.contains('hidden')||!$('freeLevelsPanel').classList.contains('hidden')){toggleChat(false);toggleMap(false);toggleLevels(false);}else togglePause(!state.paused);}
+    if(e.code==='Escape'){if(!$('freeChatPanel').classList.contains('hidden')||!$('freeMapPanel').classList.contains('hidden')||!$('freeLevelsPanel').classList.contains('hidden')||!$('freeMinigamePanel').classList.contains('hidden')){toggleChat(false);toggleMap(false);toggleLevels(false);toggleMinigamePanel(false);}else togglePause(!state.paused);}
   });
   addEventListener('keyup',e=>{const k=keyMap[e.code];if(k)input[k]=false;});
 
@@ -756,6 +1054,30 @@
     const on=e=>{e.preventDefault();if(!state.paused)input[k]=true;};
     const off=e=>{e.preventDefault();input[k]=false;};
     b.addEventListener('pointerdown',on);b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);b.addEventListener('pointerleave',off);
+  }
+
+  let pauseTapLockUntil=0,suppressNextPauseClick=false,suppressPauseClickUntil=0;
+  const lockPauseTaps=(ms=700)=>{pauseTapLockUntil=Math.max(pauseTapLockUntil,performance.now()+ms);};
+  const pauseTapLocked=()=>performance.now()<pauseTapLockUntil;
+  const suppressFollowupClick=(ms=700)=>{suppressNextPauseClick=true;suppressPauseClickUntil=performance.now()+ms;};
+  document.addEventListener('click',e=>{
+    if(!suppressNextPauseClick)return;
+    if(performance.now()>suppressPauseClickUntil){suppressNextPauseClick=false;return;}
+    suppressNextPauseClick=false;e.preventDefault();e.stopImmediatePropagation();
+  },true);
+  function bindPauseTap(el,handler){
+    if(!el||typeof handler!=='function')return;
+    let pointerId=null;
+    if(window.PointerEvent){
+      el.addEventListener('pointerdown',e=>{if(pauseTapLocked()||(e.pointerType==='mouse'&&e.button!==0))return;pointerId=e.pointerId;try{el.setPointerCapture(e.pointerId);}catch(_){}});
+      el.addEventListener('pointerup',e=>{if(pointerId!==e.pointerId)return;pointerId=null;e.preventDefault();e.stopPropagation();lockPauseTaps();suppressFollowupClick();handler(e);});
+      el.addEventListener('pointercancel',e=>{if(pointerId===e.pointerId)pointerId=null;});
+      el.addEventListener('lostpointercapture',e=>{if(pointerId===e.pointerId)pointerId=null;});
+    }
+    el.addEventListener('click',e=>{
+      if(pauseTapLocked()){e.preventDefault();e.stopImmediatePropagation();return;}
+      lockPauseTaps();handler(e);
+    });
   }
 
   function togglePause(force){
@@ -798,17 +1120,44 @@
   });
   $('freeChatBtn').addEventListener('click',()=>toggleChat());
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));
-  $('freePauseBtn')?.addEventListener('click',()=>togglePause(true));
-  $('freePauseContinue')?.addEventListener('click',()=>togglePause(false));
-  $('freePauseControls')?.addEventListener('click',()=>{const panel=$('freePausePanel');panel?.classList.add('hidden');panel?.setAttribute('aria-hidden','true');window.VelocityControlLayout?.open?.();});
-  addEventListener('velocity-control-layout-close',()=>{if(state.active&&state.paused){const panel=$('freePausePanel');panel?.classList.remove('hidden');panel?.setAttribute('aria-hidden','false');}});
+  bindPauseTap($('freePauseBtn'),()=>togglePause(true));
+  bindPauseTap($('freePauseContinue'),()=>togglePause(false));
+  bindPauseTap($('freePauseControls'),()=>{
+    if(!state.active||!state.paused)return;
+    const panel=$('freePausePanel');panel?.classList.add('hidden');panel?.setAttribute('aria-hidden','true');
+    // Keep Free Roam paused while editing. The editor writes one shared layout that is
+    // immediately applied to both Solo/Online race controls and Free Roam controls.
+    window.VelocityControlLayout?.open?.({source:'freeRoam'});
+  });
+  addEventListener('velocity-control-layout-close',()=>{
+    if(state.active&&state.paused){
+      // iOS Safari may emit a delayed synthetic click after the editor disappears.
+      // Lock the newly revealed pause buttons so that tap cannot reopen the editor
+      // or hit EXIT underneath the closing editor.
+      lockPauseTaps(750);
+      const panel=$('freePausePanel');panel?.classList.remove('hidden');panel?.setAttribute('aria-hidden','false');
+      window.VelocityControlLayout?.apply?.();
+    }
+  });
   addEventListener('velocity-control-layout-change',()=>window.VelocityControlLayout?.apply?.());
-  $('freePauseChat')?.addEventListener('click',()=>{togglePause(false);toggleChat(true);});
-  $('freePauseMap')?.addEventListener('click',()=>{togglePause(false);toggleMap(true);});
-  $('freePauseLeave')?.addEventListener('click',leave);
+  bindPauseTap($('freePauseChat'),()=>{togglePause(false);toggleChat(true);});
+  bindPauseTap($('freePauseMap'),()=>{togglePause(false);toggleMap(true);});
+  bindPauseTap($('freePauseLeave'),()=>{
+    // Suppress Safari's follow-up click before Free Roam is hidden; otherwise it can
+    // land on a menu/settings control at the same screen coordinates.
+    lockPauseTaps(900);leave();
+  });
   $('freeLevelPill')?.addEventListener('click',()=>toggleLevels());
   $('freeLevelsClose')?.addEventListener('click',()=>toggleLevels(false));
+  $('freeDragBetClose')?.addEventListener('click',()=>toggleDragBetPanel(false));
+  $('freeDragBetCancel')?.addEventListener('click',()=>toggleDragBetPanel(false));
+  $('freeDragBetChoices')?.addEventListener('click',event=>{const button=event.target.closest?.('[data-wager]');if(!button||button.disabled)return;const amount=Number(button.dataset.wager)||0;if(!DRAG_WAGER_OPTIONS.includes(amount))return;state.dragWager=amount;renderDragBetPanel();});
+  $('freeDragBetJoin')?.addEventListener('click',()=>joinDragQueue());
   $('freeEventLeave')?.addEventListener('click',()=>{const e=state.liveEvent;if(!e||!['waiting','countdown','running'].includes(e.status))return;if(!confirm('Выйти из '+eventTitle(e.activity)+'? Награда за этот ивент не будет выдана.'))return;if(send({type:'activity_leave',v:1,activity:e.activity,eventId:e.id})){$('freeEventLeave').disabled=true;setTimeout(()=>{if($('freeEventLeave'))$('freeEventLeave').disabled=false;},1500);}});
+  $('freeMinigameClose')?.addEventListener('click',()=>toggleMinigamePanel(false));
+  $('freeMinigameToggle')?.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();if(state.minigame?.status!=='running')return;state.minigameHudExpanded=!state.minigameHudExpanded;state.minigameHudAutoCollapseAt=0;renderMinigameHud();});
+  $('freeMinigameLeave')?.addEventListener('click',()=>{const e=state.minigame;if(!e||!['waiting','countdown','running'].includes(e.status))return;if(!confirm('Выйти из '+minigameTitle(e.gameKey)+'? Награда за этот матч не будет выдана.'))return;if(send({type:'activity_leave',v:1,activity:'minigame',gameKey:e.gameKey,eventId:e.id})){$('freeMinigameLeave').disabled=true;setTimeout(()=>{if($('freeMinigameLeave'))$('freeMinigameLeave').disabled=false;},1500);}});
+  $('freeMinigameOwnerStart')?.addEventListener('click',()=>{const e=state.minigame;if(!e||!ownPlayer()?.owner||!['waiting','countdown'].includes(e.status))return;const b=$('freeMinigameOwnerStart');if(b)b.disabled=true;if(!send({type:'owner_minigame_start',v:1,eventId:e.id,gameKey:e.gameKey})){if(b)b.disabled=false;return;}setBanner('OWNER · ЗАПУСК МИНИ-ИГРЫ',1800);});
   $('freeMapBtn').addEventListener('click',()=>toggleMap());
   $('freeMapClose').addEventListener('click',()=>toggleMap(false));
   $('freeMapClear')?.addEventListener('click',()=>{state.waypoint=null;syncMapClear();drawMiniMap();setBanner('МЕТКА УДАЛЕНА',1800);});
@@ -816,7 +1165,9 @@
   $('freeRefreshBtn').addEventListener('click',loadServers);
   $('freeServersBackBtn').addEventListener('click',closeBrowser);
   $('onlineFreeModeBtn')?.addEventListener('click',openBrowser);
-  addEventListener('resize',()=>{if(state.active){resize();if(!$('freeMapPanel').classList.contains('hidden')){sizeMap();drawMiniMap();}}},{passive:true});
+  addEventListener('pagehide',()=>{if(state.active){state.intentionalClose=true;send({type:'leave',v:1});leaveBeacon();try{state.ws?.close(1000,'pagehide');}catch{}}},{capture:true});
+  addEventListener('pageshow',e=>{if(e.persisted&&state.active&&!state.ws)leave(false);},{capture:true});
+    addEventListener('resize',()=>{if(state.active){resize();if(!$('freeMapPanel').classList.contains('hidden')){sizeMap();drawMiniMap();}}},{passive:true});
   function zoomMap(delta){
     if(mapView.zoom===1&&delta>0){mapView.x=car.x;mapView.y=car.y;}
     mapView.zoom=clamp(mapView.zoom+delta,1,4);

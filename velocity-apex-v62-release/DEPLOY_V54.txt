@@ -1,0 +1,16 @@
+Velocity Apex V54 — Garage / Upgrade responsive layout fix
+
+ZIP: Velocity-Apex-Garage-Upgrade-iPhone-V54.zip
+
+КОМАНДЫ ОБНОВЛЕНИЯ:
+
+rm -rf velocity-apex-v54 && mkdir velocity-apex-v54
+unzip -o "Velocity-Apex-Garage-Upgrade-iPhone-V54.zip" -d velocity-apex-v54
+cd velocity-apex-v54
+npm install
+npm test
+npx wrangler d1 migrations apply velocity-apex-db --remote
+npx wrangler deploy
+
+БЫСТРЫЙ ВАРИАНТ ОДНОЙ КОМАНДОЙ:
+rm -rf velocity-apex-v54 && mkdir velocity-apex-v54 && unzip -o "Velocity-Apex-Garage-Upgrade-iPhone-V54.zip" -d velocity-apex-v54 && cd velocity-apex-v54 && npm install && npm test && npx wrangler d1 migrations apply velocity-apex-db --remote && npx wrangler deploy

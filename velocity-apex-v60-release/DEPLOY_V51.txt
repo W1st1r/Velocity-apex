@@ -1,0 +1,8 @@
+Velocity Apex V51 MEDIA Mobile + Racing
+
+ZIP: Velocity-Apex-FreeRoam-Checkpoint-Center-V51-MEDIA-MOBILE-RACING.zip
+
+Deploy:
+  bash deploy_velocity_apex_media_v51.sh Velocity-Apex-FreeRoam-Checkpoint-Center-V51-MEDIA-MOBILE-RACING.zip
+
+V51 does not add a new D1 migration. The deploy script still runs Wrangler migrations safely so an installation missing 0016_media_events.sql is brought up to date before deploy.

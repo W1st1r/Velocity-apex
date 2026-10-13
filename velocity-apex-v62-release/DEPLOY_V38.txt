@@ -1,0 +1,6 @@
+rm -rf apex-v38
+mkdir -p apex-v38
+unzip -o "Velocity-Apex-Career-50-V38.zip" -d apex-v38
+cd apex-v38
+npm install
+npx wrangler deploy

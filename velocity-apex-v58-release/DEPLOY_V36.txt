@@ -1,0 +1,6 @@
+rm -rf apex-v36
+mkdir -p apex-v36
+unzip -o "Velocity-Apex-Free-Roam-Access-V36.zip" -d apex-v36
+cd apex-v36
+npm install
+npx wrangler deploy

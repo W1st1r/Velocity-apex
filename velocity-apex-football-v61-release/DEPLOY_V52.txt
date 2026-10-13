@@ -1,0 +1,17 @@
+Velocity Apex V52 — Garage Upgrade / iPhone
+
+ZIP: Velocity-Apex-Garage-Upgrade-iPhone-V52.zip
+
+Самый простой вариант:
+  bash deploy_velocity_apex_upgrade_v52.sh Velocity-Apex-Garage-Upgrade-iPhone-V52.zip
+
+Ручная распаковка + deploy:
+  rm -rf velocity-apex-v52 && mkdir velocity-apex-v52
+  unzip -o Velocity-Apex-Garage-Upgrade-iPhone-V52.zip -d velocity-apex-v52
+  cd velocity-apex-v52
+  npm install
+  node tests/garage_upgrade_v52_test.mjs
+  npx wrangler d1 migrations apply velocity-apex-db --remote
+  npx wrangler deploy
+
+Важно: D1 migration 0017_upgrade.sql создаёт историю попыток Upgrade.

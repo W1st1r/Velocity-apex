@@ -7,9 +7,9 @@
 
   class Track {
     constructor(config=R.TRACKS.apexCircuit) {
-      this.config=config;this.id=config.id;this.theme=config.theme;this.roadWidth=config.roadWidth;this.isCareer=/^career\d+$/.test(config.id||'');this.detailLevel=clamp(config.detailLevel??(this.isCareer?3:1),1,3);
+      this.config=config;this.id=config.id;this.theme=config.theme;this.roadWidth=config.roadWidth;this.isCareer=/^career\d+$/.test(config.id||'');this.detailLevel=clamp(config.detailLevel??(this.isCareer?4:1),1,4);
       this.curbWidth=clamp(config.curbWidth??10,6,12);this.driveableMargin=this.curbWidth;this.barrierMargin=clamp(config.barrierMargin??38,30,44);
-      this.points=config.points;this.samples=[];this.length=0;this._cache=null;
+      this.points=config.points;this.samples=[];this.length=0;this._cache=null;this._careerTiles=new Map();this._careerTileStamp=0;
       this._build();
     }
 
@@ -33,7 +33,8 @@
       let length=0;const cumulative=[0];
       for(let i=1;i<raw.length;i++){length+=Math.hypot(raw[i].x-raw[i-1].x,raw[i].y-raw[i-1].y);cumulative.push(length);}
       const scale=this.config.targetLength?this.config.targetLength/length:1;
-      this.length=length*scale;this.sampleCount=Math.ceil(this.length/12);this.spacing=this.length/this.sampleCount;
+      const desiredSpacing=this.isCareer?(this.detailLevel>=4?8.5:9.75):12;
+      this.length=length*scale;this.sampleCount=Math.ceil(this.length/desiredSpacing);this.spacing=this.length/this.sampleCount;
       let j=0;
       for(let i=0;i<this.sampleCount;i++){
         const d=i*length/this.sampleCount;while(cumulative[j+1]<d)j++;
@@ -167,16 +168,60 @@
       for(let i=1;i<s.length;i++){const p=s[i];ctx.lineTo(p.x+p.nx*offset,p.y+p.ny*offset);} ctx.closePath();
     }
 
+    _visibleWorldBounds(ctx,pad=120) {
+      const m=ctx.getTransform?.();if(!m)return null;
+      const det=m.a*m.d-m.b*m.c;if(!Number.isFinite(det)||Math.abs(det)<1e-8)return null;
+      const inv=(px,py)=>({x:(m.d*(px-m.e)-m.c*(py-m.f))/det,y:(-m.b*(px-m.e)+m.a*(py-m.f))/det});
+      const w=ctx.canvas?.width||0,h=ctx.canvas?.height||0;if(!w||!h)return null;
+      const pts=[inv(0,0),inv(w,0),inv(w,h),inv(0,h)];
+      return {minX:Math.min(...pts.map(p=>p.x))-pad,minY:Math.min(...pts.map(p=>p.y))-pad,maxX:Math.max(...pts.map(p=>p.x))+pad,maxY:Math.max(...pts.map(p=>p.y))+pad};
+    }
+
+    _buildCareerTile(tx,ty,tileWorld,tileScale,bleed,key) {
+      const worldX=tx*tileWorld,worldY=ty*tileWorld,span=tileWorld+bleed*2;
+      const c=document.createElement('canvas');c.width=Math.ceil(span*tileScale);c.height=Math.ceil(span*tileScale);
+      const cx=c.getContext('2d',{alpha:true});if(!cx)return null;
+      cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';cx.setTransform(tileScale,0,0,tileScale,0,0);cx.translate(-(worldX-bleed),-(worldY-bleed));this._drawStatic(cx);
+      const tile={canvas:c,tx,ty,tileWorld,tileScale,bleed,key,stamp:++this._careerTileStamp};this._careerTiles.set(key,tile);return tile;
+    }
+
+    _drawCareerHDViewport(ctx) {
+      if(!this.isCareer)return;
+      const m=ctx.getTransform?.();if(!m)return;
+      const screenScale=Math.max(Math.hypot(m.a,m.b),Math.hypot(m.c,m.d));
+      // Menu previews show the whole 24–32 km route at a tiny scale. HD tiles are only
+      // useful during the actual drive, where they eliminate the upscaled-cache blur.
+      if(screenScale<.42)return;
+      const view=this._visibleWorldBounds(ctx,150);if(!view)return;
+      const tileWorld=640,bleed=12,tileScale=screenScale>1.46?1.90:1.58,quality=tileScale>1.8?'hi':'mid';
+      const tx0=Math.floor(view.minX/tileWorld),tx1=Math.floor(view.maxX/tileWorld),ty0=Math.floor(view.minY/tileWorld),ty1=Math.floor(view.maxY/tileWorld);
+      const centerX=(view.minX+view.maxX)*.5,centerY=(view.minY+view.maxY)*.5,needed=[];
+      for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){
+        const x=tx*tileWorld,y=ty*tileWorld;if(x>this.bounds.maxX||y>this.bounds.maxY||x+tileWorld<this.bounds.minX||y+tileWorld<this.bounds.minY)continue;
+        const key=quality+':'+tx+':'+ty,tile=this._careerTiles.get(key);if(tile)tile.stamp=++this._careerTileStamp;
+        needed.push({tx,ty,key,tile,d:(x+tileWorld*.5-centerX)**2+(y+tileWorld*.5-centerY)**2});
+      }
+      const missing=needed.filter(v=>!v.tile).sort((a,b)=>a.d-b.d);
+      // Limit synchronous work per frame. Within a few frames the visible road and
+      // scenery are fully sharp, while the low-res whole-track cache prevents blanks.
+      for(let i=0;i<Math.min(2,missing.length);i++){const v=missing[i];v.tile=this._buildCareerTile(v.tx,v.ty,tileWorld,tileScale,bleed,v.key);}
+      for(const v of needed){const tile=v.tile||this._careerTiles.get(v.key);if(!tile)continue;const src=tile.bleed*tile.tileScale,srcSize=tile.tileWorld*tile.tileScale;ctx.drawImage(tile.canvas,src,src,srcSize,srcSize,v.tx*tileWorld,v.ty*tileWorld,tileWorld,tileWorld);}
+      const protectedKeys=new Set(needed.map(v=>v.key));
+      if(this._careerTiles.size>8){const old=[...this._careerTiles.entries()].filter(([key])=>!protectedKeys.has(key)).sort((a,b)=>a[1].stamp-b[1].stamp);while(this._careerTiles.size>8&&old.length){const [key,tile]=old.shift();tile.canvas.width=tile.canvas.height=1;this._careerTiles.delete(key);}}
+    }
+
     draw(ctx) {
-      // A single bounded static texture per active track keeps mobile frame cost low.
+      // Whole-track cache keeps menus and distant background cheap. Career gameplay
+      // adds viewport HD tiles on top so 24–32 km maps stay crisp on Retina displays.
       if(!this._cache){
         const b=this.bounds,w=b.maxX-b.minX,h=b.maxY-b.minY;
-        const maxW=this.isCareer?3584:3072,maxH=this.isCareer?2688:2304,maxScale=this.isCareer?.96:.85;this.cacheScale=Math.min(maxScale,maxW/w,maxH/h);
+        const maxW=this.isCareer?(this.detailLevel>=4?4608:4096):3072,maxH=this.isCareer?(this.detailLevel>=4?3456:3072):2304,maxScale=this.isCareer?(this.detailLevel>=4?1.18:1.04):.85;this.cacheScale=Math.min(maxScale,maxW/w,maxH/h);
         const c=document.createElement('canvas');c.width=Math.ceil(w*this.cacheScale);c.height=Math.ceil(h*this.cacheScale);
-        const cx=c.getContext('2d');cx.scale(this.cacheScale,this.cacheScale);cx.translate(-b.minX,-b.minY);this._drawStatic(cx);this._cache=c;
+        const cx=c.getContext('2d');cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';cx.scale(this.cacheScale,this.cacheScale);cx.translate(-b.minX,-b.minY);this._drawStatic(cx);this._cache=c;
       }
       const b=this.bounds;ctx.fillStyle=this.theme.ground;ctx.fillRect(b.minX-8000,b.minY-8000,16000,16000);
-      ctx.drawImage(this._cache,b.minX,b.minY,this._cache.width/this.cacheScale,this._cache.height/this.cacheScale);
+      ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(this._cache,b.minX,b.minY,this._cache.width/this.cacheScale,this._cache.height/this.cacheScale);
+      if(this.isCareer)this._drawCareerHDViewport(ctx);
     }
 
     drawDebug(ctx,cars=[]) {
@@ -199,7 +244,7 @@
       for(const c of cars){if(!c.ai)continue;const ai=c.ai;if(ai.debugAim){ctx.save();ctx.strokeStyle='rgba(80,210,255,.85)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(ai.debugAim.x,ai.debugAim.y);ctx.stroke();ctx.fillStyle='rgba(80,210,255,.9)';ctx.beginPath();ctx.arc(ai.debugAim.x,ai.debugAim.y,4,0,Math.PI*2);ctx.fill();ctx.restore();}if(ai.debugTrail&&ai.debugTrail.length>1){ctx.save();ctx.strokeStyle='rgba(255,255,255,.32)';ctx.lineWidth=1.2;ctx.beginPath();ai.debugTrail.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();ctx.restore();}}
     }
 
-    release(){if(this._cache){this._cache.width=this._cache.height=1;this._cache=null;}}
+    release(){if(this._cache){this._cache.width=this._cache.height=1;this._cache=null;}for(const tile of this._careerTiles.values()){tile.canvas.width=tile.canvas.height=1;}this._careerTiles.clear();}
 
     _sampleIndex(progress) {
       const n=this.samples.length;
@@ -207,10 +252,14 @@
     }
 
     _scenerySpot(progress,side=1,extra=90,clearance=28) {
-      const p=this.samples[this._sampleIndex(progress)],off=this.roadWidth*.5+this.barrierMargin+extra;
+      const idx=this._sampleIndex(progress),p=this.samples[idx],n=this.samples.length;
+      let curveWindow=Math.abs(p.curve||0);for(let o=-6;o<=6;o++){const s=this.samples[(idx+o+n)%n];curveWindow=Math.max(curveWindow,Math.abs(s.curve||0));}
+      const careerBias=this.isCareer?(10+this.detailLevel*2):0,turnBias=curveWindow>.18?(16+curveWindow*62):0;
+      const off=this.roadWidth*.5+this.barrierMargin+extra+careerBias+turnBias;
       const x=p.x+p.nx*off*side,y=p.y+p.ny*off*side;
-      if(this.nearest(x,y).distance<this.roadWidth*.5+this.barrierMargin+clearance)return null;
-      return {p,x,y,angle:Math.atan2(p.ty,p.tx),side};
+      const safeClearance=clearance+(this.isCareer?10:0)+(curveWindow>.18?18:0);
+      if(this.nearest(x,y).distance<this.roadWidth*.5+this.barrierMargin+safeClearance)return null;
+      return {p,x,y,angle:Math.atan2(p.ty,p.tx),side,curveWindow};
     }
 
     _drawGrandstand(ctx,progress,side=1,scale=1,roof=true) {
@@ -317,8 +366,9 @@
       const kind=this.theme.kind,accent=this.theme.accent||'#8dff49',roadside=kind==='neon'?'#132635':kind==='desert'?'#72503a':kind==='coast'?'#174f58':kind==='alpine'?'#26443f':'#183f3d';
       // Dense but baked trackside furniture. It is rendered once into the static track cache,
       // so phones pay the detail cost on track load, not on every frame.
-      for(let i=0;i<34;i++){
-        const progress=(.025+i/34)%1,side=i%2?1:-1,spot=this._scenerySpot(progress,side,68+(i%4)*13,18);if(!spot)continue;
+      const roadsideUnitCount=26+this.detailLevel*8;
+      for(let i=0;i<roadsideUnitCount;i++){
+        const progress=(.025+i/roadsideUnitCount)%1,side=i%2?1:-1,spot=this._scenerySpot(progress,side,72+(i%4)*14,20);if(!spot)continue;
         ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle);
         ctx.globalAlpha=.18;ctx.fillStyle='#020506';ctx.fillRect(-10,-10,24,32);ctx.globalAlpha=1;
         ctx.fillStyle=roadside;ctx.fillRect(-7,-8,14,23);ctx.fillStyle='#d8e3df';ctx.fillRect(-2,-30,4,23);
@@ -327,7 +377,7 @@
         ctx.restore();
       }
       // Corner chevrons make technical sections readable at speed and add a motorsport feel.
-      const apices=(this.apexes||[]).filter(a=>a.severity>.18).slice(0,20);
+      const apices=(this.apexes||[]).filter(a=>a.severity>.18).slice(0,18+this.detailLevel*3);
       for(let i=0;i<apices.length;i++){
         const a=apices[i],p=this.samples[a.index],side=(a.sign||1)>0?-1:1,off=(this.roadWidth*.5+this.barrierMargin+26)*side;
         ctx.save();ctx.translate(p.x+p.nx*off,p.y+p.ny*off);ctx.rotate(Math.atan2(p.ty,p.tx));
@@ -335,8 +385,9 @@
         ctx.restore();
       }
       // Larger scenery pockets: service compounds, containers, parked support vehicles.
-      for(let i=0;i<12;i++){
-        const progress=(.06+i*.079)%1,side=(i%3===0)?-1:1,spot=this._scenerySpot(progress,side,155+(i%2)*32,44);if(!spot)continue;
+      const servicePocketCount=10+this.detailLevel*3;
+      for(let i=0;i<servicePocketCount;i++){
+        const progress=(.06+i*.061)%1,side=(i%3===0)?-1:1,spot=this._scenerySpot(progress,side,165+(i%2)*34,48);if(!spot)continue;
         ctx.save();ctx.translate(spot.x,spot.y);ctx.rotate(spot.angle*.15);
         ctx.globalAlpha=.20;ctx.fillStyle='#020607';ctx.fillRect(-62,-41,130,88);ctx.globalAlpha=1;
         ctx.fillStyle=kind==='desert'?'#9a6541':kind==='neon'?'#182b3c':kind==='coast'?'#d0bc8e':'#40514f';ctx.fillRect(-58,-37,116,74);
@@ -382,7 +433,7 @@
       for(let i=0;i<kind.length;i++)seed=Math.imul(seed^kind.charCodeAt(i),16777619)>>>0;
       const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
       ctx.save();
-      const detailCount=this.isCareer?260:115;
+      const detailCount=this.isCareer?Math.round(230+this.detailLevel*45):115;
       for(let i=0;i<detailCount;i++){
         const x=lerp(b.minX,b.maxX,rand()),y=lerp(b.minY,b.maxY,rand());
         if(this.nearest(x,y).distance<this.roadWidth*.78)continue;
@@ -467,8 +518,8 @@
       this._drawRacingRubber(ctx);this._drawAsphaltDetails(ctx);
 
       // Curbs follow the resampled centerline with a constant physical width.
-      const edge=this.roadWidth*.505;ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#060708';ctx.lineWidth=this.curbWidth+5;ctx.lineCap='round';this._path(ctx,-edge);ctx.stroke();this._path(ctx,edge);ctx.stroke();ctx.restore();
-      ctx.save();ctx.lineCap='butt';for(let side=-1;side<=1;side+=2)for(let i=0;i<this.samples.length;i+=4){const p=this.samples[i],q=this.samples[(i+4)%this.samples.length];ctx.beginPath();ctx.moveTo(p.x+p.nx*edge*side,p.y+p.ny*edge*side);ctx.lineTo(q.x+q.nx*edge*side,q.y+q.ny*edge*side);ctx.strokeStyle=((i/4)&1)?'#f4f4f0':this.theme.curb;ctx.lineWidth=this.curbWidth;ctx.stroke();ctx.globalAlpha=.25;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;}ctx.restore();
+      const edge=this.roadWidth*.505,curbStep=this.isCareer?3:4;ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#060708';ctx.lineWidth=this.curbWidth+5;ctx.lineCap='round';this._path(ctx,-edge);ctx.stroke();this._path(ctx,edge);ctx.stroke();ctx.restore();
+      ctx.save();ctx.lineCap=this.isCareer?'round':'butt';for(let side=-1;side<=1;side+=2)for(let i=0;i<this.samples.length;i+=curbStep){const p=this.samples[i],q=this.samples[(i+curbStep)%this.samples.length];ctx.beginPath();ctx.moveTo(p.x+p.nx*edge*side,p.y+p.ny*edge*side);ctx.lineTo(q.x+q.nx*edge*side,q.y+q.ny*edge*side);ctx.strokeStyle=((Math.floor(i/curbStep))&1)?'#f4f4f0':this.theme.curb;ctx.lineWidth=this.curbWidth;ctx.stroke();ctx.globalAlpha=.25;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;}ctx.restore();
 
       this._drawAuroraRoadMarkings(ctx);if(!this.config.cleanDrift)this._drawPitLane(ctx);this._drawStartFinish(ctx);
     }

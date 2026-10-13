@@ -1,0 +1,6 @@
+rm -rf apex-v34
+mkdir -p apex-v34
+unzip -o "Velocity-Apex-Free-Roam-Map-Drag-Wagers-V34.zip" -d apex-v34
+cd apex-v34
+npm install
+npx wrangler deploy

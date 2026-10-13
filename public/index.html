@@ -15,11 +15,13 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=1789678637" />
-<link rel="stylesheet" href="css/owner-panel.css?v=1789678637">
-  <link rel="stylesheet" href="css/crews.css?v=1789678637">
-  <link rel="stylesheet" href="css/admin-system.css?v=1789678637">
-  <link rel="stylesheet" href="css/mobile-ui.css?v=1789678637">
+  <link rel="stylesheet" href="css/style.css?v=20260919-v43" />
+<link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12">
+  <link rel="stylesheet" href="css/crews.css?v=20260917-clans1">
+  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32">
+  <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2">
+  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32">
+  <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31">
 </head>
 <body>
   <div id="app">
@@ -29,7 +31,21 @@
       <div class="rotate-card">
         <div class="phone-icon" aria-hidden="true"><span></span></div>
         <h1>Поверните телефон горизонтально</h1>
-        <p>Velocity Apex создана для Landscape Mode.</p>
+        <p class="rotate-note">Для игры используйте горизонтальный режим.</p>
+
+        <section class="install-guide" aria-label="Как установить Velocity Apex на iPhone">
+          <div class="install-guide-head">
+            <span class="install-guide-badge">ВАЖНО ДЛЯ IPHONE</span>
+            <strong>УСТАНОВИТЕ VELOCITY APEX НА ЭКРАН «ДОМОЙ»</strong>
+            <small>Так игра будет открываться как отдельное приложение на весь экран.</small>
+          </div>
+          <ol class="install-steps">
+            <li><b>1</b><span><strong>Откройте страницу в Safari</strong><small>Если ссылка открыта в Telegram или другом браузере — выберите «Открыть в Safari».</small></span></li>
+            <li><b>2</b><span><strong>Нажмите кнопку «Поделиться»</strong><small>Значок квадрата со стрелкой вверх в панели Safari.</small></span></li>
+            <li><b>3</b><span><strong>Выберите «На экран Домой»</strong><small>Прокрутите меню действий, если пункт не виден сразу.</small></span></li>
+            <li><b>4</b><span><strong>Нажмите «Добавить»</strong><small>После этого запускайте Velocity Apex с иконки на экране «Домой».</small></span></li>
+          </ol>
+        </section>
       </div>
     </div>
 
@@ -91,37 +107,66 @@
     </div>
 
     <div id="menu" class="overlay menu-screen hidden">
-      <div class="menu-card glass enter-panel">
-        <header class="menu-hero">
+      <div class="menu-card glass enter-panel menu-card-v20">
+        <header class="menu-hero menu-hero-v20">
           <div class="brand-mark" aria-hidden="true"><span></span><i></i></div>
           <div class="menu-brand-copy">
             <div class="eyebrow">TOP-DOWN ARCADE RACING</div>
             <h1>VELOCITY <span>APEX</span></h1>
             <p class="tagline">CHASE THE PERFECT LINE</p>
-            <div class="menu-hub-badges" aria-hidden="true"><span>RACING HUB</span><span>CREWS</span><span>MARKET</span></div>
           </div>
+          <button id="settingsBtn" class="menu-corner-btn settings-menu-btn" type="button" aria-label="Настройки" title="Настройки">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7.3 7.3 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7.2 7.2 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7.2 7.2 0 0 0-1.8 1l-2.4-1-2 3.4L5 11a7.3 7.3 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.2 7.2 0 0 0 1.8 1l.4 3.1h4.8l.4-3.1a7.2 7.2 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"/></svg>
+          </button>
         </header>
 
         <section class="menu-section menu-play-section" aria-label="Режим игры">
-          <div class="menu-section-head"><span>РЕЖИМ ИГРЫ</span><i aria-hidden="true"></i></div>
+          <div class="menu-section-head"><span>ИГРАТЬ</span><i aria-hidden="true"></i></div>
           <div class="mode-actions">
-            <button id="playBtn" class="primary-btn play-btn" type="button"><span class="menu-primary-copy"><small>ЛОКАЛЬНАЯ ИГРА</small><strong>ИГРАТЬ РЯДОМ</strong></span><b aria-hidden="true">›</b></button>
+            <button id="playBtn" class="primary-btn play-btn" type="button"><span class="menu-primary-copy"><small>ОДИНОЧНЫЙ РЕЖИМ</small><strong>ИГРАТЬ РЯДОМ</strong></span><b aria-hidden="true">›</b></button>
             <button id="onlineBtn" class="primary-btn online-main-btn" type="button"><span class="menu-primary-copy"><small>С ДРУГИМИ ИГРОКАМИ</small><strong>ОНЛАЙН</strong></span><b aria-hidden="true">›</b></button>
           </div>
         </section>
 
-        <section class="menu-section menu-tools-section" aria-label="Главные разделы">
-          <div class="menu-section-head"><span>БЫСТРЫЙ ДОСТУП</span><i aria-hidden="true"></i></div>
-          <div class="menu-action-row">
-            <button id="crewBtn" class="secondary-btn menu-tile" type="button"><span class="menu-tile-icon">⚡</span><span class="menu-tile-copy"><span>КЛАН</span><strong>CREW · РЕЙТИНГ</strong></span></button>
-            <button id="shopBtn" class="secondary-btn menu-tile shop-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
-              <span class="menu-tile-copy"><span>МАГАЗИН</span><strong id="menuCredits">200 CR</strong></span>
-            </button>
+        <section class="menu-section menu-core-section" aria-label="Машины и магазин">
+          <div class="menu-section-head"><span>АВТОПАРК</span><i aria-hidden="true"></i></div>
+          <div class="menu-core-actions">
             <button id="garageBtn" class="secondary-btn menu-tile garage-menu-btn" type="button">
               <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg></span>
-              <span class="menu-tile-copy"><span>ГАРАЖ</span><strong>МОИ МАШИНЫ</strong></span>
+              <span class="menu-tile-copy"><span>ГАРАЖ</span><strong>МАШИНЫ · ТЮНИНГ</strong></span>
             </button>
+            <button id="shopBtn" class="secondary-btn menu-tile shop-menu-btn" type="button">
+              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
+              <span class="menu-tile-copy"><span>МАГАЗИН</span><strong>МАШИНЫ · ЭФФЕКТЫ · КЕЙСЫ</strong></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="menu-wallet-section" aria-label="APEX Credits">
+          <button id="topupBtn" class="primary-btn donate-main-btn menu-donate-bar" type="button" aria-label="Донат — пополнить APEX Credits">
+            <span class="donate-main-icon" aria-hidden="true">◆</span>
+            <span class="menu-primary-copy donate-main-copy"><small>APEX CREDITS · ЮMONEY</small><strong>ПОПОЛНИТЬ БАЛАНС</strong></span>
+            <span class="menu-wallet-balance"><small>БАЛАНС</small><strong id="menuCredits">200 CR</strong></span>
+          </button>
+        </section>
+
+        <section class="menu-section menu-telegram-section" aria-label="Telegram канал игры">
+          <button id="telegramBanner" class="secondary-btn telegram-banner-btn" type="button" aria-label="Наш Telegram — открыть канал @wistirapex">
+            <span class="telegram-banner-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M21.2 4.5 18 20.1c-.2 1-1 1.3-1.9.8l-4.5-3.3-2.2 2.1c-.3.3-.6.6-1.1.6l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6 14.2l-4.5-1.4c-1-.3-1-1 0-1.4L20 4.3c.8-.3 1.5.2 1.2 1.2Z"/></svg>
+            </span>
+            <span class="telegram-banner-copy">
+              <small>ОФИЦИАЛЬНЫЙ КАНАЛ ИГРЫ</small>
+              <strong>НАШ TELEGRAM</strong>
+              <b>@wistirapex · новости, обновления, анонсы</b>
+            </span>
+            <span class="telegram-banner-cta">ОТКРЫТЬ</span>
+          </button>
+        </section>
+
+        <section class="menu-section menu-community-section" aria-label="Профиль и сообщество">
+          <div class="menu-section-head"><span>ПРОФИЛЬ И СООБЩЕСТВО</span><i aria-hidden="true"></i></div>
+          <div class="menu-community-actions">
             <button id="accountBtn" class="secondary-btn menu-tile account-menu-btn" type="button">
               <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-4.2 3.1-6.3 7-6.3s6.4 2.1 7 6.3"/></svg></span>
               <span class="menu-tile-copy"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></span>
@@ -130,36 +175,96 @@
               <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 20c.4-4 2.4-6 5.5-6 3.2 0 5.2 2 5.6 6M14 15c.8-.8 1.8-1.2 3-1.2 2.3 0 3.8 1.5 4.1 4.6"/></svg></span>
               <span class="menu-tile-copy"><span>ДРУЗЬЯ</span><strong id="friendsMenuStatus">—</strong></span>
             </button>
-            <button id="promoBtn" class="secondary-btn menu-tile promo-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm-1-4h18v4H3V5Z"/><path d="M12 5v15M8.2 5c-1.4 0-2.2-.7-2.2-1.7S6.8 2 7.8 2C10 2 12 5 12 5s2-3 4.2-3c1 0 1.8.4 1.8 1.3S17.2 5 15.8 5"/></svg></span>
-              <span class="menu-tile-copy"><span>ПРОМОКОД</span><strong>ВВЕСТИ КОД</strong></span>
-            </button>
-            <button id="supportBtn" class="secondary-btn menu-tile support-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true">?</span>
-              <span class="menu-tile-copy"><span>ПОДДЕРЖКА</span><strong>ВОПРОСЫ · ЖАЛОБЫ</strong></span>
-            </button>
-            <button id="staffAdminBtn" class="secondary-btn menu-tile admin-menu-btn hidden" type="button">
-              <span class="menu-tile-icon" aria-hidden="true">A</span>
-              <span class="menu-tile-copy"><span>ADMIN PANEL</span><strong id="staffAdminRank">АДМИНИСТРАЦИЯ</strong></span>
-            </button>
-            <button id="settingsBtn" class="secondary-btn menu-tile settings-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7.3 7.3 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7.2 7.2 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7.2 7.2 0 0 0-1.8 1l-2.4-1-2 3.4L5 11a7.3 7.3 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.2 7.2 0 0 0 1.8 1l.4 3.1h4.8l.4-3.1a7.2 7.2 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"/></svg></span>
-              <span class="menu-tile-copy"><span>НАСТРОЙКИ</span><strong>ИГРА И УПРАВЛЕНИЕ</strong></span>
+            <button id="crewBtn" class="secondary-btn menu-tile crew-menu-btn" type="button"><span class="menu-tile-icon" aria-hidden="true">⚡</span><span class="menu-tile-copy"><span>КЛАН</span><strong>CREW · РЕЙТИНГ</strong></span></button>
+            <button id="menuMoreBtn" class="secondary-btn menu-tile menu-more-btn" type="button" aria-expanded="false" aria-controls="menuMorePanel">
+              <span class="menu-tile-icon menu-more-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span class="menu-tile-copy"><span>ЕЩЁ</span><strong>ПРОМО · ПОМОЩЬ</strong></span>
             </button>
           </div>
+          <button id="referralBtn" class="secondary-btn referral-menu-card" type="button">
+            <span class="ref-menu-icon" aria-hidden="true">↗</span>
+            <span class="ref-menu-copy"><b>РЕФЕРАЛКА</b><small>10 уровней · бонусы за приглашения</small></span>
+            <span id="referralMenuLevel" class="ref-menu-level">LVL 1</span>
+          </button>
         </section>
 
-        <footer class="menu-footer">
+        <div id="menuMorePanel" class="menu-more-panel hidden" aria-hidden="true">
+          <div class="menu-more-head"><div><small>ДОПОЛНИТЕЛЬНО</small><strong>БЫСТРЫЕ ДЕЙСТВИЯ</strong></div><button id="menuMoreClose" type="button" aria-label="Закрыть">×</button></div>
+          <div class="menu-more-grid">
+            <button id="promoBtn" class="secondary-btn menu-more-item promo-menu-btn" type="button">
+              <span class="menu-more-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm-1-4h18v4H3V5Z"/><path d="M12 5v15M8.2 5c-1.4 0-2.2-.7-2.2-1.7S6.8 2 7.8 2C10 2 12 5 12 5s2-3 4.2-3c1 0 1.8.4 1.8 1.3S17.2 5 15.8 5"/></svg></span>
+              <span><b>ПРОМОКОД</b><small>Ввести код</small></span>
+            </button>
+            <button id="supportBtn" class="secondary-btn menu-more-item support-menu-btn" type="button">
+              <span class="menu-more-item-icon" aria-hidden="true">?</span><span><b>ПОДДЕРЖКА</b><small>Вопросы и жалобы</small></span>
+            </button>
+            <button id="staffAdminBtn" class="secondary-btn menu-more-item admin-menu-btn hidden" type="button">
+              <span class="menu-more-item-icon" aria-hidden="true">A</span><span><b>ADMIN PANEL</b><small id="staffAdminRank">АДМИНИСТРАЦИЯ</small></span>
+            </button>
+            <button id="menuMute" class="secondary-btn menu-more-item sound-btn menu-more-sound" type="button" aria-label="Переключить звук">
+              <span class="menu-more-item-icon sound-dot" aria-hidden="true"></span><span><strong>ЗВУК ВКЛ</strong><small>АУДИО И ЭФФЕКТЫ</small></span>
+            </button>
+          </div>
+        </div>
+
+        <footer class="menu-footer menu-footer-v20">
           <div class="menu-stats" aria-label="Статистика игрока">
             <div><span>BEST SCORE</span><strong id="menuBestScore">0</strong></div>
             <div><span>BEST LAP</span><strong id="menuBestLap">--:--.---</strong></div>
             <div><span>MAX LAPS</span><strong id="menuMaxLaps">0</strong></div>
           </div>
-          <button id="menuMute" class="sound-btn" type="button" aria-label="Переключить звук"><span class="sound-dot" aria-hidden="true"></span><strong>ЗВУК ВКЛ</strong></button>
         </footer>
       </div>
     </div>
 
+
+    <div id="referrals" class="overlay referral-screen hidden" aria-hidden="true">
+      <section class="referral-card enter-panel" aria-labelledby="referralTitle">
+        <header class="referral-header">
+          <div><div class="eyebrow">VELOCITY APEX / REFERRAL PROGRAM</div><h2 id="referralTitle">РЕФЕРАЛЬНАЯ <span>СИСТЕМА</span></h2><p>Приглашайте игроков по своему нику, повышайте уровень за CR и засчитанные приглашения. Чем выше уровень — тем больше ваша выплата и стартовый бонус приглашённого игрока.</p><span id="referralLevel" class="ref-level-badge">LVL 1</span></div>
+          <button id="referralCloseBtn" class="account-close" type="button" aria-label="Закрыть">×</button>
+        </header>
+        <div class="ref-summary"><article><small>ЗАСЧИТАНО</small><strong id="referralVerified">0</strong></article><article><small>ЗАРАБОТАНО С РЕФЕРАЛОВ</small><strong id="referralEarned">0 CR</strong></article><article><small>ВЛОЖЕНО В УРОВНИ</small><strong id="referralSpent">0 CR</strong></article><article><small>БАЛАНС</small><strong id="referralBalance">0 CR</strong></article></div>
+        <div class="ref-current"><article><small>ВАША ВЫПЛАТА ЗА НОВОГО РЕФЕРАЛА</small><strong id="referralCurrentOwnerReward">+1 500 CR</strong></article><article><small>БОНУС НОВОМУ ИГРОКУ ПО ВАШЕМУ НИКУ</small><strong id="referralCurrentGuestReward">500 CR</strong></article></div>
+        <section id="referralNext" class="ref-next"><div class="ref-next-head"><strong id="referralNextTitle">СЛЕДУЮЩИЙ · LVL 2</strong><span>НУЖНЫ ОБА УСЛОВИЯ</span></div><div class="ref-next-grid"><div><small>ПРИГЛАШЕНИЯ</small><strong id="referralNextReq">0 / 10</strong></div><div><small>СТОИМОСТЬ</small><strong id="referralNextCost">10 000 CR</strong></div><div><small>ВЫПЛАТА ВЛАДЕЛЬЦУ</small><strong id="referralNextOwnerReward">+1 800 CR</strong></div><div><small>БОНУС НОВИЧКУ</small><strong id="referralNextGuestReward">750 CR</strong></div></div><button id="referralUpgradeBtn" class="primary-btn ref-upgrade-btn" type="button" disabled>ПРОВЕРЯЕМ УСЛОВИЯ…</button></section>
+        <div id="referralMessage" class="ref-message" aria-live="polite"></div>
+        <div class="ref-section-head">10 УРОВНЕЙ ПРОГРАММЫ</div><div id="referralTiers" class="ref-tiers"></div>
+        <div class="ref-rules"><b>Как считается приглашение:</b> игрок указывает ваш @username при регистрации, после чего сервер проверяет антифрод. В уровень идут только засчитанные приглашения. Действуют ограничения по устройствам, сети и темпу регистраций. Старые засчитанные приглашения учитываются автоматически. Уровни покупаются строго по порядку и не сбрасываются.</div>
+      </section>
+    </div>
+
+    <div id="topup" class="overlay topup-screen hidden" aria-hidden="true">
+      <section class="topup-card glass enter-panel" aria-labelledby="topupTitle">
+        <header class="topup-header">
+          <div class="topup-heading"><div class="eyebrow">VELOCITY APEX / APEX STORE</div><h2 id="topupTitle">ДОНАТ · APEX CREDITS</h2><p>Выберите пакет CR и удобный способ оплаты. Начисление выполняется сервером после подтверждения ЮMoney.</p><div class="topup-perks" aria-hidden="true"><span>◆ APEX CREDITS</span><span>⚡ АВТОНАЧИСЛЕНИЕ</span><span>✓ ЮMONEY</span></div><span id="topupStatus" class="topup-status">ПРОВЕРКА…</span></div>
+          <button id="topupCloseBtn" class="account-close" type="button" aria-label="Закрыть">×</button>
+        </header>
+        <div class="topup-layout">
+          <div class="topup-main">
+            <div class="topup-section-title"><span>ВЫБЕРИТЕ ПАКЕТ</span><span>SERVER PRICING</span></div>
+            <div id="topupPackages" class="topup-packages"></div>
+            <div class="topup-checkout">
+              <div class="topup-selected"><span>ВЫБРАНО</span><strong id="topupSelected">—</strong></div>
+              <div class="topup-pay-actions"><button id="topupPayCard" class="primary-btn" type="button">ОПЛАТИТЬ КАРТОЙ</button><button id="topupPayWallet" class="secondary-btn" type="button">ЮMONEY</button></div>
+              <div class="topup-benefits" aria-hidden="true">
+                <article><b>МГНОВЕННО</b><span>CR начисляются на аккаунт автоматически после подтверждения платежа.</span></article>
+                <article><b>БЕЗОПАСНО</b><span>Оплата проходит через ЮMoney, а заказ создаётся прямо на сервере APEX.</span></article>
+                <article><b>ПОДДЕРЖКА APEX</b><span>Каждое пополнение помогает развивать игру и будущие обновления проекта.</span></article>
+              </div>
+              <div id="topupMessage" class="topup-message" aria-live="polite"></div>
+            </div>
+          </div>
+          <aside class="topup-side">
+            <div class="topup-side-hero" aria-hidden="true"><span>APEX STORE</span><strong>PREMIUM CR PACKS</strong><em>Выберите пакет, оплатите удобным способом и сразу усилите свой прогресс в игре.</em></div>
+            <div class="topup-section-title"><span>ИСТОРИЯ</span><span>ПОСЛЕДНИЕ 30</span></div>
+            <div id="topupHistory" class="topup-history"></div><div id="topupHistoryEmpty" class="topup-empty">Покупок пока нет.</div>
+            <div class="topup-tech"><span>HTTP CALLBACK</span><code id="topupWebhook">—</code></div>
+            <div class="topup-side-actions"><button id="topupRefreshBtn" class="secondary-btn" type="button">ОБНОВИТЬ</button><button id="topupCollectionBtn" class="secondary-btn hidden" type="button">ПОДДЕРЖАТЬ APEX</button></div>
+            <p class="topup-legal">Стоимость и количество CR задаются сервером. Один operation_id ЮMoney может начислить награду только один раз.</p>
+          </aside>
+        </div>
+      </section>
+    </div>
 
     <div id="account" class="overlay account-screen hidden" aria-hidden="true">
       <section class="account-card glass enter-panel" aria-labelledby="accountTitle">
@@ -253,11 +358,30 @@
       <canvas id="freeCanvas" aria-label="Свободный город Velocity Apex"></canvas>
       <div class="free-hud">
         <div class="free-hud-left"><div class="free-server-pill"><span id="freeServerName">APEX CITY</span><strong id="freePlayerCount">1 / 20</strong></div><button id="freeLevelPill" class="free-level-pill" type="button"><span>APEX LEVEL</span><strong id="freeLevelValue">0</strong></button><div class="free-location-pill"><span>РАЙОН</span><strong id="freeLocation">DOWNTOWN</strong></div><div class="free-car-pill"><span>МАШИНА</span><strong id="freeCurrentCar">APEX LIME</strong></div></div>
-        <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div><div id="freeDragHud" class="free-drag-hud hidden" aria-live="polite"><div class="free-drag-top"><span id="freeDragState">SERVER LIVE</span><span id="freeDragNet">PING 0 MS</span></div><strong id="freeDragLead">READY</strong><small id="freeDragGap">СИНХРОНИЗАЦИЯ</small><div class="free-drag-track"><b class="free-drag-finish"></b><i id="freeDragMine" class="mine"></i><i id="freeDragRival" class="rival"></i></div></div><div id="freeEventHud" class="free-event-hud hidden" aria-live="polite"><div class="free-event-head"><div><small id="freeEventMode">LIVE EVENT</small><strong id="freeEventTitle">DRIFT BATTLE</strong></div><div class="free-event-clock"><span id="freeEventPhase">WAITING</span><b id="freeEventTime">--:--</b></div></div><div id="freeEventZone" class="free-event-zone"></div><div id="freeEventStandings" class="free-event-standings"></div><button id="freeEventLeave" class="free-event-leave" type="button">ВЫЙТИ ИЗ ИВЕНТА</button></div></div>
+        <div class="free-hud-center"><div id="freeActivityBanner" class="free-activity-banner hidden"></div><div id="freeDragHud" class="free-drag-hud hidden" aria-live="polite"><div class="free-drag-top"><span id="freeDragState">SERVER LIVE</span><span id="freeDragNet">PING 0 MS</span></div><strong id="freeDragLead">READY</strong><small id="freeDragGap">СИНХРОНИЗАЦИЯ</small><div class="free-drag-track"><b class="free-drag-finish"></b><i id="freeDragMine" class="mine"></i><i id="freeDragRival" class="rival"></i></div></div><div id="freeEventHud" class="free-event-hud hidden" aria-live="polite"><div class="free-event-head"><div><small id="freeEventMode">LIVE EVENT</small><strong id="freeEventTitle">DRIFT BATTLE</strong></div><div class="free-event-clock"><span id="freeEventPhase">WAITING</span><b id="freeEventTime">--:--</b></div></div><div id="freeEventZone" class="free-event-zone"></div><div id="freeEventStandings" class="free-event-standings"></div><button id="freeEventLeave" class="free-event-leave" type="button">ВЫЙТИ ИЗ ИВЕНТА</button></div><div id="freeMinigameHud" class="free-minigame-hud hidden" aria-live="polite"><div class="free-minigame-head"><div class="free-minigame-title-wrap"><small>APEX MINI GAMES</small><strong id="freeMinigameTitle">MINI FOOTBALL</strong></div><div class="free-minigame-head-tools"><div class="free-minigame-clock"><span id="freeMinigamePhase">WAITING</span><b id="freeMinigameTime">--:--</b></div><button id="freeMinigameToggle" class="free-minigame-toggle hidden" type="button" aria-label="Показать таблицу мини-игры" aria-expanded="false">⌄</button></div></div><div id="freeMinigameScore" class="free-minigame-score"></div><div id="freeMinigameInfo" class="free-minigame-info"></div><div id="freeMinigameStandings" class="free-minigame-standings"></div><div class="free-minigame-actions"><button id="freeMinigameOwnerStart" class="free-minigame-owner-start hidden" type="button">OWNER · ЗАПУСТИТЬ БЕЗ ОЖИДАНИЯ</button><button id="freeMinigameLeave" class="free-event-leave" type="button">ВЫЙТИ ИЗ МИНИ-ИГРЫ</button></div></div></div>
         <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ <b id="freeChatUnread" class="free-chat-unread hidden">0</b></button><button id="freePauseBtn" class="free-pause-btn" type="button" aria-label="Пауза и настройки">Ⅱ</button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
       </div>
       <div id="freeChatPreview" class="free-chat-preview" aria-live="polite"></div>
       <button id="freeContextAction" class="free-context-action hidden" type="button"></button>
+      <div id="freeDragBetPanel" class="free-drag-bet-panel hidden" aria-hidden="true">
+        <section class="free-drag-bet-card">
+          <header><div><small>APEX AIRPORT / MONEY DRAG</small><strong>DRAG НА CR</strong></div><button id="freeDragBetClose" type="button" aria-label="Закрыть">×</button></header>
+          <p>Выберите одинаковую ставку с соперником. Сервер найдёт игрока с такой же ставкой и заблокирует CR только перед стартом заезда.</p>
+          <div class="free-drag-bet-wallet"><span>ВАШ БАЛАНС</span><strong id="freeDragBetBalance">0 CR</strong></div>
+          <div id="freeDragBetChoices" class="free-drag-bet-choices">
+            <button type="button" data-wager="0">БЕЗ СТАВКИ<small>Тренировочный заезд</small></button>
+            <button type="button" data-wager="100">100 CR</button>
+            <button type="button" data-wager="250">250 CR</button>
+            <button type="button" data-wager="500">500 CR</button>
+            <button type="button" data-wager="1000">1 000 CR</button>
+            <button type="button" data-wager="2500">2 500 CR</button>
+            <button type="button" data-wager="5000">5 000 CR</button>
+          </div>
+          <div class="free-drag-bet-pot"><span>БАНК ЗАЕЗДА</span><strong id="freeDragBetPot">БЕЗ СТАВКИ · ТРЕНИРОВОЧНЫЙ DRAG</strong></div>
+          <div class="free-drag-bet-actions"><button id="freeDragBetJoin" type="button">В ОЧЕРЕДЬ</button><button id="freeDragBetCancel" type="button">ОТМЕНА</button></div>
+          <small class="free-drag-bet-note">При системной отмене заезда заблокированная ставка возвращается. При ничьей обе ставки возвращаются. Победитель завершённого заезда получает весь банк.</small>
+        </section>
+      </div>
       <div id="freeChatPanel" class="free-chat-panel hidden">
         <div class="free-chat-head"><strong>ЧАТ СЕРВЕРА</strong><button id="freeChatClose" type="button">×</button></div>
         <div id="freeChatLog" class="free-chat-log"></div>
@@ -266,23 +390,33 @@
       <div id="freePausePanel" class="free-pause-panel hidden" aria-hidden="true">
         <section class="free-pause-card glass">
           <div class="eyebrow">APEX BAY / ONLINE</div><h2>ПАУЗА</h2><p>Управление временно отключено, но машина продолжает естественно катиться по инерции. Онлайн-сервер и другие игроки продолжают движение.</p>
-          <button id="freePauseContinue" class="primary-btn" type="button">ПРОДОЛЖИТЬ</button>
-          <button id="freePauseControls" class="secondary-btn" type="button">НАСТРОИТЬ КНОПКИ</button>
-          <button id="freePauseChat" class="secondary-btn" type="button">ОТКРЫТЬ ЧАТ</button>
-          <button id="freePauseMap" class="secondary-btn" type="button">ОТКРЫТЬ КАРТУ</button>
+          <div class="free-pause-actions">
+            <button id="freePauseContinue" class="primary-btn" type="button">ПРОДОЛЖИТЬ</button>
+            <button id="freePauseControls" class="secondary-btn" type="button">НАСТРОИТЬ КНОПКИ</button>
+            <button id="freePauseChat" class="secondary-btn" type="button">ОТКРЫТЬ ЧАТ</button>
+            <button id="freePauseMap" class="secondary-btn" type="button">ОТКРЫТЬ КАРТУ</button>
+          </div>
           <button id="freePauseLeave" class="free-pause-leave" type="button">ВЫЙТИ ИЗ СВОБОДНОГО РЕЖИМА</button>
         </section>
       </div>
       <div id="freeMapPanel" class="free-map-panel hidden">
         <header><div><small>APEX BAY / LIVE MAP</small><strong>ГОРОД У МОРЯ</strong></div><div class="free-map-actions"><button id="freeMapClear" class="free-map-clear" type="button" disabled>УБРАТЬ МЕТКУ</button><button id="freeMapClose" type="button">×</button></div></header>
         <div class="free-map-viewport"><canvas id="freeMapCanvas" width="1260" height="900" aria-label="Карта APEX BAY. Нажмите, чтобы поставить метку на дороге."></canvas><div class="free-map-tools"><button id="freeMapZoomIn" type="button" aria-label="Приблизить карту">+</button><button id="freeMapZoomOut" type="button" aria-label="Отдалить карту">−</button><button id="freeMapFit" type="button">ВЕСЬ ГОРОД</button></div></div>
-        <div class="free-map-footer"><p>Нажмите — поставить метку. Приблизьте и перетаскивайте карту.</p><div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT BATTLE</span><span>◆ KOTH</span><span>★ LEVELS</span></div></div>
+        <div class="free-map-footer"><p>Нажмите — поставить метку. Приблизьте и перетаскивайте карту.</p><div class="free-map-legend"><span>● ВЫ</span><span>● ИГРОКИ</span><span>◆ DRAG</span><span>◆ DRIFT BATTLE</span><span>◆ KOTH</span><span>★ LEVELS</span><span>◆ MINI GAMES</span></div></div>
       </div>
       <div id="freeLevelsPanel" class="free-levels-panel hidden" aria-hidden="true">
         <section class="free-levels-card">
           <header><div><small>VELOCITY APEX / ONLINE PROGRESSION</small><strong>APEX LEVEL</strong></div><button id="freeLevelsClose" type="button" aria-label="Закрыть">×</button></header>
           <div class="free-levels-main"><div class="free-levels-number"><span>LEVEL</span><b id="freeLevelsNumber">0</b><em id="freeLevelsMax"></em></div><div class="free-levels-progress"><div><i id="freeLevelsBar"></i></div><strong id="freeLevelsProgressText">0 / 100 EXP</strong><small id="freeLevelsNext">До следующего уровня: 100 EXP</small></div><div class="free-levels-total"><span>TOTAL EXP</span><b id="freeLevelsTotal">0</b></div></div>
           <div class="free-levels-rewards"><h3>КАК ПОЛУЧАТЬ EXP И CR</h3><div class="free-levels-grid"><article><strong>DRIFT BATTLE</strong><span>1 место · +180 EXP · +450 CR</span><span>2 место · +140 EXP · +320 CR</span><span>3 место · +110 EXP · +240 CR</span><span>Участие · +70 EXP · +140 CR</span></article><article><strong>KING OF THE HILL</strong><span>1 место · +220 EXP · +550 CR</span><span>2 место · +170 EXP · +400 CR</span><span>3 место · +130 EXP · +300 CR</span><span>Участие · +80 EXP · +170 CR</span></article><article><strong>DRAG</strong><span>Победа · +60 EXP · +100 CR</span><span>Поражение · +30 EXP · +50 CR</span><span>Ничья · +40 EXP · +70 CR</span></article><article><strong>АКТИВНОЕ ВРЕМЯ</strong><span>Каждые 20 минут · +30 EXP · +60 CR</span><span>Только при реальном движении автомобиля.</span></article></div><p>CR — дополнительный бонус к балансу, а не основной способ фарма. Сервер ограничивает выплаты за час и сутки; EXP и награды события выдаются только после проверки участия.</p></div>
+        </section>
+      </div>
+      <div id="freeMinigamePanel" class="free-minigame-panel hidden" aria-hidden="true">
+        <section class="free-minigame-card">
+          <header><div><small>APEX BAY / MINI GAMES</small><strong id="freeMinigamePanelTitle">МИНИ-ИГРЫ</strong></div><button id="freeMinigameClose" type="button" aria-label="Закрыть">×</button></header>
+          <p id="freeMinigamePanelText">Выберите режим. Матч запускается на сервере после набора игроков.</p>
+          <div id="freeMinigameChoices" class="free-minigame-choices"></div>
+          <div class="free-minigame-note">После старта вас переносит на отдельную арену. В футболе цвет машины временно меняется на цвет команды и автоматически возвращается после матча.</div>
         </section>
       </div>
       <div id="freeMobileControls" class="free-mobile-controls">
@@ -295,7 +429,7 @@
       <section class="local-mode-card glass enter-panel" aria-labelledby="localModeTitle">
         <div class="eyebrow">VELOCITY APEX / ОДИНОЧНАЯ ИГРА</div>
         <h2 id="localModeTitle">ВЫБЕРИТЕ РЕЖИМ</h2>
-        <p class="local-mode-lead">Обычный режим сохраняет классические гонки, Drift — заносы и ручник, а Карьера — 30 длинных трасс Time Attack с прогрессией, рекордами и тремя главами.</p>
+        <p class="local-mode-lead">Обычный режим сохраняет классические гонки, Drift — заносы и ручник, а Карьера — 50 длинных трасс Time Attack с прогрессией, рекордами и пятью главами.</p>
         <div class="local-mode-grid">
           <button id="normalModeBtn" class="local-mode-choice normal-choice" type="button">
             <span class="mode-index">01</span><strong>ОБЫЧНЫЙ</strong><small>Текущие трассы · прежняя физика · стандартные выплаты</small><b aria-hidden="true">›</b>
@@ -315,8 +449,8 @@
     <div id="career" class="overlay career-screen hidden" aria-hidden="true">
       <section class="career-card glass enter-panel" aria-labelledby="careerTitle">
         <header class="career-header">
-          <div><div class="eyebrow">VELOCITY APEX / SOLO CAREER</div><h2 id="careerTitle">КАРЬЕРА · 3 ГЛАВЫ</h2><p>30 длинных трасс на время. Каждая следующая трасса сложнее, а лимиты становятся жёстче.</p></div>
-          <div class="career-progress"><span>ОТКРЫТО</span><strong id="careerUnlockedText">1 / 30</strong></div>
+          <div><div class="eyebrow">VELOCITY APEX / SOLO CAREER</div><h2 id="careerTitle">КАРЬЕРА · 5 ГЛАВ</h2><p>50 длинных трасс на время. Каждая следующая трасса сложнее, а лимиты становятся жёстче.</p></div>
+          <div class="career-progress"><span>ОТКРЫТО</span><strong id="careerUnlockedText">1 / 50</strong></div>
         </header>
         <div class="career-layout">
           <div id="careerLevelList" class="career-level-list" aria-label="Уровни карьеры"></div>
@@ -333,7 +467,7 @@
             <button id="careerStartBtn" class="primary-btn" type="button">НАЧАТЬ УРОВЕНЬ</button>
           </aside>
         </div>
-        <footer class="career-footer"><button id="careerBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button><span>30 УРОВНЕЙ · 3 ГЛАВЫ · TIME ATTACK</span></footer>
+        <footer class="career-footer"><button id="careerBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button><span>50 УРОВНЕЙ · 5 ГЛАВ · TIME ATTACK</span></footer>
       </section>
     </div>
     <div id="online" class="overlay online-screen hidden" data-view="onlineLanding">
@@ -1077,27 +1211,30 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=1789678637"></script>
-  <script src="js/racing-line.js?v=1789678637"></script>
-  <script src="js/track.js?v=1789678637"></script>
-  <script src="js/audio.js?v=1789678637"></script>
-  <script src="js/car.js?v=1789678637"></script>
-  <script src="js/ai.js?v=1789678637"></script>
-  <script src="js/garage.js?v=1789678637"></script>
-  <script src="js/root-console.js?v=1789678637"></script>
-  <script src="js/control-layout.js?v=1789678637"></script>
-  <script src="js/controls.js?v=1789678637"></script>
-  <script src="js/network.js?v=1789678637"></script>
-  <script src="js/account.js?v=1789678637"></script>
-  <script src="js/admin-system.js?v=1789678637"></script>
-  <script src="js/market.js?v=1789678637"></script>
-  <script src="js/promo.js?v=1789678637"></script>
-  <script src="js/online.js?v=1789678637"></script>
-  <script src="js/friends.js?v=1789678637"></script>
-  <script src="js/free-city.js?v=1789678637"></script>
-  <script src="js/freeroam.js?v=1789678637"></script>
-  <script src="js/owner-panel.js?v=1789678637"></script>
-  <script src="js/crews.js?v=1789678637"></script>
-  <script src="js/game.js?v=1789678637"></script>
+  <script src="js/content.js?v=20260918-v28&career=20260919-v38"></script>
+  <script src="js/racing-line.js?v=20260915-owner1"></script>
+  <script src="js/track.js?v=20260918-v28"></script>
+  <script src="js/audio.js?v=20260915-owner1"></script>
+  <script src="js/car.js?v=20260916-tuning2"></script>
+  <script src="js/ai.js?v=20260915-owner1"></script>
+  <script src="js/garage.js?v=20260918-v28"></script>
+  <script src="js/root-console.js?v=ownerlogs12"></script>
+  <script src="js/control-layout.js?v=20260918-v29"></script>
+  <script src="js/controls.js?v=20260915-owner1"></script>
+  <script src="js/network.js?v=20260915-owner1"></script>
+  <script src="js/account.js?v=20260918-ref-v31&v44=guest"></script>
+  <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32"></script>
+  <script src="js/main-menu-ui.js?v=20260918-menu-v25"></script>
+  <script src="js/payments.js?v=20260918-yoomoney2&menu=20260918-v20"></script>
+  <script src="js/market.js?v=20260916-tuning2"></script>
+  <script src="js/promo.js?v=20260915-001"></script>
+  <script src="js/referrals.js?v=20260918-ref-v31"></script>
+  <script src="js/online.js?v=20260916-adminprefix1&admin=20260918-v32&v44=guest"></script>
+  <script src="js/friends.js?v=20260916-crews1"></script>
+  <script src="js/free-city.js?v=20260919-v43&v44=garage"></script>
+  <script src="js/freeroam.js?v=20260919-v43&v44=garage"></script>
+  <script src="js/owner-panel.js?v=20260917-admin-daily2"></script>
+  <script src="js/crews.js?v=20260917-economy13"></script>
+  <script src="js/game.js?v=20260919-career50-v38"></script>
 </body>
 </html>

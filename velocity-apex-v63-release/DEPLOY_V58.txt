@@ -1,0 +1,17 @@
+Velocity Apex V58 — Garage Upgrade: arrow reaches the green sector less often
+
+Put Velocity-Apex-Garage-Upgrade-iPhone-V58.zip in the Codespaces workspace root, then paste:
+
+set -e
+cd /workspaces/Velocity-apex
+mkdir -p velocity-apex-v58-release
+unzip -oq "Velocity-Apex-Garage-Upgrade-iPhone-V58.zip" -d velocity-apex-v58-release
+cd velocity-apex-v58-release
+grep -q 'returnBps:7360' src/upgrade-config.mjs
+grep -q 'maxChanceBps:7200' src/upgrade-config.mjs
+npm install
+npm test
+npx wrangler deploy --config "$PWD/wrangler.jsonc"
+
+Check that the deploy output's assets path ends in velocity-apex-v58-release/public.
+No database migration is required.

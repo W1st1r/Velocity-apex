@@ -1,0 +1,6 @@
+rm -rf apex-v46
+mkdir -p apex-v46
+unzip -o "Velocity-Apex-FreeRoam-Garage-Fix-V46.zip" -d apex-v46
+cd apex-v46
+npm install
+npx wrangler deploy

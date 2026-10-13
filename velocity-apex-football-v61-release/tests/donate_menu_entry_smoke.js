@@ -1,0 +1,18 @@
+const fs=require('fs');
+const html=fs.readFileSync('public/index.html','utf8');
+const mobile=fs.readFileSync('public/css/mobile-ui.css','utf8');
+const payments=fs.readFileSync('public/js/payments.js','utf8');
+const ok=(v,m)=>{if(!v)throw Error(m)};
+ok((html.match(/id="topupBtn"/g)||[]).length===1,'topupBtn must exist exactly once in static HTML');
+ok(html.includes('ПОПОЛНИТЬ БАЛАНС'),'wallet donate label missing');
+const walletStart=html.indexOf('<section class="menu-wallet-section"');
+const walletEnd=html.indexOf('</section>',walletStart);
+const donatePos=html.indexOf('id="topupBtn"');
+ok(walletStart>=0&&donatePos>walletStart&&donatePos<walletEnd,'donate entry must live inside wallet section');
+ok(mobile.includes('#topupBtn.donate-main-btn.menu-donate-bar'),'donate wallet CTA styles missing');
+ok(mobile.includes('visibility:visible!important'),'donate CTA visibility guarantee missing');
+ok(payments.includes('function ensureDonateButton()'),'runtime donate fallback missing');
+ok(payments.includes("const donateDock=document.querySelector('#menu .menu-wallet-section')"),'runtime donate dock lookup missing');
+ok(payments.includes('donateDock.append(btn)'),'runtime donate dock injection missing');
+ok(payments.includes("openBtn.addEventListener('click',open)"),'donate CTA click binding missing');
+console.log('donate_menu_entry_smoke: ok');
