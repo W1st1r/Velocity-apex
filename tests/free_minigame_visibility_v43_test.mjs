@@ -11,7 +11,7 @@ const citySource=fs.readFileSync(new URL('../public/js/free-city.js',import.meta
 assert.ok(html.includes('id="freeMinigameToggle"'),'minigame HUD must expose an expand/collapse control');
 for(const token of ['minigameHudAutoCollapseAt','minigame-expanded','updateMinigameCamera(e,kind)','minigameObjective(e,kind)','anchorY:H*.46'])assert.ok(client.includes(token),`missing V43 camera/HUD hook: ${token}`);
 assert.ok(css.includes('.free-minigame-hud.minigame-compact:not(.minigame-expanded) .free-minigame-standings'),'running leaderboard must collapse');
-assert.ok(css.includes('background:rgba(5,15,15,.34)'),'minigame controls must be visually translucent');
+assert.match(css,/\.free-roam\.minigame-playing \.free-mobile-controls button\{background:rgba\(\d+,\d+,\d+,\.34\)/,'minigame controls must remain translucent after the blue theme');
 assert.ok(css.includes('.free-roam.minigame-playing .free-mobile-controls button:active'),'pressed controls must remain readable');
 assert.ok(worker.includes('FREE_FOOTBALL_PROGRESS_MS=50'),'football authoritative ball state should update at 20 Hz');
 assert.ok(worker.includes('FREE_FOOTBALL_STATE_RATE_MS=36'),'football car state should have a low-latency server cadence');

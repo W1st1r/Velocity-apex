@@ -1,0 +1,131 @@
+/* VELOCITY APEX V66 | Blue UI System, harmonized with V65 Race Control.
+   Scope: interface only. Car paints, game terrain and the red/green Upgrade wheel remain semantic. */
+:root {
+  color-scheme: dark;
+  --accent:#55c8ff;
+  --accent-2:#2d9ee5;
+  --panel:rgba(7,19,38,.94);
+  --panel-deep:rgba(4,12,28,.97);
+  --panel-soft:rgba(13,32,56,.91);
+  --edge:rgba(107,183,236,.23);
+  --lime-glow:rgba(66,173,249,.16);
+  --va-blue:#58c7ff;
+  --va-blue-strong:#248ed5;
+  --va-ice:#d6f0ff;
+  --va-muted:#95b6d3;
+  --va-border:rgba(110,184,242,.24);
+  --va-surface:#0a1930;
+}
+html,body {background:#061020;color:#ecf6ff}
+body {overscroll-behavior:none}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible,
+input:focus-visible,textarea:focus-visible,select:focus-visible {outline:2px solid #76d7ff!important;outline-offset:2px}
+input,textarea,select {user-select:text!important;-webkit-user-select:text!important}
+/* Shared navigation and panels: keep every interface readable at iPhone landscape heights. */
+.overlay:not(#menu):not(#rotate) {background-color:rgba(3,10,23,.72)}
+.overlay:not(#menu):not(#rotate) > :is(.glass,.enter-panel,.online-panel,.settings-panel,.shop-entry-panel,.root-console-panel,.admin-system-panel),
+#crewDialog,.owner-log-dialog,.tuning-modal {
+  border-color:var(--va-border)!important;
+  box-shadow:0 25px 70px rgba(0,4,16,.55),inset 0 1px rgba(210,237,255,.06)!important;
+}
+.overlay:not(#menu) .glass {
+  background-image:linear-gradient(145deg,rgba(15,35,60,.98),rgba(5,14,31,.98))!important;
+  border-color:var(--va-border)!important;
+}
+.overlay:not(#menu) :is(.eyebrow,.section-label,.online-card-kicker,.account-field>span,.root-section-label) {
+  color:#a8d4f2;
+}
+.overlay:not(#menu) :is(h1,h2,h3,h4) {color:#f0f8ff;overflow-wrap:anywhere}
+.overlay:not(#menu) :is(.primary-btn,.start-btn,.ref-upgrade-btn,.auth-session-action),
+#crewDialog .crew-profile>button,
+.owner-car-editor form>button {
+  background:linear-gradient(125deg,#64d0ff,#268fd4)!important;
+  border:1px solid rgba(169,231,255,.46)!important;
+  color:#03162b!important;
+  text-shadow:none!important;
+  box-shadow:0 7px 25px rgba(19,137,209,.18),inset 0 1px rgba(255,255,255,.26)!important;
+}
+.overlay:not(#menu) :is(.secondary-btn,.compact-btn,.settings-menu-btn),
+#crewDialog button:not(.crew-danger) {
+  border-color:rgba(107,176,227,.29)!important;
+  color:#d7efff!important;
+  background:linear-gradient(135deg,rgba(24,54,84,.96),rgba(9,28,52,.96))!important;
+}
+.overlay:not(#menu) :is(button.selected,button.active,.selected-pill,.selected:not(.upgrade-wheel):not(.upgrade-pointer)),
+#crewDialog .crew-nav button.active {
+  border-color:rgba(109,208,255,.65)!important;
+}
+.overlay:not(#menu) :is(input,select,textarea) {
+  border-color:rgba(103,165,211,.31);
+  background-color:#0a1b31;
+  color:#f2f9ff;
+  max-width:100%;min-width:0;
+}
+.overlay:not(#menu) :is(input,textarea)::placeholder {color:#90a9bf;opacity:.8}
+/* Consistent corners, dividers and typography, excluding full-canvas game interfaces. */
+:is(.account-card,.promo-card,.friends-card,.topup-card,.referral-card,.career-card,.local-mode-card,.settings-panel,.shop-entry-panel,.shop-panel,.market-panel,.free-servers-card,.root-console-panel,.admin-system-panel) {
+  border-radius:17px!important;
+  background-color:#09192e;
+  scrollbar-color:#477caa #0a1a2d;
+}
+:is(.account-card,.promo-card,.friends-card,.topup-card,.referral-card,.career-card,.local-mode-card,.settings-panel,.free-servers-card,.root-console-panel,.admin-system-panel) {
+  max-width:calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 20px)!important;
+  max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px)!important;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+}
+:is(.account-card,.promo-card,.friends-card,.topup-card,.referral-card,.career-card,.local-mode-card,.settings-panel,.free-servers-card) :is(p,small,label,span,strong,b) {
+  overflow-wrap:break-word;
+}
+/* Cards in garage/store/online keep game layout, but blue surfaces and controls. */
+:is(.garage-screen,.shop-screen,.online-screen,.case-modal,.career-screen,.free-servers-screen,.local-mode-screen,.settings-screen,.account-screen,.friends-screen,.topup-screen,.referral-screen,.promo-screen) {
+  background-image:radial-gradient(ellipse at 45% 35%,rgba(24,76,126,.16),rgba(2,7,19,.87) 70%)!important;
+}
+:is(.shop-screen,.online-screen,.garage-screen) :is(.shop-entry-panel,.shop-panel,.market-panel,.garage-panel,.online-panel,.online-mode-tile,.online-card,.shop-entry-tile),
+:is(.case-open-panel,.case-roulette,.case-open-card,.upgrade-modal-card) {
+  border-color:rgba(101,172,229,.27)!important;
+}
+:is(.shop-screen,.garage-screen,.online-screen) :is(.shop-entry-panel,.market-panel,.garage-panel,.online-panel),
+.case-open-panel {background-color:#081a30!important}
+:where(.shop-screen,.garage-screen,.online-screen) :is(button,input,select,textarea) {min-width:0}
+#garageTabs button.selected,#shopLanding .selected,.garage-screen button.selected:not(.danger),
+.shop-screen .selected:not(.rarity-badge) {
+  background-image:linear-gradient(130deg,#3fb4ef,#1b6fab)!important;
+  border-color:#7fd5ff!important;
+  color:#f3fbff!important;
+}
+/* A player's actual paint colour, rarity and the wheel's win/loss sectors are NOT rethemed. */
+.upgrade-wheel {
+  background:conic-gradient(from 0deg,#4bd26e 0 var(--upgrade-chance),#e34a5b var(--upgrade-chance) 360deg)!important;
+}
+.upgrade-history-row.success div strong {color:#79ef95!important}
+.upgrade-history-row.failed div strong {color:#ff7e8d!important}
+.upgrade-confirm-modal>section,.upgrade-history-modal>section,
+.upgrade-modal-card {background-image:linear-gradient(150deg,#112744,#071326)!important;border-color:var(--va-border)!important}
+/* Unique dialogs and floating panels created by JS after load. */
+#crewDialog,.owner-log-dialog {background:#09182b!important;border-color:var(--va-border)!important;color:#e9f6ff}
+#crewDialog header,.owner-log-dialog header {background:#09182b!important}
+#crewDialog :is(.crew-card,.crew-stats>div),.owner-log-dialog :is(.owner-log-detail-grid>div,.owner-log-detail-note) {
+  background-color:#10253e!important;border-color:rgba(94,169,219,.20)!important;
+}
+#crewDialog input,#crewDialog textarea,#crewDialog select {background:#0a1a2e!important;border-color:#40668a!important}
+#crewDialog .crew-profile-avatar {background:#51bdf7!important;color:#071729!important}
+/* Calm blue overlays, readable messages and consistent tap affordances. */
+:where(.overlay:not(#menu)) button:not(:disabled),#crewDialog button:not(:disabled) {touch-action:manipulation}
+:is(.account-screen,.promo-screen,.friends-screen,.career-screen,.local-mode-screen,.settings-screen,.topup-screen,.referral-screen) button {
+  overflow-wrap:anywhere;
+}
+:where(.overlay:not(#menu)) button:disabled {cursor:not-allowed;filter:saturate(.65)}
+@media (orientation:landscape) and (max-height:430px) {
+  :is(.account-card,.promo-card,.friends-card,.topup-card,.referral-card,.career-card,.local-mode-card,.settings-panel,.free-servers-card,.root-console-panel,.admin-system-panel) {
+    border-radius:13px!important;
+    max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 10px)!important;
+  }
+  .overlay:not(#menu):not(#rotate) {padding-top:max(5px,env(safe-area-inset-top));padding-bottom:max(5px,env(safe-area-inset-bottom))}
+  .overlay:not(#menu) :is(.primary-btn,.secondary-btn,.start-btn) {line-height:1.18;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .overlay .enter-panel {animation:none!important}
+  .overlay :is(button,.primary-btn,.secondary-btn) {transition:none!important}
+}

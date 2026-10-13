@@ -6,23 +6,25 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="theme-color" content="#07110f" />
+  <meta name="theme-color" content="#071426" />
   <meta name="application-name" content="Velocity Apex" />
+  <meta name="velocity-apex-version" content="V66" />
   <meta name="apple-mobile-web-app-title" content="Velocity Apex" />
-  <title>Velocity Apex</title>
+  <title>Velocity Apex · V66</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57" />
-<link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12">
-  <link rel="stylesheet" href="css/crews.css?v=20260917-clans1">
-  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32">
-  <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2">
-  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32&garageNav=20260920-v56">
-  <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31">
+  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&theme=v66" />
+<link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12&theme=v66">
+  <link rel="stylesheet" href="css/crews.css?v=20260917-clans1&theme=v66">
+  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32&theme=v66">
+  <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2&theme=v66">
+  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32&garageNav=20260920-v56&theme=v66">
+  <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31&theme=v66">
   <link rel="stylesheet" href="css/race-control-v65.css?v=20261013-v65">
+  <link rel="stylesheet" href="css/unified-blue-v66.css?v=20261013-v66-1">
 </head>
 <body>
   <div id="app">
@@ -119,7 +121,7 @@
           <button id="menuMoreBtn" type="button" class="rc-rail-link rc-more" aria-label="Другие разделы" aria-expanded="false" aria-controls="menuMorePanel"><span class="rc-rail-icon">•••</span><span>ЕЩЁ</span></button>
         </nav>
         <main class="rc-main">
-          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V65</div>
+          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V66</div>
           <h1>ГОТОВ К ЗАЕЗДУ<span>?</span></h1>
           <section class="menu-section menu-play-section rc-modes" aria-label="Игровые режимы">
             <button id="playBtn" type="button" class="primary-btn play-btn rc-action rc-solo"><span class="rc-action-glyph">▷</span><span class="rc-action-copy"><strong>ОДИНОЧНАЯ ИГРА</strong><small>Обычный · Дрифт · Карьера</small></span><span class="rc-action-arrow">→</span></button>
@@ -300,7 +302,7 @@
         <div class="free-hud-right"><div class="free-speed"><strong id="freeSpeed">0</strong><span>KM/H</span></div><button id="freeMapBtn" type="button">КАРТА</button><button id="freeChatBtn" type="button">ЧАТ <b id="freeChatUnread" class="free-chat-unread hidden">0</b></button><button id="freePauseBtn" class="free-pause-btn" type="button" aria-label="Пауза и настройки">Ⅱ</button><button id="freeLeaveBtn" type="button">ВЫЙТИ</button></div>
       </div>
       <div id="freeChatPreview" class="free-chat-preview" aria-live="polite"></div>
-      <button id="freeContextAction" class="free-context-action hidden" type="button"></button>
+      <button id="freeContextAction" aria-label="Взаимодействовать с объектом" class="free-context-action hidden" type="button"></button>
       <div id="freeDragBetPanel" class="free-drag-bet-panel hidden" aria-hidden="true">
         <section class="free-drag-bet-card">
           <header><div><small>APEX AIRPORT / MONEY DRAG</small><strong>DRAG НА CR</strong></div><button id="freeDragBetClose" type="button" aria-label="Закрыть">×</button></header>
@@ -323,7 +325,7 @@
       <div id="freeChatPanel" class="free-chat-panel hidden">
         <div class="free-chat-head"><strong>ЧАТ СЕРВЕРА</strong><button id="freeChatClose" type="button">×</button></div>
         <div id="freeChatLog" class="free-chat-log"></div>
-        <form id="freeChatForm" class="free-chat-form"><input id="freeChatInput" maxlength="180" autocomplete="off" placeholder="Сообщение всем игрокам…"><button type="submit">ОТПРАВИТЬ</button></form>
+        <form id="freeChatForm" class="free-chat-form"><input id="freeChatInput" aria-label="Сообщение игровому чату" maxlength="180" autocomplete="off" placeholder="Сообщение всем игрокам…"><button type="submit">ОТПРАВИТЬ</button></form>
       </div>
       <div id="freePausePanel" class="free-pause-panel hidden" aria-hidden="true">
         <section class="free-pause-card glass">
@@ -1093,7 +1095,7 @@
             <section class="root-module root-account-module root-account-sidebar">
               <div class="root-module-title"><span>АККАУНТЫ</span><small>ПОИСК И ВЫБОР</small></div>
               <p class="root-module-help">Найдите игрока по нику или имени. Нажмите на карточку, чтобы открыть профиль и инструменты управления.</p>
-              <div class="root-search-row"><input id="rootAccountSearch" class="root-input" type="search" autocomplete="off" placeholder="@ник или имя игрока"><button id="rootAccountSearchBtn" type="button">НАЙТИ</button></div>
+              <div class="root-search-row"><input id="rootAccountSearch" aria-label="Найти игрока по нику или имени" class="root-input" type="search" autocomplete="off" placeholder="@ник или имя игрока"><button id="rootAccountSearchBtn" type="button">НАЙТИ</button></div>
               <div id="rootAccountList" class="root-account-list"></div>
             </section>
             <section id="rootAccountDetail" class="root-module root-account-detail root-account-detail-empty">
@@ -1112,7 +1114,7 @@
           <div class="owner-media-system">
             <section class="root-module">
               <div class="root-module-title"><span>MEDIA / CREATOR PROGRAM</span><small>УРОВЕНЬ 5.5 · БЕЗ МОДЕРАТОРСКИХ ПРАВ</small></div>
-              <div class="owner-media-assign"><input id="ownerMediaUsername" class="root-input" type="text" autocomplete="off" placeholder="@username"><input id="ownerMediaNote" class="root-input" type="text" autocomplete="off" maxlength="200" placeholder="Заметка (необязательно)"><button id="ownerMediaAssign" type="button">НАЗНАЧИТЬ MEDIA</button></div>
+              <div class="owner-media-assign"><input id="ownerMediaUsername" aria-label="Имя пользователя для назначения MEDIA" class="root-input" type="text" autocomplete="off" placeholder="@username"><input id="ownerMediaNote" aria-label="Заметка о MEDIA" class="root-input" type="text" autocomplete="off" maxlength="200" placeholder="Заметка (необязательно)"><button id="ownerMediaAssign" type="button">НАЗНАЧИТЬ MEDIA</button></div>
             </section>
             <section class="root-module">
               <div class="root-module-title"><span>ЛИМИТЫ EVENT</span><small>СЕРВЕРНАЯ ЭКОНОМИКА</small></div>
@@ -1131,7 +1133,7 @@
             <section class="root-module root-account-module root-account-sidebar">
               <div class="root-module-title"><span>ЗАБЛОКИРОВАННЫЕ</span><small>АКТИВНЫЕ БЛОКИРОВКИ</small></div>
               <p class="root-module-help">Здесь отображаются только аккаунты с активной блокировкой. Выберите игрока, чтобы посмотреть причину или снять блокировку.</p>
-              <div class="root-search-row"><input id="rootBlockedSearch" class="root-input" type="search" autocomplete="off" placeholder="@ник заблокированного"><button id="rootBlockedSearchBtn" type="button">НАЙТИ</button></div>
+              <div class="root-search-row"><input id="rootBlockedSearch" aria-label="Поиск заблокированного игрока" class="root-input" type="search" autocomplete="off" placeholder="@ник заблокированного"><button id="rootBlockedSearchBtn" type="button">НАЙТИ</button></div>
               <div id="rootBlockedList" class="root-account-list"></div>
             </section>
             <section id="rootBlockedDetail" class="root-module root-account-detail root-account-detail-empty">

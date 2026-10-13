@@ -1,4 +1,4 @@
-name: Deploy Velocity Apex V65
+name: Deploy Velocity Apex V66
 on:
   push:
     branches:
@@ -21,7 +21,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Check server and mobile navigation tests
-        run: npm test && npm run test:v65
+        run: npm test && npm run test:v66
       - name: Publish Cloudflare Worker and PWA
         uses: cloudflare/wrangler-action@v3
         with:

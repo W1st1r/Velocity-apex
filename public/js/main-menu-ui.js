@@ -1,4 +1,4 @@
-/* Velocity Apex Race Control V65: preserved handlers and live local car preview. */
+/* Velocity Apex Race Control V66: preserved handlers and live local car preview. */
 (()=>{
   'use strict';
   const $=id=>document.getElementById(id);
@@ -49,7 +49,13 @@
     }catch{}
   }
   const refresh=()=>{refreshCar();refreshAccount();};
-  setInterval(refresh,1400);
+  // V66: no 1.4-second polling while the full-screen menu is closed.
+  // Refresh immediately when returning from another section, and periodically only while visible.
+  const menuVisibilityObserver=new MutationObserver(()=>{
+    if(!menu.classList.contains('hidden'))refresh();
+  });
+  menuVisibilityObserver.observe(menu,{attributes:true,attributeFilter:['class']});
+  setInterval(()=>{if(!menu.classList.contains('hidden'))refresh();},12000);
   addEventListener('pageshow',refresh);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
   document.addEventListener('velocity-account-updated',refresh);

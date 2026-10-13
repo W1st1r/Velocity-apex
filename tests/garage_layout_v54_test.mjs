@@ -41,7 +41,7 @@ assert.doesNotMatch(css,/V54[\s\S]{0,8000}(?:margin-top|top|left):\s*-\d+px/,'V5
 
 // Upgrade selected state stays accent-based instead of a solid acid-green fill.
 const v54=css.slice(css.indexOf('/* V54 · Garage production layout'));
-assert.match(v54,/#garageTabs button\[data-tab="upgrade"\]\.selected\{[\s\S]*rgba\(141,255,73,\.14\)/);
+assert.match(v54,/#garageTabs button\[data-tab="upgrade"\]\.selected\{[\s\S]*rgba\(87,192,241,\.14\)/);
 assert.doesNotMatch(v54,/#garageTabs button\[data-tab="upgrade"\]\.selected\{[^}]*color:#07110b/);
 
 console.log('garage_layout_v54_test: ok');
