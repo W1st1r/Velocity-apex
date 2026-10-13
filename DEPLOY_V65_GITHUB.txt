@@ -1,0 +1,58 @@
+VELOCITY APEX V65 / GITHUB + CLOUDFLARE
+=====================================
+ОБНОВЛЕНИЕ ИЗ ZIP В GITHUB CODESPACES
+
+1. Скачайте Velocity-Apex-Race-Control-Upgrade-V65.zip.
+2. Загрузите ZIP в КОРЕНЬ репозитория в GitHub Codespaces (рядом с package.json).
+3. Откройте терминал в Codespaces и выполните по порядку:
+
+cd /workspaces/Velocity-apex
+mkdir -p /tmp/velocity-apex-v65-release
+unzip -oq Velocity-Apex-Race-Control-Upgrade-V65.zip -d /tmp/velocity-apex-v65-release
+cp -a /tmp/velocity-apex-v65-release/. .
+rm -f Velocity-Apex-Race-Control-Upgrade-V65.zip
+npm install --no-audit --no-fund
+npm test
+npm run test:v65
+
+Далее нужно выбрать ОДИН способ публикации:
+
+СПОСОБ А — через GitHub Actions (рекомендуется)
+-----------------------------------------------
+В настройках GitHub-репозитория → Settings → Secrets and variables →
+Actions → New repository secret установите два секрета:
+CLOUDFLARE_API_TOKEN — токен Cloudflare с правами Workers Scripts: Edit и
+D1: Edit (в зависимости от используемых ресурсов) для нужного аккаунта.
+CLOUDFLARE_ACCOUNT_ID — ID Cloudflare-аккаунта из Dashboard.
+
+Файл .github/workflows/deploy.yml уже включён. На каждый push в main GitHub
+выполнит тесты и только после их прохождения задеплоит игру в Cloudflare.
+
+Команды в Codespaces после распаковки:
+git add -A
+git commit -m "Velocity Apex V65: Race Control + Upgrade" 
+git push origin main
+
+Если основная ветка называется master, измените branches: main в
+.github/workflows/deploy.yml на master и используйте git push origin master.
+Если git сообщает "nothing to commit", изменённых файлов нет.
+
+СПОСОБ Б — прямой деплой из Codespaces
+------------------------------------
+# После успешных тестов (и подключения Cloudflare при необходимости):
+npx wrangler login
+npx wrangler deploy --config wrangler.jsonc
+# Сохраните исходники в GitHub:
+git add -A
+git commit -m "Velocity Apex V65: Race Control + Upgrade"
+git push
+
+ВАЖНО
+------
+- Все файлы из ZIP должны лежать непосредственно в корне репозитория,
+  НЕ в отдельной вложенной папке.
+- Не удаляйте существующий Cloudflare D1. В wrangler.jsonc используется
+  текущая база velocity-apex-db, игровая статистика должна сохраниться.
+- Не копируйте в GitHub секреты/файлы .env и .dev.vars.
+- Публикация осуществляется в ваш Cloudflare-аккаунт. Этот архив сам по себе
+  не запускает деплой без ваших прав доступа.

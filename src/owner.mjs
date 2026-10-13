@@ -5,6 +5,7 @@ import {queryGameLogs,ensureGameLogs} from './logs.mjs';
 import {recordStaffRuntimeHeartbeat} from './admin-system.mjs';
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json','cache-control':'no-store'}});
 const schema=new WeakMap();
+const ECONOMY_V63_OWNER_MULTIPLIERS=Object.freeze({basic:1.15,sport:1.30,premium:1.45,rare:1.70,legendary:1.95,lux:2.20});
 export async function ensureOwner(env){if(!env.DB)return;let p=schema.get(env.DB);if(!p){p=env.DB.batch([
  env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_settings (id TEXT PRIMARY KEY,value TEXT NOT NULL)'),
  env.DB.prepare('CREATE TABLE IF NOT EXISTS owner_activity (user_id TEXT PRIMARY KEY,seen INTEGER NOT NULL,location TEXT NOT NULL,total_ms INTEGER NOT NULL DEFAULT 0,started INTEGER NOT NULL)'),
@@ -15,7 +16,22 @@ export async function ensureOwner(env){if(!env.DB)return;let p=schema.get(env.DB
  env.DB.prepare(`UPDATE owner_settings SET value=json_set(value,'$.cars',json(COALESCE((SELECT json_group_object(key,json(CASE WHEN json_type(value,'$.price') IN ('integer','real') THEN json_set(value,'$.price',MIN(999999999,CAST(ROUND(json_extract(value,'$.price')*1.8) AS INTEGER))) ELSE value END)) FROM json_each(owner_settings.value,'$.cars')),'{}')),'$.economyVersion',39) WHERE id='config' AND COALESCE(json_extract(value,'$.economyVersion'),0)<39`)
 
  ]).catch(e=>{schema.delete(env.DB);throw e;});schema.set(env.DB,p);}await p;}
-export async function settings(env){await ensureOwner(env);const row=await env.DB.prepare("SELECT value FROM owner_settings WHERE id='config'").first();return row?JSON.parse(row.value):{maintenance:false,cars:{},economyVersion:39};}
+export async function settings(env){
+ await ensureOwner(env);const row=await env.DB.prepare("SELECT value FROM owner_settings WHERE id='config'").first();
+ if(!row)return {maintenance:false,cars:{},economyVersion:63};
+ const cfg=JSON.parse(row.value);
+ if(Number(cfg.economyVersion||0)<63){
+  const cars=cfg.cars&&typeof cfg.cars==='object'&&!Array.isArray(cfg.cars)?cfg.cars:{};
+  for(const [carId,override] of Object.entries(cars)){
+   if(!override||typeof override!=='object'||!Number.isFinite(Number(override.price))||Number(override.price)<=0)continue;
+   const category=['basic','sport','premium','rare','legendary','lux'].includes(override.category)?override.category:(CARS[carId]?.category||'basic');
+   override.price=Math.min(999999999,Math.round(Number(override.price)*(ECONOMY_V63_OWNER_MULTIPLIERS[category]||1.15)));
+  }
+  cfg.cars=cars;cfg.economyVersion=63;
+  await env.DB.prepare("UPDATE owner_settings SET value=? WHERE id='config'").bind(JSON.stringify(cfg)).run();
+ }
+ return cfg;
+}
 export async function maintenanceGate(env,request){if(!env.DB)return null;const cfg=await settings(env);if(!cfg.maintenance)return null;const s=await currentSession(env,request);return s?.user.isAdmin?null:json({error:'MAINTENANCE',message:'Технические работы. Вход временно закрыт.'},503);}
 export async function recordResult(env,raceId,userId,kind,won,time){if(!env.DB||!userId)return;await ensureOwner(env);await env.DB.prepare('INSERT OR IGNORE INTO owner_results VALUES (?,?,?,?,?,?)').bind(raceId,userId,kind,won?1:0,Math.max(0,Math.round(time)),Date.now()).run();}
 async function rooms(env,path,body){return Promise.all(Array.from({length:3},async(_,i)=>{const server='city-0'+(i+1);const r=await env.ROOMS.get(env.ROOMS.idFromName('FREE:'+server)).fetch(new Request('https://room.internal'+path,{method:'POST',body:JSON.stringify(body)}));if(!r.ok)throw Error('ROOM_UNAVAILABLE');return {server,...await r.json()};}));}

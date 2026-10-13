@@ -10,7 +10,7 @@ ok(html.includes('Откройте страницу в Safari'),'Safari instruct
 ok(html.includes('кнопку «Поделиться»'),'Share instruction missing');
 ok(html.includes('«На экран Домой»'),'Add to Home Screen instruction missing');
 ok(html.includes('Нажмите «Добавить»'),'final Add instruction missing');
-ok(html.includes('css/style.css?v=20260919-v43'),'V27 stylesheet cache bust missing');
+ok(html.includes('css/style.css?v=20260920-v49'),'V27 stylesheet cache bust missing');
 ok(css.includes('.install-guide')&&css.includes('.install-steps'),'install guide styles missing');
 ok(css.includes('@media (display-mode: standalone)'),'standalone hide rule missing');
 ok(css.includes('@media (max-height: 700px) and (orientation: portrait)'),'short iPhone portrait layout missing');

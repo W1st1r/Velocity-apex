@@ -19,8 +19,8 @@ for(const [level,amount] of [[1,600],[2,1200],[3,2000],[4,3000],[5,3600],[6,4000
 }
 const balance=()=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('member').save_json).credits;
 db.prepare("INSERT OR REPLACE INTO owner_settings VALUES ('config',?)").run(JSON.stringify({maintenance:false,cars:{'porsche-911':{price:10000,maxSpeed:450}}}));
-assert.equal((await settings(env)).cars['porsche-911'].price,22500);
-assert.equal((await settings(env)).cars['porsche-911'].price,22500);
+assert.equal((await settings(env)).cars['porsche-911'].price,32625);
+assert.equal((await settings(env)).cars['porsche-911'].price,32625);
 assert.equal((await settings(env)).cars['porsche-911'].maxSpeed,450);
 await getProgression(env,'member');
 failPayout=true;
@@ -38,4 +38,4 @@ assert.equal(db.prepare('SELECT SUM(points) n FROM street_rep WHERE user_id=?').
 for(let i=0;i<15;i++)await awardProgression(env,'leader',{source:'online_time',eventId:'o'+i,exp:30,credits:60});
 assert.equal(db.prepare("SELECT SUM(credits) n FROM progression_rewards WHERE user_id='leader'").get().n,720);
 assert.equal((await getProgression(env,'leader')).totalExp,450);
-console.log('economy_v39_test: OK — salary caps, atomic rollback/retry, duplicate protection, EXP, REP and CR limits');
+console.log('economy_v63_compat_test: OK — salary caps, atomic rollback/retry, duplicate protection, EXP, REP and CR limits');

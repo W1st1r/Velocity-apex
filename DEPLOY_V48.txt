@@ -1,0 +1,6 @@
+rm -rf apex-v48
+mkdir -p apex-v48
+unzip -o "Velocity-Apex-FreeRoam-Checkpoint-Center-V49.zip" -d apex-v48
+cd apex-v48
+npm install
+npx wrangler deploy

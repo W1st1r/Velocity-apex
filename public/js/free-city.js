@@ -1,4 +1,4 @@
-/* APEX BAY V43 — premium map visuals + wider Hot Potato access and minigame visibility pass. */
+/* APEX BAY V49 — garage polish plus centered Checkpoint Rush event hub. */
 (function(){
   'use strict';
   const W=5000,H=3000,VISUAL_MARGIN=900,TAU=Math.PI*2,roads=[],buildings=[],trees=[],lots=[];
@@ -15,18 +15,21 @@
     driftHarborExit:{x:1040,y:1800,w:120,h:200},
     meet:{x:1950,y:1390,w:740,h:420},
     airport:{x:2840,y:2510,w:2100,h:320},
-    garageApron:{x:2490,y:545,w:360,h:180},
-    garageAccess:{x:2615,y:390,w:110,h:180}
+    // V47: the garage lives entirely inside the city block south of the avenue.
+    // The physical access overlaps the avenue only enough to keep the shrunken
+    // collision union continuous; its visible curb/driveway begins at the road edge.
+    garageApron:{x:2470,y:560,w:410,h:200},
+    garageAccess:{x:2590,y:475,w:170,h:135}
   });
   const minigameVenues=Object.freeze([
     // V37: every map minigame follows one APEX Event Hub design language: dark
     // asphalt, visible low walls, neon accents and physically driveable ENTRY / EXIT lanes.
     {id:'football',title:'APEX STADIUM',sub:'MINI FOOTBALL · 3×3 / 5×5',accent:'#68d8ff',orientation:'south',apron:{x:1770,y:195,w:455,h:155},building:{x:1845,y:45,w:300,h:118},access:{x:1825,y:285,w:105,h:135},exit:{x:2015,y:285,w:105,h:135}},
-    {id:'checkpoint',title:'CHECKPOINT RUSH',sub:'SPEED · SKILLS · REWARDS',accent:'#7dff91',orientation:'south',apron:{x:3195,y:795,w:405,h:130},building:{x:3250,y:635,w:295,h:122},access:{x:3230,y:860,w:100,h:150},exit:{x:3455,y:860,w:100,h:150}},
+    {id:'checkpoint',title:'CHECKPOINT RUSH',sub:'SPEED · SKILLS · REWARDS',accent:'#7dff91',orientation:'south',apron:{x:3135,y:795,w:405,h:130},building:{x:3190,y:635,w:295,h:122},access:{x:3165,y:860,w:145,h:150},exit:{x:3390,y:860,w:145,h:150}},
     // V43: Hot Potato gets a wider maneuver apron plus 1.45× taller road-connected ENTRY/EXIT openings.
     {id:'hot_potato',title:'HOT POTATO',sub:'BOMB ARENA · PASS IT',accent:'#ff8d66',orientation:'east',apron:{x:550,y:1290,w:390,h:195},building:{x:605,y:1128,w:330,h:138},access:{x:845,y:1288,w:205,h:124},exit:{x:845,y:1380,w:205,h:124}}
   ]);
-  const garageVenue=Object.freeze({building:{x:2505,y:748,w:330,h:132},apron:activityAreas.garageApron,access:activityAreas.garageAccess});
+  const garageVenue=Object.freeze({building:{x:2495,y:780,w:360,h:150},apron:activityAreas.garageApron,access:activityAreas.garageAccess});
   const areas=[...Object.values(activityAreas),...minigameVenues.flatMap(v=>[v.apron,v.access,v.exit])];
   let seed=91723;
   const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
@@ -124,7 +127,7 @@
   ];
   function reserved(x,y,pad=0){
     if((x>1920-pad&&x<2140+pad&&y>1030-pad&&y<1450+pad)||(x>1780-pad&&x<2010+pad&&y>540-pad&&y<870+pad)||(x>park.x-pad&&x<park.x+park.w+pad&&y>park.y-pad&&y<park.y+park.h+pad)||(x<1000&&y<940)||(x<1020&&y>1870)||(x>2790&&y>2420))return true;
-    const gb=garageVenue.building,ga=garageVenue.apron;if((x>gb.x-pad-24&&x<gb.x+gb.w+pad+24&&y>gb.y-pad-24&&y<gb.y+gb.h+pad+28)||(x>ga.x-pad&&x<ga.x+ga.w+pad&&y>ga.y-pad&&y<ga.y+ga.h+pad))return true;
+    const gb=garageVenue.building,ga=garageVenue.apron,gi=garageVenue.access;if((x>gb.x-pad-24&&x<gb.x+gb.w+pad+24&&y>gb.y-pad-24&&y<gb.y+gb.h+pad+28)||(x>ga.x-pad&&x<ga.x+ga.w+pad&&y>ga.y-pad&&y<ga.y+ga.h+pad)||(x>gi.x-pad&&x<gi.x+gi.w+pad&&y>gi.y-pad&&y<gi.y+gi.h+pad))return true;
     return minigameVenues.some(v=>{const b=v.building,a=v.apron;return (x>b.x-pad-24&&x<b.x+b.w+pad+24&&y>b.y-pad-24&&y<b.y+b.h+pad+28)||(x>a.x-pad&&x<a.x+a.w+pad&&y>a.y-pad&&y<a.y+a.h+pad);});
   }
   function rectFree(x,y,w,h,pad=42){
@@ -349,8 +352,9 @@
       }
       for(const dx of [-112,112])for(const dy of [-112,112]){fill(c,x+dx,y+dy,5,13,'#344848');fill(c,x+dx+1,y+dy+2,3,3,'#e8ba64');}
     }
-    // Large, unobstructed activity aprons.
-    for(const a of areas)rr(c,a.x,a.y,a.w,a.h,12,'#4c585b');
+    // Large, unobstructed activity aprons. Garage surfaces are rendered
+    // separately below so its short curb-cut never paints over the public avenue.
+    for(const a of areas)if(a!==activityAreas.garageApron&&a!==activityAreas.garageAccess)rr(c,a.x,a.y,a.w,a.h,12,'#4c585b');
     // V40 HARBOR DRIFT MEGAPARK: the only drift zone in Free Roam.
     eventPad(c,activityAreas.driftHarbor,'#c678ff',{title:'HARBOR DRIFT MEGAPARK',sub:'APEX DRIFT ZONE · OPEN LAYOUT',entry:activityAreas.driftHarborEntry,exit:activityAreas.driftHarborExit,orientation:'north'});
     c.save();c.strokeStyle='#26363892';c.lineWidth=7;
@@ -358,16 +362,60 @@
     c.save();c.strokeStyle='rgba(198,120,255,.34)';c.lineWidth=4;c.setLineDash([20,18]);c.beginPath();c.ellipse(670,2310,330,205,-.04,0,TAU);c.stroke();c.restore();
     text(c,'DRIFT',670,2318,44,'#ead8ff');
     text(c,'ONE ZONE · MAX SPACE',670,2360,12,'#d8b8ff');
-    // V44 physical Free Roam garage: a visible road-connected apron and a building
-    // outside the driveable union, so there are no hidden collision rectangles.
-    const gv=garageVenue,gb=gv.building,ga=gv.apron,gx=ga.x+ga.w/2;
-    rr(c,ga.x+8,ga.y+8,ga.w-16,ga.h-16,12,'#3f4b4e');
-    for(let x=ga.x+30;x<ga.x+ga.w-20;x+=72)path(c,[[x,ga.y+25],[x,ga.y+118],[x+54,ga.y+118]],'#d7dbc9',2);
-    fill(c,gb.x+12,gb.y+13,gb.w,gb.h,'#15272b55');rr(c,gb.x,gb.y,gb.w,gb.h,14,'#263b40');rr(c,gb.x+10,gb.y+10,gb.w-20,gb.h-20,10,'#334f54');
-    fill(c,gb.x+18,gb.y+17,gb.w-36,8,'#8dff49');rr(c,gx-82,gb.y+48,164,84,8,'#132429');
-    for(let y=gb.y+58;y<gb.y+124;y+=16)path(c,[[gx-70,y],[gx+70,y]],'#62767a',2);
-    text(c,'GARAGE',gx,gb.y+40,20,'#f6f8ef');text(c,'CHANGE CAR',gx,gb.y+67,9,'#b8ff8e');
-    text(c,'GARAGE',gx,ga.y+55,20,'#eaffdc');text(c,'PARK · ENTER',gx,ga.y+78,9,'#a9ff5a');
+    // V48 SIDE-LOT GARAGE. The public avenue remains a visually continuous road.
+    // The garage entrance now begins exactly at the curb and opens naturally into
+    // the forecourt instead of looking like a rectangular strip laid over the road.
+    const gv=garageVenue,gb=gv.building,ga=gv.apron,gi=gv.access,gx=ga.x+ga.w/2;
+    const roadSouth=525,driveTop=roadSouth+1,driveBottom=ga.y+24;
+    const throatTopHalf=47,throatBottomHalf=73;
+
+    // Soft, centered property shadow and a clean forecourt.
+    rr(c,ga.x-24,ga.y-14,ga.w+48,ga.h+34,24,'#243a3440');
+    rr(c,ga.x,ga.y,ga.w,ga.h,18,'#424d50');
+
+    // Tapered curb-cut: same asphalt family as the avenue, no translucent slab on
+    // top of the public lane. The widening shape reads as a real driveway mouth.
+    c.save();c.fillStyle='#424d50';c.beginPath();
+    c.moveTo(gx-throatTopHalf,driveTop);c.lineTo(gx+throatTopHalf,driveTop);
+    c.lineTo(gx+throatBottomHalf,driveBottom);c.lineTo(gx-throatBottomHalf,driveBottom);
+    c.closePath();c.fill();c.restore();
+    path(c,[[gx-throatTopHalf-7,roadSouth+9],[gx-throatBottomHalf-7,driveBottom-2]],'#aaa99c',7);
+    path(c,[[gx+throatTopHalf+7,roadSouth+9],[gx+throatBottomHalf+7,driveBottom-2]],'#aaa99c',7);
+    // Small curb caps make the break in the sidewalk intentional without crossing
+    // the traffic lane.
+    path(c,[[gx-throatTopHalf-18,roadSouth+7],[gx-throatTopHalf-7,roadSouth+7]],'#d1cfc0',4);
+    path(c,[[gx+throatTopHalf+7,roadSouth+7],[gx+throatTopHalf+18,roadSouth+7]],'#d1cfc0',4);
+    fill(c,ga.x-12,ga.y+28,10,ga.h-44,'#aaa99c');fill(c,ga.x+ga.w+2,ga.y+28,10,ga.h-44,'#aaa99c');
+
+    // Two clean parking bays plus a wide central maneuver lane.
+    for(let y=ga.y+35;y<ga.y+ga.h-32;y+=68){
+      path(c,[[ga.x+34,y],[ga.x+34,y+38],[ga.x+91,y+38]],'#d9ddce',2);
+      path(c,[[ga.x+ga.w-34,y],[ga.x+ga.w-34,y+38],[ga.x+ga.w-91,y+38]],'#d9ddce',2);
+    }
+    path(c,[[gx,roadSouth+13],[gx,ga.y+30]],'#f0ead8',3,[12,12]);
+
+    // Complete symmetrical entry arrow. The final segment closes the right side of
+    // the arrow head, fixing the visibly missing line from V47.
+    const arrowTop=ga.y+34,arrowShoulder=ga.y+65,arrowBottom=ga.y+108;
+    path(c,[[gx,arrowTop],[gx-28,arrowShoulder],[gx-10,arrowShoulder],[gx-10,arrowBottom],[gx+10,arrowBottom],[gx+10,arrowShoulder],[gx+28,arrowShoulder],[gx,arrowTop]],'#9fff6a',3);
+
+    // Premium service building aligned from the same garage center axis. Shadows are
+    // symmetrical left/right so the lower structure no longer looks shifted.
+    const bx=gx-gb.w/2;
+    rr(c,bx-11,gb.y+12,gb.w+22,gb.h+8,18,'#13232946');
+    rr(c,bx,gb.y,gb.w,gb.h,16,'#273b40');rr(c,bx+10,gb.y+10,gb.w-20,gb.h-20,12,'#344f55');
+    fill(c,bx+18,gb.y+18,gb.w-36,8,'#8dff49');
+    rr(c,gx-104,gb.y+56,208,82,10,'#122328');
+    for(let y=gb.y+68;y<gb.y+132;y+=15)path(c,[[gx-89,y],[gx+89,y]],'#64777b',2);
+    fill(c,bx+28,gb.y+52,8,22,'#2d4045');fill(c,bx+30,gb.y+57,4,12,'#baff96');
+    fill(c,bx+gb.w-36,gb.y+52,8,22,'#2d4045');fill(c,bx+gb.w-34,gb.y+57,4,12,'#baff96');
+    // Centered threshold visually ties the forecourt to the service door.
+    rr(c,gx-126,gb.y-11,252,18,7,'#37484b');
+    path(c,[[gx-112,gb.y-4],[gx+112,gb.y-4]],'#6f8588',2);
+    text(c,'APEX GARAGE',gx,gb.y+40,20,'#f4f7ef');text(c,'SERVICE · SWAP CARS',gx,gb.y+57,9,'#b8ff8e');
+
+    // Small ground signage is kept off the road and on a balanced grid.
+    text(c,'GARAGE',ga.x+83,ga.y+31,13,'#dfffd0');text(c,'ВЪЕЗД',gx,ga.y+140,10,'#a9ff5a');
     // Meeting plaza, marked parking bays and a clear through road.
     for(const y of [1400,1735])for(let x=1990;x<2680;x+=70){path(c,[[x,y],[x,y+43],[x+54,y+43]],'#e4e1c5',2);}
     building(c,{x:1940,y:1150,w:180,h:75,type:'warehouse',tone:1,height:12});

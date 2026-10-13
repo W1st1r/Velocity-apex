@@ -52,7 +52,7 @@ const makeEvent=()=>{const e=room.makeEvent('minigame',[player.id],t,{gameKey:'f
 
 const client=fs.readFileSync(new URL('../public/js/freeroam.js',import.meta.url),'utf8');
 const worker=fs.readFileSync(new URL('../src/worker.mjs',import.meta.url),'utf8');
-for(const token of ['predictLocalFootballTouch','football_touch','minigame_ball','FOOTBALL_SEND_MS=40','rate=error>120?20:14'])assert.ok(client.includes(token),`missing client football V33 hook: ${token}`);
+for(const token of ['advanceFootballBall','football_touch','minigame_ball','FOOTBALL_SEND_MS=40','acceptFootballBall'])assert.ok(client.includes(token),`missing client football hook: ${token}`);
 for(const token of ['FREE_FOOTBALL_STATE_RATE_MS=36','stepFootballBall(e,t)','applyFootballContact(e,p,current,t,broadcast=false)','validatedFootballTouchState','FREE_FOOTBALL_PROGRESS_MS=50'])assert.ok(worker.includes(token),`missing server football V33 hook: ${token}`);
 
 console.log('free_football_v33_test: OK — open goals, smooth ball physics, immediate touch path, anti-teleport validation');

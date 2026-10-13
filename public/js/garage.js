@@ -2,8 +2,27 @@
   'use strict';
   const R=window.Racing,$=id=>document.getElementById(id);
   const formatCredits=value=>Math.max(0,Math.floor(Number(value)||0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const categoryOf=item=>R.normalizeCarCategory(item&&item.category);
   const chanceText=bps=>(Math.max(0,Number(bps)||0)/100).toFixed(2).replace(/\.00$/,'')+'%';
+  // V65: wheel segment, displayed odds and server outcome always use the same probability.
+  const upgradeDisplayChanceBps=bps=>Math.max(0,Math.min(8500,Math.round(Math.max(0,Number(bps)||0))));
+  const upgradeDisplayChanceText=bps=>chanceText(upgradeDisplayChanceBps(bps));
+  const UPGRADE_POINTER_SAFE_MARGIN_BPS=140; // 5.04° from a sector border on normal-sized sectors
+  const upgradePointerLandingBps=(success,displayChance,normalized,nearBoundary=false,wheelRadius=55)=>{
+    const shown=Math.max(0,Math.min(10000,Number(displayChance)||0));
+    const start=success?0:shown,end=success?shown:10000,span=Math.max(0,end-start);
+    if(span<=0)return success?0:9999.999;
+    const safe=Math.min(UPGRADE_POINTER_SAFE_MARGIN_BPS,Math.max(.5,(span-1)/2));
+    // Near miss: ~3 physical CSS px to the boundary at the precise pointer tip.
+    const edge=Math.min(Math.max(45,Math.ceil(10000*3/(2*Math.PI*Math.max(30,wheelRadius)))),Math.max(.5,(span-1)/2));
+    const margin=nearBoundary?edge:safe;
+    const low=start+margin,high=end-margin;
+    if(high<=low)return start+span/2;
+    if(nearBoundary)return success?high:low;
+    const n=Math.max(0,Math.min(1,Number(normalized)||0));
+    return low+n*(high-low);
+  };
   const assetUrl=src=>{
     if(typeof src!=='string'||!src)return '';
     if(/^(?:https?:|data:|blob:|\/)/i.test(src))return src;
@@ -33,20 +52,20 @@
 
   class Garage{
     constructor(save,onChange){
-      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.previewLoadToken=0;this.catalogPreloadToken=0;this.tuningTab='performance';this.tuningStylePurchase=null;this.pendingSell=null;
+      this.save=save;this.onChange=onChange;this.mode='shop';this.cards=[];this.categoryEmpty=false;this.activeCaseId=null;this.caseSpinning=false;this.caseSpinToken=0;this.caseQuantity=1;this.upgradeSpinCount=0;this.upgradeNextBoundarySpin=2+Math.floor(Math.random()*3);this.previewLoadToken=0;this.catalogPreloadToken=0;this.tuningTab='performance';this.tuningStylePurchase=null;this.pendingSell=null;this.upgradeQuoteTimer=0;this.upgradeQuoteToken=0;this.upgradeState={cars:[],effects:[],credits:0,target:null,chanceBps:0,returnBps:0,stakeValue:0,targetValue:0,quoted:false,busy:false,pickerMode:'stake',pickerKind:'car',pickerCategory:'all',pickerSort:'asc'};
       this.state={
         shop:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect,previewCase:'all'},
         garage:{tab:'livery',category:'all',previewLivery:save.selectedLivery,previewEffect:save.selectedEffect}
       };
       this.car=new R.Car();this.car.x=280;this.car.y=190;this.car.angle=-.20;this.car.speed=260;this.car.throttleVisual=1;
-      this.bindView('shop');this.bindView('garage');this.bindCaseDialog();this.bindTuning();this.bindSellDialog();
+      this.bindView('shop');this.bindView('garage');this.bindCaseDialog();this.bindTuning();this.bindSellDialog();this.bindUpgrade();
     }
     view(mode=this.mode){
       const prefix=mode==='shop'?'shop':'garage';
       return {
         tabs:$(prefix+'Tabs'),categories:$(prefix+'CategoryTabs'),items:$(prefix+'Items'),message:$(prefix+'Message'),
         preview:$(prefix+'Preview'),previewName:$(prefix+'PreviewName'),previewEffect:$(prefix+'PreviewEffect'),previewCopy:mode==='shop'?$('shopPreviewCopy'):null,caseHero:mode==='shop'?$('shopCaseHero'):null,
-        credits:mode==='shop'?$('shopCredits'):$('garageCollection')
+        credits:mode==='shop'?$('shopCredits'):$('garageCollection'),standardBody:mode==='garage'?$('garageStandardBody'):null,secondaryNav:mode==='garage'?$('garageSecondaryNav'):null,upgradePanel:mode==='garage'?$('garageUpgradePanel'):null
       };
     }
     caseDialog(){
@@ -217,6 +236,88 @@
     prewarmLivery(id){
       const item=R.LIVERIES[id],src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);
     }
+    upgradeErrorText(code){
+      return ({AUTH_REQUIRED:'Войдите в аккаунт, чтобы использовать Upgrade.',STAKE_REQUIRED:'Добавьте хотя бы один предмет или CR.',TARGET_REQUIRED:'Выберите цель.',INSUFFICIENT_CREDITS:'Недостаточно CR.',PROTECTED_ITEM:'Базовые предметы нельзя использовать.',CAR_NOT_OWNED:'Одна из машин больше не принадлежит вам.',EFFECT_NOT_OWNED:'Один из эффектов больше не принадлежит вам.',TARGET_ALREADY_OWNED:'Этот предмет уже есть в гараже.',TARGET_UNAVAILABLE:'Эта цель временно недоступна.',TARGET_NOT_HIGHER:'Цель должна быть дороже общей ставки.',CHANCE_TOO_LOW:'Стоимость ставки слишком мала для этой цели.',TOO_MANY_ITEMS:'Можно поставить максимум 12 предметов.',UPGRADE_PROCESSING:'Upgrade уже обрабатывается сервером.',UPGRADE_SERVER_ERROR:'Ошибка сервера Upgrade. Попробуйте ещё раз.'}[code]||'Не удалось выполнить Upgrade. Проверьте выбор и соединение.');
+    }
+    async upgradeApi(path,body){
+      const r=await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',headers:{'content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});let data={};try{data=await r.json();}catch{}if(!r.ok)throw Object.assign(new Error(data.error||'UPGRADE_ERROR'),{code:data.error||'UPGRADE_ERROR',data});return data;
+    }
+    bindUpgrade(){
+      if(!$('garageUpgradePanel'))return;
+      $('upgradeAddItems')?.addEventListener('click',()=>this.openUpgradePicker('stake'));
+      $('upgradeChooseTarget')?.addEventListener('click',()=>this.openUpgradePicker('target'));
+      $('upgradeCreditsInput')?.addEventListener('input',e=>{const max=Math.max(0,Math.floor(Number(this.save.credits)||0)),value=Math.max(0,Math.min(max,Math.floor(Number(e.target.value)||0)));this.upgradeState.credits=value;e.target.value=String(value);this.upgradeState.quoted=false;this.renderUpgrade();this.scheduleUpgradeQuote();});
+      document.querySelectorAll('[data-upgrade-credit]').forEach(b=>b.addEventListener('click',()=>{const max=Math.max(0,Math.floor(Number(this.save.credits)||0)),v=b.dataset.upgradeCredit==='max'?max:Math.min(max,this.upgradeState.credits+Math.max(0,Number(b.dataset.upgradeCredit)||0));this.upgradeState.credits=Math.floor(v);this.upgradeState.quoted=false;this.renderUpgrade();this.scheduleUpgradeQuote();}));
+      $('upgradeStart')?.addEventListener('click',()=>this.openUpgradeConfirm());
+      $('upgradeConfirmCancel')?.addEventListener('click',()=>$('upgradeConfirmModal')?.close());
+      $('upgradeConfirmStart')?.addEventListener('click',()=>this.performUpgrade());
+      for(const id of ['upgradeConfirmModal','upgradeHistoryModal'])$(id)?.addEventListener('click',e=>{if(e.target===$(id))e.currentTarget.close();});
+      $('upgradePickerClose')?.addEventListener('click',()=>this.closeUpgradePicker());
+      $('upgradePickerDone')?.addEventListener('click',()=>this.closeUpgradePicker());
+      $('upgradePicker')?.addEventListener('click',e=>{if(e.target===$('upgradePicker'))this.closeUpgradePicker();});
+      document.querySelectorAll('[data-upgrade-picker-kind]').forEach(b=>b.addEventListener('click',()=>{this.upgradeState.pickerKind=b.dataset.upgradePickerKind==='effect'?'effect':'car';this.upgradeState.pickerCategory='all';this.renderUpgradePicker();}));
+      $('upgradePickerCategories')?.addEventListener('click',e=>{const sort=e.target.closest('[data-upgrade-sort]');if(sort){this.upgradeState.pickerSort=this.upgradeState.pickerSort==='desc'?'asc':'desc';this.renderUpgradePicker();return;}const b=e.target.closest('[data-upgrade-category]');if(!b)return;this.upgradeState.pickerCategory=b.dataset.upgradeCategory||'all';this.renderUpgradePicker();});
+      $('upgradePickerList')?.addEventListener('click',e=>{const b=e.target.closest('[data-upgrade-pick]');if(!b)return;this.toggleUpgradePickerItem(b.dataset.kind,b.dataset.upgradePick);});
+      $('upgradeHistoryBtn')?.addEventListener('click',()=>this.openUpgradeHistory());
+      $('upgradeHistoryClose')?.addEventListener('click',()=>$('upgradeHistoryModal')?.close());
+    }
+    cleanUpgradeSelection(){
+      const u=this.upgradeState,ownedCars=new Set(this.save.ownedLiveries||[]),ownedEffects=new Set(this.save.ownedEffects||[]);u.cars=u.cars.filter(id=>id!=='apexLime'&&ownedCars.has(id)&&R.LIVERIES[id]);u.effects=u.effects.filter(id=>id!=='standard'&&ownedEffects.has(id)&&R.EFFECTS[id]);u.credits=Math.max(0,Math.min(Math.floor(Number(this.save.credits)||0),Math.floor(Number(u.credits)||0)));if(u.target){const owned=u.target.kind==='car'?ownedCars:ownedEffects;if(owned.has(u.target.id))u.target=null;}
+    }
+    upgradeLocalStakeValue(){const u=this.upgradeState;return u.cars.reduce((sum,id)=>sum+Math.max(0,Number(R.LIVERIES[id]?.price)||0),0)+u.effects.reduce((sum,id)=>sum+Math.max(0,Number(R.EFFECTS[id]?.price)||0),0)+u.credits;}
+    upgradeVisual(kind,id,compact=false){
+      const item=kind==='car'?R.LIVERIES[id]:R.EFFECTS[id];if(!item)return '';
+      if(kind==='car'){const src=item.sprite?.thumbnail||item.sprite?.src;return src?`<span class="upgrade-mini-visual car"><img src="${assetUrl(src)}" alt=""></span>`:`<span class="upgrade-mini-visual car fallback">VA</span>`;}
+      return `<span class="upgrade-mini-visual effect">${effectVisualMarkup(id,item)}</span>`;
+    }
+    renderUpgrade(reschedule=false){
+      const u=this.upgradeState;this.cleanUpgradeSelection();const authed=!!window.VelocityAccount?.authenticated,localStake=this.upgradeLocalStakeValue(),stakeValue=u.quoted?u.stakeValue:localStake,targetItem=u.target?(u.target.kind==='car'?R.LIVERIES[u.target.id]:R.EFFECTS[u.target.id]):null,targetValue=u.quoted?u.targetValue:Math.max(0,Number(targetItem?.price)||0),chance=Math.max(0,Math.min(8500,Math.floor(Number(u.chanceBps)||0))),displayChance=upgradeDisplayChanceBps(chance);
+      $('upgradeStakeValue').textContent=formatCredits(stakeValue)+' CR';$('upgradeTargetValue').textContent=targetValue?formatCredits(targetValue)+' CR':'—';$('upgradeBalanceLabel').textContent='БАЛАНС · '+formatCredits(this.save.credits)+' CR';$('upgradeCreditsInput').value=String(u.credits);
+      const chips=[...u.cars.map(id=>({kind:'car',id,item:R.LIVERIES[id]})),...u.effects.map(id=>({kind:'effect',id,item:R.EFFECTS[id]}))];
+      $('upgradeStakeItems').innerHTML=chips.length?chips.map(x=>`<button type="button" class="upgrade-stake-chip" data-upgrade-remove="${escapeHtml(x.id)}" data-kind="${x.kind}">${this.upgradeVisual(x.kind,x.id,true)}<span><strong>${escapeHtml(x.item?.name||x.id)}</strong><small>${formatCredits(x.item?.price||0)} CR</small></span><b>×</b></button>`).join(''):'<span class="upgrade-empty">Добавьте машины или эффекты</span>';
+      $('upgradeStakeItems').querySelectorAll('[data-upgrade-remove]').forEach(b=>b.onclick=()=>{const key=b.dataset.kind==='effect'?'effects':'cars';u[key]=u[key].filter(id=>id!==b.dataset.upgradeRemove);u.quoted=false;this.renderUpgrade();this.scheduleUpgradeQuote();});
+      $('upgradeTargetItem').innerHTML=u.target&&targetItem?`${this.upgradeVisual(u.target.kind,u.target.id)}<span><strong>${escapeHtml(targetItem.name)}</strong><small>${u.target.kind==='car'?escapeHtml(String(targetItem.category||'basic').toUpperCase()):'EFFECT'} · ${formatCredits(targetItem.price||0)} CR</small></span>`:'<span class="upgrade-empty">Выберите предмет</span>';
+      const deg=(displayChance/10000)*360,wheel=$('upgradeWheel'),pointer=$('upgradePointer');wheel.style.setProperty('--upgrade-chance',deg+'deg');if(!u.busy&&!u.target){pointer.style.transition='none';pointer.style.transform='rotate(0deg)';}$('upgradeChance').textContent=upgradeDisplayChanceText(chance);$('upgradeOddsText').textContent=u.quoted&&chance?`SUCCESS ${upgradeDisplayChanceText(chance)} · FAILED ${chanceText(10000-displayChance)}${u.returnBps?' · RTP '+chanceText(u.returnBps):''}`:u.target?'Расчёт серверного шанса…':'Выберите цель';
+      const ready=authed&&!u.busy&&u.quoted&&chance>0&&u.target&&(u.cars.length||u.effects.length||u.credits>0);$('upgradeStart').disabled=!ready;$('upgradeStart').textContent=u.busy?'ОБРАБОТКА…':'UPGRADE';
+      if(!authed)$('upgradeStatus').textContent='Войдите в аккаунт — Upgrade работает только с облачным инвентарём.';else if(u.busy)$('upgradeStatus').textContent='Проверяем ставку и фиксируем результат…';else if(!u.target)$('upgradeStatus').textContent='Выберите предмет, который хотите получить.';else if(!(u.cars.length||u.effects.length||u.credits))$('upgradeStatus').textContent='Добавьте предметы или CR в ставку.';else if(!u.quoted)$('upgradeStatus').textContent='Проверяем точный шанс на сервере…';else $('upgradeStatus').textContent=`Ставка ${formatCredits(stakeValue)} CR → цель ${formatCredits(targetValue)} CR`;
+      if(reschedule)this.scheduleUpgradeQuote();
+    }
+    scheduleUpgradeQuote(){
+      clearTimeout(this.upgradeQuoteTimer);const u=this.upgradeState;if(this.mode!=='garage'||this.state.garage.tab!=='upgrade'||u.busy)return;if(!window.VelocityAccount?.authenticated||!u.target||(!u.cars.length&&!u.effects.length&&!u.credits)){u.quoted=false;u.chanceBps=0;u.stakeValue=this.upgradeLocalStakeValue();u.targetValue=Math.max(0,Number((u.target?.kind==='car'?R.LIVERIES[u.target?.id]:R.EFFECTS[u.target?.id])?.price)||0);this.renderUpgrade();return;}
+      const token=++this.upgradeQuoteToken;this.upgradeQuoteTimer=setTimeout(async()=>{try{const d=await this.upgradeApi('/api/upgrade/quote',{stake:{cars:u.cars,effects:u.effects,credits:u.credits},target:u.target});if(token!==this.upgradeQuoteToken)return;u.stakeValue=d.stakeValue;u.targetValue=d.targetValue;u.chanceBps=d.chanceBps;u.returnBps=Math.floor(Number(d.profile?.returnBps)||0);u.quoted=true;this.renderUpgrade();}catch(e){if(token!==this.upgradeQuoteToken)return;u.quoted=false;u.returnBps=0;u.chanceBps=Number(e.data?.chanceBps)||0;u.stakeValue=Number(e.data?.stakeValue)||this.upgradeLocalStakeValue();u.targetValue=Number(e.data?.targetValue)||0;this.renderUpgrade();$('upgradeStatus').textContent=this.upgradeErrorText(e.code);}},140);
+    }
+    openUpgradePicker(mode){
+      if(!window.VelocityAccount?.authenticated){window.VelocityAccount?.requestAuth?.('Чтобы использовать Upgrade, войдите в аккаунт или зарегистрируйтесь.');return;}
+      const u=this.upgradeState;u.pickerMode=mode==='target'?'target':'stake';u.pickerKind='car';u.pickerCategory='all';u.pickerSort='asc';$('upgradePicker').classList.remove('hidden');$('upgradePicker').setAttribute('aria-hidden','false');$('upgradePickerTitle').textContent=u.pickerMode==='target'?'ВЫБЕРИТЕ ЦЕЛЬ':'ДОБАВЬТЕ В СТАВКУ';this.renderUpgradePicker();
+    }
+    closeUpgradePicker(){const m=$('upgradePicker');if(!m)return;m.classList.add('hidden');m.setAttribute('aria-hidden','true');}
+    renderUpgradePicker(){
+      const u=this.upgradeState,kind=u.pickerKind;document.querySelectorAll('[data-upgrade-picker-kind]').forEach(b=>b.classList.toggle('selected',b.dataset.upgradePickerKind===kind));$('upgradePickerCategories').classList.toggle('hidden',kind!=='car');$('upgradePickerCategories').querySelectorAll('[data-upgrade-category]').forEach(b=>b.classList.toggle('selected',b.dataset.upgradeCategory===u.pickerCategory));const sortBtn=$('upgradePickerSort');if(sortBtn){sortBtn.dataset.upgradeSort=u.pickerSort;sortBtn.textContent=u.pickerSort==='desc'?'ЦЕНА ↓':'ЦЕНА ↑';}
+      let entries=[];if(kind==='car'){
+        const ids=u.pickerMode==='stake'?(this.save.ownedLiveries||[]):(R.REAL_CAR_IDS||Object.keys(R.LIVERIES));entries=ids.filter(id=>id!=='apexLime'&&R.LIVERIES[id]&&(u.pickerMode==='stake'||(!this.save.ownedLiveries.includes(id)&&R.carAvailable(id)))).map(id=>[id,R.LIVERIES[id]]);if(u.pickerCategory!=='all')entries=entries.filter(([,item])=>categoryOf(item)===u.pickerCategory);
+      }else{const ids=u.pickerMode==='stake'?(this.save.ownedEffects||[]):Object.keys(R.EFFECTS);entries=ids.filter(id=>id!=='standard'&&R.EFFECTS[id]&&(u.pickerMode==='stake'||!this.save.ownedEffects.includes(id))).map(id=>[id,R.EFFECTS[id]]);}
+      const localStake=this.upgradeLocalStakeValue();if(u.pickerMode==='target'&&localStake>0)entries=entries.filter(([,item])=>Number(item.price)>localStake);entries.sort((a,b)=>(u.pickerSort==='desc'?-1:1)*((Number(a[1].price)||0)-(Number(b[1].price)||0)));
+      $('upgradePickerList').innerHTML=entries.length?entries.map(([id,item])=>{const selected=u.pickerMode==='target'?u.target?.kind===kind&&u.target?.id===id:(kind==='car'?u.cars:u.effects).includes(id);return `<button type="button" class="upgrade-picker-item ${selected?'selected':''}" data-upgrade-pick="${escapeHtml(id)}" data-kind="${kind}">${this.upgradeVisual(kind,id)}<span><strong>${escapeHtml(item.name)}</strong><small>${kind==='car'?escapeHtml(String(item.category||'basic').toUpperCase())+' · ':''}${formatCredits(item.price||0)} CR</small></span><b>${selected?'✓':'+'}</b></button>`;}).join(''):'<div class="upgrade-picker-empty">Нет подходящих предметов. Измените ставку или категорию.</div>';
+      const selectedCount=u.cars.length+u.effects.length;$('upgradePickerStatus').textContent=u.pickerMode==='target'?'Выберите одну цель':`В ставке: ${selectedCount} / 12`;$('upgradePickerDone').classList.toggle('hidden',u.pickerMode==='target');
+    }
+    toggleUpgradePickerItem(kind,id){
+      const u=this.upgradeState;if(u.pickerMode==='target'){u.target={kind:kind==='effect'?'effect':'car',id};u.quoted=false;this.closeUpgradePicker();this.renderUpgrade();this.scheduleUpgradeQuote();return;}
+      const key=kind==='effect'?'effects':'cars',list=u[key],exists=list.includes(id);if(!exists&&u.cars.length+u.effects.length>=12){$('upgradePickerStatus').textContent='Максимум 12 предметов.';return;}u[key]=exists?list.filter(x=>x!==id):[...list,id];u.quoted=false;this.renderUpgradePicker();this.renderUpgrade();this.scheduleUpgradeQuote();
+    }
+    openUpgradeConfirm(){
+      const u=this.upgradeState;if(!u.quoted||u.busy||!u.target)return;const item=u.target.kind==='car'?R.LIVERIES[u.target.id]:R.EFFECTS[u.target.id],dlg=$('upgradeConfirmModal');$('upgradeConfirmSummary').innerHTML=`<div><span>СТАВКА</span><strong>${formatCredits(u.stakeValue)} CR</strong></div><div><span>ЦЕЛЬ</span><strong>${escapeHtml(item?.name||u.target.id)}</strong></div><div><span>СТОИМОСТЬ ЦЕЛИ</span><strong>${formatCredits(u.targetValue)} CR</strong></div><div><span>ШАНС</span><strong>${upgradeDisplayChanceText(u.chanceBps)}</strong></div>`;dlg?.showModal();
+    }
+    async performUpgrade(){
+      const u=this.upgradeState;if(u.busy||!u.quoted||!u.target)return;$('upgradeConfirmModal')?.close();u.busy=true;this.renderUpgrade();const upgradeId=crypto.randomUUID();
+      try{const d=await this.upgradeApi('/api/upgrade/attempt',{upgradeId,stake:{cars:u.cars,effects:u.effects,credits:u.credits},target:u.target});await this.animateUpgradeResult(d.attempt);}catch(e){u.busy=false;u.quoted=false;this.renderUpgrade();$('upgradeStatus').textContent=this.upgradeErrorText(e.code);this.scheduleUpgradeQuote();}
+    }
+    animateUpgradeResult(attempt){
+      return new Promise(resolve=>{const u=this.upgradeState,pointer=$('upgradePointer'),chance=Math.max(0,Math.min(8500,Number(attempt?.chanceBps)||0)),displayChance=upgradeDisplayChanceBps(chance),ticket=Math.max(0,Math.min(9999,Number(attempt?.rngValue)||0)),success=!!attempt?.success,targetName=attempt?.result?.target?.name||'предмет';u.chanceBps=chance;u.stakeValue=Number(attempt?.stakeValue)||u.stakeValue;u.targetValue=Number(attempt?.targetValue)||u.targetValue;u.quoted=true;this.renderUpgrade();pointer.classList.remove('upgrade-spinning');pointer.style.transition='none';pointer.style.transform='rotate(0deg)';void pointer.offsetWidth;pointer.classList.add('upgrade-spinning');const duration=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches?0.45:3.6,sourceStart=success?0:chance,sourceSpan=Math.max(1,success?chance:10000-chance),normalized=Math.max(0,Math.min(.999999,(ticket-sourceStart+.5)/sourceSpan));const spinNumber=++this.upgradeSpinCount,nearBoundary=spinNumber>=this.upgradeNextBoundarySpin;if(nearBoundary)this.upgradeNextBoundarySpin=spinNumber+2+Math.floor(Math.random()*3);const visualTicket=upgradePointerLandingBps(success,displayChance,normalized,nearBoundary,pointer.getBoundingClientRect().width/2),turns=6*360+visualTicket/10000*360;pointer.dataset.result=success?'success':'failed';pointer.style.transition=`transform ${duration}s cubic-bezier(.08,.72,.08,1)`;pointer.style.transform=`rotate(${turns}deg)`;$('upgradeStatus').textContent='Результат определён сервером. Стрелка останавливается строго в нужном секторе.';try{navigator.vibrate?.(18);}catch{}
+        let done=false;const finish=async()=>{if(done)return;done=true;pointer.classList.remove('upgrade-spinning');u.busy=false;$('upgradeStatus').textContent=success?`SUCCESS · ${targetName} добавлен в гараж`:'FAILED · ставка потеряна';$('garageMessage').textContent=success?`UPGRADE SUCCESS · ${targetName}`:'UPGRADE FAILED · попробуйте другую ставку';$('garageMessage').classList.toggle('warning',!success);try{navigator.vibrate?.(success?[35,55,70]:[80,55,80]);}catch{}try{await window.VelocityAccount?.refreshCloud?.();}catch{}u.cars=[];u.effects=[];u.credits=0;u.target=null;u.chanceBps=0;u.stakeValue=0;u.targetValue=0;u.quoted=false;this.renderUpgrade();resolve();};pointer.addEventListener('transitionend',e=>{if(e.target===pointer&&e.propertyName==='transform')finish();},{once:true});setTimeout(finish,duration*1000+300);});
+    }
+    async openUpgradeHistory(){
+      const dlg=$('upgradeHistoryModal'),list=$('upgradeHistoryList');if(!window.VelocityAccount?.authenticated){window.VelocityAccount?.requestAuth?.('История Upgrade доступна после входа.');return;}list.innerHTML='<div class="upgrade-history-empty">Загрузка…</div>';dlg?.showModal();try{const d=await this.upgradeApi('/api/upgrade/history');list.innerHTML=d.items?.length?d.items.map(x=>{const target=x.result?.target||x.target||{},ok=x.status==='complete'&&x.success,rejected=x.status==='rejected',label=rejected?'REJECTED':ok?'SUCCESS':'FAILED';return `<article class="upgrade-history-row ${ok?'success':'failed'}"><div><strong>${label}</strong><small>${new Date(x.createdAt).toLocaleString('ru-RU')}</small></div><span>${escapeHtml(target.name||target.id||'TARGET')}</span><b>${formatCredits(x.stakeValue)} → ${formatCredits(x.targetValue)} CR</b><em>${upgradeDisplayChanceText(x.chanceBps)}</em></article>`;}).join(''):'<div class="upgrade-history-empty">Upgrade ещё не запускались.</div>';}catch(e){list.innerHTML='<div class="upgrade-history-empty">Не удалось загрузить историю.</div>';}
+    }
     scheduleCatalogPreload(entries,mode){
       const token=++this.catalogPreloadToken,limit=mode==='garage'?entries.length:Math.min(entries.length,14),queue=entries.slice(0,limit);
       queue.forEach(([id,item],index)=>setTimeout(()=>{if(token!==this.catalogPreloadToken)return;const src=item?.sprite?.src;if(src&&R.preloadSprite)R.preloadSprite(src);},35+index*65));
@@ -256,13 +357,29 @@
       if($('tuningModal')?.open){this.tuningPurchase=null;this.tuningStylePurchase=null;if(this.save.ownedLiveries.includes(this.tuningId))this.renderTuning();else $('tuningModal').close();}
       if(this.activeCaseId&&!this.caseDialog().modal.classList.contains('hidden')&&!this.caseSpinning)this.refreshCaseDialogInventory();
     }
+    setPaneVisible(el,visible){
+      if(!el)return;
+      el.classList.toggle('hidden',!visible);
+      el.setAttribute('aria-hidden',String(!visible));
+      if(visible)el.removeAttribute('inert');else el.setAttribute('inert','');
+    }
     render(){
-      const mode=this.mode,s=this.state[mode],v=this.view(mode),isCars=s.tab==='livery',isCases=mode==='shop'&&s.tab==='case';
+      const mode=this.mode,s=this.state[mode],v=this.view(mode),isCars=s.tab==='livery',isCases=mode==='shop'&&s.tab==='case',isUpgrade=mode==='garage'&&s.tab==='upgrade';
       if(!v.tabs)return;
       if(mode==='shop')v.credits.textContent=formatCredits(this.save.credits)+' CR';
-      else v.credits.textContent=`COLLECTION ${this.save.ownedLiveries.length + this.save.ownedEffects.length}`;
-      v.tabs.querySelectorAll('button').forEach(b=>{const active=b.dataset.tab===s.tab;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
-      v.categories.classList.toggle('hidden',!isCars);
+      else v.credits.textContent=isUpgrade?formatCredits(this.save.credits)+' CR':`COLLECTION ${this.save.ownedLiveries.length + this.save.ownedEffects.length}`;
+      v.tabs.querySelectorAll('button').forEach(b=>{const active=b.dataset.tab===s.tab;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});
+      if(mode==='garage'){
+        this.setPaneVisible(v.standardBody,!isUpgrade);
+        this.setPaneVisible(v.upgradePanel,isUpgrade);
+        this.setPaneVisible(v.secondaryNav,!isUpgrade&&isCars);
+        if(v.categories)this.setPaneVisible(v.categories,!isUpgrade&&isCars);
+        $('garage')?.classList.toggle('upgrade-open',isUpgrade);
+        $('garage')?.classList.toggle('effect-open',!isUpgrade&&!isCars);
+        if(isUpgrade){this.renderUpgrade();this.scheduleUpgradeQuote();return;}
+      }else if(v.categories){
+        v.categories.classList.toggle('hidden',!isCars);
+      }
       v.categories.querySelectorAll('button').forEach(b=>{const active=b.dataset.category===s.category;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});
       if(isCases){this.renderCases(v,s);return;}
       if(v.caseHero)v.caseHero.classList.add('hidden');if(v.preview)v.preview.classList.remove('hidden');if(v.previewCopy)v.previewCopy.textContent='Предпросмотр коллекции. Покупка не меняет активный loadout.';
@@ -398,7 +515,7 @@
       this.view('shop').message.textContent=`MULTI DROP · ${results.length} КЕЙСОВ · ${newCount} НОВЫХ${totalComp?` · +${formatCredits(totalComp)} CR`:''}`;this.view('shop').message.classList.remove('warning');
     }
     draw(dt){
-      const s=this.state[this.mode];if(this.mode==='shop'&&s.tab==='case')return;
+      const s=this.state[this.mode];if((this.mode==='shop'&&s.tab==='case')||(this.mode==='garage'&&s.tab==='upgrade'))return;
       const v=this.view(),canvas=v.preview;if(!canvas)return;
       const ctx=canvas.getContext('2d');ctx.clearRect(0,0,560,360);ctx.strokeStyle='rgba(141,255,73,.12)';ctx.lineWidth=1;
       for(let y=45;y<350;y+=38){ctx.beginPath();ctx.moveTo(20,y);ctx.lineTo(540,y);ctx.stroke();}

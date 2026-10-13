@@ -10,11 +10,11 @@ const MAX_CREDITS=999999999;
 const ORDER_TTL_MS=24*60*60*1000;
 
 export const PAYMENT_PACKAGES=Object.freeze([
-  Object.freeze({id:'cr_5000',title:'STARTER',credits:5000,rub:99,badge:''}),
-  Object.freeze({id:'cr_12000',title:'STREET',credits:12000,rub:199,badge:''}),
-  Object.freeze({id:'cr_35000',title:'SPORT',credits:35000,rub:499,badge:'ПОПУЛЯРНО'}),
-  Object.freeze({id:'cr_80000',title:'APEX',credits:80000,rub:999,badge:'+ БОНУС'}),
-  Object.freeze({id:'cr_180000',title:'LEGEND',credits:180000,rub:1990,badge:'MAX'})
+  Object.freeze({id:'cr_5000',title:'STARTER',credits:17000,rub:99,badge:''}),
+  Object.freeze({id:'cr_12000',title:'STREET',credits:40000,rub:199,badge:''}),
+  Object.freeze({id:'cr_35000',title:'SPORT',credits:120000,rub:499,badge:'ПОПУЛЯРНО'}),
+  Object.freeze({id:'cr_80000',title:'APEX',credits:270000,rub:999,badge:'+ БОНУС'}),
+  Object.freeze({id:'cr_180000',title:'LEGEND',credits:600000,rub:1990,badge:'MAX'})
 ]);
 const PACKAGES=new Map(PAYMENT_PACKAGES.map(x=>[x.id,x]));
 let schemaPromise=null;

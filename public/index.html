@@ -15,13 +15,14 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260919-v43" />
+  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57" />
 <link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12">
   <link rel="stylesheet" href="css/crews.css?v=20260917-clans1">
   <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32">
   <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2">
-  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32">
+  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32&garageNav=20260920-v56">
   <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31">
+  <link rel="stylesheet" href="css/race-control-v65.css?v=20261013-v65">
 </head>
 <body>
   <div id="app">
@@ -106,117 +107,54 @@
       </section>
     </div>
 
-    <div id="menu" class="overlay menu-screen hidden">
-      <div class="menu-card glass enter-panel menu-card-v20">
-        <header class="menu-hero menu-hero-v20">
-          <div class="brand-mark" aria-hidden="true"><span></span><i></i></div>
-          <div class="menu-brand-copy">
-            <div class="eyebrow">TOP-DOWN ARCADE RACING</div>
-            <h1>VELOCITY <span>APEX</span></h1>
-            <p class="tagline">CHASE THE PERFECT LINE</p>
+    <div id="menu" class="overlay menu-screen hidden race-control-v65" aria-label="Главное меню Velocity Apex">
+      <div class="menu-card glass enter-panel menu-card-v20 race-control-shell">
+        <nav class="rc-rail" aria-label="Быстрая навигация">
+          <div class="rc-logo" aria-label="Velocity Apex">V<span>≡</span></div>
+          <button id="menuRailPlay" type="button" class="rc-rail-link rc-selected" aria-current="page"><span class="rc-rail-icon">▷</span><span>ИГРА</span></button>
+          <button id="garageBtn" type="button" class="rc-rail-link"><span class="rc-rail-icon">⌂</span><span>ГАРАЖ</span></button>
+          <button id="shopBtn" type="button" class="rc-rail-link"><span class="rc-rail-icon">▣</span><span>МАГАЗИН</span></button>
+          <button id="friendsBtn" type="button" class="rc-rail-link"><span class="rc-rail-icon">♧</span><span>ДРУЗЬЯ</span><span id="friendsMenuStatus" class="sr-only">—</span></button>
+          <button id="accountBtn" type="button" class="rc-rail-link"><span class="rc-rail-icon">♙</span><span>ПРОФИЛЬ</span><span id="accountMenuStatus" class="sr-only">ГОСТЬ</span></button>
+          <button id="menuMoreBtn" type="button" class="rc-rail-link rc-more" aria-label="Другие разделы" aria-expanded="false" aria-controls="menuMorePanel"><span class="rc-rail-icon">•••</span><span>ЕЩЁ</span></button>
+        </nav>
+        <main class="rc-main">
+          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V65</div>
+          <h1>ГОТОВ К ЗАЕЗДУ<span>?</span></h1>
+          <section class="menu-section menu-play-section rc-modes" aria-label="Игровые режимы">
+            <button id="playBtn" type="button" class="primary-btn play-btn rc-action rc-solo"><span class="rc-action-glyph">▷</span><span class="rc-action-copy"><strong>ОДИНОЧНАЯ ИГРА</strong><small>Обычный · Дрифт · Карьера</small></span><span class="rc-action-arrow">→</span></button>
+            <button id="onlineBtn" type="button" class="primary-btn online-main-btn rc-action rc-online"><span class="rc-action-glyph">◎</span><span class="rc-action-copy"><strong>ОНЛАЙН</strong><small>Комнаты · Свободный режим</small></span><span class="rc-action-arrow">→</span></button>
+          </section>
+          <section class="rc-progress" aria-label="Ваши результаты">
+            <div class="rc-progress-top"><span>ЛУЧШИЙ РЕЗУЛЬТАТ</span><strong id="menuBestScore">0</strong></div>
+            <div class="rc-progress-bar"><span></span></div>
+            <div class="rc-progress-sub"><span>ЛУЧШИЙ КРУГ <b id="menuBestLap">--:--.---</b></span><span>КРУГИ <b id="menuMaxLaps">0</b></span></div>
+          </section>
+        </main>
+        <aside class="rc-aside" aria-label="Аккаунт и автомобиль">
+          <div class="rc-top-right">
+            <div class="rc-level" title="Уровень аккаунта">LVL <strong id="raceAccountLevel">—</strong></div>
+            <div class="menu-wallet-section"><button id="topupBtn" type="button" class="rc-wallet" aria-label="Пополнить баланс"><span>▣</span><strong id="menuCredits">0 CR</strong><b>＋</b></button></div>
+            <button id="settingsBtn" class="rc-settings settings-menu-btn" type="button" aria-label="Настройки" title="Настройки">⚙</button>
           </div>
-          <button id="settingsBtn" class="menu-corner-btn settings-menu-btn" type="button" aria-label="Настройки" title="Настройки">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7.3 7.3 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7.2 7.2 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7.2 7.2 0 0 0-1.8 1l-2.4-1-2 3.4L5 11a7.3 7.3 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.2 7.2 0 0 0 1.8 1l.4 3.1h4.8l.4-3.1a7.2 7.2 0 0 0 1.8-1l2.4 1 2-3.4-2-1.5c.1-.3.1-.7.1-1Z"/></svg>
-          </button>
-        </header>
-
-        <section class="menu-section menu-play-section" aria-label="Режим игры">
-          <div class="menu-section-head"><span>ИГРАТЬ</span><i aria-hidden="true"></i></div>
-          <div class="mode-actions">
-            <button id="playBtn" class="primary-btn play-btn" type="button"><span class="menu-primary-copy"><small>ОДИНОЧНЫЙ РЕЖИМ</small><strong>ИГРАТЬ РЯДОМ</strong></span><b aria-hidden="true">›</b></button>
-            <button id="onlineBtn" class="primary-btn online-main-btn" type="button"><span class="menu-primary-copy"><small>С ДРУГИМИ ИГРОКАМИ</small><strong>ОНЛАЙН</strong></span><b aria-hidden="true">›</b></button>
-          </div>
-        </section>
-
-        <section class="menu-section menu-core-section" aria-label="Машины и магазин">
-          <div class="menu-section-head"><span>АВТОПАРК</span><i aria-hidden="true"></i></div>
-          <div class="menu-core-actions">
-            <button id="garageBtn" class="secondary-btn menu-tile garage-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10.5 5.2 6h13.6l2.2 4.5V20h-2.5v-2H5.5v2H3v-9.5Z"/><path d="M6.5 10.5h11L16 7.8H8l-1.5 2.7ZM6.7 14.2h2.2M15.1 14.2h2.2"/></svg></span>
-              <span class="menu-tile-copy"><span>ГАРАЖ</span><strong>МАШИНЫ · ТЮНИНГ</strong></span>
-            </button>
-            <button id="shopBtn" class="secondary-btn menu-tile shop-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
-              <span class="menu-tile-copy"><span>МАГАЗИН</span><strong>МАШИНЫ · ЭФФЕКТЫ · КЕЙСЫ</strong></span>
-            </button>
-          </div>
-        </section>
-
-        <section class="menu-wallet-section" aria-label="APEX Credits">
-          <button id="topupBtn" class="primary-btn donate-main-btn menu-donate-bar" type="button" aria-label="Донат — пополнить APEX Credits">
-            <span class="donate-main-icon" aria-hidden="true">◆</span>
-            <span class="menu-primary-copy donate-main-copy"><small>APEX CREDITS · ЮMONEY</small><strong>ПОПОЛНИТЬ БАЛАНС</strong></span>
-            <span class="menu-wallet-balance"><small>БАЛАНС</small><strong id="menuCredits">200 CR</strong></span>
-          </button>
-        </section>
-
-        <section class="menu-section menu-telegram-section" aria-label="Telegram канал игры">
-          <button id="telegramBanner" class="secondary-btn telegram-banner-btn" type="button" aria-label="Наш Telegram — открыть канал @wistirapex">
-            <span class="telegram-banner-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M21.2 4.5 18 20.1c-.2 1-1 1.3-1.9.8l-4.5-3.3-2.2 2.1c-.3.3-.6.6-1.1.6l.3-4.7 8.6-7.8c.4-.3-.1-.5-.6-.2L6 14.2l-4.5-1.4c-1-.3-1-1 0-1.4L20 4.3c.8-.3 1.5.2 1.2 1.2Z"/></svg>
-            </span>
-            <span class="telegram-banner-copy">
-              <small>ОФИЦИАЛЬНЫЙ КАНАЛ ИГРЫ</small>
-              <strong>НАШ TELEGRAM</strong>
-              <b>@wistirapex · новости, обновления, анонсы</b>
-            </span>
-            <span class="telegram-banner-cta">ОТКРЫТЬ</span>
-          </button>
-        </section>
-
-        <section class="menu-section menu-community-section" aria-label="Профиль и сообщество">
-          <div class="menu-section-head"><span>ПРОФИЛЬ И СООБЩЕСТВО</span><i aria-hidden="true"></i></div>
-          <div class="menu-community-actions">
-            <button id="accountBtn" class="secondary-btn menu-tile account-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.6-4.2 3.1-6.3 7-6.3s6.4 2.1 7 6.3"/></svg></span>
-              <span class="menu-tile-copy"><span>АККАУНТ</span><strong id="accountMenuStatus">ГОСТЬ</strong></span>
-            </button>
-            <button id="friendsBtn" class="secondary-btn menu-tile friends-menu-btn" type="button">
-              <span class="menu-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.4"/><path d="M3.5 20c.4-4 2.4-6 5.5-6 3.2 0 5.2 2 5.6 6M14 15c.8-.8 1.8-1.2 3-1.2 2.3 0 3.8 1.5 4.1 4.6"/></svg></span>
-              <span class="menu-tile-copy"><span>ДРУЗЬЯ</span><strong id="friendsMenuStatus">—</strong></span>
-            </button>
-            <button id="crewBtn" class="secondary-btn menu-tile crew-menu-btn" type="button"><span class="menu-tile-icon" aria-hidden="true">⚡</span><span class="menu-tile-copy"><span>КЛАН</span><strong>CREW · РЕЙТИНГ</strong></span></button>
-            <button id="menuMoreBtn" class="secondary-btn menu-tile menu-more-btn" type="button" aria-expanded="false" aria-controls="menuMorePanel">
-              <span class="menu-tile-icon menu-more-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span class="menu-tile-copy"><span>ЕЩЁ</span><strong>ПРОМО · ПОМОЩЬ</strong></span>
-            </button>
-          </div>
-          <button id="referralBtn" class="secondary-btn referral-menu-card" type="button">
-            <span class="ref-menu-icon" aria-hidden="true">↗</span>
-            <span class="ref-menu-copy"><b>РЕФЕРАЛКА</b><small>10 уровней · бонусы за приглашения</small></span>
-            <span id="referralMenuLevel" class="ref-menu-level">LVL 1</span>
-          </button>
-        </section>
-
-        <div id="menuMorePanel" class="menu-more-panel hidden" aria-hidden="true">
-          <div class="menu-more-head"><div><small>ДОПОЛНИТЕЛЬНО</small><strong>БЫСТРЫЕ ДЕЙСТВИЯ</strong></div><button id="menuMoreClose" type="button" aria-label="Закрыть">×</button></div>
+          <div class="rc-aside-heading">ВАШ АВТОМОБИЛЬ</div>
+          <div class="rc-car-holder"><img id="raceMenuCarImage" src="assets/cars/apex-lime-menu.svg" alt="Ваш автомобиль" loading="eager"/><div class="rc-car-fallback" id="raceMenuCarFallback" aria-hidden="true">VA</div></div>
+          <div class="rc-car-name" id="raceMenuCarName">APEX LIME</div>
+          <button id="referralBtn" class="rc-referral" type="button"><span>↗</span><strong>ПРИГЛАСИТЬ ДРУЗЕЙ</strong><span id="referralMenuLevel">LVL 1</span></button>
+          <button id="telegramBanner" class="rc-telegram" type="button" aria-label="Telegram игры">↗ TELEGRAM / НОВОСТИ</button>
+        </aside>
+        <div id="menuMorePanel" class="menu-more-panel rc-popover hidden" aria-hidden="true">
+          <div class="menu-more-head"><div><small>ДОПОЛНИТЕЛЬНО</small><strong>ВСЕ РАЗДЕЛЫ</strong></div><button id="menuMoreClose" type="button" aria-label="Закрыть">×</button></div>
           <div class="menu-more-grid">
-            <button id="promoBtn" class="secondary-btn menu-more-item promo-menu-btn" type="button">
-              <span class="menu-more-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9h16v11H4V9Zm-1-4h18v4H3V5Z"/><path d="M12 5v15M8.2 5c-1.4 0-2.2-.7-2.2-1.7S6.8 2 7.8 2C10 2 12 5 12 5s2-3 4.2-3c1 0 1.8.4 1.8 1.3S17.2 5 15.8 5"/></svg></span>
-              <span><b>ПРОМОКОД</b><small>Ввести код</small></span>
-            </button>
-            <button id="supportBtn" class="secondary-btn menu-more-item support-menu-btn" type="button">
-              <span class="menu-more-item-icon" aria-hidden="true">?</span><span><b>ПОДДЕРЖКА</b><small>Вопросы и жалобы</small></span>
-            </button>
-            <button id="staffAdminBtn" class="secondary-btn menu-more-item admin-menu-btn hidden" type="button">
-              <span class="menu-more-item-icon" aria-hidden="true">A</span><span><b>ADMIN PANEL</b><small id="staffAdminRank">АДМИНИСТРАЦИЯ</small></span>
-            </button>
-            <button id="menuMute" class="secondary-btn menu-more-item sound-btn menu-more-sound" type="button" aria-label="Переключить звук">
-              <span class="menu-more-item-icon sound-dot" aria-hidden="true"></span><span><strong>ЗВУК ВКЛ</strong><small>АУДИО И ЭФФЕКТЫ</small></span>
-            </button>
+            <button id="crewBtn" class="secondary-btn menu-more-item" type="button"><span class="menu-more-item-icon">⚡</span><span><b>КЛАН</b><small>Команда и рейтинг</small></span></button>
+            <button id="promoBtn" class="secondary-btn menu-more-item" type="button"><span class="menu-more-item-icon">✧</span><span><b>ПРОМОКОД</b><small>Активировать</small></span></button>
+            <button id="supportBtn" class="secondary-btn menu-more-item" type="button"><span class="menu-more-item-icon">?</span><span><b>ПОДДЕРЖКА</b><small>Обратная связь</small></span></button>
+            <button id="staffAdminBtn" class="secondary-btn menu-more-item hidden" type="button"><span class="menu-more-item-icon">A</span><span><b>ADMIN PANEL</b><small id="staffAdminRank">АДМИНИСТРАЦИЯ</small></span></button>
+            <button id="menuMute" class="secondary-btn menu-more-item sound-btn" type="button"><span class="menu-more-item-icon sound-dot">♪</span><span><strong>ЗВУК ВКЛ</strong><small>Аудио игры</small></span></button>
           </div>
         </div>
-
-        <footer class="menu-footer menu-footer-v20">
-          <div class="menu-stats" aria-label="Статистика игрока">
-            <div><span>BEST SCORE</span><strong id="menuBestScore">0</strong></div>
-            <div><span>BEST LAP</span><strong id="menuBestLap">--:--.---</strong></div>
-            <div><span>MAX LAPS</span><strong id="menuMaxLaps">0</strong></div>
-          </div>
-        </footer>
       </div>
     </div>
-
 
     <div id="referrals" class="overlay referral-screen hidden" aria-hidden="true">
       <section class="referral-card enter-panel" aria-labelledby="referralTitle">
@@ -527,6 +465,7 @@
                 <div class="online-card-kicker"><span>02</span><strong>ВЫБЕРИТЕ РЕЖИМ</strong></div>
                 <div class="online-main-actions">
                   <button id="onlineCreateBtn" class="online-choice primary-btn" type="button"><span class="online-choice-copy"><small>HOST</small><strong>СОЗДАТЬ КОМНАТУ</strong></span><b aria-hidden="true">›</b></button>
+                  <button id="onlineMediaCreateBtn" class="online-choice media-event-choice hidden" type="button"><span class="online-choice-copy"><small>MEDIA · CREATOR TOOLS</small><strong>СОЗДАТЬ MEDIA EVENT</strong></span><b aria-hidden="true">›</b></button>
                   <button id="onlineJoinBtn" class="online-choice secondary-btn" type="button"><span class="online-choice-copy"><small>JOIN</small><strong>ВОЙТИ ПО КОДУ</strong></span><b aria-hidden="true">›</b></button>
                 </div>
               </div>
@@ -545,6 +484,57 @@
               <label class="online-toggle online-setting-card"><span class="online-toggle-copy"><small>СТОЛКНОВЕНИЯ</small><b>CONTACT MODE</b></span><input id="onlineCollisions" type="checkbox" aria-label="Столкновения"><i class="online-switch" aria-hidden="true"></i></label>
             </div>
             <div class="online-action-row"><button id="onlineCreateBack" class="secondary-btn" type="button">НАЗАД</button><button id="onlineCreateConfirm" class="primary-btn" type="button">СОЗДАТЬ КОМНАТУ</button></div>
+          </div>
+
+          <div id="onlineMediaCreate" class="online-view online-media-create hidden">
+            <div class="online-view-head media-create-head"><div><span>MEDIA / CREATOR EVENT</span><strong>СОЗДАТЬ MEDIA EVENT</strong></div><p>Мини-игра или полноценный заезд на трассе. Приз резервируется с личного баланса.</p></div>
+
+            <div class="media-format-switch" role="tablist" aria-label="Формат MEDIA Event">
+              <button id="onlineMediaFormatMini" class="selected" type="button" role="tab" aria-selected="true"><small>01 · FREE ROAM</small><strong>МИНИ-ИГРА</strong><span>Football, Hot Potato, Checkpoint, Drift, KOTH, Drag</span></button>
+              <button id="onlineMediaFormatRace" type="button" role="tab" aria-selected="false"><small>02 · TRACK EVENT</small><strong>ГОНКА / ТРАССА</strong><span>Любая гоночная или drift-трасса + spectator</span></button>
+            </div>
+
+            <div class="media-create-section media-common-section">
+              <div class="media-section-title"><div><small>ОСНОВНОЕ</small><strong>ПАРАМЕТРЫ EVENT</strong></div><span>Общие настройки мероприятия</span></div>
+              <div class="media-mobile-grid media-common-grid">
+                <label class="online-field online-setting-card media-wide"><span>НАЗВАНИЕ</span><input id="onlineMediaTitle" type="text" maxlength="48" value="APEX MEDIA EVENT" autocomplete="off"></label>
+                <label class="online-field online-setting-card"><span>ПРИЗОВОЙ ФОНД</span><input id="onlineMediaPrize" type="number" inputmode="numeric" min="0" step="1000" value="50000"></label>
+                <label class="online-field online-setting-card"><span>ДОСТУП</span><select id="onlineMediaAccess"><option value="code">ПО КОДУ</option><option value="open">ОТКРЫТЫЙ</option><option value="invite">ПО ПРИГЛАШЕНИЯМ</option></select></label>
+                <label class="online-field online-setting-card"><span>ОРГАНИЗАТОР</span><select id="onlineMediaMode"><option value="spectator" selected>НАБЛЮДАТЕЛЬ</option><option value="player">УЧАСТВУЕТ</option></select></label>
+                <label class="online-field online-setting-card media-invite-setting media-wide hidden"><span>ПРИГЛАШЁННЫЕ НИКИ</span><input id="onlineMediaInvites" type="text" maxlength="300" autocomplete="off" placeholder="@player1, @player2"></label>
+              </div>
+            </div>
+
+            <div id="onlineMediaMiniPanel" class="media-create-section">
+              <div class="media-section-title"><div><small>MINI GAME</small><strong>ПРАВИЛА МИНИ-ИГРЫ</strong></div><span>Показываются только нужные настройки</span></div>
+              <div class="media-mobile-grid media-event-settings">
+                <label class="online-field online-setting-card media-wide"><span>МИНИ-ИГРА</span><select id="onlineMediaGame"><option value="football_3v3">MINI FOOTBALL 3×3</option><option value="football_5v5">MINI FOOTBALL 5×5</option><option value="checkpoint">CHECKPOINT RUSH</option><option value="hot_potato">HOT POTATO</option><option value="drift_battle">DRIFT BATTLE</option><option value="koth">KING OF THE HILL</option><option value="drag">DRAG EVENT</option></select></label>
+                <label class="online-field online-setting-card"><span>МАКС. ИГРОКОВ</span><input id="onlineMediaMaxPlayers" type="number" inputmode="numeric" min="2" max="12" value="6"></label>
+                <label class="online-field online-setting-card"><span>МИН. ИГРОКОВ</span><input id="onlineMediaMinPlayers" type="number" inputmode="numeric" min="2" max="12" value="2"></label>
+                <label class="online-field online-setting-card"><span>ВРЕМЯ</span><select id="onlineMediaDuration"><option value="60000">1:00</option><option value="90000" selected>1:30</option><option value="120000">2:00</option><option value="180000">3:00</option><option value="240000">4:00</option><option value="300000">5:00</option></select></label>
+                <label class="online-field online-setting-card media-goal-setting"><span>ЛИМИТ ГОЛОВ</span><input id="onlineMediaGoalLimit" type="number" inputmode="numeric" min="1" max="20" value="5"></label>
+                <label class="online-field online-setting-card media-checkpoint-setting hidden"><span>ЧЕКПОИНТЫ</span><input id="onlineMediaCheckpointCount" type="number" inputmode="numeric" min="4" max="60" value="12"></label>
+                <label class="online-field online-setting-card media-bomb-setting hidden"><span>ТАЙМЕР БОМБЫ</span><select id="onlineMediaBombInterval"><option value="7000">7 сек</option><option value="10000">10 сек</option><option value="12000" selected>12 сек</option><option value="15000">15 сек</option><option value="20000">20 сек</option></select></label>
+                <label class="online-field online-setting-card media-drag-setting hidden"><span>DRAG FORMAT</span><select id="onlineMediaDragFormat"><option value="race">ОБЩИЙ ЗАЕЗД</option><option value="tournament">ТУРНИР</option></select></label>
+              </div>
+            </div>
+
+            <div id="onlineMediaRacePanel" class="media-create-section hidden">
+              <div class="media-section-title"><div><small>TRACK EVENT</small><strong>ГОНОЧНЫЙ ЗАЕЗД</strong></div><span>Все трассы из обычного Online + режим наблюдателя</span></div>
+              <div class="media-mobile-grid media-race-settings">
+                <label class="online-field online-setting-card"><span>ТИП ЗАЕЗДА</span><select id="onlineMediaRaceMode"><option value="race" selected>ОБЫЧНАЯ ГОНКА</option><option value="drift">DRIFT-ТРАССА</option></select></label>
+                <label class="online-field online-setting-card media-wide"><span>ТРАССА</span><select id="onlineMediaTrack" aria-label="Трасса MEDIA Event"></select></label>
+                <label class="online-field online-setting-card"><span>КРУГИ</span><select id="onlineMediaLaps"><option value="3" selected>3</option><option value="5">5</option><option value="7">7</option><option value="10">10</option><option value="15">15</option></select></label>
+                <label class="online-field online-setting-card"><span>МАКС. ГОНЩИКОВ</span><select id="onlineMediaRaceMaxPlayers"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8" selected>8</option></select></label>
+                <label class="online-field online-setting-card"><span>МИН. ГОНЩИКОВ</span><select id="onlineMediaRaceMinPlayers"><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
+                <label class="online-field online-setting-card"><span>СТОЛКНОВЕНИЯ</span><select id="onlineMediaCollisions"><option value="off" selected>ВЫКЛ</option><option value="on">ВКЛ</option></select></label>
+              </div>
+              <div class="media-race-note"><strong>SPECTATOR</strong><span>Если организатор выбрал «НАБЛЮДАТЕЛЬ», он не занимает место гонщика и получает общий вид трассы + переключение между машинами.</span></div>
+            </div>
+
+            <div id="onlineMediaLimits" class="online-field-hint media-event-limits">MEDIA LIMITS · загрузка…</div>
+            <div id="onlineMediaCenter" class="media-center-summary"><strong>MEDIA CENTER</strong><span>История мероприятий загружается…</span></div>
+            <div class="online-action-row media-action-row"><button id="onlineMediaCreateBack" class="secondary-btn" type="button">НАЗАД</button><button id="onlineMediaCreateConfirm" class="primary-btn" type="button">СОЗДАТЬ EVENT</button></div>
           </div>
 
           <div id="onlineJoin" class="online-view hidden">
@@ -796,11 +786,57 @@
     <div id="garage" class="overlay shop-screen garage-screen hidden">
       <section class="shop-panel garage-panel glass catalog-panel" aria-labelledby="garageTitle">
         <header class="shop-header"><div><div class="eyebrow">VELOCITY APEX / COLLECTION</div><h2 id="garageTitle">ГАРАЖ</h2></div><strong class="credits-pill collection-pill" id="garageCollection">COLLECTION 2</strong><button id="garageBackBtn" class="secondary-btn" type="button">НАЗАД</button></header>
-        <div class="shop-body"><div class="garage-preview"><canvas id="garagePreview" width="560" height="360" aria-label="Предпросмотр автомобиля в гараже"></canvas><strong id="garagePreviewName"></strong><small id="garagePreviewEffect"></small><p>Ваша коллекция. Выбор сохраняется для Solo и Online.</p></div>
-          <div class="shop-catalog"><div id="garageTabs" class="segmented catalog-tabs" role="group" aria-label="Раздел гаража"><button type="button" data-tab="livery" class="selected">МАШИНЫ</button><button type="button" data-tab="effect">ЭФФЕКТЫ</button></div><div id="garageCategoryTabs" class="car-category-tabs" role="group" aria-label="Категория автомобилей гаража"><button type="button" data-category="all" class="selected"><span>ВСЕ</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="basic"><span>BASIC</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="sport"><span>SPORT</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="premium"><span>PREMIUM</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="rare"><span>RARE</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="legendary"><span>LEGENDARY</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="lux"><span>LUX</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button></div><div id="garageItems" class="shop-items"></div></div></div>
+        <div id="garageTabs" class="segmented catalog-tabs" role="tablist" aria-label="Раздел гаража"><button type="button" role="tab" aria-controls="garageStandardBody" data-tab="livery" class="selected">МАШИНЫ</button><button type="button" role="tab" aria-controls="garageStandardBody" data-tab="effect">ЭФФЕКТЫ</button><button type="button" role="tab" aria-controls="garageUpgradePanel" data-tab="upgrade">UPGRADE</button></div>
+        <div id="garageSecondaryNav" class="garage-secondary-nav">
+          <div id="garageCategoryTabs" class="car-category-tabs" role="group" aria-label="Категория автомобилей гаража"><button type="button" data-category="all" class="selected"><span>ВСЕ</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="basic"><span>BASIC</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="sport"><span>SPORT</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="premium"><span>PREMIUM</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="rare"><span>RARE</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="legendary"><span>LEGENDARY</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button><button type="button" data-category="lux"><span>LUX</span><i class="category-chip-icon" aria-hidden="true"><b></b></i></button></div>
+        </div>
+        <div id="garageStandardBody" class="garage-standard-body" aria-hidden="false">
+          <div class="garage-preview"><canvas id="garagePreview" width="560" height="360" aria-label="Предпросмотр автомобиля в гараже"></canvas><strong id="garagePreviewName"></strong><small id="garagePreviewEffect"></small><p>Ваша коллекция. Выбор сохраняется для Solo и Online.</p></div>
+          <div class="garage-collection-panel"><div id="garageItems" class="shop-items"></div></div>
+        </div>
+        <section id="garageUpgradePanel" class="garage-upgrade-panel hidden" aria-label="Upgrade машин и эффектов">
+          <div class="upgrade-topbar"><div><small>APEX / RISK LAB</small><strong>UPGRADE</strong></div><button id="upgradeHistoryBtn" type="button">ИСТОРИЯ</button></div>
+          <div class="upgrade-board">
+            <article class="upgrade-side upgrade-stake-card">
+              <div class="upgrade-card-head"><span>ВАША СТАВКА</span><strong id="upgradeStakeValue">0 CR</strong></div>
+              <div id="upgradeStakeItems" class="upgrade-selected-items"><span class="upgrade-empty">Добавьте машины или эффекты</span></div>
+              <button id="upgradeAddItems" class="upgrade-pick-btn" type="button">+ ПРЕДМЕТЫ</button>
+              <div class="upgrade-credit-row"><label><span>+ CR</span><input id="upgradeCreditsInput" type="number" min="0" step="1000" inputmode="numeric" value="0"></label><div><button type="button" data-upgrade-credit="5000">+5K</button><button type="button" data-upgrade-credit="25000">+25K</button><button type="button" data-upgrade-credit="max">MAX</button></div></div>
+            </article>
+            <article class="upgrade-wheel-card">
+              <div class="upgrade-wheel-stage"><div id="upgradeWheel" class="upgrade-wheel" style="--upgrade-chance:0deg"><div class="upgrade-wheel-core"><strong id="upgradeChance">0%</strong><small>ШАНС</small></div></div><div id="upgradePointer" class="upgrade-pointer" aria-hidden="true"></div></div>
+              <div id="upgradeOddsText" class="upgrade-odds-text">Выберите цель</div>
+            </article>
+            <article class="upgrade-side upgrade-target-card">
+              <div class="upgrade-card-head"><span>ЦЕЛЬ</span><strong id="upgradeTargetValue">—</strong></div>
+              <div id="upgradeTargetItem" class="upgrade-target-item"><span class="upgrade-empty">Выберите предмет</span></div>
+              <button id="upgradeChooseTarget" class="upgrade-pick-btn" type="button">ВЫБРАТЬ ЦЕЛЬ</button>
+              <div class="upgrade-target-hint">Цель должна быть дороже общей ставки.</div>
+            </article>
+          </div>
+          <div class="upgrade-actionbar"><div><small id="upgradeBalanceLabel">БАЛАНС · 0 CR</small><span id="upgradeStatus">Добавьте ставку и выберите цель.</span></div><button id="upgradeStart" type="button" disabled>UPGRADE</button></div>
+        </section>
         <div id="garageMessage" class="shop-message" aria-live="polite">Выберите машину и эффект из своей коллекции.</div>
       </section>
     </div>
+
+
+    <div id="upgradePicker" class="upgrade-modal hidden" aria-hidden="true">
+      <section class="upgrade-modal-card" role="dialog" aria-modal="true" aria-labelledby="upgradePickerTitle">
+        <header><div><small>APEX / UPGRADE</small><h3 id="upgradePickerTitle">ВЫБОР ПРЕДМЕТОВ</h3></div><button id="upgradePickerClose" type="button">✕</button></header>
+        <div class="upgrade-picker-tools"><div class="upgrade-picker-tabs"><button type="button" data-upgrade-picker-kind="car" class="selected">МАШИНЫ</button><button type="button" data-upgrade-picker-kind="effect">ЭФФЕКТЫ</button></div><div id="upgradePickerCategories" class="upgrade-picker-categories"><button type="button" data-upgrade-category="all" class="selected">ВСЕ</button><button type="button" data-upgrade-category="basic">BASIC</button><button type="button" data-upgrade-category="sport">SPORT</button><button type="button" data-upgrade-category="premium">PREMIUM</button><button type="button" data-upgrade-category="rare">RARE</button><button type="button" data-upgrade-category="legendary">LEGEND</button><button type="button" data-upgrade-category="lux">LUX</button><button id="upgradePickerSort" type="button" class="upgrade-sort" data-upgrade-sort="asc">ЦЕНА ↑</button></div></div>
+        <div id="upgradePickerList" class="upgrade-picker-list"></div>
+        <footer><span id="upgradePickerStatus">Выберите предметы</span><button id="upgradePickerDone" type="button">ГОТОВО</button></footer>
+      </section>
+    </div>
+
+    <dialog id="upgradeConfirmModal" class="upgrade-confirm-modal">
+      <section><small>APEX / UPGRADE</small><h3>НАЧАТЬ UPGRADE?</h3><div id="upgradeConfirmSummary"></div><p>При неудаче все выбранные предметы и поставленные CR будут потеряны.</p><div><button id="upgradeConfirmCancel" type="button">ОТМЕНА</button><button id="upgradeConfirmStart" type="button">НАЧАТЬ</button></div></section>
+    </dialog>
+
+    <dialog id="upgradeHistoryModal" class="upgrade-history-modal">
+      <section><header><div><small>APEX / UPGRADE</small><h3>ИСТОРИЯ</h3></div><button id="upgradeHistoryClose" type="button">✕</button></header><div id="upgradeHistoryList" class="upgrade-history-list"></div></section>
+    </dialog>
 
     <div id="settings" class="overlay settings-screen hidden">
       <section class="settings-panel glass enter-panel" aria-labelledby="settingsTitle">
@@ -917,6 +953,7 @@
             <div class="root-tab-group-buttons">
               <button type="button" data-root-tab="accounts"><b>USR</b><span>АККАУНТЫ</span></button>
               <button type="button" data-root-tab="admins"><b>ADM</b><span>АДМИНИСТРАТОРЫ</span></button>
+              <button type="button" data-root-tab="media"><b>MED</b><span>MEDIA</span></button>
               <button type="button" id="crewOwnerReports"><b>REP</b><span>ЖАЛОБЫ</span></button>
               <button type="button" data-root-tab="blocked"><b>BAN</b><span>БЛОКИРОВКИ</span></button>
             </div>
@@ -1025,7 +1062,7 @@
               <label class="owner-log-search"><span>ПОИСК ПО ВСЕМ ПОЛЯМ</span><div><input id="ownerLogsSearch" type="search" autocomplete="off" placeholder="@player, ID, причина, сообщение, сервер, Log ID"><button id="ownerLogsSearchBtn" type="button">НАЙТИ</button></div></label>
               <label><span>ПЕРИОД</span><select id="ownerLogsDate"><option value="24h" selected>Последние 24 часа</option><option value="today">Сегодня</option><option value="7d">Последние 7 дней</option><option value="30d">Последние 30 дней</option><option value="all">За всё время</option><option value="custom">Свой период</option></select></label>
               <label><span>СЕРВЕР</span><input id="ownerLogsServer" type="search" autocomplete="off" placeholder="city-01 / race"></label>
-              <label><span>КТО ВЫПОЛНИЛ</span><select id="ownerLogsRole"><option value="ALL">Все</option><option value="OWNER">OWNER</option><option value="ADMIN">ADMIN</option><option value="SYSTEM">SYSTEM</option><option value="PLAYER">PLAYER</option></select></label>
+              <label><span>КТО ВЫПОЛНИЛ</span><select id="ownerLogsRole"><option value="ALL">Все</option><option value="OWNER">OWNER</option><option value="ADMIN">ADMIN</option><option value="MEDIA">MEDIA</option><option value="SYSTEM">SYSTEM</option><option value="PLAYER">PLAYER</option></select></label>
               <label><span>ТИП ДЕЙСТВИЯ</span><input id="ownerLogsEvent" type="search" autocomplete="off" placeholder="ban / mute / purchase"></label>
               <button id="ownerLogsReset" class="owner-log-reset" type="button">СБРОСИТЬ ФИЛЬТРЫ</button>
             </div>
@@ -1040,7 +1077,9 @@
               <button type="button" data-log-category="joins">ЗАХОДЫ</button>
               <button type="button" data-log-category="purchases">ПОКУПКИ</button>
               <button type="button" data-log-category="sales">ПРОДАЖИ</button>
+              <button type="button" data-log-category="upgrades">UPGRADES</button>
               <button type="button" data-log-category="system">СИСТЕМА</button>
+              <button type="button" data-log-category="media">MEDIA EVENTS</button>
               <button type="button" data-log-category="chat">ЧАТ</button>
             </nav>
             <div class="owner-log-list-head"><span id="ownerLogsCaption">ВСЕ СОБЫТИЯ</span><small id="ownerLogsStatus">Загрузка…</small></div>
@@ -1066,6 +1105,24 @@
         <div id="rootPaneAdmins" class="root-pane hidden" data-root-pane="admins">
           <div id="ownerAdminSystem" class="owner-admin-system">
             <div class="admin-system-loading">ЗАГРУЗКА АДМИНИСТРАЦИИ…</div>
+          </div>
+        </div>
+
+        <div id="rootPaneMedia" class="root-pane hidden" data-root-pane="media">
+          <div class="owner-media-system">
+            <section class="root-module">
+              <div class="root-module-title"><span>MEDIA / CREATOR PROGRAM</span><small>УРОВЕНЬ 5.5 · БЕЗ МОДЕРАТОРСКИХ ПРАВ</small></div>
+              <div class="owner-media-assign"><input id="ownerMediaUsername" class="root-input" type="text" autocomplete="off" placeholder="@username"><input id="ownerMediaNote" class="root-input" type="text" autocomplete="off" maxlength="200" placeholder="Заметка (необязательно)"><button id="ownerMediaAssign" type="button">НАЗНАЧИТЬ MEDIA</button></div>
+            </section>
+            <section class="root-module">
+              <div class="root-module-title"><span>ЛИМИТЫ EVENT</span><small>СЕРВЕРНАЯ ЭКОНОМИКА</small></div>
+              <div class="owner-media-limits"><label>МИН. ПРИЗ<input id="ownerMediaMinPrize" type="number" min="0" step="1000"></label><label>МАКС. ПРИЗ<input id="ownerMediaMaxPrize" type="number" min="0" step="1000"></label><label>EVENT / ДЕНЬ<input id="ownerMediaDailyEvents" type="number" min="1" max="100"></label><label>ПРИЗЫ / ДЕНЬ<input id="ownerMediaDailyPrize" type="number" min="0" step="1000"></label></div>
+              <button id="ownerMediaSaveLimits" type="button">СОХРАНИТЬ ЛИМИТЫ</button>
+            </section>
+            <section class="root-module">
+              <div class="root-module-title"><span>АКТИВНЫЕ MEDIA</span><small id="ownerMediaCount">0</small></div>
+              <div id="ownerMediaList" class="owner-media-list"><div class="root-loading">ЗАГРУЗКА MEDIA…</div></div>
+            </section>
           </div>
         </div>
 
@@ -1137,6 +1194,11 @@
           </svg>
         </button>
       </div>
+    </div>
+
+    <div id="raceSpectatorControl" class="race-spectator-control hidden" aria-live="polite">
+      <div class="race-spectator-head"><div><small>MEDIA / SPECTATOR</small><strong id="raceSpectatorLabel">ОБЩИЙ ВИД ТРАССЫ</strong></div><button id="raceSpectatorHud" type="button">HUD</button></div>
+      <div class="race-spectator-actions"><button id="raceSpectatorPrev" type="button">‹ ИГРОК</button><button id="raceSpectatorOverview" class="selected" type="button">ОБЩИЙ ВИД</button><button id="raceSpectatorNext" type="button">ИГРОК ›</button></div>
     </div>
 
     <div id="toastLayer" class="toast-layer"></div>
@@ -1211,30 +1273,30 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20260918-v28&career=20260919-v38"></script>
+  <script src="js/content.js?v=20260921-v63&career=20260919-v38"></script>
   <script src="js/racing-line.js?v=20260915-owner1"></script>
   <script src="js/track.js?v=20260918-v28"></script>
   <script src="js/audio.js?v=20260915-owner1"></script>
   <script src="js/car.js?v=20260916-tuning2"></script>
   <script src="js/ai.js?v=20260915-owner1"></script>
-  <script src="js/garage.js?v=20260918-v28"></script>
+  <script src="js/garage.js?v=20260918-v28&upgrade=20261013-v65&layout=20260920-v54&pointer=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57"></script>
   <script src="js/root-console.js?v=ownerlogs12"></script>
   <script src="js/control-layout.js?v=20260918-v29"></script>
   <script src="js/controls.js?v=20260915-owner1"></script>
-  <script src="js/network.js?v=20260915-owner1"></script>
+  <script src="js/network.js?v=20260920-media-v51"></script>
   <script src="js/account.js?v=20260918-ref-v31&v44=guest"></script>
   <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32"></script>
-  <script src="js/main-menu-ui.js?v=20260918-menu-v25"></script>
-  <script src="js/payments.js?v=20260918-yoomoney2&menu=20260918-v20"></script>
+  <script src="js/main-menu-ui.js?v=20261013-race-control-v65"></script>
+  <script src="js/payments.js?v=20260921-v63&menu=20260918-v20"></script>
   <script src="js/market.js?v=20260916-tuning2"></script>
   <script src="js/promo.js?v=20260915-001"></script>
   <script src="js/referrals.js?v=20260918-ref-v31"></script>
-  <script src="js/online.js?v=20260916-adminprefix1&admin=20260918-v32&v44=guest"></script>
+  <script src="js/online.js?v=20260920-media-v51"></script>
   <script src="js/friends.js?v=20260916-crews1"></script>
-  <script src="js/free-city.js?v=20260919-v43&v44=garage"></script>
-  <script src="js/freeroam.js?v=20260919-v43&v44=garage"></script>
-  <script src="js/owner-panel.js?v=20260917-admin-daily2"></script>
+  <script src="js/free-city.js?v=20260920-v49"></script>
+  <script src="js/freeroam.js?v=20260920-v49&media=20260920-v50&football=20260920-v61"></script>
+  <script src="js/owner-panel.js?v=20260917-admin-daily2&media=20260920-v50&upgrade=20260920-v52"></script>
   <script src="js/crews.js?v=20260917-economy13"></script>
-  <script src="js/game.js?v=20260919-career50-v38"></script>
+  <script src="js/game.js?v=20260920-media-race-v51"></script>
 </body>
 </html>

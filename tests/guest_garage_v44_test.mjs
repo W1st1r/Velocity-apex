@@ -11,10 +11,12 @@ assert.ok(account.includes('requestAuth')&&account.includes('ОНЛАЙН НЕД
 assert.ok(online.includes("if(!window.VelocityAccount?.authenticated)"),'online client gate missing');
 assert.ok(worker.match(/if\(!identity\.user\)return json\(\{error:'AUTH_REQUIRED'\},401\)/g)?.length>=3,'server-side online auth gates missing');
 assert.ok(worker.includes("m.type==='loadout_update'")&&worker.includes("CAR_NOT_OWNED")&&worker.includes("SELECT save_json FROM player_saves"),'server garage ownership validation missing');
-assert.ok(free.includes("garage:{x:2670,y:635")&&free.includes("ГАРАЖ · ВОЙТИ")&&free.includes("loadout_update")&&free.includes("loadout_updated"),'Free Roam garage flow missing');
+assert.ok(free.includes("GARAGE_VENUE")&&free.includes("garage:GARAGE_ZONE")&&free.includes("ГАРАЖ · ВОЙТИ")&&free.includes("loadout_update")&&free.includes("loadout_updated"),'Free Roam garage flow missing');
 const scope={window:{}};vm.createContext(scope);vm.runInContext(citySrc,scope);const city=scope.window.ApexCity,gv=city.garageVenue;
 assert.ok(gv,'garage venue missing');
 assert.ok(city.roadAt(gv.apron.x+gv.apron.w/2,gv.apron.y+gv.apron.h/2,-20),'garage apron is not driveable');
 assert.ok(city.roadAt(gv.access.x+gv.access.w/2,430,-20),'garage access is not connected to public road');
+assert.ok(city.roadAt(gv.access.x+gv.access.w/2,gv.access.y+gv.access.h-12,-20),'garage access is not smoothly connected to the apron');
 const b=gv.building;assert.equal(city.roadAt(b.x+b.w/2,b.y+b.h/2),false,'garage building overlaps driveable area');
+assert.ok(worker.includes('insideGarageZone')&&worker.includes('FREE_GARAGE=Object.freeze({x:2675,y:654'),'server-side widened garage validation missing');
 console.log('guest_garage_v44_test: OK');

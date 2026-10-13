@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="280" viewBox="0 0 360 280">
+  <defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a9ff73"/><stop offset=".42" stop-color="#5ce630"/><stop offset="1" stop-color="#157930"/></linearGradient><linearGradient id="glass" x1="0" y1="0" x2="1" y2=".9"><stop stop-color="#163c38"/><stop offset=".5" stop-color="#0a161e"/><stop offset="1" stop-color="#3a6868"/></linearGradient><filter id="shadow"><feGaussianBlur stdDeviation="5"/></filter></defs>
+  <ellipse cx="180" cy="145" rx="148" ry="66" fill="#000" opacity=".45" filter="url(#shadow)"/>
+  <g transform="translate(180 140) rotate(-10)">
+    <rect x="-102" y="-83" width="39" height="34" rx="9" fill="#080e13" stroke="#27333b" stroke-width="5"/><rect x="-102" y="50" width="39" height="34" rx="9" fill="#080e13" stroke="#27333b" stroke-width="5"/>
+    <rect x="67" y="-82" width="39" height="33" rx="9" fill="#080e13" stroke="#27333b" stroke-width="5"/><rect x="67" y="50" width="39" height="33" rx="9" fill="#080e13" stroke="#27333b" stroke-width="5"/>
+    <path d="M-113-33Q-95-72-38-76H60Q99-70 127-45L139-26Q148 0 139 26L127 45Q95 73 60 76H-38Q-93 70-113 33L-122 17V-17Z" fill="#1c4026" stroke="#0c1b18" stroke-width="8"/>
+    <path d="M-111-33Q-92-69-36-69H60Q99-61 126-39L133-21Q142 0 133 21L126 39Q97 65 60 69H-36Q-89 67-111 33L-117 15V-15Z" fill="url(#p)" stroke="#d0ff8a" stroke-opacity=".6" stroke-width="2"/>
+    <path d="M-56-52L-7-55Q36-53 42-39L49 0L42 39Q35 53-7 55L-56 52Q-72 38-73 0Q-70-37-56-52Z" fill="#102f2d" stroke="#092021" stroke-width="6"/>
+    <path d="M-48-43L-5-45Q16-43 23-31L27 0L23 31Q15 43-5 45L-48 43L-54 21V-21Z" fill="url(#glass)"/>
+    <path d="M-5-44V44M50-48V48M-87-44V44" stroke="#d1ff9e" stroke-opacity=".55" stroke-width="5"/>
+    <path d="M84-49Q108-42 123-28L122 28Q107 42 84 49" fill="#1e7d34" stroke="#c9ff86" stroke-opacity=".65" stroke-width="2"/>
+    <path d="M123-37L137-26V-8L113-10Z M123 37L137 26V8L113 10Z" fill="#e5ffdf"/>
+    <path d="M-105-27L-116-27L-115-9L-98-14Z M-105 27L-116 27L-115 9L-98 14Z" fill="#fc4b50"/>
+    <path d="M-105-57H-89M-105 57H-89" stroke="#d1ff82" stroke-width="3"/>
+  </g>
+</svg>

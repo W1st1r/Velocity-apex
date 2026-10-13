@@ -1,0 +1,14 @@
+set -e
+cd /workspaces/Velocity-apex
+rm -rf velocity-apex-v64-release
+mkdir -p velocity-apex-v64-release
+unzip -oq 'Velocity-Apex-Upgrade-Pointer-Truth-V64.zip' -d velocity-apex-v64-release
+cd velocity-apex-v64-release
+npm install
+node tests/garage_upgrade_v64_pointer_truth_test.mjs
+node tests/garage_upgrade_v62_odds_boundary_test.mjs
+node tests/economy_v63_test.mjs
+node tests/garage_layout_v54_test.mjs
+node tests/garage_nav_v56_test.mjs
+node tests/garage_confirm_v57_test.mjs
+npx wrangler deploy --config "$PWD/wrangler.jsonc"

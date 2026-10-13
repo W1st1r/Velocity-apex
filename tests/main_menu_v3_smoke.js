@@ -1,25 +1,15 @@
-/* Main menu V20: clear hierarchy, corner settings and low-frequency More drawer. */
-const assert=require('assert').strict,fs=require('fs'),path=require('path');
-const ROOT=path.resolve(__dirname,'..');
-const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8');
-const css=fs.readFileSync(path.join(ROOT,'public/css/mobile-ui.css'),'utf8');
-const js=fs.readFileSync(path.join(ROOT,'public/js/main-menu-ui.js'),'utf8');
-const gameJs=fs.readFileSync(path.join(ROOT,'public/js/game.js'),'utf8');
-for(const id of ['menu','playBtn','onlineBtn','shopBtn','garageBtn','topupBtn','telegramBanner','accountBtn','friendsBtn','crewBtn','promoBtn','supportBtn','settingsBtn','menuMoreBtn','menuMorePanel','menuCredits','accountMenuStatus','friendsMenuStatus','menuBestScore','menuBestLap','menuMaxLaps','menuMute']){
-  const count=(html.match(new RegExp(`id=["']${id}["']`,'g'))||[]).length;
-  assert.equal(count,1,`menu id ${id} must exist exactly once`);
+/* Main menu V65 — Race Control with preserved wiring. */
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const html=read('public/index.html'),css=read('public/css/race-control-v65.css'),js=read('public/js/main-menu-ui.js'),game=read('public/js/game.js');
+for(const id of ['menu','playBtn','onlineBtn','shopBtn','garageBtn','topupBtn','telegramBanner','accountBtn','friendsBtn','crewBtn','promoBtn','supportBtn','settingsBtn','menuMoreBtn','menuMorePanel','menuCredits','accountMenuStatus','friendsMenuStatus','menuBestScore','menuBestLap','menuMaxLaps','menuMute','referralBtn']){
+ assert.equal((html.match(new RegExp(`id=["']${id}["']`,'g'))||[]).length,1,`menu id ${id} must exist exactly once`);
 }
-for(const token of ['menu-card-v20','menu-hero-v20','menu-core-section','menu-wallet-section','menu-telegram-section','menu-community-section','menu-more-panel','menu-footer-v20','НАШ TELEGRAM']){
-  assert.ok(html.includes(token),`V20 menu structure missing ${token}`);
-}
-assert.ok(/id="settingsBtn"[^>]*menu-corner-btn/.test(html),'settings must be a corner icon button');
-assert.ok(html.indexOf('id="topupBtn"')>html.indexOf('menu-wallet-section'),'donate must live in wallet section');
-assert.ok(html.indexOf('id="promoBtn"')>html.indexOf('id="menuMorePanel"'),'promo must live inside More drawer');
-for(const token of ['V20 — MAIN MENU INFORMATION ARCHITECTURE','grid-template-areas:"hero" "play" "core" "wallet" "telegram" "community" "footer"','.menu-screen .menu-corner-btn{','.menu-screen .telegram-banner-btn{','telegramBannerShine','.menu-screen .menu-community-actions{','.menu-screen .menu-more-panel{']){
-  assert.ok(css.includes(token),`V20 responsive CSS missing ${token}`);
-}
-assert.ok(js.includes("$('menuMoreBtn')")&&js.includes('aria-expanded')&&js.includes('VelocityMainMenu'),'More drawer JS missing');
-assert.ok(html.includes('НАШ TELEGRAM'),'Telegram banner text missing');
-assert.ok(gameJs.includes('https://t.me/wistirapex'),'Telegram channel link missing in game menu JS');
-assert.ok(html.includes('menu=20260918-v25'),'main menu stylesheet cache-bust missing');
-console.log('main_menu_v20_smoke: OK (play/core/wallet/community hierarchy + settings corner + More drawer)');
+for(const token of ['race-control-v65','rc-rail','rc-main','rc-aside','rc-car-holder','rc-action','rc-popover','menu-wallet-section'])assert.ok(html.includes(token),`Race Control section missing ${token}`);
+assert.ok(html.includes('id="topupBtn"')&&html.indexOf('id="topupBtn"')>html.indexOf('menu-wallet-section'));
+assert.ok(html.indexOf('id="promoBtn"')>html.indexOf('id="menuMorePanel"'));
+assert.ok(css.includes('safe-area-inset-right')&&css.includes('grid-template-columns:clamp(102px'));
+assert.ok(js.includes('aria-expanded')&&js.includes('VelocityMainMenu')&&js.includes('selectedLivery'));
+assert.ok(game.includes('https://t.me/wistirapex'));
+assert.ok(html.includes('race-control-v65.css?v=20261013-v65'));
+console.log('main_menu_v65_smoke: OK');

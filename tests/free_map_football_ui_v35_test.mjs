@@ -24,5 +24,5 @@ assert.ok(client.includes("compactPlaying=e.status==='running'"),'all running mi
 assert.ok(client.includes("roam.classList.toggle('minigame-playing',compactPlaying)"),'free-roam must expose general compact mini-game state to CSS');
 for(const token of ['.free-minigame-hud.minigame-compact','.free-roam.minigame-playing .free-hud-center','@media (orientation:landscape) and (max-height:700px) and (max-width:1180px)'])assert.ok(css.includes(token),`compact mini-game CSS missing ${token}`);
 assert.ok(client.includes('updateMinigameCamera(e,kind)')&&client.includes('anchorY:H*.46'),'phone landscape mini-game camera must follow the player/objective inside a HUD-safe zone');
-assert.ok(html.includes('20260919-v43'),'V43 cache bust must force Safari/PWA to load the corrected map and HUD');
+assert.ok(html.includes('20260920-v49'),'V43 cache bust must force Safari/PWA to load the corrected map and HUD');
 console.log('free_map_football_ui_v35_test: OK — V40 single drift megapark + compact all-mini-game HUD');

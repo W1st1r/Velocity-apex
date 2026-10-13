@@ -733,6 +733,53 @@
   R.ECONOMY_VERSION=39;
   R.ECONOMY_V39_CAR_MULTIPLIERS=ECONOMY_V39_CAR_MULTIPLIERS;
 
+  // V63 economy expansion. Higher vehicle classes rise progressively instead of
+  // applying one blanket multiplier. Case prices are recalculated from the new
+  // reward values while preserving each V39 case's house-edge / EV ratio.
+  const ECONOMY_V63_CAR_MULTIPLIERS=Object.freeze({basic:1.15,sport:1.30,premium:1.45,rare:1.70,legendary:1.95,lux:2.20});
+  const ECONOMY_V63_EFFECT_MULTIPLIER=1.40;
+  const economyServiceRound=value=>Math.max(10,Math.ceil((Number(value)||0)/10)*10);
+  for(const [id,item] of Object.entries(R.LIVERIES)){
+    if(!(Number(item.price)>0))continue;
+    const mult=ECONOMY_V63_CAR_MULTIPLIERS[R.normalizeCarCategory(item.category)]||1.15;
+    item.economyV62Price=item.price;
+    item.price=economyCarRound(item.price*mult);
+  }
+  for(const item of Object.values(R.EFFECTS)){
+    if(!(Number(item.price)>0))continue;
+    item.economyV62Price=item.price;
+    item.price=economyCaseRound(item.price*ECONOMY_V63_EFFECT_MULTIPLIER);
+  }
+  const CASES_V62=R.CASES;
+  const v63Cases={};
+  for(const id of CASE_ORDER){
+    const previous=CASES_V62[id];
+    const rewards=(previous.rewards||[]).map(reward=>{
+      const current=reward.kind==='livery'?R.LIVERIES[reward.id]:R.EFFECTS[reward.id];
+      return Object.freeze({...reward,price:Math.max(0,Number(current?.price)||0)});
+    });
+    const expectedValue=rewards.reduce((sum,reward)=>sum+reward.price*(reward.chanceBps/10000),0);
+    const oldExpected=Math.max(1,Number(previous.expectedValue)||1);
+    const oldPrice=Math.max(1,Number(previous.price)||1);
+    const preservedPriceToEv=oldPrice/oldExpected;
+    const price=economyCaseRound(expectedValue*preservedPriceToEv);
+    v63Cases[id]=Object.freeze({...previous,price,expectedValue:Math.round(expectedValue),rewards:Object.freeze(rewards)});
+  }
+  R.CASES=Object.freeze(v63Cases);
+  for(const key of ['getUpgradeCost','getPaintCost','getVinylCost']){
+    const previous=R[key];
+    R[key]=function(id,...args){
+      const value=previous(id,...args);
+      if(value==null||!(Number(value)>0))return value;
+      const category=R.normalizeCarCategory(R.LIVERIES?.[id]?.category);
+      const mult=ECONOMY_V63_CAR_MULTIPLIERS[category]||1.15;
+      return economyServiceRound(value*mult);
+    };
+  }
+  R.ECONOMY_VERSION=63;
+  R.ECONOMY_V63_CAR_MULTIPLIERS=ECONOMY_V63_CAR_MULTIPLIERS;
+  R.ECONOMY_V63_EFFECT_MULTIPLIER=ECONOMY_V63_EFFECT_MULTIPLIER;
+
   // Garage resale: the system pays 70% of the car's current catalog value plus
   // every permanent tuning purchase tied to that car. The starter car is kept as
   // a guaranteed fallback and cannot be sold.

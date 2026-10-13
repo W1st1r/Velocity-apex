@@ -15,7 +15,7 @@ assert.ok(city.includes("driftHarbor:{x:170,y:1940,w:1000,h:740}"),'enlarged dri
 assert.ok(!client.includes('driftIndustrial:')&&!client.includes('driftParking:'),'client must not expose extra drift zones');
 assert.ok(!server.includes('industrial:{x:2690')&&!server.includes('parking:{x:3700'),'server must not expose extra drift zones');
 assert.ok(city.includes("access:{x:1825,y:285,w:105,h:135}")&&city.includes("exit:{x:2015,y:285,w:105,h:135}"),'stadium entry/exit missing');
-assert.ok(city.includes("access:{x:3230,y:860,w:100,h:150}")&&city.includes("exit:{x:3455,y:860,w:100,h:150}"),'rush entry/exit missing');
+assert.ok(city.includes("access:{x:3165,y:860,w:145,h:150}")&&city.includes("exit:{x:3390,y:860,w:145,h:150}"),'rush entry/exit missing');
 assert.ok(city.includes("access:{x:845,y:1288,w:205,h:124}")&&city.includes("exit:{x:845,y:1380,w:205,h:124}"),'bomb arena entry/exit missing');
 assert.ok(city.includes("building:{x:605,y:1128,w:330,h:138}"),'bomb arena must stay clear of arterial');
 assert.ok(!city.includes("building:{x:720,y:1210,w:290,h:126}"),'old road-overlapping bomb arena remains');

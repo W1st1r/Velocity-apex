@@ -15,7 +15,7 @@
     }
     if(btn){
       btn.classList.remove('hidden');btn.removeAttribute('hidden');btn.setAttribute('aria-hidden','false');
-      btn.style.setProperty('display','grid','important');btn.style.setProperty('visibility','visible','important');btn.style.setProperty('opacity','1','important');
+      btn.style.setProperty('display',document.querySelector('#menu.race-control-v65')?'flex':'grid','important');btn.style.setProperty('visibility','visible','important');btn.style.setProperty('opacity','1','important');
       if(donateDock&&btn.parentElement!==donateDock)donateDock.append(btn);
     }
     return btn;

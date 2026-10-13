@@ -1,0 +1,13 @@
+Velocity Apex V55 — iPhone Garage Upgrade pointer and layout
+
+Place Velocity-Apex-Garage-Upgrade-iPhone-V55.zip in the current directory, then run:
+
+mkdir -p velocity-apex-v55
+unzip -o "Velocity-Apex-Garage-Upgrade-iPhone-V55.zip" -d velocity-apex-v55
+cd velocity-apex-v55
+npm install
+npm test
+npx wrangler d1 migrations apply velocity-apex-db --remote
+npx wrangler deploy
+
+This archive includes the full project, public/ static files, wrangler.jsonc, and existing D1 migrations. Use the Cloudflare account connected to this Worker.

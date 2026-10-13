@@ -9,7 +9,7 @@ const server=readFileSync(new URL('../src/worker.mjs',import.meta.url),'utf8');
 
 // Hubs are no longer the old road-intersection circles.
 for(const old of ['footballHub:{x:1680,y:430','checkpointHub:{x:3660,y:1010','hotPotatoHub:{x:1050,y:1590'])assert.ok(!client.includes(old),`old road hub remains: ${old}`);
-for(const now of ["footballHub:{x:1835,y:300", "checkpointHub:{x:3480,y:865", "hotPotatoHub:{x:820,y:1410"])assert.ok(client.includes(now),`new venue entrance missing: ${now}`);
+for(const now of ["footballHub:{x:1835,y:300", "checkpointHub:{x:3338,y:865", "hotPotatoHub:{x:820,y:1410"])assert.ok(client.includes(now),`new venue entrance missing: ${now}`);
 assert.ok(!client.includes("drawZone(ctx,ZONES.footballHub"),'football road circle should be removed');
 assert.ok(!client.includes("drawZone(ctx,ZONES.checkpointHub"),'checkpoint road circle should be removed');
 assert.ok(!client.includes("drawZone(ctx,ZONES.hotPotatoHub"),'hot potato road circle should be removed');

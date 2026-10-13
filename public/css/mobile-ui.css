@@ -1057,3 +1057,65 @@ input,select,textarea{user-select:text;-webkit-user-select:text}
   .admin-row-actions{display:grid!important;grid-template-columns:1fr 1fr!important}.admin-row-actions .admin-action,.admin-row-actions select{width:100%!important;min-width:0!important}.admin-row-actions select{grid-column:1/-1!important;font-size:16px!important}
   .owner-admin-assignment{grid-template-columns:1fr!important}.owner-admin-staff-grid,.owner-admin-columns{grid-template-columns:1fr!important}.admin-punish-box{grid-template-columns:1fr!important}.admin-punish-box>*{grid-column:1!important;width:100%!important}
 }
+
+/* V56 · Garage owns its rows; the older three-row shop shell must not place
+   the tabs in a shrinking content row or stretch one category across the row. */
+@media (max-width:1024px), (max-height:620px){
+  .garage-screen .garage-panel.catalog-panel{
+    grid-template-rows:auto auto auto minmax(0,1fr) auto!important;
+    gap:clamp(4px,.9dvh,8px)!important;
+  }
+  .garage-screen.effect-open .garage-panel.catalog-panel{
+    grid-template-rows:auto auto minmax(0,1fr) auto!important;
+  }
+  .garage-screen.upgrade-open .garage-panel.catalog-panel{
+    grid-template-rows:auto auto minmax(0,1fr)!important;
+  }
+  .garage-screen .garage-panel>#garageTabs{
+    grid-row:2!important;
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    min-height:38px!important;
+    height:38px!important;
+    margin:0!important;
+    padding:2px!important;
+    overflow:hidden!important;
+  }
+  .garage-screen #garageTabs button{
+    min-width:0!important;
+    min-height:34px!important;
+    height:34px!important;
+    font-size:clamp(8px,1.8dvh,10px)!important;
+    white-space:nowrap!important;
+  }
+  .garage-screen .garage-panel>#garageSecondaryNav:not(.hidden){grid-row:3!important;min-height:31px!important}
+  .garage-screen .garage-panel>#garageStandardBody:not(.hidden){grid-row:4!important;min-height:0!important}
+  .garage-screen .garage-panel>#garageMessage{grid-row:5!important}
+  .garage-screen.effect-open .garage-panel>#garageStandardBody:not(.hidden){grid-row:3!important}
+  .garage-screen.effect-open .garage-panel>#garageMessage{grid-row:4!important}
+  .garage-screen.upgrade-open .garage-panel>#garageUpgradePanel:not(.hidden){grid-row:3!important;min-height:0!important}
+  .garage-screen #garageCategoryTabs{
+    display:grid!important;
+    grid-template-columns:repeat(7,minmax(0,1fr))!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    touch-action:manipulation!important;
+  }
+  .garage-screen #garageCategoryTabs button{
+    flex:initial!important;
+    width:auto!important;
+    min-width:0!important;
+    height:31px!important;
+    min-height:31px!important;
+    padding:0 2px!important;
+    font-size:clamp(6px,1.5dvh,8px)!important;
+    white-space:nowrap!important;
+  }
+}
+@media (orientation:landscape) and (max-width:700px){
+  .garage-screen #garageCategoryTabs .category-chip-icon{display:none!important}
+}

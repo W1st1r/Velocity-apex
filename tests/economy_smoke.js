@@ -4,9 +4,9 @@ const ROOT=path.resolve(__dirname,'..');global.window=global;window.Racing={};
 vm.runInThisContext(fs.readFileSync(path.join(ROOT,'public/js/content.js'),'utf8'),{filename:'js/content.js'});
 const R=global.Racing,assert=(ok,msg)=>{if(!ok)throw new Error(msg);};
 
-const expectedSamples={apexLime:0,'vw-golf-gti':5500,'porsche-911':144500,'bugatti-veyron':481000,'aston-martin-valkyrie-mary':700000,'koenigsegg-jesko':775000};
+const expectedSamples={apexLime:0,'vw-golf-gti':6250,'porsche-911':209500,'bugatti-veyron':938000,'aston-martin-valkyrie-mary':1540000,'koenigsegg-jesko':1705000};
 for(const [id,price] of Object.entries(expectedSamples))assert(R.LIVERIES[id].price===price,`bad livery price ${id}`);
-for(const [id,price] of Object.entries({standard:0,blueFlame:1100,redFlame:2500,rainbowFlame:5200}))assert(R.EFFECTS[id].price===Math.round(price*1.25),`bad effect price ${id}`);
+for(const [id,price] of Object.entries({standard:0,blueFlame:1875,redFlame:4375,rainbowFlame:9125}))assert(R.EFFECTS[id].price===price,`bad V63 effect price ${id}`);
 
 const standard=[1,2,4,8].map(place=>R.raceReward({bots:7,laps:5,difficulty:'medium'},place));
 assert(JSON.stringify(standard)===JSON.stringify([343,319,272,178]),`standard rewards ${standard}`);
@@ -20,16 +20,16 @@ for(const malformed of [null,undefined,{}, {bots:NaN,laps:Infinity,difficulty:'?
 
 const byCategory={};for(const id of R.REAL_CAR_IDS){const c=R.LIVERIES[id];(byCategory[c.category]??=[]).push(c.price);}
 const order=['basic','sport','premium','rare','legendary','lux'];for(let i=1;i<order.length;i++){const prev=byCategory[order[i-1]],cur=byCategory[order[i]];assert(Math.max(...prev)<Math.min(...cur),`${order[i-1]} must remain cheaper than ${order[i]}`);}
-assert(Math.min(...byCategory.lux)>=600000&&Math.max(...byCategory.lux)<=800000,'V39 LUX range must stay below one million');
+assert(Math.min(...byCategory.lux)>=1300000&&Math.max(...byCategory.lux)<=1800000,'V63 LUX range must reflect the 2.20x class rebalance');
 // AI benchmark medium average is ~32.06 s/lap across the five bundled tracks. Add 6 s for countdown/UI turnover.
 // Use ordinary 4th/5th places, not constant wins, to estimate realistic CR/hour.
 const typicalReward=(R.raceReward({bots:7,laps:5,difficulty:'medium'},4)+R.raceReward({bots:7,laps:5,difficulty:'medium'},5))/2;
 const typicalRaceSeconds=5*32.058+6,crPerHour=typicalReward*3600/typicalRaceSeconds;
 const maryHours=R.LIVERIES['aston-martin-valkyrie-mary'].price/crPerHour,medianLux=[...byCategory.lux].sort((a,b)=>a-b)[Math.floor(byCategory.lux.length/2)]/crPerHour;
-assert(maryHours>=115&&maryHours<=135,`Mary progression target ${maryHours.toFixed(1)}h`);assert(medianLux>=115&&medianLux<=135,`median LUX progression target ${medianLux.toFixed(1)}h`);
+assert(maryHours>=240&&maryHours<=290,`V63 Mary progression target ${maryHours.toFixed(1)}h`);assert(medianLux>=240&&medianLux<=290,`V63 median LUX progression target ${medianLux.toFixed(1)}h`);
 
 function fresh(credits=200){return R.normalizeSave({credits});}
-let save=fresh(1099);assert(R.shopAction(save,'effect','blueFlame')==='insufficient','insufficient should fail');assert(save.credits===1099,'insufficient changed credits');save=fresh(1375);assert(R.shopAction(save,'effect','blueFlame')==='purchased'&&save.credits===0,'exact-price effect purchase failed');
+let save=fresh(1874);assert(R.shopAction(save,'effect','blueFlame')==='insufficient','insufficient should fail');assert(save.credits===1874,'insufficient changed credits');save=fresh(1875);assert(R.shopAction(save,'effect','blueFlame')==='purchased'&&save.credits===0,'exact-price effect purchase failed');
 const old=R.normalizeSave({credits:777,ownedLiveries:['apexLime','crimsonVelocity','porsche-911'],ownedEffects:['standard','redFlame'],selectedLivery:'porsche-911',selectedEffect:'redFlame',bestScore:99,bestLap:1234,maxLaps:8,botCount:13,raceLaps:15,difficulty:'hard',trackId:'neonHarbor',controlMode:'wheel',tiltSensitivity:'high',muted:true});assert(old.credits===777&&old.ownedLiveries.includes('porsche-911')&&old.selectedLivery==='porsche-911','old ownership/selection lost');
-let porsche=R.normalizeSave({credits:144499});assert(R.shopAction(porsche,'livery','porsche-911')==='insufficient'&&porsche.credits===144499,'Porsche insufficient failed');porsche=R.normalizeSave({credits:144500});assert(R.shopAction(porsche,'livery','porsche-911')==='purchased'&&porsche.credits===0,'Porsche exact-price purchase failed');
+let porsche=R.normalizeSave({credits:209499});assert(R.shopAction(porsche,'livery','porsche-911')==='insufficient'&&porsche.credits===209499,'Porsche insufficient failed');porsche=R.normalizeSave({credits:209500});assert(R.shopAction(porsche,'livery','porsche-911')==='purchased'&&porsche.credits===0,'Porsche exact-price purchase failed');
 console.log(JSON.stringify({standard,lapWins,typicalReward,crPerHour:+crPerHour.toFixed(1),maryHours:+maryHours.toFixed(1),medianLuxHours:+medianLux.toFixed(1),checkedRewardCases:rows.length,categoryRanges:Object.fromEntries(order.map(k=>[k,[Math.min(...byCategory[k]),Math.max(...byCategory[k])]]))},null,2));

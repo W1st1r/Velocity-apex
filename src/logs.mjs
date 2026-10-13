@@ -1,7 +1,7 @@
 const now=()=>Date.now();
 const jsonSafe=value=>{try{return JSON.stringify(value??{}).slice(0,12000);}catch{return '{}';}};
 const clean=(value,max=500)=>String(value??'').trim().replace(/\s+/g,' ').slice(0,max);
-const validCategory=value=>['blocks','mutes','joins','purchases','sales','system','chat'].includes(value)?value:'system';
+const validCategory=value=>['blocks','mutes','joins','purchases','sales','upgrades','system','chat'].includes(value)?value:'system';
 const logId=()=>`LOG-${crypto.randomUUID().replace(/-/g,'').slice(0,12).toUpperCase()}`;
 let schemaPromise=null;
 
@@ -70,7 +70,7 @@ function toPublic(row){let metadata={};try{metadata=JSON.parse(row.metadata_json
 export async function queryGameLogs(env,params={}){
   await ensureGameLogs(env);
   const where=[],bind=[];
-  const category=String(params.category||'all');if(category!=='all'&&['blocks','mutes','joins','purchases','sales','system','chat'].includes(category)){where.push('category=?');bind.push(category);}
+  const category=String(params.category||'all');if(category==='media'){where.push("(event_type LIKE 'media_%' OR source LIKE 'MEDIA%')");}else if(category!=='all'&&['blocks','mutes','joins','purchases','sales','upgrades','system','chat'].includes(category)){where.push('category=?');bind.push(category);}
   const q=clean(params.q,120).toLowerCase();if(q){const like='%'+q.replace(/[%_]/g,m=>'\\'+m)+'%';where.push(`(lower(COALESCE(actor_username,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(target_username,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(actor_user_id,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(target_user_id,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(event_type,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(subject,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(message,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(reason,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(related_id,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(server_id,'')) LIKE ? ESCAPE '\\' OR lower(COALESCE(metadata_json,'')) LIKE ? ESCAPE '\\')`);for(let i=0;i<11;i++)bind.push(like);}
   const server=clean(params.server,80).toLowerCase();if(server){where.push("lower(COALESCE(server_id,'')) LIKE ?");bind.push('%'+server+'%');}
   const eventType=clean(params.eventType,64).toLowerCase();if(eventType){where.push("lower(event_type)=?");bind.push(eventType);}
