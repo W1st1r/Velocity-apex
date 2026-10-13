@@ -180,7 +180,7 @@
 
     steeringAuthority(speed=this.speed,surfaceOrOnRoad=this.surface){
       const surface=this._surfaceType(surfaceOrOnRoad),speedRatio=clamp(speed/Math.max(1,this.maxSpeed),0,1.12);
-      const rolling=clamp(speed/54,0,1),highSpeed=1-.17*Math.pow(clamp(speedRatio,0,1),1.45);
+      const rolling=clamp(speed/54,0,1),highSpeed=1-.245*Math.pow(clamp(speedRatio,0,1),1.40);
       const surfaceFactor=surface==='asphalt'?1:surface==='shoulder'?.94:.58;
       return this.turnRate*(.12+.88*rolling)*highSpeed*surfaceFactor;
     }
@@ -192,7 +192,7 @@
       // while true off-road remains deliberately costly for player and AI alike.
       const base=166,downforce=.00205*speed*speed,brakeLoad=1-.20*clamp(brake,0,1);
       const surfaceGrip=surface==='shoulder'?.92:1;
-      return (base+downforce)*brakeLoad*surfaceGrip;
+      return (base+downforce)*brakeLoad*surfaceGrip*(this.gripFactor||1);
     }
 
     markImpact(strength=.5){

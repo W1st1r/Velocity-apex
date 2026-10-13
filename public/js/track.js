@@ -106,13 +106,22 @@
     }
 
     getSpeedProfile(car,opts={}) {
-      const grip=clamp(opts.gripUsage??.94,.58,1),brakeUse=clamp(opts.brakeUsage??.92,.55,1),accelUse=clamp(opts.accelUsage??.94,.55,1);
+      const grip=clamp((opts.gripUsage??.94)*(car.gripFactor||1),.58,1.12),brakeUse=clamp(opts.brakeUsage??.92,.55,1),accelUse=clamp(opts.accelUsage??.94,.55,1);
       const pace=clamp(opts.pace??1,.62,1),mode=this.racingLines[opts.difficulty]?opts.difficulty:(opts.line||'extreme');
       const key=[mode,Math.round(car.maxSpeed),Math.round(car.accel),Math.round(car.brakePower),grip.toFixed(3),brakeUse.toFixed(3),accelUse.toFixed(3),pace.toFixed(3)].join(':');
       const cached=this._speedProfileCache.get(key);if(cached)return cached;
       const n=this.samples.length,profile=Array(n),cap=car.maxSpeed*pace,recommended=this.recommendedSpeeds[mode]||this.recommendedSpeeds.extreme,seg=this.lineSegmentLengths[mode]||this.lineSegmentLengths.extreme;
       const gripSpeed=Math.sqrt(grip);
-      for(let i=0;i<n;i++)profile[i]=Math.min(cap,recommended[i]*gripSpeed);
+      for(let i=0;i<n;i++){
+        // The precomputed geometry assumes the default vehicle.  A tuned opponent
+        // may have higher top speed/grip; use actual car limits, never a 510 cap.
+        const curvature=Math.abs(this.getLineCurvature(mode)[i]||0);
+        const shoulder=Math.abs(this.racingLines[mode][i])>this.asphaltCenterLimit;
+        const surfaceGrip=shoulder?.93:1;
+        const base=166*grip*surfaceGrip,downforce=.00205*grip*surfaceGrip;
+        const v=curvature<=downforce?cap:Math.sqrt(base/Math.max(.00010,curvature-downforce));
+        profile[i]=Math.min(cap,v,recommended[i]>=509?cap:recommended[i]*gripSpeed+Math.max(0,cap-510)*.12);
+      }
       const brakeDrag=2.25+.00031*Math.pow(car.maxSpeed*(mode==='extreme'?.95:mode==='hard'?.74:.60),2),brake=Math.max(40,car.brakePower*.80*brakeUse+brakeDrag),accel=Math.max(30,car.accel*.84*accelUse);
       // Closed-loop propagation couples local lateral limits to braking and acceleration.
       for(let pass=0;pass<6;pass++){

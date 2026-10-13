@@ -8,6 +8,32 @@
     extreme:{aggression:.965,precision:.998,errorChance:.00035,errorSize:1.5,lineUse:1,pace:1,gripUsage:.997,brakeUsage:.992,accelUsage:.998,reaction:1.10,brakeMargin:1.2,laneRate:2.85,followGap:75,recoverySpeed:208,edgeUse:1,trafficSkill:.988,driverVariance:.003,brakeConfidence:.985,curbAggression:.96,apexPreference:.94,consistency:.995}
   };
 
+  // Stable talent spread, independent of elapsed time, current rank or losses.
+  // Strong and weak drivers compete with real car physics, not rubber-banding.
+  const TALENTS=Object.freeze([
+    [1.00,1.02,1.01,1.00],[.96,1.00,1.00,.98],[1.035,1.03,1.025,1.03],
+    [.985,.98,1.01,.99],[1.055,1.035,1.035,1.045],[.95,.975,.98,.97],
+    [1.02,1.015,.99,1.015],[.975,1.025,1.03,1.005],[1.04,.99,1.02,1.02],
+    [1.01,1.04,1.02,1.035],[.945,.96,1.01,.965],[1.065,1.05,1.04,1.055],
+    [.99,1.005,.97,.99],[1.03,.98,1.04,1.00]
+  ]);
+  const FIELD_STRENGTH={easy:.42,medium:.65,hard:.85,extreme:1};
+  function botSkillProfile(index,count=13,difficulty='medium'){
+    const t=TALENTS[((index%TALENTS.length)+TALENTS.length)%TALENTS.length];
+    const strength=FIELD_STRENGTH[difficulty]??FIELD_STRENGTH.medium;
+    // High difficulties have more competitive machines, especially on straights;
+    // lower difficulties stay forgiving even for inexpensive player cars.
+    const base={easy:.955,medium:.98,hard:1.012,extreme:1.04}[difficulty]??.98;
+    const mix=(i)=>1+(t[i]-1)*(.55+strength*.45);
+    const topSpeed=base*mix(0),acceleration=base*mix(1);
+    return Object.freeze({topSpeed,acceleration,braking:mix(2),steering:mix(3),
+      grip:1+(t[3]-1)*(.20+strength*.36),pace:clamp(.97+(t[0]-1)*.33,.93,1.02),
+      cornering:clamp(1+(t[3]-1)*.40,.96,1.035),
+      brakeConfidence:clamp(1+(t[2]-1)*.30,.965,1.02),
+      racecraft:clamp(1+(t[1]-1)*.40,.96,1.03),followGap:clamp(1-(t[1]-1)*.70,.95,1.045),
+      tier:index%TALENTS.length});
+  }
+
   const laneOf=(car,track)=>{const p=track.samples[car.trackIndex];return (car.x-p.x)*p.nx+(car.y-p.y)*p.ny;};
   const forwardSpeed=(car,track)=>{const p=track.samples[car.trackIndex];return car.vx*p.tx+car.vy*p.ty;};
 
@@ -120,11 +146,17 @@
       if(seq.firstSharpDistance<95)look-=8*curveFactor;
       look=clamp(look,52,188);
       const aimHit=track.indexAtDistance?track.indexAtDistance(c.trackIndex,look,this.lineName):{index:(c.trackIndex+Math.max(2,Math.round(look/track.spacing)))%n};
-      const aimIndex=aimHit.index,baseLine=line[aimIndex]*this.lineUse+this.preference*(1-curveFactor*.80);
+      const aimIndex=aimHit.index;
+      const aimCurvature=track.getLineCurvature?track.getLineCurvature(this.lineName)[aimIndex]:0;
+      const inner=Math.sign(aimCurvature),apexLimit=track.asphaltCenterLimit||track.roadWidth*.5-24;
+      const apexCandidate=line[aimIndex]*this.lineUse;
+      const apexCut=this.difficulty==='extreme'&&inner*apexCandidate>apexLimit*.64
+        ?inner*this.curbAggression*3.5*clamp((Math.abs(aimCurvature)-.0006)/.002,0,1):0;
+      const baseLine=apexCandidate+apexCut+this.preference*(1-curveFactor*.80);
 
       const traffic=this._trafficChoice(track,cars,baseLine,lateral,speed);this.targetLane=this.driftMode?traffic.lane*.42:traffic.lane;
       if(c.surface==='offroad')this.targetLane=0;
-      const plannedLimit=track.lineLimits?.[this.lineName]?.max??(track.roadWidth*.5-28),targetEdge=(traffic.lead||traffic.sideBySide)?Math.max(this.edgeUse,.88+.12*this.trafficSkill):this.edgeUse;
+      const plannedLimit=Math.min(track.lineLimits?.[this.lineName]?.max??(track.roadWidth*.5-28),track.maxDriveableCenter?.(22)??Infinity),targetEdge=(traffic.lead||traffic.sideBySide)?Math.max(this.edgeUse,.88+.12*this.trafficSkill):this.edgeUse;
       this.targetLane=clamp(this.targetLane,-plannedLimit*targetEdge,plannedLimit*targetEdge);
       const trafficRate=traffic.sideBySide?.68:(traffic.lead?.82:1),laneResponse=(this.laneRate+.55*this.aggression)*this.reaction*trafficRate*(c.surface==='offroad'?1.32:1);
       this.lane+=(this.targetLane-this.lane)*(1-Math.exp(-dt*laneResponse));
@@ -146,18 +178,18 @@
       const cornerSeverity=clamp(Math.max(Math.abs(lineCurv[c.trackIndex]||0),Math.abs(seq.strongest))*235,0,1),idealHere=line[c.trackIndex]*this.lineUse;
       const lineDelta=Math.abs(this.lane-idealHere),linePenalty=cornerSeverity*clamp(lineDelta/(track.roadWidth*.32),0,1);
       desired*=1-linePenalty*(.20+.06*(1-this.trafficSkill));
-      if(traffic.sideBySide&&traffic.sideCar){desired*=1-cornerSeverity*.085;if(cornerSeverity>.24)desired=Math.min(desired,traffic.sideCar.speed+8+10*(1-cornerSeverity));}
-      if((traffic.density||0)>=3&&cornerSeverity>.24)desired*=1-.055*Math.min(4,traffic.density-2)*cornerSeverity;
+      if(traffic.sideBySide&&traffic.sideCar){desired*=1-cornerSeverity*.045;if(cornerSeverity>.24)desired=Math.min(desired,traffic.sideCar.speed+8+10*(1-cornerSeverity));}
+      if((traffic.density||0)>=4&&cornerSeverity>.44)desired*=1-.026*Math.min(4,traffic.density-3)*cornerSeverity;
 
       const metric=c.raceMetric(),brakeAvail=Math.max(40,c.brakePower*.80*this.brakeUsage);
       for(const o of cars){
         if(o===c||o.raceFinished)continue;const gap=(o.raceMetric()-metric)*track.length;if(gap<=0||gap>185)continue;
-        const ol=laneOf(o,track),sep=Math.min(Math.abs(lateral-ol),Math.abs(this.lane-ol)),closing=Math.max(0,forwardSpeed(c,track)-forwardSpeed(o,track));if(sep>62||closing<3)continue;
+        const ol=laneOf(o,track),sep=Math.min(Math.abs(lateral-ol),Math.abs(this.lane-ol)),closing=Math.max(0,forwardSpeed(c,track)-forwardSpeed(o,track));if(sep>56||closing<3)continue;
         const room=Math.max(0,gap-(46+closing*.17));desired=Math.min(desired,Math.sqrt(Math.max(0,o.speed*o.speed+2*brakeAvail*room)));if(gap/Math.max(1,closing)<.72&&sep<54)desired=Math.min(desired,o.speed*.96);
       }
       if(traffic.lead){
         const closing=Math.max(0,speed-traffic.lead.speed),laneSeparation=Math.abs(lateral-traffic.leadLane);
-        if(!traffic.passing||laneSeparation<68){const safe=this.followGap+closing*.24+cornerSeverity*16,room=Math.max(0,traffic.leadGap-safe);desired=Math.min(desired,Math.sqrt(Math.max(0,traffic.lead.speed*traffic.lead.speed+2*brakeAvail*room)));if(traffic.leadGap<safe*.67)desired=Math.min(desired,Math.max(34,traffic.lead.speed-(safe*.67-traffic.leadGap)*1.10));}
+        if(!traffic.passing||laneSeparation<60){const safe=this.followGap+closing*.18+cornerSeverity*10,room=Math.max(0,traffic.leadGap-safe);desired=Math.min(desired,Math.sqrt(Math.max(0,traffic.lead.speed*traffic.lead.speed+2*brakeAvail*room)));if(traffic.leadGap<safe*.67)desired=Math.min(desired,Math.max(34,traffic.lead.speed-(safe*.67-traffic.leadGap)*1.10));}
       }
       if(Math.abs(diff)>1.08)desired=Math.min(desired,76+34*this.pace);
 
@@ -200,5 +232,5 @@
       return out;
     }
   }
-  R.AIController=AIController;R.AI_PROFILES=PROFILES;
+  R.AIController=AIController;R.AI_PROFILES=PROFILES;R.botSkillProfile=botSkillProfile;
 })();

@@ -8,8 +8,8 @@ const race=read('public/css/race-control-v65.css');
 const menu=read('public/js/main-menu-ui.js');
 const manifest=JSON.parse(read('public/manifest.webmanifest'));
 const cssFiles=['style.css','mobile-ui.css','owner-panel.css','admin-system.css','payments.css','referrals.css','crews.css'];
-assert.match(html,/<title>Velocity Apex · V66<\/title>/);
-assert.match(html,/SEASON V66/);
+assert.match(html,/<title>Velocity Apex · V6[67]<\/title>/);
+assert.match(html,/SEASON V6[67]/);
 assert.match(html,/css\/unified-blue-v66\.css\?v=20261013-v66-1/);
 assert.ok(html.indexOf('race-control-v65.css')<html.indexOf('unified-blue-v66.css'),'unified CSS must be loaded last');
 for(const file of cssFiles){

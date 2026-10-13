@@ -349,7 +349,7 @@
   function createCars(){
     cars=[];finishOrder.length=0;finishCandidates.length=0;player=null;
     const names=['NOVA','VECTOR','PULSE','KITE','EMBER','VOLT','RIFT','ION','COMET','ARC','ZENITH','FLUX','NEON','APEX'];
-    const total=raceSettings.bots+1,playerGrid=Math.floor(total/2);
+    const total=raceSettings.bots+1,playerGrid=total-1;
     let botName=0,botPaint=0;
     for(let i=0;i<total;i++){
       const isPlayer=i===playerGrid;
@@ -358,7 +358,7 @@
         id:i,name:isPlayer?'YOU':names[botName++],player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],
         maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate
       });
-      const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;
+      const prog=-(65+Math.floor(i/2)*140+(isPlayer?76:0))/track.length,lane=i%2===0?-34:34;
       c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;
       if(!isPlayer){
         c.ai=new R.AIController(c,i,raceSettings.difficulty);c.ai.driftMode=localMode==='drift';c._control=c.ai.output;
@@ -367,6 +367,22 @@
         c.setPaintOverride({primary:paint[0],secondary:paint[1],accent:paint[1],stripe:paint[1]});
       }else {player=c;c.setLoadout(save.selectedLivery,save.selectedEffect);c.setCustomization(R.getCarStyle?.(save,save.selectedLivery));}
       R.applyCarPerformance(c,save.selectedLivery,save);
+      if(!isPlayer){
+        // A fixed field of individually tuned opponents, not one cloned car.
+        // Race AI never receives a late, invisible speed boost based on position.
+        const skill=R.botSkillProfile(botName-1,raceSettings.bots,raceSettings.difficulty);
+        c.botSkill=skill;
+        c.maxSpeed=Math.round(c.maxSpeed*skill.topSpeed);
+        c.accel=Math.round(c.accel*skill.acceleration);
+        c.brakePower=Math.round(c.brakePower*skill.braking);
+        c.turnRate*=skill.steering;
+        c.gripFactor=skill.grip;
+        c.ai.pace=R.clamp(c.ai.pace*skill.pace,.54,1);
+        c.ai.gripUsage=R.clamp(c.ai.gripUsage*skill.cornering,.54,1.04);
+        c.ai.brakeConfidence=R.clamp(c.ai.brakeConfidence*skill.brakeConfidence,.50,1.02);
+        c.ai.trafficSkill=R.clamp(c.ai.trafficSkill*skill.racecraft,.48,1.04);
+        c.ai.followGap*=skill.followGap;
+      }
       cars.push(c);
     }
     rankBuffer=cars.slice();updateRanks();prevRank=player.rank;
@@ -380,7 +396,7 @@
     for(let i=0;i<order.length;i++){
       const pd=room.players.find(p=>p.id===order[i]);if(!pd||pd.spectator)continue;const isPlayer=!spectator&&pd.id===localId;
       const c=new R.Car({id:pd.id,name:(pd.crew?'['+pd.crew.tag+'] ':'')+pd.name,player:isPlayer,color:palette[i%palette.length][0],accent:palette[i%palette.length][1],maxSpeed:PHYS.maxSpeed,accel:PHYS.accel,brakePower:PHYS.brakePower,turnRate:PHYS.turnRate});
-      c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');c.setCustomization(R.getCarStyleByIds?.(pd.colorId,pd.vinylId));R.applyCarPerformance(c,c.liveryId,isPlayer?save:null);const prog=-(65+Math.floor(i/2)*140)/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
+      c.networkId=pd.id;c.setLoadout(pd.liveryId||'apexLime',pd.effectId||'standard');c.setCustomization(R.getCarStyleByIds?.(pd.colorId,pd.vinylId));R.applyCarPerformance(c,c.liveryId,isPlayer?save:null);const prog=-(65+Math.floor(i/2)*140+(isPlayer?76:0))/track.length,lane=i%2===0?-34:34;c.place(track,prog,lane);c.raceFinished=false;c.finishPlace=0;c.finishTime=0;c._impactThisFrame=false;if(isPlayer)player=c;cars.push(c);
     }
     if(!player&&!spectator)return false;rankBuffer=cars.slice();updateRanks();prevRank=player?.rank||1;if(player){cam.x=player.x;cam.y=player.y;cam.rot=-Math.PI/2-player.angle;cam.screenY=.47;cam.look=90;}else{raceSpectatorMode='overview';raceSpectatorIndex=0;updateSpectatorCamera(1);}
     lapTime=0;raceTime=0;raceBestLap=0;score=0;scoreCarry=0;shake=0;impactCooldown=0;grassSoundCooldown=0;skidTick=0;driftCombo=1;driftChainDistance=0;driftChainTime=0;driftIdleTime=0;driftLastProgress=player?.progress||0;driftLastValid=false;driftPeakCombo=1;UI.toasts.replaceChildren();particles.forEach(p=>p.active=false);skid.forEach(x=>x.active=false);if(player)updateHUD();return true;
