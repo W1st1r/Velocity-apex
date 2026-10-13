@@ -10,7 +10,8 @@
     "test:map": "node tests/free_city_geometry_test.js && node tests/free_reference_map_v41_test.js && node tests/freeroam_social_smoke.js && node tests/interaction_guard_smoke.js",
     "test:v65": "node tests/race_control_upgrade_v65_test.mjs && node tests/garage_upgrade_v64_pointer_truth_test.mjs",
     "test:v66": "node tests/unified_blue_v66_test.mjs && npm run test:v65 && node tests/garage_visual_smoke.js && node tests/free_minigame_visibility_v43_test.mjs && node tests/admin_online_prefix_smoke.js && node tests/online_network_test.js && node tests/account_auth_smoke.js && node tests/market_smoke.js && node tests/interaction_guard_smoke.js && node tests/mobile_ui_v5_smoke.js && node tests/garage_layout_v54_test.mjs && node tests/donate_menu_entry_smoke.js",
-    "test:v67": "node tests/racing_ai_v67_test.mjs && node tests/racing_ai_v67_field_test.mjs && node tests/standalone_race_test.js && node tests/physics_smoke.js"
+    "test:v67": "node tests/racing_ai_v67_test.mjs && node tests/racing_ai_v67_field_test.mjs && node tests/standalone_race_test.js && node tests/physics_smoke.js",
+    "test:v68": "node tests/ui_clans_v68_test.mjs && node tests/crews_reports_test.mjs && node tests/unified_blue_v66_test.mjs && node tests/mobile_ui_v8_navigation_store.js && node tests/free_mobile_hud_test.js && node tests/interaction_guard_smoke.js && npm run test:v67"
   },
   "devDependencies": {
     "wrangler": "4.131.1"

@@ -41,7 +41,7 @@ const COLORS=['#a9ff5a','#66c7ff','#ff63ba','#ffc85a','#b891ff','#ff6868'];
 const validPrivacy=v=>v==='private'?'private':'public';
 async function overview(env,uid,search=''){
  const w=weekStart(),mine=await crewIdentity(env,uid);
- const ranking=await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,(SELECT COUNT(*) FROM crew_members m WHERE m.crew_id=c.id) members,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE (?='' OR instr(lower(c.name),lower(?))>0 OR instr(lower(c.tag),lower(?))>0) ORDER BY rep DESC,c.id LIMIT 100`).bind(w,search,search,search).all();
+ const ranking=await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,(SELECT COUNT(*) FROM crew_members m WHERE m.crew_id=c.id) members,(SELECT u.username FROM users u WHERE u.id=c.leader_id) leaderUsername,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE (?='' OR instr(lower(c.name),lower(?))>0 OR instr(lower(c.tag),lower(?))>0) ORDER BY rep DESC,c.id LIMIT 100`).bind(w,search,search,search).all();
  const members=mine?await env.DB.prepare(`SELECT u.id,u.username,m.joined_at,COALESCE((SELECT SUM(points) FROM street_rep WHERE user_id=u.id AND crew_id=m.crew_id AND week=? AND created_at>=m.joined_at),0) rep FROM crew_members m JOIN users u ON u.id=m.user_id WHERE m.crew_id=? ORDER BY m.joined_at,u.username`).bind(w,mine.id).all():{results:[]};
  const crew=mine?await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE id=?`).bind(w,mine.id).first():null;
  const requests=crew&&crew.leader_id===uid?await env.DB.prepare(`SELECT r.user_id id,u.username,r.created_at FROM crew_join_requests r JOIN users u ON u.id=r.user_id WHERE r.crew_id=? AND NOT EXISTS(SELECT 1 FROM crew_members m WHERE m.user_id=r.user_id) ORDER BY r.created_at`).bind(crew.id).all():{results:[]};
@@ -84,7 +84,7 @@ export async function handleCrewRequest(request,env,url){
   if(request.method!=='POST')return json({error:'NOT_FOUND'},404);
   await settleCrews(env,t);const b=await request.json();
   if(path==='/api/crews/create'){
-   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||!/^[A-Z0-9]{2,5}$/.test(tag)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
+   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||!/^[A-Z0-9]{2,3}$/.test(tag)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
    const id=crypto.randomUUID();await env.DB.batch([
     env.DB.prepare(`INSERT INTO crews(id,name,tag,emblem,color,leader_id,created_at) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=?) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=? AND until_at>?) AND EXISTS(SELECT 1 FROM player_saves WHERE user_id=? AND json_extract(save_json,'$.credits')>=?)`).bind(id,name,tag,b.emblem,b.color,uid,t,uid,uid,t,uid,COST),
     env.DB.prepare('INSERT INTO crew_settings(crew_id,privacy,updated_at) SELECT id,?,? FROM crews WHERE id=?').bind(privacy,t,id),
@@ -93,7 +93,7 @@ export async function handleCrewRequest(request,env,url){
    ]);if(!(await crewIdentity(env,uid)))return json({error:'CREATE_UNAVAILABLE'},409);return json(await overview(env,uid));
   }
   if(path==='/api/crews/settings'){
-   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||!/^[A-Z0-9]{2,5}$/.test(tag)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
+   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);const existing=await env.DB.prepare('SELECT tag FROM crews WHERE leader_id=?').bind(uid).first();if(!existing)return json({error:'LEADER_REQUIRED'},403);const legacyUnchanged=tag===existing.tag&&/^[A-Z0-9]{2,5}$/.test(tag);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||(!/^[A-Z0-9]{2,3}$/.test(tag)&&!legacyUnchanged)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
    const r=await env.DB.prepare('UPDATE crews SET name=?,tag=?,emblem=?,color=? WHERE leader_id=?').bind(name,tag,b.emblem,b.color,uid).run();if(!r.meta.changes)return json({error:'LEADER_REQUIRED'},403);
    await env.DB.prepare(`INSERT INTO crew_settings(crew_id,privacy,updated_at) SELECT id,?,? FROM crews WHERE leader_id=? ON CONFLICT(crew_id) DO UPDATE SET privacy=excluded.privacy,updated_at=excluded.updated_at`).bind(privacy,t,uid).run();return json(await overview(env,uid));
   }

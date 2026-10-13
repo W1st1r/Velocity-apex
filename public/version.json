@@ -1,1 +1,8 @@
-{"app":"Velocity Apex","version":"V67","theme":"Race Control Blue","update":"Racing AI & Physics","released":"2026-10-13"}
+{
+  "app": "Velocity Apex",
+  "version": "V68",
+  "theme": "Race Control Blue",
+  "update": "Controls, Menus & Clans",
+  "released": "2026-10-13",
+  "release": "Polished HUD & Clans"
+}

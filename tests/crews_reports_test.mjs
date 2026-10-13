@@ -9,13 +9,16 @@ const DB={prepare(sql){let args=[];return {bind(...v){args=v;return this;},async
 const env={DB},t=Date.now(),DAY=86400000,hash=async s=>Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s))).toString('base64url');
 for(const name of ['w1st1r','leader','member','poor','outsider','applicant']){db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(name,name,name,'x','x',t,t);db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?)').run(await hash(name),name,t,t+DAY,t);db.prepare('INSERT INTO player_saves VALUES(?,?,?,?,?)').run(name,JSON.stringify({credits:name==='poor'?10:30000,selectedLivery:'apexLime',ownedLiveries:['apexLime']}),1,t,t);}
 async function call(path,body,who='leader'){const r=await worker.fetch(new Request('https://apex.test'+path,{method:body===undefined?'GET':'POST',headers:{cookie:'va_session='+who,origin:'https://apex.test','content-type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})}),env);return {status:r.status,...await r.json()};}
-const form={name:'Night Crew',tag:'NIGHT',emblem:'⚡',color:'#a9ff5a'};
+const form={name:'Night Crew',tag:'NIT',emblem:'⚡',color:'#a9ff5a'};
 assert.equal((await call('/api/crews/create',form,'poor')).status,409);
 let result=await call('/api/crews/create',form);assert.equal(result.status,200);const crew=result.crew.id;
+assert.equal((await call('/api/crews/create',{...form,tag:'FOUR'})).status,400);
 const balance=u=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(u).save_json).credits;
 assert.equal(balance('leader'),7500);
 assert.equal((await call('/api/crews/create',form,'outsider')).status,409);assert.equal(balance('outsider'),30000);
-assert.equal((await call('/api/crews?search=NIGHT')).ranking.length,1);assert.equal((await call('/api/crews?search=missing')).ranking.length,0);
+assert.equal((await call('/api/crews?search=NIT')).ranking.length,1);assert.equal((await call('/api/crews?search=NIT')).ranking[0].leaderUsername,'leader');assert.equal((await call('/api/crews?search=missing')).ranking.length,0);
+db.prepare('UPDATE crews SET tag=? WHERE id=?').run('LEGAC',crew);
+assert.equal((await call('/api/crews/settings',{...form,tag:'LEGAC'})).status,200,'existing five-letter tag must survive unchanged');
 result=await call('/api/crews/settings',{...form,privacy:'private'});assert.equal(result.status,200);assert.equal(result.crew.privacy,'private');
 let pending=await call('/api/crews/join',{crewId:crew},'applicant');assert.equal(pending.status,200);assert.equal(pending.requestPending,true);assert.equal((await call('/api/crews',undefined,'leader')).requests.length,1);
 assert.equal((await call('/api/crews/requests/approve',{userId:'applicant'})).status,200);assert.equal((await call('/api/crews',undefined,'applicant')).crew.id,crew);assert.equal((await call('/api/crews/leave',{},'applicant')).status,200);
@@ -28,7 +31,7 @@ await awardCrewRep(env,'member','drag','same',60);await awardCrewRep(env,'member
 assert.equal(db.prepare('SELECT SUM(points) n FROM street_rep WHERE user_id=?').get('member').n,20);
 for(let i=0;i<40;i++)await awardCrewRep(env,'member','drag','race'+i,60);
 assert.equal(db.prepare('SELECT SUM(points) n FROM street_rep WHERE user_id=?').get('member').n,500);
-const profile=await call('/api/player-profile?id=member');assert.equal(profile.streetRep,500);assert.equal(profile.crew.tag,'NIGHT');assert.ok(!('credits' in profile));
+const profile=await call('/api/player-profile?id=member');assert.equal(profile.streetRep,500);assert.equal(profile.crew.tag,'NIT');assert.ok(!('credits' in profile));
 assert.equal((await call('/api/reports',{targetId:'member',reason:'Dangerous driving and spam',evidence:'data:image/svg+xml;base64,PHN2Zz4='})).status,400);
 const report=await call('/api/reports',{targetId:'member',reason:'Repeated abusive chat messages',evidence:'data:image/png;base64,iVBORw0KGgo='});assert.equal(report.status,201);
 assert.equal((await call('/api/reports',{targetId:'member',reason:'Repeated abusive chat messages'})).status,429);
@@ -50,7 +53,7 @@ assert.equal((await call('/api/crews/leave',{})).status,400);
 assert.equal((await call('/api/crews/leave',{},'member')).status,200);
 assert.equal((await call('/api/crews/join',{crewId:crew},'member')).status,409);
 assert.equal((await call('/api/crews/disband',{})).status,200);
-assert.equal((await call('/api/crews/create',{...form,name:'Other',tag:'OTHER'})).status,409);
+assert.equal((await call('/api/crews/create',{...form,name:'Other',tag:'OTH'})).status,409);
 assert.equal(weekStart(Date.UTC(2026,8,20,17,59,59)),Date.UTC(2026,8,13,18));
 assert.equal(weekStart(Date.UTC(2026,8,20,18)),Date.UTC(2026,8,20,18));
 console.log('crews_reports_test: OK — balances, authorization, REP cap, duplicates, settlement, roster, report evidence');

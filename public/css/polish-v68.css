@@ -1,0 +1,89 @@
+/* Velocity Apex V68 — Control parity, opaque racing HUD and compact menus.
+   Keep customization positions untouched. Loaded after blue V66. */
+:root {--v68-ink:#07172b;--v68-panel:#0c243b;--v68-panel-deep:#07182b;--v68-line:#3d739b;--v68-glow:#58c7ff;}
+/* Race controls: same clear round touch targets as Free Roam; controls remain independent of button mapping. */
+#controls:not(.control-layout-custom) {padding-right:calc(18px + var(--safe-r));padding-left:calc(18px + var(--safe-l));padding-bottom:calc(14px + var(--safe-b));}
+#controls .steer-zone,#controls .pedal-zone {gap:8px;align-items:flex-end;min-width:0;}
+#controls .control-btn,#freeMobileControls button {color:#e8f7ff;background:#0d2b41;border:2px solid #346787;box-shadow:0 6px 17px rgba(0,9,25,.35),inset 0 1px rgba(240,251,255,.10);-webkit-backdrop-filter:none;backdrop-filter:none;opacity:1;transition:background .12s,border-color .12s,filter .12s;}
+#controls .steer {width:clamp(56px,8.2vw,76px);height:clamp(56px,8.2vw,76px);border-radius:50%;}
+#controls .gas,#freeMobileControls button.gas {width:clamp(64px,10vw,84px);height:clamp(64px,10vw,84px);background:#166083;border-color:#4bbbef;color:#fff;border-radius:50%;letter-spacing:.055em;font-weight:950;font-size:clamp(13px,2.2vw,19px);}
+#controls .brake,#freeMobileControls button[data-control="brake"] {width:clamp(54px,7.8vw,68px);height:clamp(54px,7.8vw,68px);background:#263c55;border-color:#4c708c;color:#ffbec5;border-radius:50%;font-size:clamp(9px,1.25vw,11px);font-weight:950;}
+#controls .handbrake,#freeMobileControls button[data-control="handbrake"] {width:clamp(42px,6.8vw,53px);height:clamp(42px,6.8vw,53px);background:#27344e;border-color:#59739a;color:#e9ddff;font-size:10px;border-radius:50%;font-weight:950;}
+#controls .control-btn:active,#freeMobileControls button:active {background:#2679a6;border-color:#a5e6ff;filter:brightness(1.14);}
+#controls .steer-icon {width:clamp(25px,4vw,32px);height:clamp(25px,4vw,32px);stroke-width:2.9;}
+#controls .steering-wheel {background:#0d2b41;border:2px solid #4b89af;box-shadow:0 6px 18px #0006;}
+#controls .wheel-rim {border-color:#c2e6fb;}
+/* Hud: no see-through panels over track, keep dedicated emphasis by type. */
+#hud .mini-map-shell,#hud .hud-chip,#hud .speed,#hud .score,#hud .lap-times,#hud .pause-btn {background:#0a2538!important;border:2px solid #315b78!important;box-shadow:0 7px 20px rgba(0,8,24,.34),inset 0 1px rgba(217,242,255,.08)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+#hud .speed {background:#0b3047!important;}
+#hud .lap-times {background:#0b2437!important;}
+#hud .pause-btn {background:#0b2437!important;}
+#hud .pause-btn:active {background:#255477!important;}
+#hud :is(.hud-chip,.speed,.score,.lap-times) span,#hud .lap-times small {opacity:.84;color:#c7e5f8;}
+#hud :is(.hud-chip,.speed,.score,.lap-times) strong {color:#f3faff;}
+/* Main card and overlays: no negative content offsets; avoid edge-clipping labels. */
+:is(.friends-card,.account-card,.promo-card,.free-servers-card,.local-mode-card,.settings-panel) {box-sizing:border-box;min-width:0;overflow-x:hidden;}
+:is(.friends-card,.account-card,.promo-card) :is(.friends-header,.account-header,.promo-header) {width:100%;min-width:0;padding:0!important;margin-left:0!important;transform:none!important;}
+:is(.friends-card,.account-card,.promo-card) :is(.friends-header,.account-header,.promo-header)>div {flex:1 1 auto;min-width:0;}
+:is(.friends-card,.account-card,.promo-card) :is(.friends-header,.account-header,.promo-header) :is(h2,.eyebrow,p) {max-width:100%;margin-left:0!important;padding-left:0!important;overflow-wrap:break-word;}
+:is(.friends-card,.account-card,.promo-card) :is(.friends-header,.account-header,.promo-header) .eyebrow {letter-spacing:clamp(.06em,.32vw,.22em);font-size:clamp(8px,1.35vw,11px);line-height:1.25;}
+:is(.friends-card,.account-card,.promo-card) :is(h2) {font-size:clamp(19px,3.6vw,28px);line-height:1.15;}
+:is(.friends-card,.account-card,.promo-card) .account-close {flex:0 0 auto;}
+.friends-add-row,.promo-form {min-width:0;max-width:100%;}
+.friends-add-row>* ,.promo-form>* {min-width:0;max-width:100%;}
+.friends-add-row :is(input,button),.promo-form :is(input,button) {min-width:0;max-width:100%;}
+/* Resolve the two-line promo button from the screenshot. */
+.promo-form {grid-template-columns:minmax(0,1fr) minmax(158px,36%);gap:10px;align-items:end;}
+#promoRedeemBtn {white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;letter-spacing:.015em!important;font-size:clamp(10px,1.25vw,13px)!important;line-height:1.1!important;padding:0 9px!important;text-align:center;}
+#friendAddBtn {white-space:nowrap;font-size:clamp(9px,1.2vw,12px);letter-spacing:.02em;padding:0 10px;}
+/* Profile values can be long; card badges never spill off phone. */
+.account-profile-badge,.account-profile-badge>div,.friend-copy {min-width:0;}
+.account-profile-badge :is(strong,em),.friend-copy :is(strong,small) {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Clan browser, explicit lifetime REP and leader in the list/detail. */
+#crewDialog {width:min(740px,calc(100vw - 20px));max-height:calc(100dvh - 10px - env(safe-area-inset-top) - env(safe-area-inset-bottom));}
+#crewDialog .crew-shell {padding:clamp(12px,2vw,18px);}
+#crewDialog .crew-rank {display:grid;grid-template-columns:54px minmax(0,1fr) auto auto;gap:10px;align-items:center;}
+#crewDialog .crew-rank>div {min-width:0;}
+#crewDialog .crew-rank strong {display:block;overflow-wrap:anywhere;font-size:clamp(12px,1.7vw,16px);line-height:1.25;}
+#crewDialog .crew-leader-line {color:#b8dcf4;}
+#crewDialog .crew-view-btn {background:#123b57!important;color:#bceaff!important;border-color:#4388b2!important;}
+#crewDialog .crew-detail-hero {display:flex;gap:12px;align-items:center;min-width:0;}
+#crewDialog .crew-detail-hero>div {min-width:0;}
+#crewDialog .crew-detail-hero h3 {margin:2px 0 8px;overflow-wrap:anywhere;}
+#crewDialog .crew-detail-hero small,#crewDialog .crew-detail-grid small {display:block;font-size:10px;letter-spacing:.08em;color:#abd3ed;font-weight:850;}
+#crewDialog .crew-detail-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0;}
+#crewDialog .crew-detail-grid>div {padding:11px;border:1px solid #325473;border-radius:12px;min-width:0;background:#0b2036;}
+#crewDialog .crew-detail-grid strong {display:block;margin-top:6px;font-size:15px;overflow-wrap:anywhere;}
+#crewDialog .crew-detail .crew-leader-button {margin-top:3px;min-height:32px;text-align:left;padding:5px;color:#d8efff!important;background:transparent!important;border:none!important;text-decoration:underline;}
+#crewDialog #crewDetailJoin,#crewDialog #crewDetailBack {width:100%;margin-top:8px;}
+#crewDialog #crewDetailJoin {background:linear-gradient(125deg,#64d0ff,#268fd4)!important;border-color:#85dfff!important;color:#05162b!important;}
+#crewDialog .crew-detail-hint {line-height:1.35;color:#bad8ee;}
+#crewDialog .crew-nav {align-items:center;}
+#crewDialog .crew-nav input {flex:1 1 180px;min-width:0;}
+#crewDialog .crew-hero>div {min-width:0;}
+@media (max-width:760px),(max-height:430px) {
+  #controls:not(.control-layout-custom) {padding-left:calc(11px + var(--safe-l));padding-right:calc(11px + var(--safe-r));padding-bottom:calc(10px + var(--safe-b));}
+  #controls .steer-zone,#controls .pedal-zone {gap:5px;}
+  #controls .steer {width:clamp(49px,9vw,62px);height:clamp(49px,9vw,62px);}
+  #controls .gas {width:clamp(59px,11vw,74px);height:clamp(59px,11vw,74px);}
+  #controls .brake {width:clamp(49px,9vw,58px);height:clamp(49px,9vw,58px);}
+  #controls .handbrake {width:clamp(41px,7vw,46px);height:clamp(41px,7vw,46px);font-size:8px;}
+  #crewDialog .crew-rank {grid-template-columns:40px minmax(0,1fr);gap:7px;}
+  #crewDialog .crew-rank .crew-emblem {grid-row:1/span 2;width:40px;height:40px;font-size:21px;}
+  #crewDialog .crew-rank>div {grid-column:2;}
+  #crewDialog .crew-rank>button {grid-row:2;min-height:31px;padding:4px 8px;font-size:9px;}
+  #crewDialog .crew-rank .crew-view-btn {grid-column:2;justify-self:start;}
+  #crewDialog .crew-rank [data-join] {grid-column:2;justify-self:end;}
+  #crewDialog .crew-rank>button:only-of-type {justify-self:stretch;}
+  #crewDialog .crew-detail-grid {gap:6px;margin:10px 0;}
+  #crewDialog .crew-detail-grid>div {padding:8px;}
+  #crewDialog .crew-detail-grid strong {font-size:12px;}
+  .friends-add-row {grid-template-columns:minmax(0,1fr) minmax(102px,27%);gap:7px;}
+  .promo-form {grid-template-columns:minmax(0,1fr) minmax(138px,37%);gap:7px;}
+  #promoRedeemBtn {font-size:10px!important;}
+}
+@media (max-width:570px) {
+  .promo-form {grid-template-columns:minmax(0,1fr);}
+  #promoRedeemBtn {width:100%;}
+  #crewDialog .crew-rank>button {font-size:8px;}
+}
