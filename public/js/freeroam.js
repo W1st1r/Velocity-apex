@@ -1065,7 +1065,13 @@
     mctx.fillStyle='#172f30';mctx.fillRect(0,0,mapCanvas.width,mapCanvas.height);
     mctx.save();mctx.translate(ox,oy);
     const sx=scale,sy=scale;
-    CITY.drawOverview(mctx,vw,vh);
+    // V70: at map zoom use the same world-resolution vector tiles as the car
+    // camera. The legacy 1500x900 overview would blur at 2x–4x map zoom.
+    if(mapView.zoom>=1.75){
+      mctx.save();mctx.scale(scale,scale);
+      CITY.draw(mctx,{x:-ox/scale,y:-oy/scale,w:mapCanvas.width/scale,h:mapCanvas.height/scale});
+      mctx.restore();
+    }else CITY.drawOverview(mctx,vw,vh);
 
     if(state.waypoint){
       mctx.strokeStyle='#8dff49';mctx.setLineDash([10,8]);mctx.lineWidth=2;

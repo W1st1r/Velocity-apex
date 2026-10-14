@@ -1,4 +1,4 @@
-/* APEX BAY V49 — garage polish plus centered Checkpoint Rush event hub. */
+/* APEX BAY V49 core + V71 Coastal Ring CINEMATIC — crisp layered Canvas Free Roam. */
 (function(){
   'use strict';
   const W=5000,H=3000,VISUAL_MARGIN=900,TAU=Math.PI*2,roads=[],buildings=[],trees=[],lots=[];
@@ -57,6 +57,13 @@
   // Waterfront road now wraps around the venue instead of cutting through it.
   road([[430,1590],[230,1760],[100,1870],[75,2350],[120,2760],[420,2900],[900,2900],[1180,2810],[1380,2670]],170,true);
   road([[3990,430],[3970,840],[3870,1260],[3990,1590],[3890,1980],[3990,2170]],170,true);
+  // V70 Coastal Ring: the eastern sea-cliff boulevard closes the north/east
+  // cruising loop without relocating *any* server-authoritative activity.
+  // These splines participate in the very same collision union as all roads.
+  road([[3990,430],[4240,310],[4470,350],[4595,545],[4670,815],
+        [4665,1110],[4580,1390],[4690,1650],[4670,1840],
+        [4480,2065],[4230,2150],[3990,2170]],166,true);
+  road([[3660,1010],[3970,1000],[4300,1040],[4665,1110]],148,true);
   const segments=roads.flatMap(r=>r.points.slice(1).map((b,i)=>({a:r.points[i],b,half:r.width/2,minX:Math.min(r.points[i][0],b[0]),maxX:Math.max(r.points[i][0],b[0]),minY:Math.min(r.points[i][1],b[1]),maxY:Math.max(r.points[i][1],b[1])})));
   function projection(x,y,s){const dx=s.b[0]-s.a[0],dy=s.b[1]-s.a[1],t=clamp(((x-s.a[0])*dx+(y-s.a[1])*dy)/(dx*dx+dy*dy||1),0,1);return {x:s.a[0]+dx*t,y:s.a[1]+dy*t};}
   function roadAt(x,y,margin=0){
@@ -159,6 +166,22 @@
     }
     if(any)lots.push({x:x-16,y:y-16,w:w+32,h:h+32,type});
   }
+  // V70 dense coastal quarters. Infill is real Canvas geometry, not a scaled jpg.
+  // Placement uses exact road+event collision clearance and avoids every old house.
+  // This preserves the historic map coordinates, triggers, garage and Drag runway.
+  for(let y=54;y<2835;y+=89){
+    for(let x=54;x<4850;x+=97){
+      const h=hash2(x,y);
+      if((h%19)<2)continue; // parks and natural gaps among the houses
+      const bw=58+(h%23),bh=46+((h>>>7)%16);
+      const bx=x+((h>>>12)%13),by=y+((h>>>17)%9);
+      if(!rectFree(bx,by,bw,bh,10))continue;
+      if(buildings.some(b=>bx<b.x+b.w+17&&bx+bw>b.x-17&&by<b.y+b.h+17&&by+bh>b.y-17))continue;
+      const id=(h>>>22)%5;
+      const type=bx>2800&&by>2100?'warehouse':bx>3150&&by<1350&&id===0?'warehouse':id===1?'house':id===2?'tower':'residential';
+      buildings.push({x:bx,y:by,w:bw,h:bh,type,tone:(h>>>5)%4,height:type==='tower'?16:7});
+    }
+  }
   // Separate decorative assets from every drivable surface, including the full drift apron.
   for(let i=0;i<2400;i++){
     const x=45+rnd()*(W-90),y=45+rnd()*(H-90),r=12+rnd()*16;
@@ -166,11 +189,27 @@
     if(Math.pow((x-540)/180,2)+Math.pow((y-535)/150,2)<1.4)continue;
     if(buildings.some(b=>x>b.x-r-12&&x<b.x+b.w+r+20&&y>b.y-r-12&&y<b.y+b.h+r+20))continue;
     if(trees.some(t=>Math.hypot(x-t.x,y-t.y)<r+t.r+5))continue;
-    trees.push({x,y,r,tone:Math.floor(rnd()*5)});
+    const tropical=y<240||y>H-230||x<235||x>W-255||(x>4030&&y<650)||(x<1160&&y>1580);
+    const species=(tropical && (hash2(Math.round(x),Math.round(y))%7<5))?'palm':'broadleaf';
+    trees.push({x,y,r,tone:Math.floor(rnd()*5),species});
+  }
+  // V71 palm groups along safe coastline lots: check real road surface and buildings.
+  // Dedicated palms are scenery only; no collision geometry is ever changed.
+  for(const [edge,positions] of [['north',Array.from({length:42},(_,i)=>185+i*109)],
+                                   ['south',Array.from({length:42},(_,i)=>185+i*109)]]){
+    for(const along of positions){
+      const n=hash2(along,edge==='north'?31:3001);
+      const x=along+((n>>>6)%34)-17,y=edge==='north'?115+((n>>>13)%50):H-125-((n>>>13)%55);
+      const r=11+(n%8);
+      if(!roadAt(x,y,r+31)&&!reserved(x,y,r+14)&&
+         !buildings.some(b=>x>b.x-r-12&&x<b.x+b.w+r+12&&y>b.y-r-12&&y<b.y+b.h+r+12)&&
+         !trees.some(t=>Math.hypot(x-t.x,y-t.y)<r+t.r+10))
+        trees.push({x,y,r,tone:n%5,species:'palm'});
+    }
   }
   for(const b of buildings){
     const x=b.x+b.w+16,y=b.y+b.h-12,r=10;
-    if(!roadAt(x,y,25)&&!reserved(x,y)&&!buildings.some(o=>x>o.x-12&&x<o.x+o.w+12&&y>o.y-12&&y<o.y+o.h+12))trees.push({x,y,r,tone:Math.floor(rnd()*4)});
+    if(!roadAt(x,y,25)&&!reserved(x,y)&&!buildings.some(o=>x>o.x-12&&x<o.x+o.w+12&&y>o.y-12&&y<o.y+o.h+12))trees.push({x,y,r,tone:Math.floor(rnd()*4),species:hash2(x,y)%9===0?'palm':'broadleaf'});
   }
   function fill(c,x,y,w,h,color){c.fillStyle=color;c.fillRect(x,y,w,h);}
   function rr(c,x,y,w,h,r,color){c.fillStyle=color;c.beginPath();c.roundRect(x,y,w,h,r);c.fill();}
@@ -189,21 +228,20 @@
     const gx1=Math.min(W+VISUAL_MARGIN,v.x+v.w),gy1=Math.min(H+VISUAL_MARGIN,v.y+v.h);
     if(gx1<=gx0||gy1<=gy0)return;
     const sea=c.createLinearGradient(-VISUAL_MARGIN,-VISUAL_MARGIN,W+VISUAL_MARGIN,H+VISUAL_MARGIN);
-    sea.addColorStop(0,'#173f55');sea.addColorStop(.46,'#267a86');sea.addColorStop(1,'#123d5e');
+    sea.addColorStop(0,'#092e55');sea.addColorStop(.46,'#006f8b');sea.addColorStop(1,'#102e54');
     c.fillStyle=sea;c.fillRect(gx0,gy0,gx1-gx0,gy1-gy0);
 
-    // Forested mainland/cliffs above and to the east; water surrounds the west/south.
-    const top=c.createLinearGradient(0,-VISUAL_MARGIN,0,40);top.addColorStop(0,'#173b2b');top.addColorStop(.55,'#2f5d3d');top.addColorStop(1,'#557b4d');
-    c.fillStyle=top;c.fillRect(Math.max(gx0,-VISUAL_MARGIN),gy0,Math.min(gx1,W+VISUAL_MARGIN)-Math.max(gx0,-VISUAL_MARGIN),Math.max(0,Math.min(gy1,0)-gy0));
-    const east=c.createLinearGradient(W-20,0,W+VISUAL_MARGIN,0);east.addColorStop(0,'#557b4d');east.addColorStop(.35,'#315f3e');east.addColorStop(1,'#173a2b');
-    if(gx1>W){c.fillStyle=east;c.fillRect(Math.max(W,gx0),Math.max(0,gy0),gx1-Math.max(W,gx0),Math.max(0,Math.min(H,gy1)-Math.max(0,gy0)));}
-
+    // V70: full island — sea is visible in every camera direction.
+    // Keep a single gradient across tiles to avoid rectangular shore seams.
+    const reef=c.createRadialGradient(W*.55,H*.50,380,W*.55,H*.50,5100);
+    reef.addColorStop(0,'#2bc7c4');reef.addColorStop(.48,'#087d9c');reef.addColorStop(1,'#05294f');
+    c.fillStyle=reef;c.fillRect(gx0,gy0,gx1-gx0,gy1-gy0);
     // Deterministic off-map detail: forest crowns/rocks on land and light wavelets on water.
     const step=74,sx=Math.floor(gx0/step)*step,sy=Math.floor(gy0/step)*step;
     for(let y=sy;y<gy1;y+=step)for(let x=sx;x<gx1;x+=step){
       if(x>=0&&x<=W&&y>=0&&y<=H)continue;
       const n=hash2(x,y),jx=(n&31)-15,jy=((n>>>5)&31)-15,px=x+jx,py=y+jy;
-      const land=py<0||(px>W&&py>=0&&py<=H);
+      const land=false; // V70: ocean on all four sides
       if(land){
         const r=12+(n%12);ellipse(c,px+5,py+8,r*1.15,r*.74,'#102c2337');
         ellipse(c,px,py,r,r*.86,(n&1)?'#285438':'#356443');
@@ -214,12 +252,62 @@
         if(n%11===0)ellipse(c,px,py,4,3,'#d7eee22b');
       }
     }
-    // Shore/surf lines at the visible world edge soften the transition.
-    if(gx0<0&&gy1>0&&gy0<H){path(c,[[0,Math.max(0,gy0)],[0,Math.min(H,gy1)]],'#d1ead68f',7);path(c,[[-13,Math.max(0,gy0)],[ -13,Math.min(H,gy1)]],'#ffffff30',3,[22,18]);}
-    if(gy1>H&&gx1>0){path(c,[[Math.max(0,gx0),H],[Math.min(W,gx1),H]],'#d1ead68f',7);path(c,[[Math.max(0,gx0),H+13],[Math.min(W,gx1),H+13]],'#ffffff30',3,[24,20]);}
-    if(gy0<0&&gx1>0){path(c,[[Math.max(0,gx0),0],[Math.min(W,gx1),0]],'#243f2f9c',10);}
-    if(gx1>W&&gy1>0){path(c,[[W,Math.max(0,gy0)],[W,Math.min(H,gy1)]],'#243f2f9c',10);}
+    // Surf and island fringe are world-aligned so cached tile boundaries match.
+    const edge=(side,at)=>{
+      const n=hash2(Math.round(at),side*71),offset=(n%17)-8;
+      if(side===0)return [-14+offset,at];
+      if(side===1)return [W+14+offset,at];
+      if(side===2)return [at,-14+offset];
+      return [at,H+14+offset];
+    };
+    for(let side=0;side<4;side++){
+      const len=side<2?H:W;
+      for(let a=Math.max(0,Math.floor((side<2?gy0:gx0)/56)*56);a<Math.min(len,(side<2?gy1:gx1));a+=56){
+        const [x,y]=edge(side,a),n=hash2(x,y);
+        ellipse(c,x,y,13+n%9,5+n%5,'#d1f3e440');
+        if(n%3===0)path(c,[[x-14,y+11],[x+11,y+7]],'#eafff14c',2);
+      }
+    }
+    // Offshore rocks, docks and boats add recognisable coastline at full gameplay zoom.
+    offshoreDetails(c,{x:gx0,y:gy0,w:gx1-gx0,h:gy1-gy0});
   }
+  function offshoreDetails(c,v){
+    const seen=(x,y,r)=>x+r>v.x&&y+r>v.y&&x-r<v.x+v.w&&y-r<v.y+v.h;
+    const rock=(x,y,r)=>{
+      if(!seen(x,y,r+20))return;
+      ellipse(c,x+6,y+8,r*1.25,r*.75,'#082f4850');
+      ellipse(c,x,y,r,r*.78,'#465f62');
+      ellipse(c,x-r*.24,y-r*.24,r*.62,r*.38,'#b8b9a2');
+      ellipse(c,x+r*.30,y+r*.17,r*.30,r*.22,'#294d55');
+      ellipse(c,x+3,y-r*.65,r*.67,r*.20,'#e9faf06b');
+    };
+    const boat=(x,y,a,scale=1)=>{
+      if(!seen(x,y,40*scale))return;
+      c.save();c.translate(x,y);c.rotate(a);c.scale(scale,scale);
+      path(c,[[-33,5],[-56,9]],'#d0ffff44',4);
+      ellipse(c,7,7,29,7,'#072b4678');
+      c.fillStyle='#e7f4eb';c.beginPath();c.moveTo(37,0);c.quadraticCurveTo(22,-11,-29,-10);
+      c.quadraticCurveTo(-36,0,-29,10);c.quadraticCurveTo(22,11,37,0);c.fill();
+      rr(c,-10,-7,21,14,4,'#4d90a1');fill(c,-26,-5,10,10,'#b6d4d3');c.restore();
+    };
+    for(const [x,y,r] of [[-105,170,72],[W+145,120,85],[W+105,1690,74],[-120,2850,81],[690,-120,95],[1550,-135,76],[W-460,H+195,88],[1030,H+160,91]])rock(x,y,r);
+    for(const [x,y,a,k] of [[-285,1370,-.2,1],[W+280,880,2.4,.85],[1800,-270,-.25,1],
+      [2580,H+300,.8,.8],[W+230,2520,2.9,1.25],[550,H+240,.7,.9]])boat(x,y,a,k);
+    // V70 north-east marina: berths stay out in the ocean, never on a car road.
+    if(seen(4270,-150,600)){
+      rr(c,4210,-155,625,25,6,'#b8b2a0');path(c,[[4210,-150],[4828,-150]],'#e7ddd0',3);
+      for(let x=4270;x<4790;x+=100){
+        rr(c,x,-150,15,112,3,'#b6ab90');rr(c,x+2,-140,11,94,2,'#d4c4a5');
+        for(const y of [-115,-58])boat(x+39,y,Math.PI/2,.55);
+      }
+    }
+    // Western port pontoon and a lighthouse silhouette on the eastern cape.
+    if(seen(-80,2290,300)){
+      rr(c,-160,2130,245,24,3,'#c5bda9');rr(c,-160,2490,240,24,3,'#c5bda9');
+      for(let i=0;i<4;i++)boat(-190,2180+i*74,0,.7);
+    }
+  }
+
   function palm(c,x,y,s=1){
     c.save();c.translate(x,y);c.scale(s,s);
     ellipse(c,7,10,17,10,'#173b2c35');
@@ -235,47 +323,86 @@
     ellipse(c,x+2,y+3,4,3,'#13222955');ellipse(c,x,y,2.6,2.6,on?'#9cecff':'#e6d6aa');
   }
   function airplane(c,x,y,scale=1,angle=-Math.PI/2){
-    // Clean 90° top-down passenger jet assembled from vector geometry so it stays sharp at zoom.
+    // V71 high-contrast top-down aircraft; art-only, never a collider.
+    // Geometry points nose +X and is transformed on arrival; no bitmap enlargement.
     c.save();c.translate(x,y);c.rotate(angle);c.scale(scale,scale);
-    c.save();c.translate(7,8);c.globalAlpha=.28;c.fillStyle='#102228';
-    c.beginPath();c.moveTo(76,0);c.quadraticCurveTo(65,-10,50,-11);c.lineTo(17,-14);c.lineTo(-12,-60);c.lineTo(-29,-60);c.lineTo(-18,-13);c.lineTo(-62,-9);c.lineTo(-78,-27);c.lineTo(-88,-27);c.lineTo(-81,0);c.lineTo(-88,27);c.lineTo(-78,27);c.lineTo(-62,9);c.lineTo(-18,13);c.lineTo(-29,60);c.lineTo(-12,60);c.lineTo(17,14);c.lineTo(50,11);c.quadraticCurveTo(65,10,76,0);c.closePath();c.fill();c.restore();
-    const body=c.createLinearGradient(-85,0,80,0);body.addColorStop(0,'#bfc8c9');body.addColorStop(.45,'#f7f8f4');body.addColorStop(1,'#d8e1e1');
-    c.fillStyle='#e5ecea';c.beginPath();c.moveTo(77,0);c.quadraticCurveTo(66,-10,49,-11);c.lineTo(18,-13);c.lineTo(-12,-58);c.lineTo(-29,-58);c.lineTo(-18,-12);c.lineTo(-61,-8);c.lineTo(-77,-25);c.lineTo(-88,-25);c.lineTo(-81,0);c.lineTo(-88,25);c.lineTo(-77,25);c.lineTo(-61,8);c.lineTo(-18,12);c.lineTo(-29,58);c.lineTo(-12,58);c.lineTo(18,13);c.lineTo(49,11);c.quadraticCurveTo(66,10,77,0);c.closePath();c.fill();
-    c.fillStyle=body;c.beginPath();c.moveTo(83,0);c.quadraticCurveTo(66,-11,42,-10);c.lineTo(-70,-8);c.quadraticCurveTo(-88,0,-70,8);c.lineTo(42,10);c.quadraticCurveTo(66,11,83,0);c.closePath();c.fill();
-    c.fillStyle='#246b94';c.fillRect(-56,-7,30,14);c.fillStyle='#174966';c.fillRect(-53,-5,23,10);
-    c.fillStyle='#2d6c8d';c.beginPath();c.moveTo(-74,-7);c.lineTo(-88,-20);c.lineTo(-80,-22);c.lineTo(-62,-8);c.closePath();c.fill();
-    c.fillStyle='#26383e';ellipse(c,-4,-31,11,8,'#26383e');ellipse(c,-4,31,11,8,'#26383e');ellipse(c,14,-31,9,7,'#394d52');ellipse(c,14,31,9,7,'#394d52');
-    for(let xx=-44;xx<44;xx+=11){ellipse(c,xx,-8.3,2,1.4,'#4e7180');ellipse(c,xx,8.3,2,1.4,'#4e7180');}
-    c.fillStyle='#85d8ff';ellipse(c,58,-5,4,2.1,'#85d8ff');ellipse(c,58,5,4,2.1,'#85d8ff');
+    const hull=(xoff=0,yoff=0)=>{
+      c.beginPath();c.moveTo(89+xoff,yoff);
+      c.bezierCurveTo(79+xoff,-10+yoff,57+xoff,-11+yoff,40+xoff,-11+yoff);
+      c.lineTo(3+xoff,-15+yoff);c.lineTo(-17+xoff,-59+yoff);
+      c.lineTo(-34+xoff,-59+yoff);c.lineTo(-25+xoff,-14+yoff);
+      c.lineTo(-61+xoff,-9+yoff);c.lineTo(-77+xoff,-25+yoff);
+      c.lineTo(-86+xoff,-25+yoff);c.lineTo(-80+xoff,yoff);
+      c.lineTo(-86+xoff,25+yoff);c.lineTo(-77+xoff,25+yoff);
+      c.lineTo(-61+xoff,9+yoff);c.lineTo(-25+xoff,14+yoff);
+      c.lineTo(-34+xoff,59+yoff);c.lineTo(-17+xoff,59+yoff);
+      c.lineTo(3+xoff,15+yoff);c.lineTo(40+xoff,11+yoff);
+      c.bezierCurveTo(57+xoff,11+yoff,79+xoff,10+yoff,89+xoff,yoff);c.closePath();
+    };
+    c.save();c.translate(11,14);hull();c.fillStyle='#06192a70';c.fill();c.restore();
+    hull();c.fillStyle='#cadce0';c.fill();
+    // Clean white wings with a subtle blue edge and clearly separate engine pods.
+    c.strokeStyle='#496b75';c.lineWidth=1.6;c.stroke();
+    path(c,[[-15,-55],[6,-13],[46,-11]],'#ffffffa0',2);
+    path(c,[[-15,55],[6,13],[46,11]],'#7c9ca1bb',2);
+    const fuselage=c.createLinearGradient(0,-10,0,10);
+    fuselage.addColorStop(0,'#f8fcf9');fuselage.addColorStop(.46,'#e4f3f1');fuselage.addColorStop(1,'#a3b8c3');
+    c.fillStyle=fuselage;c.beginPath();c.moveTo(92,0);c.bezierCurveTo(73,-9,57,-9,22,-9);c.lineTo(-65,-8);
+    c.quadraticCurveTo(-75,0,-65,8);c.lineTo(22,9);c.bezierCurveTo(57,9,73,9,92,0);c.fill();
+    for(const sign of [-1,1]){
+      rr(c,-2,sign*22-6,23,12,5,'#273d48');
+      rr(c,0,sign*22-5,18,10,4,'#cad6d8');
+      path(c,[[-25,sign*51],[0,sign*14]],'#5e889c',2);
+    }
+    // Cockpit windscreens and windows / cargo door marks.
+    ellipse(c,64,-4,10,3,'#274d6d');ellipse(c,64,4,10,3,'#274d6d');
+    for(let xx=-43;xx<52;xx+=9){ellipse(c,xx,-8.0,1.35,1.0,'#3a6b7e');ellipse(c,xx,8.0,1.35,1.0,'#3a6b7e');}
+    fill(c,-75,-6,22,12,'#176b9d');path(c,[[-75,0],[-57,0]],'#9de8ff',2);
+    ellipse(c,89,0,2.3,2,'#f6fcfb');
     c.restore();
   }
   function airportTerminalScene(c){
     const t=airportTerminal;
     // Concrete apron intentionally remains non-driveable: it is scenery beyond the runway safety curb.
-    rr(c,t.x,t.y,t.w,t.h,14,'#aab0a8');
+    rr(c,t.x+16,t.y+15,t.w,t.h,15,'#0a24384a');
+    rr(c,t.x,t.y,t.w,t.h,14,'#8d9b9f');
+    rr(c,t.x+9,t.y+9,t.w-18,t.h-18,9,'#a9b7b4');
     for(let x=t.x+14;x<t.x+t.w-12;x+=52)path(c,[[x,t.y+8],[x,t.y+t.h-8]],'#c8cbc164',1);
-    rr(c,t.x+80,t.y+26,620,84,10,'#33494e');rr(c,t.x+92,t.y+37,596,61,7,'#516a6d');
+    rr(c,t.x+84,t.y+35,620,85,10,'#0a253a4d');
+    rr(c,t.x+80,t.y+26,620,84,10,'#263e4b');rr(c,t.x+92,t.y+37,596,61,7,'#3d6976');
+    for(let x=t.x+109;x<t.x+672;x+=18)fill(c,x,t.y+41,2,52,'#85aab466');
+    path(c,[[t.x+94,t.y+98],[t.x+686,t.y+98]],'#b1e6f7aa',2);
     fill(c,t.x+102,t.y+45,576,8,'#7fcce3');text(c,'APEX INTERNATIONAL',t.x+390,t.y+79,18,'#f3f5ec');
     // Compact hangars and service sheds to match the reference without blocking the runway.
     for(let i=0;i<5;i++){
-      const hx=t.x+770+i*154,hy=t.y+30;rr(c,hx,hy,126,78,8,'#7f8d8b');rr(c,hx+7,hy+8,112,62,5,'#aeb9b5');
+      const hx=t.x+770+i*154,hy=t.y+30;rr(c,hx+8,hy+10,126,79,8,'#0b283b57');rr(c,hx,hy,126,78,8,'#5b7280');
+      rr(c,hx+7,hy+8,112,62,5,'#a6b8bb');
       for(let k=0;k<5;k++)fill(c,hx+12+k*21,hy+12,2,52,'#6f8280');fill(c,hx+18,hy+58,90,5,'#6b9099');
     }
     // Gate lanes, cones, baggage carts and parked passenger aircraft.
     for(let x=t.x+130;x<t.x+t.w-80;x+=115){path(c,[[x,t.y-14],[x,t.y+16]],'#eee8d1',2,[7,6]);}
     for(const [x,y] of [[3250,2827],[3360,2827],[3970,2825],[4295,2828],[4620,2826]]){fill(c,x,y,5,8,'#ffb84c');fill(c,x+1,y,3,3,'#fff2b5');}
-    for(const a of parkedAircraft)airplane(c,a.x,a.y,a.scale,a.angle);
+    // Apron guidelines, gate lights and ground support vehicles use fixed world coordinates.
+    for(const a of parkedAircraft){
+      path(c,[[a.x,a.y-58],[a.x,a.y+38]],'#f5c760a0',2,[8,6]);
+      path(c,[[a.x-82,a.y-64],[a.x+82,a.y-64]],'#e2e9d266',2);
+      for(const dx of [-70,70])airportLamp(c,a.x+dx,a.y-68,true);
+      airplane(c,a.x,a.y,a.scale,a.angle);
+      const ox=a.x+65,oy=a.y+33;
+      rr(c,ox+4,oy+5,26,12,3,'#0c293d55');rr(c,ox,oy,26,12,2,'#f0e7c9');
+      fill(c,ox+6,oy+2,9,7,'#398aab');ellipse(c,ox+5,oy+12,3,3,'#2c424a');ellipse(c,ox+22,oy+12,3,3,'#2c424a');
+    }
     text(c,'АЭРОПОРТ',3890,2864,15,'#f0f1e8');
   }
   function water(c){
-    const g=c.createLinearGradient(0,1800,900,H);g.addColorStop(0,'#409ca5');g.addColorStop(1,'#174f70');
+    const g=c.createLinearGradient(0,1800,900,H);g.addColorStop(0,'#1bb7ae');g.addColorStop(1,'#084b75');
     c.fillStyle=g;c.beginPath();c.moveTo(0,1760);c.bezierCurveTo(120,1740,90,2590,280,2790);c.quadraticCurveTo(500,2910,1040,3000);c.lineTo(0,3000);c.closePath();c.fill();
     path(c,[[35,1850],[70,2240],[140,2630],[330,2860],[800,2980]],'#8ccec3',8);
     for(let y=1940;y<3000;y+=42)for(let x=15;x<160+(y-1940)*.2;x+=75)path(c,[[x,y],[x+25,y]],'#ffffff18',2);
     // Bright coastal surf and rocky edge based on the supplied island reference.
     for(let y=1800;y<3000;y+=82){ellipse(c,28+(y%5)*6,y,18,10,'#c7eee04a');ellipse(c,78+(y%7)*5,y+26,9,6,'#f2f4d52d');}
     // Reservoir nestled within the park road.
-    ellipse(c,550,550,202,162,'#a9bca1');ellipse(c,540,536,183,146,'#5bafb5');ellipse(c,530,525,164,125,'#438fa1');
+    ellipse(c,550,550,202,162,'#a9bca1');ellipse(c,540,536,183,146,'#37afa8');ellipse(c,530,525,164,125,'#137e9b');
     for(let i=0;i<9;i++)path(c,[[435+i%3*24,452+i*18],[535+i%4*21,452+i*18]],'#b8e2d044',2);
     rr(c,645,491,76,15,2,'#bb996b');for(let x=650;x<720;x+=9)fill(c,x,491,2,15,'#806b52');
   }
@@ -294,23 +421,66 @@
     if(v.x+v.w>W-110)for(let y=Math.max(30,Math.floor(v.y/step)*step);y<Math.min(H-30,v.y+v.h);y+=step)place(W-40-(hash2(11,y)%22),y);
     if(v.y+v.h>H-110)for(let x=Math.max(30,Math.floor(v.x/step)*step);x<Math.min(2800,v.x+v.w);x+=step)place(x,H-40-(hash2(x,13)%20));
   }
+  function coastline(c,v){
+    const bounds=[
+      {x:0,y:0,w:W,h:95,edge:'top'},
+      {x:0,y:H-98,w:W,h:98,edge:'bottom'},
+      {x:0,y:0,w:83,h:H,edge:'left'},
+      {x:W-115,y:0,w:115,h:H,edge:'right'}
+    ];
+    for(const b of bounds){
+      if(b.x>v.x+v.w||b.y>v.y+v.h||b.x+b.w<v.x||b.y+b.h<v.y)continue;
+      const g=b.edge==='top'||b.edge==='bottom'?c.createLinearGradient(0,b.y,0,b.y+b.h):c.createLinearGradient(b.x,0,b.x+b.w,0);
+      const reverse=b.edge==='bottom'||b.edge==='right';
+      if(reverse){g.addColorStop(0,'#9fc7a3');g.addColorStop(.42,'#d5d0a5');g.addColorStop(1,'#eedcaa');}
+      else{g.addColorStop(0,'#ead9aa');g.addColorStop(.56,'#c6c697');g.addColorStop(1,'#92b28a');}
+      c.fillStyle=g;c.fillRect(b.x,b.y,b.w,b.h);
+    }
+    // Deterministic pebbles, beach vegetation and tide pools, drawn at world resolution.
+    const step=37;
+    for(let y=Math.max(0,Math.floor(v.y/step)*step);y<Math.min(H,v.y+v.h);y+=step){
+      for(let x=Math.max(0,Math.floor(v.x/step)*step);x<Math.min(W,v.x+v.w);x+=step){
+        if(!(x<86||x>W-118||y<98||y>H-99))continue;
+        const n=hash2(x+341,y+991),xx=x+(n&17),yy=y+((n>>>5)&17);
+        if(roadAt(xx,yy,15)||reserved(xx,yy,22))continue;
+        ellipse(c,xx,yy,2+n%4,1.5+n%3,n%5===0?'#638b8585':'#f4ebc48a');
+        if(n%19===0){path(c,[[xx-7,yy+4],[xx,yy-6],[xx+7,yy+4]],'#63987688',2);}
+      }
+    }
+  }
   function ground(c,v){
     // V42 palette: richer botanical greens, cleaner warm concrete and subtle tonal variation.
-    fill(c,0,0,W,H,'#72965f');
-    const g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'#315d4738');g.addColorStop(.42,'#d5c77f24');g.addColorStop(.72,'#9fc46b18');g.addColorStop(1,'#2e61712d');c.fillStyle=g;c.fillRect(0,0,W,H);
+    fill(c,0,0,W,H,'#507e60');
+    const g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'#153c3d44');g.addColorStop(.42,'#f6d88e10');g.addColorStop(.72,'#1d4b2b22');g.addColorStop(1,'#0e395a24');c.fillStyle=g;c.fillRect(0,0,W,H);
     // Coordinate-derived grass detail stays deterministic across cached tile boundaries.
     for(let y=Math.max(0,Math.floor(v.y/24)*24);y<Math.min(H,v.y+v.h);y+=24)for(let x=Math.max(0,Math.floor(v.x/27)*27);x<Math.min(W,v.x+v.w);x+=27){
       const n=hash2(x+17,y+31),px=x+n%17,py=y+(n>>>6)%13;
       ellipse(c,px,py,1.5+n%3,1+(n>>>8)%2,(n&1)?'#edf0b51c':'#214f3615');
       if(n%29===0)ellipse(c,px+5,py-3,1.3,1.3,(n&2)?'#f1d88955':'#e8a7c955');
     }
+    // V70 island perimeter: baked sand and shore shallows are *under* roads and
+    // event asphalt. No scenery polygons take part in collision detection.
+    coastline(c,v);
     for(const l of lots){
-      const base=l.type==='warehouse'?'#bbb8a5':l.type==='tower'?'#b8beaa':'#a9bd83';
+      const base=l.type==='warehouse'?'#929e9c':l.type==='tower'?'#a7b6aa':'#779c79';
       rr(c,l.x+4,l.y+6,l.w,l.h,13,'#2448381d');rr(c,l.x,l.y,l.w,l.h,12,base);
       path(c,[[l.x+10,l.y+10],[l.x+l.w-10,l.y+10]],'#f0e7c128',2);
     }
     for(const b of buildings){if(b.type==='house'||b.type==='residential'){fill(c,b.x+8,b.y+b.h+6,b.w-16,12,'#d8ceb0');path(c,[[b.x-6,b.y+3],[b.x-6,b.y+b.h+20],[b.x+b.w,b.y+b.h+20]],'#647f4f',3);}}
-    rr(c,park.x+5,park.y+8,park.w,park.h,26,'#31553a36');rr(c,park.x,park.y,park.w,park.h,26,'#4e7a4b');rr(c,park.x+12,park.y+12,park.w-24,park.h-24,23,'#91ad69');
+    // Crisp driveways and property pools at vehicle-scale, not a stretched texture.
+    // Only surface decoration; every house and road keeps its original collider.
+    for(const b of buildings){
+      const n=hash2(b.x,b.y),isHouse=b.type==='residential'||b.type==='house';
+      if(isHouse){
+        const py=b.y+b.h+12,px=b.x+8;
+        if(!roadAt(px+26,py+10,15)&&!reserved(px+26,py+10,15)){
+          rr(c,px,py,Math.min(63,b.w-15),24,5,n%3===0?'#73b9c1':'#b6b79c');
+          if(n%3===0){rr(c,px+4,py+4,Math.min(55,b.w-23),16,3,'#267c9a');
+            path(c,[[px+9,py+7],[px+24,py+7]],'#bbecf088',2);}
+        }
+      }
+    }
+    rr(c,park.x+5,park.y+8,park.w,park.h,26,'#31553a36');rr(c,park.x,park.y,park.w,park.h,26,'#326447');rr(c,park.x+12,park.y+12,park.w-24,park.h-24,23,'#65975d');
     path(c,[[park.x+32,park.y+45],[park.x+park.w-32,park.y+park.h-45]],'#e4d5b4',17);
     path(c,[[park.x+32,park.y+park.h-45],[park.x+park.w-32,park.y+45]],'#e4d5b4',17);
     ellipse(c,1363,1304,72,66,'#203c3531');ellipse(c,1360,1300,70,65,'#d7ccb0');ellipse(c,1360,1300,48,43,'#eee6d0');ellipse(c,1360,1300,37,32,'#55b7c0');ellipse(c,1356,1295,16,13,'#b7ede3');
@@ -319,11 +489,15 @@
   }
   function roadsLayer(c){
     // All road edges first, then all asphalt: connected junctions never have curbs across them.
-    for(const r of roads)path(c,r.points,'#476b50',r.width+41);
-    for(const r of roads)path(c,r.points,'#d8d0ba',r.width+27);
+    // V71: road-edge occlusion is baked under the identical playable road geometry.
+    for(const r of roads)path(c,r.points,'#0e28383e',r.width+53);
+    for(const r of roads)path(c,r.points,'#385852',r.width+41);
+    for(const r of roads)path(c,r.points,'#b7b8aa',r.width+27);
     for(const a of areas)rr(c,a.x-14,a.y-14,a.w+28,a.h+28,24,'#d8d0ba');
-    for(const r of roads)path(c,r.points,'#424d50',r.width);
-    for(const a of areas)rr(c,a.x,a.y,a.w,a.h,12,'#4b575a');
+    for(const r of roads)path(c,r.points,'#26343b',r.width);
+    // Broad lanes have muted edge wear; intersections are still repainted later.
+    for(const r of roads)path(c,r.points,'#36465014',r.width-16);
+    for(const a of areas)rr(c,a.x,a.y,a.w,a.h,12,'#293a43');
     for(const r of roads){
       path(c,r.points,'#dde0cd',3,[27,24]);
       if(r.points.length===2){
@@ -345,7 +519,7 @@
     for(const x of [430,1050,1680,2320,3020,3660])for(const y of [430,1010,1590,2170,2670]){
       if(!roads.some(r=>r.points.length===2&&r.points[0][0]===x&&y>=r.points[0][1]&&y<=r.points[1][1]))continue;
       if(!roads.some(r=>r.points.length===2&&r.points[0][1]===y&&x>=r.points[0][0]&&x<=r.points[1][0]))continue;
-      fill(c,x-95,y-95,190,190,'#424d50');
+      fill(c,x-95,y-95,190,190,'#26343b');
       if(y===2670||areas.some(a=>x>a.x-130&&x<a.x+a.w+130&&y>a.y-130&&y<a.y+a.h+130))continue;
       for(let d=-70;d<80;d+=19){
         fill(c,x+d,y-118,10,25,'#f2edda');fill(c,x+d,y+95,10,25,'#f2edda');fill(c,x-118,y+d,25,10,'#f2edda');fill(c,x+95,y+d,25,10,'#f2edda');
@@ -354,7 +528,7 @@
     }
     // Large, unobstructed activity aprons. Garage surfaces are rendered
     // separately below so its short curb-cut never paints over the public avenue.
-    for(const a of areas)if(a!==activityAreas.garageApron&&a!==activityAreas.garageAccess)rr(c,a.x,a.y,a.w,a.h,12,'#4c585b');
+    for(const a of areas)if(a!==activityAreas.garageApron&&a!==activityAreas.garageAccess)rr(c,a.x,a.y,a.w,a.h,12,'#35444b');
     // V40 HARBOR DRIFT MEGAPARK: the only drift zone in Free Roam.
     eventPad(c,activityAreas.driftHarbor,'#c678ff',{title:'HARBOR DRIFT MEGAPARK',sub:'APEX DRIFT ZONE · OPEN LAYOUT',entry:activityAreas.driftHarborEntry,exit:activityAreas.driftHarborExit,orientation:'north'});
     c.save();c.strokeStyle='#26363892';c.lineWidth=7;
@@ -371,11 +545,11 @@
 
     // Soft, centered property shadow and a clean forecourt.
     rr(c,ga.x-24,ga.y-14,ga.w+48,ga.h+34,24,'#243a3440');
-    rr(c,ga.x,ga.y,ga.w,ga.h,18,'#424d50');
+    rr(c,ga.x,ga.y,ga.w,ga.h,18,'#2c4049');
 
     // Tapered curb-cut: same asphalt family as the avenue, no translucent slab on
     // top of the public lane. The widening shape reads as a real driveway mouth.
-    c.save();c.fillStyle='#424d50';c.beginPath();
+    c.save();c.fillStyle='#2c4049';c.beginPath();
     c.moveTo(gx-throatTopHalf,driveTop);c.lineTo(gx+throatTopHalf,driveTop);
     c.lineTo(gx+throatBottomHalf,driveBottom);c.lineTo(gx-throatBottomHalf,driveBottom);
     c.closePath();c.fill();c.restore();
@@ -423,12 +597,23 @@
     for(let x=1960;x<2110;x+=48)path(c,[[x,1290],[x,1350],[x+36,1350]],'#c2d8bb',2);
     text(c,'APEX MOTOR CLUB',2320,1500,28,'#ede8d2');text(c,'MEET • PARK • DRIVE',2320,1690,14,'#cad3c3');
     // V42 APEX INTERNATIONAL: crisp runway, threshold bars, centerline and edge lights.
-    const rw=activityAreas.airport;rr(c,rw.x+10,rw.y+12,rw.w-20,rw.h-24,12,'#3f494c');
+    const rw=activityAreas.airport;rr(c,rw.x+10,rw.y+12,rw.w-20,rw.h-24,12,'#222e38');
     path(c,[[2900,2670],[4890,2670]],'#f0ecdc',4,[42,28]);
     path(c,[[2900,2580],[4890,2580]],'#cfd3c4',2);path(c,[[2900,2760],[4890,2760]],'#cfd3c4',2);
     for(const x of [2920,4780])for(let row=0;row<8;row++)for(let col=0;col<4;col++)fill(c,x+col*13,2550+row*27,9,20,(row+col)%2?'#3e474a':'#f4f0dc');
     text(c,'09',2980,2642,48,'#f2efdf');text(c,'27',4860,2750,48,'#f2efdf');text(c,'START',3210,2550,15,'#d9e9de');text(c,'FINISH',4610,2800,15,'#d9e9de');
     for(let x=2890;x<4920;x+=64){airportLamp(c,x,2525,true);airportLamp(c,x,2814,true);}
+    // V71 runway safety: visual-only asphalt seams, shoulder hatching and guidance.
+    // No new rectangle becomes playable, and nothing affects racing checkpoints.
+    for(let xx=2950;xx<4830;xx+=96){
+      path(c,[[xx,2537],[xx+47,2537]],'#e6f7ff37',2);
+      path(c,[[xx,2798],[xx+47,2798]],'#e6f7ff37',2);
+      path(c,[[xx,2575],[xx,2615]],'#101e2926',1);
+      path(c,[[xx,2720],[xx,2760]],'#101e2926',1);
+    }
+    for(let xx=3220;xx<4720;xx+=260){
+      path(c,[[xx,2819],[xx+130,2819]],'#f2cf5b8d',2,[22,17]);
+    }
     // Painted runway distance markers and taxi arrows.
     for(const x of [3370,3850,4330]){fill(c,x-28,2627,56,4,'#e8e4d2');fill(c,x-28,2709,56,4,'#e8e4d2');}
     for(const x of [3070,4550]){path(c,[[x,2788],[x+38,2788],[x+25,2775]],'#efc94e',4);}
@@ -436,10 +621,11 @@
   function building(c,b){
     const {x,y,w,h,type,tone}=b,sl=b.height;
     // V42 layered shadows: stronger depth without expensive live shadowBlur on every frame.
-    rr(c,x+sl*.95,y+sl*1.16,w+10,h+9,5,'#102b2830');rr(c,x+sl*.55,y+sl*.78,w+7,h+6,4,'#1b3b343b');
-    fill(c,x+3,y+5,w,h,'#ddd4bf');fill(c,x+w-6,y+5,9,h,'#718780');fill(c,x+3,y+h-4,w,10,'#687c75');
+    rr(c,x+sl*1.16,y+sl*1.24,w+12,h+11,7,'#091f2d68');
+    rr(c,x+sl*.65,y+sl*.84,w+8,h+7,5,'#162b364b');
+    fill(c,x+3,y+5,w,h,'#cbbda2');fill(c,x+w-6,y+5,9,h,'#718780');fill(c,x+3,y+h-4,w,10,'#687c75');
     if(type==='house'||type==='residential'){
-      const palette=[['#c9684d','#974636'],['#d17a50','#a2523e'],['#718a91','#496b75'],['#d7b57a','#a98556']],p=palette[tone];
+      const palette=[['#b8533f','#762e2c'],['#cf8150','#8a4530'],['#5d8c99','#345668'],['#d0b17c','#8d744d']],p=palette[tone];
       const roof=c.createLinearGradient(x,y,x+w*.35,y+h);roof.addColorStop(0,p[0]);roof.addColorStop(.47,p[0]);roof.addColorStop(.51,p[1]);roof.addColorStop(1,p[1]);c.fillStyle=roof;c.fillRect(x,y,w,h);
       path(c,[[x+1,y+h-1],[x+1,y+1],[x+w-1,y+1]],'#ffe1b88f',2);
       path(c,[[x-3,y+h/2],[x+w+3,y+h/2]],'#f0c79c',3);
@@ -466,20 +652,73 @@
       }
     }
   }
-  const treeSprites=new Map();
+  // V70: utility poles, roof vents and solar skylights are resolved at world-pixel
+  // coordinates. The same details remain sharp as the player drives past them.
+  function facadeDetail(c,b){
+    const {x,y,w,h,type}=b,n=hash2(x,y);
+    if(type==='house'||type==='residential'){
+      const px=x+w*.27,py=y+h*.22;
+      rr(c,px,py,Math.min(20,w*.3),Math.min(15,h*.25),2,'#1e5e80');
+      path(c,[[px+2,py+3],[px+15,py+3]],'#a3e8f2',1.4);
+      if(n%3===0){fill(c,x+7,y+h-11,12,5,'#ffe2b3');fill(c,x+w-19,y+h-11,12,5,'#ffe2b3');}
+    }else{
+      fill(c,x+8,y+8,11,9,'#566d76');fill(c,x+10,y+10,7,5,'#b7c4b4');
+      if(w>64)for(let a=0;a<3;a++)rr(c,x+w-29,y+8+a*14,18,9,2,'#287691');
+    }
+    if(n%2===0){
+      ellipse(c,x+w*.65,y+h*.66,5,4,'#486a6a');
+      path(c,[[x+w*.65-2,y+h*.66],[x+w*.65+2,y+h*.66]],'#c7d7cd',1);
+    }
+  }
+  const treeSprites=new Map(),palmSprites=new Map();
+  function palmCrown(c,t){
+    // Six cacheable tree canopy variants; rendered once, painted sharply into Retina tiles.
+    const key=t.tone%5;
+    if(!palmSprites.has(key)){
+      const spr=document.createElement('canvas');spr.width=spr.height=192;
+      const p=spr.getContext('2d');p.translate(94,86);
+      const leafTones=[['#174b35','#35834b','#91b969'],['#174e3c','#418954','#a0c478'],['#22563a','#488b50','#abbd6a'],['#225746','#3b9a6a','#a9d19a'],['#36502e','#6b9144','#d0cc71']][key];
+      // Sun from upper left, shadow falling southeast onto terrain.
+      p.save();p.translate(12,18);p.scale(1.05,.72);
+      ellipse(p,0,0,57,44,'#0a253a56');p.restore();
+      path(p,[[0,20],[-5,6],[0,-19]],'#664c35',10);
+      path(p,[[-2,8],[1,-18]],'#c6a379',4);
+      for(let i=0;i<13;i++){
+        const a=i*TAU/13+.16,rx=Math.cos(a),ry=Math.sin(a),n=i%3;
+        const len=43+n*5,tipX=rx*len,tipY=ry*(len*.74)+9;
+        const ctrlX=rx*19,ctrlY=ry*8-25;
+        p.beginPath();p.moveTo(0,-19);
+        p.quadraticCurveTo(ctrlX,ctrlY,tipX,tipY);
+        p.quadraticCurveTo(rx*(len*.66),ry*(len*.48)+3,0,-19);
+        p.fillStyle=leafTones[n];p.fill();
+        path(p,[[0,-18],[rx*19,ry*9-17],[tipX,tipY]],'#d8efaa55',1.4);
+        for(let k=1;k<5;k++){
+          const tt=k/5,x=tipX*tt,y=-19+(tipY+19)*tt;
+          const wx=-ry*(4+4*tt),wy=rx*(4+4*tt);
+          path(p,[[x-wx,y-wy],[x,y],[x+wx,y+wy]],leafTones[k%3],1.5);
+        }
+      }
+      ellipse(p,0,-18,7,6,'#668848');
+      for(let i=0;i<4;i++)ellipse(p,-5+i*3,-20+i%2*3,2.5,2.1,'#c8a75e');
+      palmSprites.set(key,spr);
+    }
+    const d=t.r*4.7;
+    c.drawImage(palmSprites.get(key),t.x-d*.47,t.y-d*.47,d,d);
+  }
   function tree(c,t){
+    if(t.species==='palm'){palmCrown(c,t);return;}
     const key=t.tone;
     if(!treeSprites.has(key)){
       const spr=document.createElement('canvas');spr.width=spr.height=144;const g=spr.getContext('2d');
       const colors=[
-        ['#1f4d35','#78ad5d','#b6ce75'],
-        ['#315d35','#9abc62','#d2d57b'],
-        ['#485d2c','#b8b75f','#d9ce7c'],
-        ['#1b5140','#72a777','#acd08c'],
-        ['#676439','#c5b66d','#e1cf8c']
+        ['#174831','#4d9a4e','#b0d575'],
+        ['#245539','#71b85e','#d1d978'],
+        ['#495f28','#aeaf4d','#e3d87d'],
+        ['#124f44','#5fba80','#bee0a0'],
+        ['#5b5732','#bea35b','#f0dc91']
       ][key];
       // Soft baked shadow offset to the south-east.
-      ellipse(g,84,94,47,29,'#0b2b2638');ellipse(g,78,88,39,23,'#153a3135');
+      ellipse(g,86,97,47,30,'#08223865');ellipse(g,81,91,40,26,'#102c3855');
       path(g,[[70,82],[72,58]],'#755c3f',5);
       const grad=g.createRadialGradient(49,38,5,66,62,49);grad.addColorStop(0,colors[2]);grad.addColorStop(.45,colors[1]);grad.addColorStop(1,colors[0]);
       ellipse(g,64,62,43,39,colors[0]);
@@ -580,14 +819,14 @@
   function colorGrade(c,v){
     // Consistent warm sun / cool ambient grade; low alpha keeps gameplay markings crisp.
     c.save();
-    const g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'#ffe6a812');g.addColorStop(.46,'#ffffff00');g.addColorStop(1,'#2d6f8814');
+    const g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'#f9ce7411');g.addColorStop(.46,'#ffffff00');g.addColorStop(1,'#092e5019');
     c.fillStyle=g;c.fillRect(Math.max(0,v.x),Math.max(0,v.y),Math.max(0,Math.min(W,v.x+v.w)-Math.max(0,v.x)),Math.max(0,Math.min(H,v.y+v.h)-Math.max(0,v.y)));
-    const glow=c.createRadialGradient(W*.22,H*.18,0,W*.22,H*.18,W*.58);glow.addColorStop(0,'#fff4c20d');glow.addColorStop(1,'#ffffff00');c.fillStyle=glow;c.fillRect(0,0,W,H);
+    const glow=c.createRadialGradient(W*.22,H*.18,0,W*.22,H*.18,W*.58);glow.addColorStop(0,'#ffec9a09');glow.addColorStop(1,'#ffffff00');c.fillStyle=glow;c.fillRect(0,0,W,H);
     c.restore();
   }
   function scene(c,v={x:0,y:0,w:W,h:H}){
     const visible=(x,y,w,h)=>x+w>v.x-60&&x<v.x+v.w+60&&y+h>v.y-60&&y<v.y+v.h+60;
-    ground(c,v);roadsLayer(c);for(const b of buildings)if(visible(b.x,b.y,b.w,b.h))building(c,b);props(c);for(const t of trees)if(visible(t.x-t.r,t.y-t.r,t.r*2,t.r*2))tree(c,t);colorGrade(c,v);
+    ground(c,v);roadsLayer(c);for(const b of buildings)if(visible(b.x,b.y,b.w,b.h)){building(c,b);facadeDetail(c,b);}props(c);for(const t of trees)if(visible(t.x-t.r,t.y-t.r,t.r*2,t.r*2))tree(c,t);colorGrade(c,v);
   }
   // Bounded LRU: no giant DPR-scaled world bitmap and no per-frame city regeneration.
   const tiles=new Map(),TILE=512;
@@ -596,9 +835,13 @@
   function tile(tx,ty){
     const key=tx+','+ty;
     if(tiles.has(key)){const v=tiles.get(key);tiles.delete(key);tiles.set(key,v);return v;}
-    const el=document.createElement('canvas');el.width=el.height=TILE+4;
+    // Rasterize geometry at 1.5x native world resolution on retina iPhone/iPad.
+    // No single upscaled background bitmap; each 512-unit tile is independent.
+    // Keep memory bounded (<~48 MiB for the texture cache at this density).
+    const ratio=typeof devicePixelRatio==='number'&&devicePixelRatio>=1.75?1.5:1;
+    const el=document.createElement('canvas');el.width=el.height=Math.round((TILE+4)*ratio);
     const c=el.getContext('2d',{alpha:false}),view={x:tx*TILE-2,y:ty*TILE-2,w:TILE+4,h:TILE+4};
-    c.translate(2-tx*TILE,2-ty*TILE);visualBuffer(c,view);
+    c.scale(ratio,ratio);c.translate(2-tx*TILE,2-ty*TILE);visualBuffer(c,view);
     if(view.x<W&&view.x+view.w>0&&view.y<H&&view.y+view.h>0)scene(c,view);
     tiles.set(key,el);
     if(tiles.size>tileLimit){const oldest=tiles.keys().next().value;const old=tiles.get(oldest);old.width=old.height=1;tiles.delete(oldest);}
@@ -611,8 +854,8 @@
     fill(c,v.x,v.y,v.w,v.h,'#153f58');
     const x0=Math.max(Math.floor(minX/TILE),Math.floor(v.x/TILE)),x1=Math.min(Math.floor(maxX/TILE),Math.floor((v.x+v.w)/TILE));
     const y0=Math.max(Math.floor(minY/TILE),Math.floor(v.y/TILE)),y1=Math.min(Math.floor(maxY/TILE),Math.floor((v.y+v.h)/TILE));
-    tileLimit=Math.max(32,Math.max(1,(x1-x0+1)*(y1-y0+1))+4);
-    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)c.drawImage(tile(x,y),x*TILE-2,y*TILE-2);
+    tileLimit=Math.max(14,Math.min(20,Math.max(1,(x1-x0+1)*(y1-y0+1))+5));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)c.drawImage(tile(x,y),x*TILE-2,y*TILE-2,TILE+4,TILE+4);
   }
   function drawOverview(c,w,h){
     if(!overview){overview=document.createElement('canvas');overview.width=1500;overview.height=900;const g=overview.getContext('2d',{alpha:false});g.scale(.3,.3);scene(g);}
@@ -623,5 +866,5 @@
       rr(c,px-tw/2-8,py-12,tw+16,20,5,'#203d38d9');text(c,label,px,py+2,11,'#f0eedb');
     }
   }
-  window.ApexCity={width:W,height:H,visualMargin:VISUAL_MARGIN,resolveCarMotion,roadAt,nearestRoad,district,draw,drawOverview,minigameVenues,garageVenue};
+  window.ApexCity={width:W,height:H,visualMargin:VISUAL_MARGIN,resolveCarMotion,roadAt,nearestRoad,district,draw,drawOverview,minigameVenues,garageVenue,coastalRingVersion:71};
 })();
