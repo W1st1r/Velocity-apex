@@ -1,0 +1,67 @@
+/* Velocity Apex V69 | iOS 17+ responsive review and transparent upgrade protection. */
+:root {--apex-viewport-h:100dvh;--apex-control-blue:#58c7ff;}
+/* On iOS the browser chrome changes the visible height: constrain dialogs to dynamic viewport. */
+@supports (height:100dvh) {
+  :is(.account-card,.friends-card,.free-servers-card,.settings-panel,.promo-card,.local-mode-card,.root-console-panel){max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+  .upgrade-modal-card{max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);}
+}
+/* Never let long names, credits or labels force sideways scrolling. */
+:is(.garage-panel,.shop-panel,.account-card,.friends-card,.settings-panel,.promo-card,.free-servers-card,.upgrade-modal-card,.upgrade-confirm-modal>section,.upgrade-history-modal>section) {max-width:calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 12px);min-width:0;box-sizing:border-box;}
+:is(.account-card,.friends-card,.promo-card,.settings-panel,.free-servers-card) :is(input,select,textarea) {max-width:100%;min-width:0;box-sizing:border-box;}
+:is(.account-card,.friends-card,.promo-card) :is(h2,p,strong) {overflow-wrap:anywhere;}
+/* UPGRADE: same wheel and same one-screen structure; protection is an explicit opt-in. */
+.upgrade-target-card{grid-template-rows:auto minmax(0,1fr) auto auto auto;}
+.upgrade-protection-switch{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;min-height:35px;padding:5px 7px;margin-top:5px;background:#102b43;border:1px solid #326486;border-radius:9px;color:#e5f6ff;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.upgrade-protection-switch:has(input:checked){border-color:#69cfff;background:#163e5b;box-shadow:inset 0 0 0 1px #3d89b1;}
+.upgrade-protection-switch input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+.upgrade-protection-label{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto;line-height:1.15;}
+.upgrade-protection-label strong{font-size:clamp(7px,1.1vw,10px);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.upgrade-protection-label small{font-size:clamp(6px,.95vw,9px);line-height:1.1;color:#aad3eb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.upgrade-protection-check{width:20px;height:20px;flex:0 0 20px;display:grid;place-items:center;background:#0b2137;border:1.5px solid #658ba9;border-radius:6px;color:transparent;font-size:13px;font-weight:900;}
+.upgrade-protection-switch:has(input:checked) .upgrade-protection-check{color:#07172b;background:#73d4ff;border-color:#a8e7ff;}
+.upgrade-protection-switch:has(input:focus-visible){outline:2px solid #e5faff;outline-offset:2px;}
+.upgrade-protection-switch:has(input:disabled){opacity:.65;cursor:default;}
+.upgrade-protection-impact{margin-top:3px;min-width:0;color:#c7e5f7;font-size:clamp(6px,1.05vw,9px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
+.upgrade-confirm-modal[open]>section{overflow-y:auto;overscroll-behavior:contain;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 14px);}
+.upgrade-confirm-modal #upgradeConfirmSummary strong{overflow-wrap:anywhere;white-space:normal;}
+.upgrade-history-row{grid-template-columns:minmax(78px,105px) minmax(0,1fr) auto minmax(64px,auto);}
+.upgrade-history-row em{white-space:normal;line-height:1.25;max-width:125px;}
+@media (orientation:landscape) and (max-height:460px){
+  .upgrade-protection-switch{min-height:29px;padding:3px 5px;margin-top:3px;gap:4px;}
+  .upgrade-protection-label strong{font-size:7px;}
+  .upgrade-protection-label small{font-size:6px;}
+  .upgrade-protection-check{width:16px;height:16px;flex-basis:16px;font-size:11px;}
+  .upgrade-protection-impact{font-size:6px;margin-top:2px;}
+  .upgrade-target-card .upgrade-target-item{min-height:0;}
+  .upgrade-confirm-modal[open]>section{padding:8px 11px;}
+  .upgrade-confirm-modal #upgradeConfirmSummary{gap:4px;margin-top:6px;}
+  .upgrade-confirm-modal #upgradeConfirmSummary div{padding:5px;}
+  .upgrade-confirm-modal>section>p{margin:5px 0;}
+  .upgrade-history-row{grid-template-columns:minmax(70px,93px) minmax(0,1fr) auto minmax(54px,auto);gap:5px;}
+}
+/* Short landscape phones: favour readable scroll over clipped controls. */
+@media (orientation:landscape) and (max-width:740px){
+  .upgrade-board{grid-template-columns:minmax(0,1fr) minmax(95px,.65fr) minmax(0,1fr);gap:5px;}
+  .upgrade-target-card{padding:5px;}
+  .upgrade-target-item{grid-template-columns:minmax(0,1fr);min-height:0;}
+  .upgrade-target-item .upgrade-mini-visual{display:none;}
+  .upgrade-protection-label small{white-space:normal;}
+  .upgrade-protection-impact{white-space:normal;line-height:1.1;}
+  .upgrade-confirm-modal #upgradeConfirmSummary span{font-size:7px;}
+}
+@media (orientation:portrait){
+  /* Menus remain scrollable when opened on a phone before rotation. */
+  :is(.account-card,.friends-card,.promo-card,.settings-panel,.free-servers-card){max-width:calc(100vw - 16px);}
+  .upgrade-modal-card{height:min(88dvh,620px);}
+  .upgrade-history-modal[open]>section{max-width:calc(100vw - 16px);}
+  .upgrade-history-row{grid-template-columns:1fr 1fr;gap:4px;}
+  .upgrade-history-row em{text-align:left;}
+}
+/* iOS 17 Safari zooms forms if the focused field is less than 16 CSS pixels. */
+@media (pointer:coarse) and (max-width:950px){
+  :is(.account-card,.friends-card,.promo-card,.settings-panel,.free-servers-card,.upgrade-credit-row,.crew-shell) :is(input,select,textarea){font-size:16px!important;}
+  :is(.upgrade-picker-item,.upgrade-protection-switch,.upgrade-confirm-modal button){touch-action:manipulation;}
+}
+@media(prefers-reduced-motion:reduce){
+  .upgrade-protection-switch,.upgrade-protection-check{transition:none!important;}
+}

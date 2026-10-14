@@ -29,31 +29,31 @@ assert.match(html,/id="upgradePickerSort"/);
 assert.match(garage,/pickerSort:'asc'/);
 
 // V65 odds are server-authoritative; visible wheel odds match the real chance.
-assert.equal(publicConfig().returnBps,9000);
+assert.equal(publicConfig().returnBps,9600);
 assert.equal(publicConfig().minChanceBps,100);
-assert.equal(publicConfig().maxChanceBps,8500);
+assert.equal(publicConfig().maxChanceBps,9500);
 assert.equal(publicConfig().maxStakeItems,12);
-assert.match(upgradeConfig,/returnBps:9000/);
-assert.match(upgradeConfig,/maxChanceBps:8500/);
-assert.equal(upgradeChanceBps(100000,200000),4500);
-assert.equal(upgradeChanceBps(150000,200000),6750);
-assert.equal(upgradeChanceBps(180000,200000),8100);
-assert.equal(upgradeChanceBps(190000,200000),8500);
-assert.equal(upgradeChanceBps(196000,200000),8500);
-assert.equal(upgradeChanceBps(199999,200000),8500);
+assert.match(upgradeConfig,/returnBps:9600/);
+assert.match(upgradeConfig,/maxChanceBps:9500/);
+assert.equal(upgradeChanceBps(100000,200000),4800);
+assert.equal(upgradeChanceBps(150000,200000),7200);
+assert.equal(upgradeChanceBps(180000,200000),8640);
+assert.equal(upgradeChanceBps(190000,200000),9120);
+assert.equal(upgradeChanceBps(196000,200000),9408);
+assert.equal(upgradeChanceBps(199999,200000),9500);
 assert.equal(upgradeChanceBps(0,200000),0);
-assert.match(upgrade,/baseChanceBps\(stakeValue,targetValue,returnBps\)<MIN_CHANCE_BPS/);
+assert.match(upgrade,/baseChanceBps\(stakeValue,targetValue,payload\.protection\)<MIN_CHANCE_BPS/);
 const realChance=upgradeChanceBps(100000,200000);
 const outcomes=Array.from({length:10000},(_,ticket)=>ticket<realChance);
-assert.equal(outcomes.filter(Boolean).length,4500);
-assert.equal(outcomes.filter(success=>!success).length,5500);
+assert.equal(outcomes.filter(Boolean).length,4800);
+assert.equal(outcomes.filter(success=>!success).length,5200);
 
 // Result is server-side and idempotent.
 assert.match(upgrade,/crypto\.getRandomValues/);
 assert.match(upgrade,/INSERT OR IGNORE INTO upgrade_attempts/);
 assert.match(upgrade,/status='processing'/);
 assert.match(upgrade,/mutateTargetSave\(env,session\.user\.id/);
-assert.match(upgrade,/consumeStake\(save,payload\);if\(success\)grantTarget/);
+assert.match(upgrade,/consumeStake\(save,payload\)/);assert.match(upgrade,/if\(success\)grantTarget/);
 assert.match(upgrade,/TARGET_NOT_HIGHER/);
 assert.match(upgrade,/CHANCE_TOO_LOW/);
 assert.match(upgrade,/TARGET_ALREADY_OWNED/);

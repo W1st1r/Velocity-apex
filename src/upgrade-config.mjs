@@ -1,14 +1,11 @@
-// Velocity Apex V65 · public, server-authoritative upgrade payout policy.
-// Chance = min(85%, stakeValue / targetValue * stage RTP). No personalized streak penalties.
+// Velocity Apex V69 · universal server-authoritative upgrade policy.
+// Standard payout: 96% before cap. Protected: 25% of stake refunded on loss; probability is adjusted for the same expected payout.
 export const UPGRADE_CONFIG=Object.freeze({
-  returnBps:9000,       // standard expected value at eligible sub-cap stake ratios
-  minChanceBps:100,     // minimum eligible pre-cap chance basis points
-  maxChanceBps:8500,    // no attempt is ever 100% guaranteed
+  returnBps:9600,          // universal, never depends on account, level or streak
+  minChanceBps:100,
+  maxChanceBps:9500,
   chanceDivisor:1,
-  introReturnBps:9800,  // first 5 completed attempts, including previous V64 history
-  midReturnBps:9400,    // completed attempts 5 through 19
-  level30ReturnBps:9100,
-  level60ReturnBps:9200,
+  protectionRefundBps:2500, // failed protected bet returns 25% of the full estimated stake as CR
   maxStakeItems:12,
   maxCredits:999999999
 });

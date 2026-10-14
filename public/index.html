@@ -8,15 +8,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#071426" />
   <meta name="application-name" content="Velocity Apex" />
-  <meta name="velocity-apex-version" content="V68" />
+  <meta name="velocity-apex-version" content="V69" />
   <meta name="apple-mobile-web-app-title" content="Velocity Apex" />
-  <title>Velocity Apex · V68</title>
+  <title>Velocity Apex · V69</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&theme=v66" />
+  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&theme=v66&v69=1" />
 <link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12&theme=v66">
   <link rel="stylesheet" href="css/crews.css?v=20261013-v68&theme=v68">
   <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32&theme=v66">
@@ -26,6 +26,7 @@
   <link rel="stylesheet" href="css/race-control-v65.css?v=20261013-v65">
   <link rel="stylesheet" href="css/unified-blue-v66.css?v=20261013-v66-1">
   <link rel="stylesheet" href="css/polish-v68.css?v=20261013-v68-1">
+  <link rel="stylesheet" href="css/ios-upgrade-v69.css?v=20261014-v69-1">
 </head>
 <body>
   <div id="app">
@@ -122,7 +123,7 @@
           <button id="menuMoreBtn" type="button" class="rc-rail-link rc-more" aria-label="Другие разделы" aria-expanded="false" aria-controls="menuMorePanel"><span class="rc-rail-icon">•••</span><span>ЕЩЁ</span></button>
         </nav>
         <main class="rc-main">
-          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V68</div>
+          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V69</div>
           <h1>ГОТОВ К ЗАЕЗДУ<span>?</span></h1>
           <section class="menu-section menu-play-section rc-modes" aria-label="Игровые режимы">
             <button id="playBtn" type="button" class="primary-btn play-btn rc-action rc-solo"><span class="rc-action-glyph">▷</span><span class="rc-action-copy"><strong>ОДИНОЧНАЯ ИГРА</strong><small>Обычный · Дрифт · Карьера</small></span><span class="rc-action-arrow">→</span></button>
@@ -814,7 +815,8 @@
               <div class="upgrade-card-head"><span>ЦЕЛЬ</span><strong id="upgradeTargetValue">—</strong></div>
               <div id="upgradeTargetItem" class="upgrade-target-item"><span class="upgrade-empty">Выберите предмет</span></div>
               <button id="upgradeChooseTarget" class="upgrade-pick-btn" type="button">ВЫБРАТЬ ЦЕЛЬ</button>
-              <div class="upgrade-target-hint">Цель должна быть дороже общей ставки.</div>
+              <label class="upgrade-protection-switch" for="upgradeProtectionToggle"><input id="upgradeProtectionToggle" type="checkbox" aria-describedby="upgradeProtectionImpact"><span class="upgrade-protection-label"><strong>ЗАЩИТА СТАВКИ</strong><small>25% возврата в CR при проигрыше</small></span><span class="upgrade-protection-check" aria-hidden="true">✓</span></label>
+              <div id="upgradeProtectionImpact" class="upgrade-protection-impact" aria-live="polite">Без защиты: вся ставка под риском</div>
             </article>
           </div>
           <div class="upgrade-actionbar"><div><small id="upgradeBalanceLabel">БАЛАНС · 0 CR</small><span id="upgradeStatus">Добавьте ставку и выберите цель.</span></div><button id="upgradeStart" type="button" disabled>UPGRADE</button></div>
@@ -834,7 +836,7 @@
     </div>
 
     <dialog id="upgradeConfirmModal" class="upgrade-confirm-modal">
-      <section><small>APEX / UPGRADE</small><h3>НАЧАТЬ UPGRADE?</h3><div id="upgradeConfirmSummary"></div><p>При неудаче все выбранные предметы и поставленные CR будут потеряны.</p><div><button id="upgradeConfirmCancel" type="button">ОТМЕНА</button><button id="upgradeConfirmStart" type="button">НАЧАТЬ</button></div></section>
+      <section><small>APEX / UPGRADE</small><h3>НАЧАТЬ UPGRADE?</h3><div id="upgradeConfirmSummary"></div><p id="upgradeConfirmWarning">При неудаче все выбранные предметы и поставленные CR будут потеряны.</p><div><button id="upgradeConfirmCancel" type="button">ОТМЕНА</button><button id="upgradeConfirmStart" type="button">НАЧАТЬ</button></div></section>
     </dialog>
 
     <dialog id="upgradeHistoryModal" class="upgrade-history-modal">
@@ -1282,7 +1284,7 @@
   <script src="js/audio.js?v=20260915-owner1"></script>
   <script src="js/car.js?v=20261013-v67"></script>
   <script src="js/ai.js?v=20261013-v67"></script>
-  <script src="js/garage.js?v=20260918-v28&upgrade=20261013-v65&layout=20260920-v54&pointer=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57"></script>
+  <script src="js/garage.js?v=20260918-v28&upgrade=20261014-v69&layout=20260920-v54&pointer=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57"></script>
   <script src="js/root-console.js?v=ownerlogs12"></script>
   <script src="js/control-layout.js?v=20260918-v29"></script>
   <script src="js/controls.js?v=20260915-owner1"></script>

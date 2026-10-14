@@ -22,7 +22,7 @@ function landing(success,shown,normalized,near=false,r=55){
  if(near)return success?high:low;
  return low+Math.max(0,Math.min(1,normalized))*(high-low);
 }
-for(const shown of [100,150,765,1530,3825,6885,7497,8500])for(const near of [false,true])for(const n of [0,.001,.25,.5,.75,.999,1]){
+for(const shown of [100,150,765,1530,3825,6885,7497,8500,9500])for(const near of [false,true])for(const n of [0,.001,.25,.5,.75,.999,1]){
  const ok=landing(true,shown,n,near),fail=landing(false,shown,n,near);
  assert.ok(ok>0&&ok<shown);assert.ok(fail>shown&&fail<10000);
 }
