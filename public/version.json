@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V74",
+  "version": "V74.1",
   "theme": "Race Control Blue",
-  "update": "Audit Fixes and Release Automation",
+  "update": "Car Preview Quality and Scale",
   "released": "2026-10-16",
-  "release": "Unified 50-player Free Roam copy, corrected 50-level Career copy, separated city labels, honest market balance loading state, iPhone-safe UI and guarded Cloudflare deployment"
+  "release": "Proportional, bounded car previews across menu, garage and shop; corrected iPhone menu car fit"
 }
