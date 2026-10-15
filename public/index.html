@@ -8,9 +8,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="theme-color" content="#071426" />
   <meta name="application-name" content="Velocity Apex" />
-  <meta name="velocity-apex-version" content="V73.2" />
+  <meta name="velocity-apex-version" content="V74" />
   <meta name="apple-mobile-web-app-title" content="Velocity Apex" />
-  <title>Velocity Apex · V73.2</title>
+  <title>Velocity Apex · V74</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="css/unified-blue-v66.css?v=20261013-v66-1">
   <link rel="stylesheet" href="css/polish-v68.css?v=20261013-v68-1">
   <link rel="stylesheet" href="css/ios-upgrade-v69.css?v=20261015-v73-4">
+  <link rel="stylesheet" href="css/v74.css?v=20261016-v74">
 </head>
 <body>
   <div id="app">
@@ -123,7 +124,7 @@
           <button id="menuMoreBtn" type="button" class="rc-rail-link rc-more" aria-label="Другие разделы" aria-expanded="false" aria-controls="menuMorePanel"><span class="rc-rail-icon">•••</span><span>ЕЩЁ</span></button>
         </nav>
         <main class="rc-main">
-          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V73.2</div>
+          <div class="rc-overline">APEX / CONTROL <span>•</span> SEASON V74</div>
           <h1>ГОТОВ К ЗАЕЗДУ<span>?</span></h1>
           <section class="menu-section menu-play-section rc-modes" aria-label="Игровые режимы">
             <button id="playBtn" type="button" class="primary-btn play-btn rc-action rc-solo"><span class="rc-action-glyph">▷</span><span class="rc-action-copy"><strong>ОДИНОЧНАЯ ИГРА</strong><small>Обычный · Дрифт · Карьера</small></span><span class="rc-action-arrow">→</span></button>
@@ -287,7 +288,7 @@
     <div id="freeServers" class="overlay free-servers-screen hidden" aria-hidden="true">
       <section class="free-servers-card glass enter-panel">
         <header class="free-servers-header">
-          <div><div class="eyebrow">VELOCITY APEX / OPEN CITY</div><h2>СВОБОДНЫЙ РЕЖИМ</h2><p>Выберите городской сервер. Максимум 20 игроков.</p></div>
+          <div><div class="eyebrow">VELOCITY APEX / OPEN CITY</div><h2>СВОБОДНЫЙ РЕЖИМ</h2><p>Выберите городской сервер. Максимум 50 игроков.</p></div>
           <div class="free-server-actions"><button id="freeRefreshBtn" class="secondary-btn compact-btn" type="button">ОБНОВИТЬ</button><button id="freeServersBackBtn" class="account-close" type="button" aria-label="Назад">×</button></div>
         </header>
         <div class="free-server-summary"><span><i></i> OPEN CITY</span><strong id="freeServersOnline">0 игроков онлайн</strong></div>
@@ -380,7 +381,7 @@
             <span class="mode-index">02</span><strong>ДРИФТ</strong><small>2 длинные карты · ручник · Drift Score / Combo</small><b aria-hidden="true">›</b>
           </button>
           <button id="careerModeBtn" class="local-mode-choice career-choice" type="button">
-            <span class="mode-index">03</span><strong>КАРЬЕРА</strong><small>10 уровней · длинные Time Attack трассы · рекорды и награды CR</small><b aria-hidden="true">›</b>
+            <span class="mode-index">03</span><strong>КАРЬЕРА</strong><small>50 уровней · длинные Time Attack трассы · рекорды и награды CR</small><b aria-hidden="true">›</b>
           </button>
         </div>
         <button id="localModeBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button>
@@ -436,7 +437,7 @@
             <div class="online-mode-hero">
               <span class="online-mode-kicker">SELECT ONLINE EXPERIENCE</span>
               <strong>ВЫБЕРИТЕ РЕЖИМ</strong>
-              <small>Комнаты для гонок или большой открытый город на 20 игроков.</small>
+              <small>Комнаты для гонок или большой открытый город на 50 игроков.</small>
             </div>
             <div class="online-mode-grid">
               <button id="onlineRoomsModeBtn" class="online-mode-tile rooms-mode" type="button">
@@ -447,7 +448,7 @@
               </button>
               <button id="onlineFreeModeBtn" class="online-mode-tile free-mode" type="button">
                 <span class="online-mode-index">02</span>
-                <span class="online-free-badge" aria-hidden="true">20</span>
+                <span class="online-free-badge" aria-hidden="true">50</span>
                 <span class="online-mode-copy"><small>OPEN CITY</small><strong>СВОБОДНЫЙ РЕЖИМ</strong><em>Город, чат, встречи, drag, drift и speed zones.</em></span>
                 <b aria-hidden="true">›</b>
               </button>
@@ -692,7 +693,7 @@
       <section id="shopMarketPanel" class="market-panel glass hidden" aria-labelledby="marketTitle">
         <header class="market-header">
           <div class="market-title-wrap"><div class="eyebrow">VELOCITY APEX / PLAYER MARKET</div><h2 id="marketTitle">РЫНОК</h2><small>Безопасные сделки между игроками</small></div>
-          <div class="market-wallet"><span>БАЛАНС</span><strong id="marketCredits">0 CR</strong></div>
+          <div class="market-wallet" aria-busy="true"><span>БАЛАНС</span><strong id="marketCredits">ЗАГРУЗКА…</strong></div>
           <button id="marketBackBtn" class="secondary-btn" type="button">НАЗАД</button>
         </header>
         <div class="market-tabs" id="marketTabs" role="tablist" aria-label="Раздел рынка">
@@ -1293,13 +1294,13 @@
   <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32"></script>
   <script src="js/main-menu-ui.js?v=20261015-v73-2"></script>
   <script src="js/payments.js?v=20260921-v63&menu=20260918-v20"></script>
-  <script src="js/market.js?v=20260916-tuning2"></script>
+  <script src="js/market.js?v=20261016-v74"></script>
   <script src="js/promo.js?v=20260915-001"></script>
   <script src="js/referrals.js?v=20260918-ref-v31"></script>
   <script src="js/online.js?v=20260920-media-v51"></script>
   <script src="js/friends.js?v=20260916-crews1"></script>
-  <script src="js/free-city.js?v=20260920-v49&release=20261015-v73-2"></script>
-  <script src="js/freeroam.js?v=20260920-v49&release=20261015-v73-2&media=20260920-v50&football=20260920-v61"></script>
+  <script src="js/free-city.js?v=20260920-v49&release=20261016-v74"></script>
+  <script src="js/freeroam.js?v=20260920-v49&release=20261016-v74&media=20260920-v50&football=20260920-v61"></script>
   <script src="js/owner-panel.js?v=20260917-admin-daily2&media=20260920-v50&upgrade=20260920-v52"></script>
   <script src="js/crews.js?v=20260917-economy13&v68=1"></script>
   <script src="js/game.js?v=20261013-v67"></script>
