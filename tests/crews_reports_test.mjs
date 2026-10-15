@@ -12,7 +12,11 @@ async function call(path,body,who='leader'){const r=await worker.fetch(new Reque
 const form={name:'Night Crew',tag:'NIT',emblem:'⚡',color:'#a9ff5a'};
 assert.equal((await call('/api/crews/create',form,'poor')).status,409);
 let result=await call('/api/crews/create',form);assert.equal(result.status,200);const crew=result.crew.id;
-assert.equal((await call('/api/crews/create',{...form,tag:'FOUR'})).status,400);
+assert.equal((await call('/api/crews/create',{...form,tag:'AB'})).status,400,'new two-character tags must be rejected');
+assert.equal((await call('/api/crews/create',{...form,tag:'SIXLET'})).status,400,'six-character tags must be rejected');
+assert.equal((await call('/api/crews/settings',{...form,tag:'FOUR'})).status,200,'four-character tags must be accepted');
+assert.equal((await call('/api/crews/settings',{...form,tag:'FIVES'})).status,200,'five-character tags must be accepted');
+assert.equal((await call('/api/crews/settings',form)).status,200,'restore original tag for subsequent tests');
 const balance=u=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(u).save_json).credits;
 assert.equal(balance('leader'),7500);
 assert.equal((await call('/api/crews/create',form,'outsider')).status,409);assert.equal(balance('outsider'),30000);
