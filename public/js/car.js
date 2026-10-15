@@ -74,7 +74,7 @@
     const spec=spriteSpec||{},iw=Number(imageWidth),ih=Number(imageHeight);
     const hasNatural=Number.isFinite(iw)&&iw>0&&Number.isFinite(ih)&&ih>0;
     const sourceRatio=hasNatural?iw/ih:0;
-    const visualScale=preview?Math.min(1,positive(spec.previewScale,1)):positive(spec.raceScale,1);
+    const visualScale=positive(preview?spec.previewScale:spec.raceScale,1);
     const baseLength=positive(spec.maxVisualLength??spec.visualLength??spec.length,74);
     const ratioWidth=sourceRatio?baseLength/sourceRatio:36.5;
     const baseWidth=positive(spec.maxVisualWidth??spec.visualWidth??spec.width,ratioWidth);
@@ -89,7 +89,7 @@
   function resolveSpriteRenderSize(spriteSpec,resolvedSize,preview=false){
     const size=resolvedSize||{};
     const length=positive(size.length,74),width=positive(size.width,36);
-    const previewLengthScale=preview?Math.min(1,positive(spriteSpec?.previewLengthScale,1)):1;
+    const previewLengthScale=preview?positive(spriteSpec?.previewLengthScale,1):1;
     return {length:length*previewLengthScale,width,previewLengthScale};
   }
   R.resolveSpriteRenderSize=resolveSpriteRenderSize;
@@ -180,7 +180,7 @@
 
     steeringAuthority(speed=this.speed,surfaceOrOnRoad=this.surface){
       const surface=this._surfaceType(surfaceOrOnRoad),speedRatio=clamp(speed/Math.max(1,this.maxSpeed),0,1.12);
-      const rolling=clamp(speed/54,0,1),highSpeed=1-.245*Math.pow(clamp(speedRatio,0,1),1.40);
+      const rolling=clamp(speed/54,0,1),highSpeed=1-.17*Math.pow(clamp(speedRatio,0,1),1.45);
       const surfaceFactor=surface==='asphalt'?1:surface==='shoulder'?.94:.58;
       return this.turnRate*(.12+.88*rolling)*highSpeed*surfaceFactor;
     }
@@ -192,7 +192,7 @@
       // while true off-road remains deliberately costly for player and AI alike.
       const base=166,downforce=.00205*speed*speed,brakeLoad=1-.20*clamp(brake,0,1);
       const surfaceGrip=surface==='shoulder'?.92:1;
-      return (base+downforce)*brakeLoad*surfaceGrip*(this.gripFactor||1);
+      return (base+downforce)*brakeLoad*surfaceGrip;
     }
 
     markImpact(strength=.5){
