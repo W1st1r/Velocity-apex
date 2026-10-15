@@ -13,13 +13,13 @@ vm.createContext(context);
 vm.runInContext(citySrc.replace('window.ApexCity={','window.__map70={roads,buildings,trees,areas};window.ApexCity={'),context);
 const city=context.window.ApexCity,{roads,buildings,trees}=context.window.__map70;
 
-assert.ok(['V70','V71'].includes(version.version),'expected a Coastal Ring release');
+assert.ok(['V70','V71','V74'].includes(version.version),'expected a Coastal Ring based release');
 assert.ok(city.coastalRingVersion>=70);
 assert.equal(city.width,5000);
 assert.equal(city.height,3000);
-assert.ok(/Coastal Ring/.test(version.update));
-assert.match(html,/free-city\.js\?v=20260920-v49&coastal=v7[01]/);
-assert.match(html,/freeroam\.js\?v=20260920-v49&coastal=v7[01]/);
+assert.ok(version.version==='V74'||/Coastal Ring/.test(version.update));
+assert.match(html,/free-city\.js\?v=20260920-v49&release=20261016-v74/);
+assert.match(html,/freeroam\.js\?v=20260920-v49&release=20261016-v74/);
 assert.ok(roads.length>=16,'eastern coastal connections are missing');
 assert.ok(buildings.length>=170,'premium coastal quarters must contain detailed blocks');
 assert.ok(trees.length>220,'vegetation must not disappear');

@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V71",
+  "version": "V74",
   "theme": "Race Control Blue",
-  "update": "Coastal Ring Cinematic Color & Airport Art",
-  "released": "2026-10-14",
-  "release": "Darker drivable asphalt, richer coastal color grade, baked building and foliage shadows, new palm canopy sprites, detailed airport terminal and vector aircraft"
+  "update": "Audit Fixes and Release Automation",
+  "released": "2026-10-16",
+  "release": "Unified 50-player Free Roam copy, corrected 50-level Career copy, separated city labels, honest market balance loading state, iPhone-safe UI and guarded Cloudflare deployment"
 }

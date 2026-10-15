@@ -4,7 +4,7 @@
   const $=id=>document.getElementById(id);
   const money=value=>Math.max(0,Math.floor(Number(value)||0)).toLocaleString('ru-RU')+' CR';
   const date=value=>{try{return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(Number(value)||0));}catch{return '—';}};
-  const state={tab:'cars',data:{listings:[],buyOrders:[],history:[],balance:0},loading:false,tradeMode:null,pending:null};
+  const state={tab:'cars',data:{listings:[],buyOrders:[],history:[],balance:null},loading:false,tradeMode:null,pending:null};
   const errors={
     AUTH_REQUIRED:'Нужно войти в аккаунт.',INVALID_CAR:'Эту машину нельзя выставить на рынок.',INVALID_PRICE:'Укажите корректную цену.',CAR_NOT_OWNED:'Этой машины больше нет в вашем гараже.',CAR_ALREADY_OWNED:'Эта машина уже есть в вашем гараже.',INSUFFICIENT_CREDITS:'Недостаточно кредитов.',ALREADY_LISTED:'Машина уже выставлена на продажу.',ORDER_EXISTS:'У вас уже есть активная заявка на эту машину.',LISTING_NOT_FOUND:'Объявление уже недоступно.',LISTING_UNAVAILABLE:'Объявление уже изменилось. Обновите рынок.',ORDER_NOT_FOUND:'Заявка уже недоступна.',ORDER_UNAVAILABLE:'Заявка уже изменилась. Обновите рынок.',CANNOT_BUY_OWN:'Нельзя купить собственную машину.',CANNOT_FILL_OWN:'Нельзя выполнить собственную заявку.',TRADE_RETRY:'Сделка не завершена. Средства и машина возвращены, попробуйте ещё раз.',CREDIT_LIMIT:'Достигнут лимит баланса.',SERVER_ERROR:'Ошибка сервера рынка. Попробуйте обновить.'
   };
@@ -27,7 +27,7 @@
   function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
 
   function setNotice(message,bad=false){const node=$('marketNotice');if(!node)return;node.textContent=message||'';node.classList.toggle('bad',!!bad);}
-  function setBusy(value){state.loading=!!value;$('marketRefreshBtn')?.classList.toggle('spinning',state.loading);if($('marketPrimaryAction'))$('marketPrimaryAction').disabled=state.loading;}
+  function setBusy(value){state.loading=!!value;$('marketRefreshBtn')?.classList.toggle('spinning',state.loading);const wallet=$('marketCredits')?.closest('.market-wallet');if(wallet)wallet.setAttribute('aria-busy',String(state.loading));if($('marketPrimaryAction'))$('marketPrimaryAction').disabled=state.loading;}
 
   function updateCounts(){
     const sales=state.data.listings.filter(x=>x.mine).length;
@@ -35,7 +35,7 @@
     $('marketPurchasesCount').textContent=String(state.data.buyOrders.length);
     $('marketSalesCount').textContent=String(sales);
     $('marketHistoryCount').textContent=String(state.data.history.length);
-    $('marketCredits').textContent=money(state.data.balance);
+    $('marketCredits').textContent=state.data.balance===null?'ЗАГРУЗКА…':money(state.data.balance);
   }
   function syncToolbar(){
     const title=$('marketSectionTitle'),hint=$('marketSectionHint'),action=$('marketPrimaryAction'),search=$('marketSearch');
@@ -88,7 +88,7 @@
   async function refresh({quiet=false}={}){
     if(state.loading)return;setBusy(true);if(!quiet)setNotice('Обновляем рынок…');
     try{state.data=await api('/api/market');setNotice('Рынок обновлён.');render();}
-    catch(e){setNotice(errors[e.code]||'Не удалось загрузить рынок.',true);}
+    catch(e){if(state.data.balance===null)$('marketCredits').textContent='— CR';setNotice(errors[e.code]||'Не удалось загрузить рынок.',true);}
     finally{setBusy(false);}
   }
   async function syncBeforeTrade(){try{await window.VelocityAccount?.flushSave?.();}catch{}}
