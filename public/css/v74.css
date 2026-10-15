@@ -1,0 +1,15 @@
+/* Velocity Apex V74: market loading feedback. */
+.market-wallet[aria-busy="true"] strong {
+  color:#76a8bd;
+  font-size:9px;
+  letter-spacing:.06em;
+  animation:marketBalancePulse 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes marketBalancePulse {
+  to { opacity:.48; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .market-wallet[aria-busy="true"] strong { animation:none; }
+}
