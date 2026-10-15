@@ -106,6 +106,13 @@ export default {
     const mediaResponse=await handleMediaRequest(request,env,url);if(mediaResponse)return mediaResponse;
     const upgradeResponse=await handleUpgradeRequest(request,env,url);if(upgradeResponse)return upgradeResponse;
 
+    if(url.pathname==='/api/progression/me'&&request.method==='GET'){
+      const identity=await freeAccountIdentity(env,request);
+      if(identity.response)return identity.response;
+      if(!identity.user)return json({authenticated:false,level:0});
+      const progress=await getProgression(env,identity.user.id);
+      return json({ok:true,authenticated:true,...progress});
+    }
     if(url.pathname==='/api/free/servers'&&request.method==='GET'){
       const servers=await Promise.all(FREE_SERVERS.map(async(serverId)=>{try{const stub=env.ROOMS.get(env.ROOMS.idFromName('FREE:'+serverId)),r=await stub.fetch(new Request('https://room.internal/free/status'));const d=await r.json();return {id:serverId,name:'APEX CITY '+serverId.slice(-2),players:d.players||0,maxPlayers:FREE_MAX_PLAYERS,records:d.records||{}};}catch{return {id:serverId,name:'APEX CITY '+serverId.slice(-2),players:0,maxPlayers:FREE_MAX_PLAYERS,records:{}};}}));
       return json({ok:true,servers});

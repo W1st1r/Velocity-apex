@@ -30,23 +30,27 @@
   function refreshCar(){
     if(menu.classList.contains('hidden'))return;
     let save={};try{save=JSON.parse(localStorage.getItem('velocityApex.v1')||'{}');}catch{}
-    const id=String(save.selectedLivery||'apexLime'),r=window.Racing,meta=r?.LIVERIES?.[id];
-    if(!meta&&!r)return;
-    const src=safeAsset(meta?.sprite?.src||'assets/cars/apex-lime-menu.svg');
+    const wanted=String(save.selectedLivery||'apexLime'),r=window.Racing;
+    if(!r?.LIVERIES)return;
+    const id=r.LIVERIES[wanted]?wanted:'apexLime',meta=r.LIVERIES[id];
+    const src=id==='apexLime'?'/assets/cars/apex-lime-menu.svg?v=73':safeAsset(meta?.sprite?.src||'assets/cars/apex-lime-menu.svg');
     if(id!==selected||src!==lastLoaded){
       selected=id;lastLoaded=src;
       if(carImage)carImage.src=src;
-      if(carName)carName.textContent=meta?.name||'APEX LIME';
-    }
+      }
+    if(carName)carName.textContent=meta?.name||'APEX LIME';
   }
   async function refreshAccount(){
-    if(menu.classList.contains('hidden')||Date.now()-lastProfile<25000)return;
+    if(menu.classList.contains('hidden')||Date.now()-lastProfile<15000)return;
     lastProfile=Date.now();
+    const level=$('raceAccountLevel');if(!level)return;
+    // The upgrade odds profile has no level: it previously wrote "undefined" to HUD.
     try{
-      const res=await fetch('/api/upgrade/profile',{credentials:'same-origin',cache:'no-store'});
-      if(!res.ok)return;
-      const d=await res.json();if(d.profile&&$('raceAccountLevel'))$('raceAccountLevel').textContent=String(d.profile.level);
-    }catch{}
+      const res=await fetch('/api/progression/me',{credentials:'same-origin',cache:'no-store'});
+      if(!res.ok){level.textContent='—';return;}
+      const d=await res.json(),raw=Number(d.level);
+      level.textContent=d.authenticated===false?'—':Number.isFinite(raw)&&raw>=0?String(Math.min(100,Math.floor(raw))):'—';
+    }catch{level.textContent='—';}
   }
   const refresh=()=>{refreshCar();refreshAccount();};
   // V66: no 1.4-second polling while the full-screen menu is closed.
@@ -58,6 +62,7 @@
   setInterval(()=>{if(!menu.classList.contains('hidden'))refresh();},12000);
   addEventListener('pageshow',refresh);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
-  document.addEventListener('velocity-account-updated',refresh);
+  document.addEventListener('velocity-account-updated',()=>{lastProfile=0;refresh();});
+  window.addEventListener('velocity-account-changed',()=>{lastProfile=0;refresh();});
   refresh();
 })();
