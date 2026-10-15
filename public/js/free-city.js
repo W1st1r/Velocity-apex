@@ -1,4 +1,4 @@
-/* APEX BAY V49 core + V71 Coastal Ring CINEMATIC — crisp layered Canvas Free Roam. */
+/* APEX BAY V49 visual baseline; V72 — clean venues, continuous roads and compact premium map art. */
 (function(){
   'use strict';
   const W=5000,H=3000,VISUAL_MARGIN=900,TAU=Math.PI*2,roads=[],buildings=[],trees=[],lots=[];
@@ -210,6 +210,18 @@
   for(const b of buildings){
     const x=b.x+b.w+16,y=b.y+b.h-12,r=10;
     if(!roadAt(x,y,25)&&!reserved(x,y)&&!buildings.some(o=>x>o.x-12&&x<o.x+o.w+12&&y>o.y-12&&y<o.y+o.h+12))trees.push({x,y,r,tone:Math.floor(rnd()*4),species:hash2(x,y)%9===0?'palm':'broadleaf'});
+  }
+  // V72 visual foliage exclusion: roadAt checked tree trunks but the drawn canopy
+  // is much larger, so leaves covered CHECKPOINT RUSH and HOT POTATO asphalt.
+  // Keep collision areas unchanged; remove only decorative overlapping sprites.
+  function spriteIntersectsRect(t,r,pad=12){
+    const radius=t.species==='palm'?t.r*2.5:t.r*1.9;
+    const x=clamp(t.x,r.x-pad,r.x+r.w+pad),y=clamp(t.y,r.y-pad,r.y+r.h+pad);
+    return Math.hypot(t.x-x,t.y-y)<radius;
+  }
+  const eventSceneryClearance=[...minigameVenues.flatMap(v=>[v.apron,v.building,v.access,v.exit]),garageVenue.apron,garageVenue.access,garageVenue.building];
+  for(let i=trees.length-1;i>=0;i--){
+    if(eventSceneryClearance.some(area=>spriteIntersectsRect(trees[i],area)))trees.splice(i,1);
   }
   function fill(c,x,y,w,h,color){c.fillStyle=color;c.fillRect(x,y,w,h);}
   function rr(c,x,y,w,h,r,color){c.fillStyle=color;c.beginPath();c.roundRect(x,y,w,h,r);c.fill();}
@@ -493,11 +505,11 @@
     for(const r of roads)path(c,r.points,'#0e28383e',r.width+53);
     for(const r of roads)path(c,r.points,'#385852',r.width+41);
     for(const r of roads)path(c,r.points,'#b7b8aa',r.width+27);
-    for(const a of areas)rr(c,a.x-14,a.y-14,a.w+28,a.h+28,24,'#d8d0ba');
+    for(const a of areas)if(a!==activityAreas.garageAccess)rr(c,a.x-14,a.y-14,a.w+28,a.h+28,24,'#d8d0ba');
     for(const r of roads)path(c,r.points,'#26343b',r.width);
     // Broad lanes have muted edge wear; intersections are still repainted later.
     for(const r of roads)path(c,r.points,'#36465014',r.width-16);
-    for(const a of areas)rr(c,a.x,a.y,a.w,a.h,12,'#293a43');
+    for(const a of areas)if(a!==activityAreas.garageAccess)rr(c,a.x,a.y,a.w,a.h,12,'#293a43');
     for(const r of roads){
       path(c,r.points,'#dde0cd',3,[27,24]);
       if(r.points.length===2){
@@ -545,16 +557,16 @@
 
     // Soft, centered property shadow and a clean forecourt.
     rr(c,ga.x-24,ga.y-14,ga.w+48,ga.h+34,24,'#243a3440');
-    rr(c,ga.x,ga.y,ga.w,ga.h,18,'#2c4049');
+    rr(c,ga.x,ga.y,ga.w,ga.h,18,'#26343b');
 
     // Tapered curb-cut: same asphalt family as the avenue, no translucent slab on
     // top of the public lane. The widening shape reads as a real driveway mouth.
-    c.save();c.fillStyle='#2c4049';c.beginPath();
+    c.save();c.fillStyle='#26343b';c.beginPath();
     c.moveTo(gx-throatTopHalf,driveTop);c.lineTo(gx+throatTopHalf,driveTop);
     c.lineTo(gx+throatBottomHalf,driveBottom);c.lineTo(gx-throatBottomHalf,driveBottom);
     c.closePath();c.fill();c.restore();
-    path(c,[[gx-throatTopHalf-7,roadSouth+9],[gx-throatBottomHalf-7,driveBottom-2]],'#aaa99c',7);
-    path(c,[[gx+throatTopHalf+7,roadSouth+9],[gx+throatBottomHalf+7,driveBottom-2]],'#aaa99c',7);
+    path(c,[[gx-throatTopHalf-7,roadSouth+9],[gx-throatBottomHalf-7,driveBottom-2]],'#a8b5b7',5);
+    path(c,[[gx+throatTopHalf+7,roadSouth+9],[gx+throatBottomHalf+7,driveBottom-2]],'#a8b5b7',5);
     // Small curb caps make the break in the sidewalk intentional without crossing
     // the traffic lane.
     path(c,[[gx-throatTopHalf-18,roadSouth+7],[gx-throatTopHalf-7,roadSouth+7]],'#d1cfc0',4);
@@ -566,30 +578,48 @@
       path(c,[[ga.x+34,y],[ga.x+34,y+38],[ga.x+91,y+38]],'#d9ddce',2);
       path(c,[[ga.x+ga.w-34,y],[ga.x+ga.w-34,y+38],[ga.x+ga.w-91,y+38]],'#d9ddce',2);
     }
-    path(c,[[gx,roadSouth+13],[gx,ga.y+30]],'#f0ead8',3,[12,12]);
+    path(c,[[gx,roadSouth+13],[gx,ga.y+30]],'#c5e9f1',3,[12,12]);
 
     // Complete symmetrical entry arrow. The final segment closes the right side of
     // the arrow head, fixing the visibly missing line from V47.
     const arrowTop=ga.y+34,arrowShoulder=ga.y+65,arrowBottom=ga.y+108;
-    path(c,[[gx,arrowTop],[gx-28,arrowShoulder],[gx-10,arrowShoulder],[gx-10,arrowBottom],[gx+10,arrowBottom],[gx+10,arrowShoulder],[gx+28,arrowShoulder],[gx,arrowTop]],'#9fff6a',3);
+    path(c,[[gx,arrowTop],[gx-28,arrowShoulder],[gx-10,arrowShoulder],[gx-10,arrowBottom],[gx+10,arrowBottom],[gx+10,arrowShoulder],[gx+28,arrowShoulder],[gx,arrowTop]],'#61d3ff',4);
 
-    // Premium service building aligned from the same garage center axis. Shadows are
-    // symmetrical left/right so the lower structure no longer looks shifted.
+    // V72 modern Apex Garage: centered facade, articulated dual service bays,
+    // blue glass canopy and actual recognizable architectural features.
+    // Entire building stays behind the forecourt (y >= 780), off the roadway.
     const bx=gx-gb.w/2;
-    rr(c,bx-11,gb.y+12,gb.w+22,gb.h+8,18,'#13232946');
-    rr(c,bx,gb.y,gb.w,gb.h,16,'#273b40');rr(c,bx+10,gb.y+10,gb.w-20,gb.h-20,12,'#344f55');
-    fill(c,bx+18,gb.y+18,gb.w-36,8,'#8dff49');
-    rr(c,gx-104,gb.y+56,208,82,10,'#122328');
-    for(let y=gb.y+68;y<gb.y+132;y+=15)path(c,[[gx-89,y],[gx+89,y]],'#64777b',2);
-    fill(c,bx+28,gb.y+52,8,22,'#2d4045');fill(c,bx+30,gb.y+57,4,12,'#baff96');
-    fill(c,bx+gb.w-36,gb.y+52,8,22,'#2d4045');fill(c,bx+gb.w-34,gb.y+57,4,12,'#baff96');
-    // Centered threshold visually ties the forecourt to the service door.
-    rr(c,gx-126,gb.y-11,252,18,7,'#37484b');
-    path(c,[[gx-112,gb.y-4],[gx+112,gb.y-4]],'#6f8588',2);
-    text(c,'APEX GARAGE',gx,gb.y+40,20,'#f4f7ef');text(c,'SERVICE · SWAP CARS',gx,gb.y+57,9,'#b8ff8e');
+    rr(c,bx+15,gb.y+17,gb.w+15,gb.h+5,17,'#0715267a');
+    rr(c,bx,gb.y,gb.w,gb.h,15,'#14283a');
+    rr(c,bx+9,gb.y+9,gb.w-18,gb.h-18,11,'#244159');
+    rr(c,bx+12,gb.y+11,gb.w-24,28,7,'#0a1d30');
+    fill(c,bx+18,gb.y+11,gb.w-36,3,'#54caff');
+    // Symmetric glazed shop doors; grille ribs are *inside* each bay, not random lines.
+    const doorY=gb.y+67,doorW=124,doorH=67;
+    for(const side of [-1,1]){
+      const dx=gx+side*74-doorW/2;
+      rr(c,dx-4,doorY-4,doorW+8,doorH+8,7,'#0d1b27');
+      rr(c,dx,doorY,doorW,doorH,5,'#1b3649');
+      const glass=c.createLinearGradient(dx,doorY,dx+doorW,doorY+doorH);
+      glass.addColorStop(0,'#294f63');glass.addColorStop(.48,'#123044');glass.addColorStop(1,'#0d2130');
+      rr(c,dx+5,doorY+5,doorW-10,doorH-10,4,glass);
+      for(let k=1;k<4;k++)fill(c,dx+5+k*(doorW-10)/4,doorY+6,2,doorH-12,'#5c8ba1');
+      path(c,[[dx+7,doorY+23],[dx+doorW-7,doorY+23]],'#5486a4',2);
+      fill(c,dx+9,doorY+6,doorW-18,2,'#80cff36b');
+      fill(c,dx+15,doorY+30,20,3,'#8ad2ee65');
+    }
+    // Vertical supports, illuminated identity, wall-mounted service icon.
+    for(const px of [bx+19,bx+gb.w-24]){
+      rr(c,px,gb.y+47,7,gb.h-58,3,'#0c2133');
+      fill(c,px+2,gb.y+50,2,gb.h-65,'#69cfff');
+    }
+    text(c,'APEX  GARAGE',gx,gb.y+31,21,'#f2f9ff');
+    text(c,'PERFORMANCE  ·  SERVICE  ·  CUSTOM',gx,gb.y+54,9,'#93d5f5');
+    rr(c,gx-126,gb.y-11,252,16,6,'#38566b');
+    path(c,[[gx-116,gb.y-5],[gx+116,gb.y-5]],'#6cd2f7',2);
 
     // Small ground signage is kept off the road and on a balanced grid.
-    text(c,'GARAGE',ga.x+83,ga.y+31,13,'#dfffd0');text(c,'ВЪЕЗД',gx,ga.y+140,10,'#a9ff5a');
+    text(c,'GARAGE',ga.x+83,ga.y+31,13,'#e1f5ff');text(c,'ВЪЕЗД',gx,ga.y+140,10,'#8edaff');
     // Meeting plaza, marked parking bays and a clear through road.
     for(const y of [1400,1735])for(let x=1990;x<2680;x+=70){path(c,[[x,y],[x,y+43],[x+54,y+43]],'#e4e1c5',2);}
     building(c,{x:1940,y:1150,w:180,h:75,type:'warehouse',tone:1,height:12});
@@ -616,7 +646,10 @@
     }
     // Painted runway distance markers and taxi arrows.
     for(const x of [3370,3850,4330]){fill(c,x-28,2627,56,4,'#e8e4d2');fill(c,x-28,2709,56,4,'#e8e4d2');}
-    for(const x of [3070,4550]){path(c,[[x,2788],[x+38,2788],[x+25,2775]],'#efc94e',4);}
+    for(const x of [3070,4550]){
+      // Complete two-piece taxiway arrows instead of broken open triangles.
+      for(const shift of [0,43])path(c,[[x+shift,2779],[x+shift+17,2790],[x+shift+34,2779]],'#ffe39a',4);
+    }
   }
   function building(c,b){
     const {x,y,w,h,type,tone}=b,sl=b.height;
@@ -866,5 +899,5 @@
       rr(c,px-tw/2-8,py-12,tw+16,20,5,'#203d38d9');text(c,label,px,py+2,11,'#f0eedb');
     }
   }
-  window.ApexCity={width:W,height:H,visualMargin:VISUAL_MARGIN,resolveCarMotion,roadAt,nearestRoad,district,draw,drawOverview,minigameVenues,garageVenue,coastalRingVersion:71};
+  window.ApexCity={width:W,height:H,visualMargin:VISUAL_MARGIN,resolveCarMotion,roadAt,nearestRoad,district,draw,drawOverview,minigameVenues,garageVenue,coastalRingVersion:72};
 })();
