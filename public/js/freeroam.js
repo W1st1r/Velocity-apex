@@ -20,8 +20,8 @@
     drag:{x:3120,y:2670,r:125,label:'AIRPORT DRAG',kind:'drag'},
     speed:{x:2020,y:430,r:120,label:'SPEED TRAP',kind:'speed'},
     drift:{x:670,y:2310,r:320,label:'HARBOR DRIFT MEGAPARK',kind:'drift',battleId:'harbor'},
-    koth:{x:2320,y:1590,r:100,label:'KING OF THE HILL',kind:'koth'},
-    levels:{x:2470,y:1590,r:100,label:'LEVELS',kind:'levels'},
+    koth:{x:2320,y:1590,r:100,label:'KING OF THE HILL',kind:'koth',labelOffset:{x:-76,y:-8}},
+    levels:{x:2470,y:1590,r:100,label:'LEVELS',kind:'levels',labelOffset:{x:76,y:8}},
     footballHub:{x:1835,y:300,r:112,label:'APEX STADIUM',kind:'minigame',hub:'football'},
     checkpointHub:{x:3338,y:865,r:112,label:'RUSH CENTER',kind:'minigame',hub:'checkpoint'},
     hotPotatoHub:{x:820,y:1410,r:105,label:'BOMB ARENA',kind:'minigame',hub:'hot_potato'},
@@ -994,9 +994,10 @@
     c.strokeStyle=color;c.lineWidth=3;c.setLineDash([12,18]);c.globalAlpha=.55;
     c.beginPath();c.arc(z.x,z.y,Math.min(z.r,80),0,TAU);c.stroke();c.setLineDash([]);
     if(z.kind==='meet'){c.restore();return;}
+    const lx=z.x+(Number(z.labelOffset?.x)||0),ly=z.y+(Number(z.labelOffset?.y)||0);
     c.globalAlpha=.94;c.fillStyle='#243d3de8';
-    roundRect(c,z.x-66,z.y-119,132,30,8,true,false);
-    c.fillStyle=color;c.font='900 15px system-ui';c.textAlign='center';c.fillText(label,z.x,z.y-99);
+    roundRect(c,lx-66,ly-119,132,30,8,true,false);
+    c.fillStyle=color;c.font='900 15px system-ui';c.textAlign='center';c.fillText(label,lx,ly-99);
     c.restore();
   }
 
