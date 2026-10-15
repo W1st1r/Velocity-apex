@@ -11,5 +11,5 @@ assert.ok(html.indexOf('id="promoBtn"')>html.indexOf('id="menuMorePanel"'));
 assert.ok(css.includes('safe-area-inset-right')&&css.includes('grid-template-columns:clamp(102px'));
 assert.ok(js.includes('aria-expanded')&&js.includes('VelocityMainMenu')&&js.includes('selectedLivery'));
 assert.ok(game.includes('https://t.me/wistirapex'));
-assert.match(html,/race-control-v65\\.css\\?v=[^\"&]+/);
+assert.ok(html.includes('race-control-v65.css?v=20261016-v741-cars'));
 console.log('main_menu_v65_smoke: OK');
