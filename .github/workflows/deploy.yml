@@ -1,5 +1,8 @@
-name: Deploy Velocity Apex V66
+name: Test and Deploy Velocity Apex V74
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
@@ -7,8 +10,8 @@ on:
 permissions:
   contents: read
 jobs:
-  deploy:
-    name: Test and deploy to Cloudflare Workers
+  test:
+    name: Test V74
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -21,7 +24,22 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Check server and mobile navigation tests
-        run: npm test && npm run test:v66
+        run: npm test && npm run test:v74
+  deploy:
+    name: Deploy to Cloudflare Workers
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download the project
+        uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
       - name: Publish Cloudflare Worker and PWA
         uses: cloudflare/wrangler-action@v3
         with:
