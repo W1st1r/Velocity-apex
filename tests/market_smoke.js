@@ -13,4 +13,6 @@ assert.ok(server.includes('changeCredits(save,-price)')&&server.includes('takeCa
 assert.ok(worker.includes("handleMarketRequest"),'market route not wired');
 for(const table of ['market_sell_listings','market_buy_orders','market_history'])assert.ok(migration.includes(table),`missing ${table} migration`);
 assert.ok(js.includes('refreshAfterTrade')&&js.includes('VelocityAccount?.refreshCloud'),'cloud save refresh missing');
+assert.ok(html.includes('id="marketCredits">ЗАГРУЗКА…')&&html.includes('class="market-wallet" aria-busy="true"'),'market must not show a fake zero balance before sync');
+assert.ok(js.includes("balance:null")&&js.includes("state.data.balance===null?'ЗАГРУЗКА…'"),'market loading state missing');
 console.log('market_smoke: OK');
