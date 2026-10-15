@@ -74,7 +74,7 @@
     const spec=spriteSpec||{},iw=Number(imageWidth),ih=Number(imageHeight);
     const hasNatural=Number.isFinite(iw)&&iw>0&&Number.isFinite(ih)&&ih>0;
     const sourceRatio=hasNatural?iw/ih:0;
-    const visualScale=positive(preview?spec.previewScale:spec.raceScale,1);
+    const visualScale=preview?Math.min(1,positive(spec.previewScale,1)):positive(spec.raceScale,1);
     const baseLength=positive(spec.maxVisualLength??spec.visualLength??spec.length,74);
     const ratioWidth=sourceRatio?baseLength/sourceRatio:36.5;
     const baseWidth=positive(spec.maxVisualWidth??spec.visualWidth??spec.width,ratioWidth);
@@ -89,7 +89,7 @@
   function resolveSpriteRenderSize(spriteSpec,resolvedSize,preview=false){
     const size=resolvedSize||{};
     const length=positive(size.length,74),width=positive(size.width,36);
-    const previewLengthScale=preview?positive(spriteSpec?.previewLengthScale,1):1;
+    const previewLengthScale=preview?Math.min(1,positive(spriteSpec?.previewLengthScale,1)):1;
     return {length:length*previewLengthScale,width,previewLengthScale};
   }
   R.resolveSpriteRenderSize=resolveSpriteRenderSize;
