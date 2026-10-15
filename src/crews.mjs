@@ -84,7 +84,7 @@ export async function handleCrewRequest(request,env,url){
   if(request.method!=='POST')return json({error:'NOT_FOUND'},404);
   await settleCrews(env,t);const b=await request.json();
   if(path==='/api/crews/create'){
-   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||!/^[A-Z0-9]{2,3}$/.test(tag)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
+   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||!/^[A-Z0-9]{3,5}$/.test(tag)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
    const id=crypto.randomUUID();await env.DB.batch([
     env.DB.prepare(`INSERT INTO crews(id,name,tag,emblem,color,leader_id,created_at) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=?) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=? AND until_at>?) AND EXISTS(SELECT 1 FROM player_saves WHERE user_id=? AND json_extract(save_json,'$.credits')>=?)`).bind(id,name,tag,b.emblem,b.color,uid,t,uid,uid,t,uid,COST),
     env.DB.prepare('INSERT INTO crew_settings(crew_id,privacy,updated_at) SELECT id,?,? FROM crews WHERE id=?').bind(privacy,t,id),
@@ -93,7 +93,7 @@ export async function handleCrewRequest(request,env,url){
    ]);if(!(await crewIdentity(env,uid)))return json({error:'CREATE_UNAVAILABLE'},409);return json(await overview(env,uid));
   }
   if(path==='/api/crews/settings'){
-   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);const existing=await env.DB.prepare('SELECT tag FROM crews WHERE leader_id=?').bind(uid).first();if(!existing)return json({error:'LEADER_REQUIRED'},403);const legacyUnchanged=tag===existing.tag&&/^[A-Z0-9]{2,5}$/.test(tag);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||(!/^[A-Z0-9]{2,3}$/.test(tag)&&!legacyUnchanged)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
+   const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);const existing=await env.DB.prepare('SELECT tag FROM crews WHERE leader_id=?').bind(uid).first();if(!existing)return json({error:'LEADER_REQUIRED'},403);const legacyUnchanged=tag===existing.tag&&/^[A-Z0-9]{2,5}$/.test(tag);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||(!/^[A-Z0-9]{3,5}$/.test(tag)&&!legacyUnchanged)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
    const r=await env.DB.prepare('UPDATE crews SET name=?,tag=?,emblem=?,color=? WHERE leader_id=?').bind(name,tag,b.emblem,b.color,uid).run();if(!r.meta.changes)return json({error:'LEADER_REQUIRED'},403);
    await env.DB.prepare(`INSERT INTO crew_settings(crew_id,privacy,updated_at) SELECT id,?,? FROM crews WHERE leader_id=? ON CONFLICT(crew_id) DO UPDATE SET privacy=excluded.privacy,updated_at=excluded.updated_at`).bind(privacy,t,uid).run();return json(await overview(env,uid));
   }
