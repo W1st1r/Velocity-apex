@@ -14,7 +14,8 @@
     "test:v68": "node tests/ui_clans_v68_test.mjs && node tests/crews_reports_test.mjs && node tests/unified_blue_v66_test.mjs && node tests/mobile_ui_v8_navigation_store.js && node tests/free_mobile_hud_test.js && node tests/interaction_guard_smoke.js && npm run test:v67",
     "test:v69": "node tests/upgrade_protection_v69_test.mjs && node tests/upgrade_v69_server_integration_test.mjs && node tests/ios_layout_v69_test.mjs && npm run test:v68",
     "test:v70": "node tests/coastal_ring_v70_test.mjs && npm run test:map && npm run test:v69",
-    "test:v71": "node tests/coastal_ring_v71_test.mjs && npm run test:v70"
+    "test:v71": "node tests/coastal_ring_v71_test.mjs && npm run test:v70",
+    "test:v74": "node tests/v74_release_test.mjs && node tests/admin_console_smoke.js && node tests/admin_hierarchy_v32_test.mjs && node tests/market_smoke.js && node tests/career_mode_test.js && node tests/ios_layout_v69_test.mjs && node tests/free_mobile_hud_test.js"
   },
   "devDependencies": {
     "wrangler": "4.131.1"
