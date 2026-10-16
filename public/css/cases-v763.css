@@ -1,4 +1,4 @@
-/* V76.3 — case roulette idle state and award carousel. */
+/* V76.3.1 — keep roulette status out of the masked/overflow-clipped reel. */
 .case-roulette {
   isolation: isolate;
   background-color: #0a1d34;
@@ -6,7 +6,7 @@
     radial-gradient(ellipse at 50% 52%, rgba(75, 173, 226, .12), transparent 63%),
     linear-gradient(180deg, rgba(20, 48, 76, .7), rgba(7, 20, 38, .78));
 }
-.case-roulette-viewport { inset: 7px 0 23px; }
+.case-roulette-viewport { inset: 7px 0 0; }
 .case-roll-strip:empty {
   width: 100%;
   padding-left: 0;
@@ -28,24 +28,25 @@
   background: repeating-linear-gradient(90deg, transparent 0 11%, rgba(110, 193, 235, .045) 11% 11.2%, transparent 11.2% 22%);
 }
 .case-ready-label {
-  left: 8px;
-  right: 8px;
-  height: 21px;
-  padding-inline: 8px;
-  border-top: 1px solid rgba(108, 190, 231, .14);
-  border-radius: 0 0 10px 10px;
-  background: linear-gradient(180deg, rgba(9, 30, 53, .48), rgba(7, 23, 42, .88));
+  position: relative;
+  z-index: auto;
+  flex: 0 0 auto;
+  min-height: 22px;
+  margin: 5px 4px 0;
+  padding: 3px 8px;
+  background: transparent;
   color: #84b7d1;
   font-size: clamp(7px, .8vw, 9px);
   letter-spacing: .09em;
 }
-.case-roulette-marker { bottom: 20px; }
+.case-roulette-marker { bottom: 0; }
 
 .case-modal.case-results-open .case-modal-body { grid-template-columns: minmax(0, 1fr); }
 .case-modal.case-results-open .case-rewards-panel,
 .case-modal.case-results-open .case-hero-row,
 .case-modal.case-results-open .case-buy-batch-btn,
 .case-modal.case-results-open .case-roulette,
+.case-modal.case-results-open .case-ready-label,
 .case-modal.case-results-open .case-fairness-note { display: none; }
 .case-modal.case-results-open .case-opening-zone {
   min-height: 0;
@@ -197,9 +198,9 @@
   .case-modal.case-results-open .case-open-btn { min-height: 34px !important; margin-top: 4px !important; }
 }
 @media (max-width: 700px) and (orientation: landscape) {
-  .case-roulette-viewport { inset: 5px 0 22px; }
-  .case-ready-label { height: 20px; }
-  .case-roulette-marker { bottom: 19px; }
+  .case-roulette-viewport { inset: 5px 0 0; }
+  .case-ready-label { min-height: 20px; }
+  .case-roulette-marker { bottom: 0; }
   .case-award-card { grid-template-columns: minmax(92px, .3fr) minmax(0, 1fr); }
 }
 @media (orientation: portrait) {

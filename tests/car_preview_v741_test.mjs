@@ -38,6 +38,6 @@ for(const id of R.REAL_CAR_IDS){
 }
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const css=fs.readFileSync(path.join(root,'public/css/race-control-v65.css'),'utf8');
-assert.match(html,/<meta name="velocity-apex-version" content="V76.3"/);
+assert.match(html,/<meta name="velocity-apex-version" content="V76.3.1"/);
 assert.match(css,/#menu \.rc-car-holder img\{[^}]*object-fit:contain[^}]*transform:none;/);
 console.log('Car preview regression: all 42 car assets exist, full images are not smaller than thumbnails, and previews preserve proportions.');
