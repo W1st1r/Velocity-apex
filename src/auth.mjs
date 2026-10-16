@@ -800,4 +800,4 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
   }
 }
 
-export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse,REFERRAL_LEVELS};
+export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse,REFERRAL_LEVELS,readBody};

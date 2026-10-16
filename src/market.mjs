@@ -1,4 +1,5 @@
-import {currentSession,mutateTargetSave,accountDetail,banResponse} from './auth.mjs';
+import {applyAccountTransaction} from './account-transactions.mjs';
+import {currentSession,accountDetail,banResponse,readBody} from './auth.mjs';
 import {CARS} from './car-catalog.mjs';
 import {writeGameLog} from './logs.mjs';
 
@@ -13,7 +14,7 @@ const priceOf=value=>{const n=Math.floor(Number(value));return Number.isSafeInte
 const carOf=id=>Object.prototype.hasOwnProperty.call(CARS,id)?CARS[id]:null;
 const marketableCar=id=>id!=='apexLime'&&!!carOf(id);
 const parseUpgrades=text=>{try{const v=JSON.parse(text||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch{return {};}};
-const safeUpgrades=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+const safeUpgrades=value=>Object.fromEntries(['speed','acceleration','brakes'].filter(k=>Number.isFinite(Number(value?.[k]))).map(k=>[k,Math.max(0,Math.min(5,Math.floor(Number(value[k]))))]));
 
 async function ensureMarketSchema(env){
   if(schemaPromise)return schemaPromise;
@@ -78,7 +79,8 @@ function takeCar(save,carId){
   if(!save.ownedLiveries.includes('apexLime'))save.ownedLiveries.unshift('apexLime');
   if(save.selectedLivery===carId)save.selectedLivery='apexLime';
   if(save.carUpgrades&&typeof save.carUpgrades==='object')delete save.carUpgrades[carId];
-  return {upgrades};
+  const customization=save.carCustomizations?.[carId]?structuredClone(save.carCustomizations[carId]):null;if(save.carCustomizations)delete save.carCustomizations[carId];
+  return {upgrades,customization};
 }
 function giveCar(save,carId,upgrades={}){
   if(!Array.isArray(save.ownedLiveries))save.ownedLiveries=['apexLime'];
@@ -86,6 +88,7 @@ function giveCar(save,carId,upgrades={}){
   save.ownedLiveries.push(carId);
   if(!save.carUpgrades||typeof save.carUpgrades!=='object'||Array.isArray(save.carUpgrades))save.carUpgrades={};
   if(Object.keys(safeUpgrades(upgrades)).length)save.carUpgrades[carId]=safeUpgrades(upgrades);
+  if(upgrades?._style){if(!save.carCustomizations||typeof save.carCustomizations!=='object')save.carCustomizations={};save.carCustomizations[carId]=structuredClone(upgrades._style);}
   return {carId};
 }
 function changeCredits(save,delta){
@@ -110,107 +113,74 @@ async function overview(env,userId){
       WHERE h.buyer_user_id=? OR h.seller_user_id=? ORDER BY h.created_at DESC LIMIT 120`).bind(userId,userId).all(),
     accountDetail(env,userId)
   ]);
-  const mapListing=r=>({id:r.id,carId:r.car_id,car:publicCar(r.car_id),price:Number(r.price)||0,upgrades:parseUpgrades(r.upgrades_json),seller:'@'+r.seller_username,mine:r.seller_user_id===userId,createdAt:Number(r.created_at)||0});
+  const mapListing=r=>({id:r.id,carId:r.car_id,car:publicCar(r.car_id),price:Number(r.price)||0,upgrades:safeUpgrades(parseUpgrades(r.upgrades_json)),seller:'@'+r.seller_username,mine:r.seller_user_id===userId,createdAt:Number(r.created_at)||0});
   const mapOrder=r=>({id:r.id,carId:r.car_id,car:publicCar(r.car_id),price:Number(r.price)||0,buyer:'@'+r.buyer_username,mine:r.buyer_user_id===userId,createdAt:Number(r.created_at)||0});
-  const mapHistory=r=>({id:r.id,kind:r.kind,carId:r.car_id,car:publicCar(r.car_id),price:Number(r.price)||0,buyer:'@'+r.buyer_username,seller:'@'+r.seller_username,side:r.buyer_user_id===userId?'buy':'sell',upgrades:parseUpgrades(r.upgrades_json),createdAt:Number(r.created_at)||0});
+  const mapHistory=r=>({id:r.id,kind:r.kind,carId:r.car_id,car:publicCar(r.car_id),price:Number(r.price)||0,buyer:'@'+r.buyer_username,seller:'@'+r.seller_username,side:r.buyer_user_id===userId?'buy':'sell',upgrades:safeUpgrades(parseUpgrades(r.upgrades_json)),createdAt:Number(r.created_at)||0});
   return {ok:true,balance:detail?.save?.credits||0,listings:(listings.results||[]).map(mapListing),buyOrders:(orders.results||[]).map(mapOrder),history:(history.results||[]).map(mapHistory)};
 }
 
-async function restoreCar(env,userId,carId,upgrades){
-  return mutateTargetSave(env,userId,save=>{if(Array.isArray(save.ownedLiveries)&&save.ownedLiveries.includes(carId))return {carId,already:true};return giveCar(save,carId,upgrades);});
+async function completeMarket(env,actorId,out,{created=false,event=''}={}){
+  if(out.error)return json({error:out.error},['INVALID_CAR','INVALID_PRICE','CAR_NOT_OWNED','INSUFFICIENT_CREDITS'].includes(out.error)?400:409);
+  if(!out.replay){const r=out.result;try{
+    if(r.buyerId&&r.sellerId){await writeGameLog(env,{category:'purchases',eventType:'market_purchase',actorUserId:r.buyerId,actorRole:'PLAYER',targetUserId:r.sellerId,source:'MARKET',subject:r.carId,amount:r.price,currency:'CR',relatedId:out.transactionId,metadata:{sourceId:r.id},createdAt:out.updatedAt});await writeGameLog(env,{category:'sales',eventType:'market_sale',actorUserId:r.sellerId,actorRole:'PLAYER',targetUserId:r.buyerId,source:'MARKET',subject:r.carId,amount:r.price,currency:'CR',relatedId:out.transactionId,metadata:{sourceId:r.id},createdAt:out.updatedAt});}
+    else if(event)await writeGameLog(env,{category:'purchases',eventType:event,actorUserId:actorId,targetUserId:actorId,actorRole:'PLAYER',source:'MARKET',subject:r.carId,amount:r.price||0,currency:'CR',relatedId:out.transactionId});
+  }catch(e){console.error('market log',e);}}
+  return json({...out,id:out.result.id},created&&!out.replay?201:200);
 }
-async function refund(env,userId,amount){return mutateTargetSave(env,userId,save=>changeCredits(save,amount));}
+const failed=error=>({error});
+const packCar=taken=>({...safeUpgrades(taken.upgrades),...(taken.customization?{_style:taken.customization}:{})});
+const activeGuard=(table,id)=>({guardSql:`EXISTS(SELECT 1 FROM ${table} WHERE id=? AND status='active')`,guardArgs:[id]});
 
 async function createListing(env,userId,body){
-  const carId=String(body?.carId||''),price=priceOf(body?.price);if(!marketableCar(carId))return json({error:'INVALID_CAR'},400);if(!price)return json({error:'INVALID_PRICE'},400);
-  const active=await env.DB.prepare("SELECT id FROM market_sell_listings WHERE seller_user_id=? AND car_id=? AND status='active' LIMIT 1").bind(userId,carId).first();if(active)return json({error:'ALREADY_LISTED'},409);
-  const taken=await mutateTargetSave(env,userId,save=>takeCar(save,carId));if(taken.error)return json({error:taken.error},taken.error==='SAVE_CONFLICT'?409:400);
-  const id=crypto.randomUUID(),t=now(),upgrades=safeUpgrades(taken.result?.upgrades);
-  try{await env.DB.prepare("INSERT INTO market_sell_listings (id,seller_user_id,car_id,price,upgrades_json,status,created_at,updated_at) VALUES (?,?,?,?,?,'active',?,?)").bind(id,userId,carId,price,JSON.stringify(upgrades),t,t).run();}
-  catch(e){await restoreCar(env,userId,carId,upgrades);throw e;}
-  return json({ok:true,id},201);
+ const carId=String(body?.carId||''),price=priceOf(body?.price);if(!marketableCar(carId))return json({error:'INVALID_CAR'},400);if(!price)return json({error:'INVALID_PRICE'},400);
+ const id=crypto.randomUUID();const out=await applyAccountTransaction(env,{actorId:userId,requestId:body.requestId,type:`market:list:${carId}:${price}`,accountIds:[userId],plan:async saves=>{
+  if(await env.DB.prepare("SELECT id FROM market_sell_listings WHERE seller_user_id=? AND car_id=? AND status='active'").bind(userId,carId).first())return failed('ALREADY_LISTED');
+  const save=saves[userId],taken=takeCar(save,carId);if(taken.error)return taken;const payload=JSON.stringify(packCar(taken));
+  return {result:{id,carId,price},guardSql:"NOT EXISTS(SELECT 1 FROM market_sell_listings WHERE seller_user_id=? AND car_id=? AND status='active')",guardArgs:[userId,carId],statements:({time,receiptSql,receiptArgs})=>[
+   env.DB.prepare("INSERT INTO market_sell_listings(id,seller_user_id,car_id,price,upgrades_json,status,created_at,updated_at) SELECT ?,?,?,?,?,'active',?,? WHERE "+receiptSql).bind(id,userId,carId,price,payload,time,time,...receiptArgs)
+  ]};
+ }});return completeMarket(env,userId,out,{created:true});
 }
-
-async function cancelListing(env,userId,id){
-  const row=await env.DB.prepare("SELECT * FROM market_sell_listings WHERE id=? AND seller_user_id=? AND status='active' LIMIT 1").bind(id,userId).first();if(!row)return json({error:'LISTING_NOT_FOUND'},404);
-  const t=now(),claimed=await env.DB.prepare("UPDATE market_sell_listings SET status='processing',updated_at=? WHERE id=? AND seller_user_id=? AND status='active'").bind(t,id,userId).run();if(Number(claimed?.meta?.changes||0)!==1)return json({error:'LISTING_UNAVAILABLE'},409);
-  const restored=await restoreCar(env,userId,row.car_id,parseUpgrades(row.upgrades_json));
-  if(restored.error){await env.DB.prepare("UPDATE market_sell_listings SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:restored.error},409);}
-  await env.DB.prepare("UPDATE market_sell_listings SET status='cancelled',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();
-  return json({ok:true});
+async function cancelListing(env,userId,id,body){
+ const out=await applyAccountTransaction(env,{actorId:userId,requestId:body.requestId,type:'market:cancel-list:'+id,accountIds:[userId],plan:async saves=>{
+  const row=await env.DB.prepare("SELECT * FROM market_sell_listings WHERE id=? AND seller_user_id=? AND status='active'").bind(id,userId).first();if(!row)return failed('LISTING_NOT_FOUND');const restored=giveCar(saves[userId],row.car_id,parseUpgrades(row.upgrades_json));if(restored.error)return restored;
+  return {...activeGuard('market_sell_listings',id),result:{id,carId:row.car_id},statements:({time,receiptSql,receiptArgs})=>[env.DB.prepare("UPDATE market_sell_listings SET status='cancelled',updated_at=? WHERE id=? AND status='active' AND "+receiptSql).bind(time,id,...receiptArgs)]};
+ }});return completeMarket(env,userId,out);
 }
-
-async function buyListing(env,buyerId,id){
-  const row=await env.DB.prepare("SELECT * FROM market_sell_listings WHERE id=? AND status='active' LIMIT 1").bind(id).first();if(!row)return json({error:'LISTING_NOT_FOUND'},404);if(row.seller_user_id===buyerId)return json({error:'CANNOT_BUY_OWN'},400);
-  const claimed=await env.DB.prepare("UPDATE market_sell_listings SET status='processing',updated_at=? WHERE id=? AND status='active'").bind(now(),id).run();if(Number(claimed?.meta?.changes||0)!==1)return json({error:'LISTING_UNAVAILABLE'},409);
-  const upgrades=parseUpgrades(row.upgrades_json),price=Number(row.price)||0;
-  const buyer=await mutateTargetSave(env,buyerId,save=>{const credit=changeCredits(save,-price);if(credit.error)return credit;const car=giveCar(save,row.car_id,upgrades);if(car.error){changeCredits(save,price);return car;}return {price,carId:row.car_id,before:credit.before,after:credit.after};});
-  if(buyer.error){await env.DB.prepare("UPDATE market_sell_listings SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:buyer.error},buyer.error==='INSUFFICIENT_CREDITS'?400:409);}
-  const seller=await mutateTargetSave(env,row.seller_user_id,save=>changeCredits(save,price));
-  if(seller.error){
-    await mutateTargetSave(env,buyerId,save=>{if(Array.isArray(save.ownedLiveries)&&save.ownedLiveries.includes(row.car_id)){takeCar(save,row.car_id);}return changeCredits(save,price);});
-    await env.DB.prepare("UPDATE market_sell_listings SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:'TRADE_RETRY'},409);
-  }
-  const t=now(),historyId=crypto.randomUUID();
-  await env.DB.batch([
-    env.DB.prepare("UPDATE market_sell_listings SET status='sold',buyer_user_id=?,sold_at=?,updated_at=? WHERE id=? AND status='processing'").bind(buyerId,t,t,id),
-    env.DB.prepare("INSERT INTO market_history (id,kind,source_id,car_id,price,buyer_user_id,seller_user_id,upgrades_json,created_at) VALUES (?,'listing',?,?,?,?,?,?,?)").bind(historyId,id,row.car_id,price,buyerId,row.seller_user_id,row.upgrades_json||'{}',t)
-  ]);
-  try{
-    const meta={transactionId:historyId,listingId:id,carId:row.car_id,upgrades,buyerBalanceBefore:Number(buyer.result?.before)||0,buyerBalanceAfter:Number(buyer.result?.after)||0,sellerBalanceBefore:Number(seller.result?.before)||0,sellerBalanceAfter:Number(seller.result?.after)||0};
-    await Promise.all([
-      writeGameLog(env,{category:'purchases',eventType:'market_purchase',actorUserId:buyerId,actorRole:'PLAYER',targetUserId:row.seller_user_id,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t}),
-      writeGameLog(env,{category:'sales',eventType:'market_sale',actorUserId:row.seller_user_id,actorRole:'PLAYER',targetUserId:buyerId,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t})
-    ]);
-  }catch(e){console.error('market log',e);}
-  return json({ok:true});
+async function buyListing(env,buyerId,id,body){
+ const initial=await env.DB.prepare('SELECT * FROM market_sell_listings WHERE id=?').bind(id).first();if(!initial)return json({error:'LISTING_NOT_FOUND'},404);if(initial.seller_user_id===buyerId)return json({error:'CANNOT_BUY_OWN'},400);
+ const sellerId=initial.seller_user_id,out=await applyAccountTransaction(env,{actorId:buyerId,requestId:body.requestId,type:'market:buy:'+id,accountIds:[buyerId,sellerId],plan:async saves=>{
+  const row=await env.DB.prepare("SELECT * FROM market_sell_listings WHERE id=? AND status='active'").bind(id).first();if(!row)return failed('LISTING_UNAVAILABLE');const price=priceOf(row.price);if(!price)return failed('INVALID_PRICE');
+  const debit=changeCredits(saves[buyerId],-price);if(debit.error)return debit;const given=giveCar(saves[buyerId],row.car_id,parseUpgrades(row.upgrades_json));if(given.error)return given;const credit=changeCredits(saves[sellerId],price);if(credit.error)return credit;
+  return {...activeGuard('market_sell_listings',id),result:{id,carId:row.car_id,price,buyerId,sellerId},statements:({transactionId,time,receiptSql,receiptArgs})=>[
+   env.DB.prepare("UPDATE market_sell_listings SET status='sold',buyer_user_id=?,sold_at=?,updated_at=? WHERE id=? AND status='active' AND "+receiptSql).bind(buyerId,time,time,id,...receiptArgs),
+   env.DB.prepare("INSERT INTO market_history(id,kind,source_id,car_id,price,buyer_user_id,seller_user_id,upgrades_json,created_at) SELECT ?,'listing',?,?,?,?,?,?,? WHERE "+receiptSql).bind(transactionId,id,row.car_id,price,buyerId,sellerId,row.upgrades_json||'{}',time,...receiptArgs)
+  ]};
+ }});return completeMarket(env,buyerId,out);
 }
-
 async function createBuyOrder(env,buyerId,body){
-  const carId=String(body?.carId||''),price=priceOf(body?.price);if(!marketableCar(carId))return json({error:'INVALID_CAR'},400);if(!price)return json({error:'INVALID_PRICE'},400);
-  const active=await env.DB.prepare("SELECT id FROM market_buy_orders WHERE buyer_user_id=? AND car_id=? AND status='active' LIMIT 1").bind(buyerId,carId).first();if(active)return json({error:'ORDER_EXISTS'},409);
-  const reserved=await mutateTargetSave(env,buyerId,save=>{if(Array.isArray(save.ownedLiveries)&&save.ownedLiveries.includes(carId))return {error:'CAR_ALREADY_OWNED'};return changeCredits(save,-price);});
-  if(reserved.error)return json({error:reserved.error},reserved.error==='INSUFFICIENT_CREDITS'?400:409);
-  const id=crypto.randomUUID(),t=now();
-  try{await env.DB.prepare("INSERT INTO market_buy_orders (id,buyer_user_id,car_id,price,status,created_at,updated_at) VALUES (?,?,?,?,'active',?,?)").bind(id,buyerId,carId,price,t,t).run();}
-  catch(e){await refund(env,buyerId,price);throw e;}
-  try{await writeGameLog(env,{category:'purchases',eventType:'market_buy_order',actorUserId:buyerId,actorRole:'PLAYER',targetUserId:buyerId,source:'MARKET',subject:carId,amount:price,currency:'CR',relatedId:id,metadata:{orderId:id,carId,balanceBefore:Number(reserved.result?.before)||0,balanceAfter:Number(reserved.result?.after)||0,status:'reserved'},createdAt:t});}catch(e){console.error('market order log',e);}
-  return json({ok:true,id},201);
+ const carId=String(body?.carId||''),price=priceOf(body?.price);if(!marketableCar(carId))return json({error:'INVALID_CAR'},400);if(!price)return json({error:'INVALID_PRICE'},400);const id=crypto.randomUUID();
+ const out=await applyAccountTransaction(env,{actorId:buyerId,requestId:body.requestId,type:`market:order:${carId}:${price}`,accountIds:[buyerId],plan:async saves=>{
+  if(await env.DB.prepare("SELECT id FROM market_buy_orders WHERE buyer_user_id=? AND car_id=? AND status='active'").bind(buyerId,carId).first())return failed('ORDER_EXISTS');const save=saves[buyerId];if(save.ownedLiveries?.includes(carId))return failed('CAR_ALREADY_OWNED');const debit=changeCredits(save,-price);if(debit.error)return debit;
+  return {result:{id,carId,price},guardSql:"NOT EXISTS(SELECT 1 FROM market_buy_orders WHERE buyer_user_id=? AND car_id=? AND status='active')",guardArgs:[buyerId,carId],statements:({time,receiptSql,receiptArgs})=>[env.DB.prepare("INSERT INTO market_buy_orders(id,buyer_user_id,car_id,price,status,created_at,updated_at) SELECT ?,?,?,?,'active',?,? WHERE "+receiptSql).bind(id,buyerId,carId,price,time,time,...receiptArgs)]};
+ }});return completeMarket(env,buyerId,out,{created:true,event:'market_buy_order'});
 }
-
-async function cancelBuyOrder(env,buyerId,id){
-  const row=await env.DB.prepare("SELECT * FROM market_buy_orders WHERE id=? AND buyer_user_id=? AND status='active' LIMIT 1").bind(id,buyerId).first();if(!row)return json({error:'ORDER_NOT_FOUND'},404);
-  const claimed=await env.DB.prepare("UPDATE market_buy_orders SET status='processing',updated_at=? WHERE id=? AND buyer_user_id=? AND status='active'").bind(now(),id,buyerId).run();if(Number(claimed?.meta?.changes||0)!==1)return json({error:'ORDER_UNAVAILABLE'},409);
-  const returned=await refund(env,buyerId,Number(row.price)||0);if(returned.error){await env.DB.prepare("UPDATE market_buy_orders SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:returned.error},409);}
-  await env.DB.prepare("UPDATE market_buy_orders SET status='cancelled',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({ok:true});
+async function cancelBuyOrder(env,buyerId,id,body){
+ const out=await applyAccountTransaction(env,{actorId:buyerId,requestId:body.requestId,type:'market:cancel-order:'+id,accountIds:[buyerId],plan:async saves=>{
+  const row=await env.DB.prepare("SELECT * FROM market_buy_orders WHERE id=? AND buyer_user_id=? AND status='active'").bind(id,buyerId).first();if(!row)return failed('ORDER_NOT_FOUND');const returned=changeCredits(saves[buyerId],Number(row.price));if(returned.error)return returned;
+  return {...activeGuard('market_buy_orders',id),result:{id,carId:row.car_id},statements:({time,receiptSql,receiptArgs})=>[env.DB.prepare("UPDATE market_buy_orders SET status='cancelled',updated_at=? WHERE id=? AND status='active' AND "+receiptSql).bind(time,id,...receiptArgs)]};
+ }});return completeMarket(env,buyerId,out);
 }
-
-async function fulfillBuyOrder(env,sellerId,id){
-  const row=await env.DB.prepare("SELECT * FROM market_buy_orders WHERE id=? AND status='active' LIMIT 1").bind(id).first();if(!row)return json({error:'ORDER_NOT_FOUND'},404);if(row.buyer_user_id===sellerId)return json({error:'CANNOT_FILL_OWN'},400);
-  const claimed=await env.DB.prepare("UPDATE market_buy_orders SET status='processing',updated_at=? WHERE id=? AND status='active'").bind(now(),id).run();if(Number(claimed?.meta?.changes||0)!==1)return json({error:'ORDER_UNAVAILABLE'},409);
-  const taken=await mutateTargetSave(env,sellerId,save=>takeCar(save,row.car_id));
-  if(taken.error){await env.DB.prepare("UPDATE market_buy_orders SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:taken.error},400);}
-  const upgrades=safeUpgrades(taken.result?.upgrades),price=Number(row.price)||0;
-  const buyer=await mutateTargetSave(env,row.buyer_user_id,save=>giveCar(save,row.car_id,upgrades));
-  if(buyer.error){await restoreCar(env,sellerId,row.car_id,upgrades);await env.DB.prepare("UPDATE market_buy_orders SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:buyer.error},409);}
-  const seller=await mutateTargetSave(env,sellerId,save=>changeCredits(save,price));
-  if(seller.error){
-    await mutateTargetSave(env,row.buyer_user_id,save=>{if(Array.isArray(save.ownedLiveries)&&save.ownedLiveries.includes(row.car_id))takeCar(save,row.car_id);return {rolledBack:true};});
-    await restoreCar(env,sellerId,row.car_id,upgrades);await env.DB.prepare("UPDATE market_buy_orders SET status='active',updated_at=? WHERE id=? AND status='processing'").bind(now(),id).run();return json({error:'TRADE_RETRY'},409);
-  }
-  const t=now(),historyId=crypto.randomUUID();
-  await env.DB.batch([
-    env.DB.prepare("UPDATE market_buy_orders SET status='filled',seller_user_id=?,filled_at=?,updated_at=? WHERE id=? AND status='processing'").bind(sellerId,t,t,id),
-    env.DB.prepare("INSERT INTO market_history (id,kind,source_id,car_id,price,buyer_user_id,seller_user_id,upgrades_json,created_at) VALUES (?,'buy_order',?,?,?,?,?,?,?)").bind(historyId,id,row.car_id,price,row.buyer_user_id,sellerId,JSON.stringify(upgrades),t)
-  ]);
-  try{
-    const meta={transactionId:historyId,orderId:id,carId:row.car_id,upgrades,reservedAtOrder:true,sellerBalanceBefore:Number(seller.result?.before)||0,sellerBalanceAfter:Number(seller.result?.after)||0};
-    await Promise.all([
-      writeGameLog(env,{category:'purchases',eventType:'market_purchase',actorUserId:row.buyer_user_id,actorRole:'PLAYER',targetUserId:sellerId,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t}),
-      writeGameLog(env,{category:'sales',eventType:'market_sale',actorUserId:sellerId,actorRole:'PLAYER',targetUserId:row.buyer_user_id,source:'MARKET',subject:row.car_id,amount:price,currency:'CR',relatedId:historyId,metadata:meta,createdAt:t})
-    ]);
-  }catch(e){console.error('market log',e);}
-  return json({ok:true});
+async function fulfillBuyOrder(env,sellerId,id,body){
+ const initial=await env.DB.prepare('SELECT * FROM market_buy_orders WHERE id=?').bind(id).first();if(!initial)return json({error:'ORDER_NOT_FOUND'},404);if(initial.buyer_user_id===sellerId)return json({error:'CANNOT_FILL_OWN'},400);const buyerId=initial.buyer_user_id;
+ const out=await applyAccountTransaction(env,{actorId:sellerId,requestId:body.requestId,type:'market:fulfill:'+id,accountIds:[sellerId,buyerId],plan:async saves=>{
+  const row=await env.DB.prepare("SELECT * FROM market_buy_orders WHERE id=? AND status='active'").bind(id).first();if(!row)return failed('ORDER_UNAVAILABLE');const price=priceOf(row.price);if(!price)return failed('INVALID_PRICE');
+  const taken=takeCar(saves[sellerId],row.car_id);if(taken.error)return taken;const payload=packCar(taken),given=giveCar(saves[buyerId],row.car_id,payload);if(given.error)return given;const credit=changeCredits(saves[sellerId],price);if(credit.error)return credit;
+  return {...activeGuard('market_buy_orders',id),result:{id,carId:row.car_id,price,buyerId,sellerId},statements:({transactionId,time,receiptSql,receiptArgs})=>[
+   env.DB.prepare("UPDATE market_buy_orders SET status='filled',seller_user_id=?,filled_at=?,updated_at=? WHERE id=? AND status='active' AND "+receiptSql).bind(sellerId,time,time,id,...receiptArgs),
+   env.DB.prepare("INSERT INTO market_history(id,kind,source_id,car_id,price,buyer_user_id,seller_user_id,upgrades_json,created_at) SELECT ?,'buy_order',?,?,?,?,?,?,? WHERE "+receiptSql).bind(transactionId,id,row.car_id,price,buyerId,sellerId,JSON.stringify(payload),time,...receiptArgs)
+  ]};
+ }});return completeMarket(env,sellerId,out);
 }
 
 export async function handleMarketRequest(request,env,url=new URL(request.url)){
@@ -220,12 +190,13 @@ export async function handleMarketRequest(request,env,url=new URL(request.url)){
     await ensureMarketSchema(env);if(request.method!=='GET'&&!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
     const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;const userId=session.user.id;
     if(url.pathname==='/api/market'&&request.method==='GET')return json(await overview(env,userId));
-    if(url.pathname==='/api/market/listings'&&request.method==='POST')return createListing(env,userId,await request.json());
-    if(url.pathname==='/api/market/buy-orders'&&request.method==='POST')return createBuyOrder(env,userId,await request.json());
+    const body=request.method==='POST'?await readBody(request):{};if(request.method==='POST'&&!/^[\w-]{16,80}$/.test(body?.requestId||''))return json({error:'CLIENT_UPDATE_REQUIRED',updateRequired:true},409);
+    if(url.pathname==='/api/market/listings'&&request.method==='POST')return await createListing(env,userId,body);
+    if(url.pathname==='/api/market/buy-orders'&&request.method==='POST')return await createBuyOrder(env,userId,body);
     let match=url.pathname.match(/^\/api\/market\/listings\/([0-9a-f-]{16,64})\/(buy|cancel)$/i);
-    if(match&&request.method==='POST')return match[2]==='buy'?buyListing(env,userId,match[1]):cancelListing(env,userId,match[1]);
+    if(match&&request.method==='POST')return await (match[2]==='buy'?buyListing(env,userId,match[1],body):cancelListing(env,userId,match[1],body));
     match=url.pathname.match(/^\/api\/market\/buy-orders\/([0-9a-f-]{16,64})\/(fulfill|cancel)$/i);
-    if(match&&request.method==='POST')return match[2]==='fulfill'?fulfillBuyOrder(env,userId,match[1]):cancelBuyOrder(env,userId,match[1]);
+    if(match&&request.method==='POST')return await (match[2]==='fulfill'?fulfillBuyOrder(env,userId,match[1],body):cancelBuyOrder(env,userId,match[1],body));
     return json({error:'NOT_FOUND'},404);
   }catch(e){console.error('market error',e);return json({error:'SERVER_ERROR'},500);}
 }
