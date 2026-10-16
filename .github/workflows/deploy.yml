@@ -36,6 +36,19 @@ jobs:
           name: case-header-v7632-webkit
           path: artifacts/case-v7632/
           if-no-files-found: ignore
+      - name: Verify server-authoritative race sessions
+        run: npm run test:race:authority
+      - name: Verify race start and connection recovery in WebKit
+        run: npm run test:race:mobile
+        env:
+          RACE_SCREENSHOT_DIR: artifacts/race-v77
+      - name: Upload V77 race screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: race-authority-v77-webkit
+          path: artifacts/race-v77/
+          if-no-files-found: ignore
       - name: Check server and mobile navigation tests
         run: npm test && npm run test:v74
   deploy:

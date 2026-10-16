@@ -146,6 +146,14 @@
       throw e;
     }
   }
+  async function raceRequest(action,payload){
+    if(!state.user)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);let data;
+    try{data=await api('/api/economy/races/'+action,{method:'POST',body:JSON.stringify(payload),signal:controller.signal});}finally{clearTimeout(timer);}
+    if(data.save){state.revision=Number(data.revision)||state.revision;applySave(data.save);els.sync.textContent='СИНХРОНИЗИРОВАНО';}
+    if(data.progression)window.dispatchEvent(new CustomEvent('velocity-progression-updated',{detail:data.progression}));
+    return data;
+  }
   const caseTransaction=(action,caseId,quantity)=>economyTransaction('/api/economy/cases/'+(action==='buy'?'buy':'open'),{caseId,quantity});
   function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
   function referralMessage(ref){
@@ -212,6 +220,6 @@
   els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave,revision:state.revision}),keepalive:true}).catch(()=>{});});
-  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,economyTransaction,caseTransaction,open,enterGame,enterGuestGame,requestAuth};
+  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,raceRequest,economyTransaction,caseTransaction,open,enterGame,enterGuestGame,requestAuth};
   setMode('login');setGateMode('login');render();bootstrap();
 })();

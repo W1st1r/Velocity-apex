@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {AuthoritativeRaceClient} from '../public/js/race-client-v77.mjs';
+import {RaceSession,RACE_RUNTIME_VERSION} from '../public/js/race-session-v77.mjs';
+const cfg={mode:'normal',carId:'apexLime',trackId:'apexCircuit',bots:1,laps:3,difficulty:'easy'},save={ownedLiveries:['apexLime']},server=new RaceSession(cfg,save,43);let sequence=0,drop=true;const receipts=new Map();
+const request=async(action,body)=>{assert.equal(action,'input');const key=body.sequence;if(receipts.has(key)){assert.deepEqual(body.inputs,receipts.get(key).input);return receipts.get(key).response;}assert.equal(key,sequence);server.advance(body.inputs);sequence++;const response={sequence,state:server.serialize()};receipts.set(key,{input:body.inputs,response});if(drop){drop=false;throw Error('response lost after server commit');}return response;};
+const client=new AuthoritativeRaceClient({raceId:'race-fixture-0001',config:cfg,carSave:save,seed:43,sequence:0,state:server.serialize()},request);
+for(let i=0;i<120;i++)client.step([0,1,0,0]);await client.sending.catch(()=>{});assert.equal(client.queue.length,120);assert.equal(server.frame,120);
+await client.flush(true);assert.equal(server.frame,120,'retry must not double the simulated time');assert.equal(client.queue.length,0);assert.equal(client.engine.player.x,server.player.x);
+for(let i=0;i<60;i++)client.step([.1,1,0,0]);await client.flush(true);assert.equal(server.frame,180);assert.deepEqual(client.engine.serialize(),server.serialize());assert.equal(client.sequence,2);
+console.log('race_client_v77_test: lost post-commit response, same-sequence retry, bounded controls queue and authoritative state correction passed');

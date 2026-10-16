@@ -1,3 +1,4 @@
+import {handleRaceAuthority} from './race-authority.mjs';
 import {maintenanceGate,settings} from './owner.mjs';
 import {writeGameLog,classifyAuditAction,detectSavePurchases} from './logs.mjs';
 import {CASES as SERVER_CASES} from './case-catalog.mjs';
@@ -209,19 +210,20 @@ async function ensureEconomySchema(env){
     PRIMARY KEY(user_id,request_id), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
   )`).run();
 }
-async function applyEconomyOperation(env,userId,requestId,type,mutator){
+async function applyEconomyOperation(env,userId,requestId,type,mutator,options={}){
   const existing=await env.DB.prepare('SELECT operation_type,response_json FROM economy_operations WHERE user_id=? AND request_id=?').bind(userId,requestId).first();
   if(existing){if(existing.operation_type!==type)return {error:'IDEMPOTENCY_KEY_REUSED'};try{return {replay:true,...JSON.parse(existing.response_json)};}catch{return {error:'OPERATION_RECORD_INVALID'};}}
   for(let attempt=0;attempt<6;attempt++){
     let row=await saveRow(env,userId);
     if(!row.save){const initialized=await writeSave(env,userId,defaultSave(),row.revision);if(!initialized.ok&&initialized.error!=='SAVE_CONFLICT')return {error:initialized.error};row=await saveRow(env,userId);}
     const save=structuredClone(row.save),result=mutator(save);if(result?.error)return result;
-    const nextRevision=row.revision+1,t=now(),response={ok:true,result:result||{},save,revision:nextRevision,updatedAt:t},text=safeSave(save);
+    const nextRevision=row.revision+1,t=now(),response={ok:true,transactionId:crypto.randomUUID(),result:result||{},save,revision:nextRevision,updatedAt:t},text=safeSave(save);
     if(!text)return {error:'INVALID_SAVE'};
     try{
       const batch=await env.DB.batch([
-        env.DB.prepare('UPDATE player_saves SET save_json=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?').bind(text,t,userId,row.revision),
-        env.DB.prepare('INSERT INTO economy_operations(user_id,request_id,operation_type,response_json,created_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(userId,requestId,type,JSON.stringify(response),t)
+        env.DB.prepare('UPDATE player_saves SET save_json=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?'+(options.guardSql?' AND ('+options.guardSql+')':'')).bind(text,t,userId,row.revision,...(options.guardArgs||[])),
+        env.DB.prepare('INSERT INTO economy_operations(user_id,request_id,operation_type,response_json,created_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(userId,requestId,type,JSON.stringify(response),t),
+        ...(options.additionalStatements?.(response)||[])
       ]);
       if(Number(batch?.[0]?.meta?.changes||0)===1)return response;
     }catch(error){
@@ -629,6 +631,11 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
   try{
     await ensureAdminSchema(env);await ensureRewardSchema(env);
     if(url.pathname.startsWith('/api/economy/'))await ensureEconomySchema(env);
+    if(url.pathname.startsWith('/api/economy/races/')){
+      if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+      const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
+      return await handleRaceAuthority(request,env,url,session,{readBody,saveRow,applyEconomyOperation,settings});
+    }
     if(url.pathname.startsWith('/api/promocodes/'))return handlePromoRequest(request,env,url);
     if(url.pathname.startsWith('/api/referrals/'))return handleReferralRequest(request,env,url);
     if(url.pathname.startsWith('/api/friends'))return handleFriendsRequest(request,env,url);
