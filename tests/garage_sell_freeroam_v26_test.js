@@ -39,5 +39,5 @@ assert.ok(free.includes('lockPauseTaps(750)'),'editor close must guard against i
 assert.ok(free.includes("open?.({source:'freeRoam'})"),'Free Roam control editor source must be explicit');
 assert.ok(css.includes('.free-pause-actions{display:grid'),'Free Roam pause actions must use aligned grid');
 
-assert.ok(html.includes('garage.js?v=20260918-v28')&&html.includes('freeroam.js?v=20260920-v49')&&html.includes('content.js?v=20260921-v63'),'V28 cache bust missing');
+assert.ok(html.includes('garage.js?v=20261016-v76')&&html.includes('freeroam.js?v=20260920-v49')&&html.includes('content.js?v=20260921-v63'),'V28 cache bust missing');
 console.log('garage_sell_freeroam_v26_test: OK');

@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V74.1",
+  "version": "V76",
   "theme": "Race Control Blue",
-  "update": "Car Preview Quality and Scale",
+  "update": "Case Results UX and Scroll Reliability",
   "released": "2026-10-16",
-  "release": "Proportional, bounded car previews across menu, garage and shop; corrected iPhone menu car fit"
+  "release": "Case header refresh, complete batch result scrolling, and preserved server-authoritative UPGRADE"
 }
