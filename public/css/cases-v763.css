@@ -185,6 +185,8 @@
 .case-modal.case-results-open .case-open-btn { flex: 0 0 auto; min-height: 40px !important; margin-top: 7px !important; font-size: 10px !important; }
 
 @media (max-height: 520px) {
+  .case-roulette { min-height: 65px; }
+  .case-ready-label { height: auto; min-height: 20px; margin-top: 3px; }
   .case-modal.case-results-open .case-opening-zone { padding: 6px; }
   .case-modal.case-results-open .case-result.batch { gap: 5px; }
   .case-awards-head { padding-bottom: 4px; }
