@@ -19,7 +19,7 @@
     "test:v762": "node tests/upgrade_economy_v762_simulation.mjs && node tests/upgrade_protection_v69_test.mjs && node tests/upgrade_v69_server_integration_test.mjs && node tests/race_control_upgrade_v65_test.mjs && node tests/garage_upgrade_v64_pointer_truth_test.mjs",
     "test:cases:mobile": "node tests/case_results_v763_mobile.mjs",
     "postinstall": "node scripts/build-race-runtime.mjs",
-    "test:race:authority": "node scripts/build-race-runtime.mjs --check && node tests/race_authority_v77_test.mjs && node tests/race_session_engine_v77_test.mjs && node tests/race_client_v77_test.mjs",
+    "test:race:authority": "node scripts/build-race-runtime.mjs --check && node tests/race_authority_v77_test.mjs && node tests/race_session_engine_v77_test.mjs && node tests/race_client_v77_test.mjs && node tests/race_room_engine_v77_test.mjs && node tests/room_race_inputs_v77_test.mjs",
     "test:race:mobile": "node tests/race_authority_mobile_v77.mjs",
     "test:owner:economy": "node tests/admin_self_economy_v77_test.mjs",
     "test:room:escrow": "node tests/room_wager_escrow_v77_test.mjs"
