@@ -72,9 +72,10 @@ const FREE_FOOTBALL_CONTACT_RADIUS=78;
 const FREE_FOOTBALL_MAX_BALL_SPEED=1050;
 const FREE_MINIGAME_ARENA=Object.freeze({x:2500,y:1500,w:2500,h:1500,left:1250,right:3750,top:750,bottom:2250});
 const FREE_MINIGAME_HUBS=Object.freeze({
-  football:{x:1835,y:300,r:125,label:'APEX STADIUM'},
-  checkpoint:{x:3338,y:865,r:125,label:'RUSH CENTER'},
-  hot_potato:{x:820,y:1410,r:118,label:'BOMB ARENA'}
+  // Centers match the client city-map aprons; keep r aligned with the prompt.
+  football:{x:1997.5,y:272.5,r:45,label:'APEX STADIUM'},
+  checkpoint:{x:3337.5,y:860,r:45,label:'RUSH CENTER'},
+  hot_potato:{x:745,y:1387.5,r:45,label:'BOMB ARENA'}
 });
 const FREE_MINIGAME_CONFIG=Object.freeze({
   football_3v3:{hub:'football',label:'MINI FOOTBALL 3×3',minPlayers:6,maxPlayers:6,durationMs:150000,teamSize:3,kind:'football'},
@@ -263,7 +264,7 @@ export class Room {
   }
   async joinMinigame(ws,p,gameKey,t){
     const cfg=FREE_MINIGAME_CONFIG[gameKey],hub=cfg&&FREE_MINIGAME_HUBS[cfg.hub];if(!cfg||!hub)return this.error(ws,'INVALID_ACTIVITY','Неизвестная мини-игра');
-    if(!insideCircle(p.state,hub,110))return this.error(ws,'ACTIVITY_LOCATION',`Подъедьте к ${hub.label}`);
+    if(!insideCircle(p.state,hub))return this.error(ws,'ACTIVITY_LOCATION',`Подъедьте к ${hub.label}`);
     if(this.playerBusy(p.id))return this.error(ws,'ACTIVITY_BUSY','Вы уже участвуете в активности');
     this.room.minigames=this.room.minigames||{};let e=this.room.minigames[gameKey];
     if(e?.status==='running')return this.error(ws,'ACTIVITY_RUNNING',`${cfg.label} уже идёт`);

@@ -29,7 +29,7 @@ for(const token of [
 // The city must remain vector/tile rendered rather than a stretched reference bitmap.
 assert.ok(!/new\s+Image\s*\(/.test(citySource),'free-city must not load one stretched bitmap as the world');
 assert.ok(citySource.includes('const tiles=new Map(),TILE=512'),'bounded vector tile cache missing');
-assert.ok(html.includes('js/free-city.js?v=20260920-v49'),'V42 city cache bust missing');
+assert.ok(/js\/free-city\.js\?v=20261016-v77(?:&|\")/.test(html),'V77 city cache bust missing');
 
 // Camera contract: player remains the exact camera center; do not clamp camera to map/background edges.
 assert.ok(roamSource.includes('let cx=car.x,cy=car.y;' ),'free-roam camera must be centered on the player');

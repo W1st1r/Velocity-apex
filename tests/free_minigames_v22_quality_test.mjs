@@ -7,10 +7,10 @@ import {Room} from '../src/worker.mjs';
 const citySource=fs.readFileSync(new URL('../public/js/free-city.js',import.meta.url),'utf8');
 const scope={window:{}};vm.createContext(scope);vm.runInContext(citySource,scope);
 const city=scope.window.ApexCity;
-const hubs=[[1835,300,'APEX STADIUM'],[3338,865,'RUSH CENTER'],[880,1430,'BOMB ARENA']];
+const hubs=[[1997.5,272.5,'APEX STADIUM'],[3337.5,860,'RUSH CENTER'],[745,1387.5,'BOMB ARENA']];
 for(const [x,y,name] of hubs){
   assert(city.roadAt(x,y,-20),`${name} center must be drivable`);
-  for(let a=0;a<Math.PI*2;a+=Math.PI/6){const p=city.nearestRoad(x+Math.cos(a)*130,y+Math.sin(a)*130);assert(city.roadAt(p.x,p.y,-20),`${name} approach must snap to usable road`);}
+  for(let a=0;a<Math.PI*2;a+=Math.PI/12){assert(city.roadAt(x+Math.cos(a)*40,y+Math.sin(a)*40,-20),`${name} active ring must be drivable from every direction`);const p=city.nearestRoad(x+Math.cos(a)*130,y+Math.sin(a)*130);assert(city.roadAt(p.x,p.y,-20),`${name} approach must snap to usable road`);}
 }
 
 // Server spawns must stay well inside the minigame arena and never overlap each other.

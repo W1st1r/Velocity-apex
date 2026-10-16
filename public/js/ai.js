@@ -5,7 +5,7 @@
     easy:{aggression:.50,precision:.84,errorChance:.032,errorSize:18,lineUse:.88,pace:.62,gripUsage:.58,brakeUsage:.58,accelUsage:.60,reaction:.82,brakeMargin:11,laneRate:1.65,followGap:102,recoverySpeed:148,edgeUse:.68,trafficSkill:.56,driverVariance:.035,brakeConfidence:.61,curbAggression:.01,apexPreference:.08,consistency:.80},
     medium:{aggression:.68,precision:.93,errorChance:.012,errorSize:10,lineUse:.97,pace:.79,gripUsage:.77,brakeUsage:.75,accelUsage:.82,reaction:.96,brakeMargin:6.5,laneRate:2.10,followGap:88,recoverySpeed:170,edgeUse:.86,trafficSkill:.76,driverVariance:.018,brakeConfidence:.76,curbAggression:.07,apexPreference:.32,consistency:.91},
     hard:{aggression:.84,precision:.978,errorChance:.003,errorSize:5,lineUse:.992,pace:.92,gripUsage:.89,brakeUsage:.88,accelUsage:.91,reaction:1.03,brakeMargin:3.8,laneRate:2.45,followGap:81,recoverySpeed:188,edgeUse:.96,trafficSkill:.90,driverVariance:.010,brakeConfidence:.88,curbAggression:.58,apexPreference:.66,consistency:.97},
-    extreme:{aggression:.965,precision:.998,errorChance:.00035,errorSize:1.5,lineUse:1,pace:1,gripUsage:.997,brakeUsage:.992,accelUsage:.998,reaction:1.10,brakeMargin:1.2,laneRate:2.85,followGap:75,recoverySpeed:208,edgeUse:1,trafficSkill:.988,driverVariance:.003,brakeConfidence:.985,curbAggression:.96,apexPreference:.94,consistency:.995}
+    extreme:{aggression:.965,precision:.998,errorChance:.00035,errorSize:1.5,lineUse:1,pace:1,gripUsage:.997,brakeUsage:.992,accelUsage:.998,reaction:1.10,brakeMargin:1.2,laneRate:2.85,followGap:96,recoverySpeed:208,edgeUse:.96,trafficSkill:.988,driverVariance:.003,brakeConfidence:.985,curbAggression:.96,apexPreference:.94,consistency:.995}
   };
 
   // Stable talent spread, independent of elapsed time, current rank or losses.

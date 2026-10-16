@@ -5,7 +5,7 @@ const citySource=fs.readFileSync(new URL('../public/js/free-city.js',import.meta
 const client=fs.readFileSync(new URL('../public/js/freeroam.js',import.meta.url),'utf8');
 const scope={window:{}};vm.createContext(scope);vm.runInContext(citySource,scope);const city=scope.window.ApexCity;
 for(const token of ['function eventPad(c,a,accent,opt)','function eventWall(c,x1,y1,x2,y2,accent)','function eventLane(c,lane,accent,label,orientation)','driftHarborEntry','driftHarborExit',"title:'CHECKPOINT RUSH'","orientation:'east'"]) assert.ok(citySource.includes(token),`missing event-hub token: ${token}`);
-assert.ok(client.includes('Keep only a restrained interaction beacon'),'old floating minigame plate was not replaced');
+assert.ok(client.includes('The event-pad ring is the authoritative radius'),'duplicate marker ring must remain removed');
 const lanes=[
  ['harbor entry',[960,1825],[960,1975]],['harbor exit',[1100,1825],[1100,1975]],
  ['football entry',[1877,310],[1877,400]],['football exit',[2067,310],[2067,400]],

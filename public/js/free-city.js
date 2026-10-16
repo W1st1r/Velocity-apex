@@ -811,7 +811,7 @@
     }
     // Premium APEX event branding painted on the asphalt.
     const cx=a.x+a.w/2,cy=a.y+a.h/2;ellipse(c,cx,cy,44,44,'#26383a');
-    c.save();c.strokeStyle=accent;c.globalAlpha=.82;c.lineWidth=4;c.setLineDash([12,9]);c.beginPath();c.arc(cx,cy,35,0,TAU);c.stroke();c.restore();
+    c.save();c.strokeStyle=accent;c.globalAlpha=.82;c.lineWidth=4;c.setLineDash([12,9]);c.beginPath();c.arc(cx,cy,45,0,TAU);c.stroke();c.restore();
     text(c,title,cx,a.y+28,Math.min(17,Math.max(11,a.w/28)),'#f5f7ef');text(c,sub,cx,a.y+46,8,accent);
     // Accent bollards make the wall readable before the car reaches it.
     for(const [x,y] of [[a.x+10,a.y+10],[a.x+a.w-10,a.y+10],[a.x+10,a.y+a.h-10],[a.x+a.w-10,a.y+a.h-10]]){ellipse(c,x,y,5,5,'#172427');ellipse(c,x,y,3,3,accent);}

@@ -14,5 +14,5 @@ assert.match(citySrc,/Tapered curb-cut/,'tapered driveway treatment missing');
 assert.match(citySrc,/gx\+28,arrowShoulder\],\[gx,arrowTop\]/,'entry arrow is not closed symmetrically');
 assert.match(citySrc,/const bx=gx-gb\.w\/2/,'garage building is not explicitly centered');
 assert.match(citySrc,/rr\(c,bx-11,gb\.y\+12,gb\.w\+22/,'centered building shadow missing');
-assert.ok(html.includes('free-city.js?v=20260920-v49')&&html.includes('freeroam.js?v=20260920-v49'),'V48 cache bust missing');
+assert.ok(/free-city\.js\?v=20261016-v77(?:&|\")/.test(html)&&/freeroam\.js\?v=20261016-v77(?:&|\")/.test(html),'V77 cache bust missing');
 console.log('free_garage_polish_v48_test: OK');
