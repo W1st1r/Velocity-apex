@@ -28,4 +28,8 @@ for(const token of ['data-tab="case"','id="caseModal"','id="caseRewardList"','id
 for(const token of ['R.buyCase','R.openCase','R.openCases','spinActiveCase','buildVisualSequence','showcaseOffsets','showcaseReward','translate3d','caseRewardList'])assert.ok(garage.includes(token),`missing case behavior ${token}`);
 assert.ok(garage.indexOf('R.openCases')<garage.indexOf('buildVisualSequence(box,featured.reward'),'real case rewards must resolve before the visual tension reel is built');
 for(const token of ['.case-card','.case-modal','.case-roll-strip','@keyframes caseFloat','prefers-reduced-motion','overflow-x:hidden','caseMarkerPulse','caseResultPop','var(--safe-l)','var(--safe-r)'])assert.ok(css.includes(token),`missing case styling ${token}`);
+assert.ok(css.includes('.case-result.batch{display:block;flex:1 1 auto;min-height:0;max-height:none;overflow:auto;'),'batch results must use available space and remain fully scrollable');
+assert.ok(!/@media\(max-height:520px\)[^}]*\.case-result\.batch\{max-height:/.test(css),'short landscape screens must not clip batch results to a fixed height');
+assert.ok(css.includes('case-modal-header{display:flex;align-items:center;gap:12px;flex:0 0 auto;margin-bottom:11px;padding:8px 10px 10px;border:1px solid')&&css.includes('background:linear-gradient(110deg,rgba(31,63,96,.34)'),'case header must use the unified blue panel');
+assert.ok(html.includes('style.css?v=20260920-v47-case-results'),'case result CSS cache bust missing');
 console.log(JSON.stringify({prices:Object.fromEntries(R.CASE_ORDER.map(id=>[id,R.CASES[id].price])),generalLuxOdds:allLux.map(x=>x.chanceBps/100),duplicateRate:0.35},null,2));

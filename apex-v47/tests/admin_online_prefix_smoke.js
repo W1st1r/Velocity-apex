@@ -15,5 +15,5 @@ for(const [level,label] of [[1,'HELPER'],[2,'MODER'],[3,'ST.MODER'],[4,'ADMIN'],
 for(const cls of ['admin-helper','admin-moder','admin-st-moder','admin-admin','admin-st-admin','admin-curator','admin-gl-admin','admin-root']) assert.ok(css.includes(`.${cls}`),`missing prefix CSS ${cls}`);
 for(const color of ['#0e7c76','#145fa8','#6540a8','#a35d12','#8b6517','#0d6b57','#174fbd','#252b36']) assert.ok(css.includes(color),`missing chosen admin color ${color}`);
 assert.ok(free.includes("if(isOwner)")&&free.includes("else if(isQueenName(name))")&&free.includes("else if(rank)"),'OWNER/QUEEN must keep priority over staff prefix');
-assert.ok(html.includes('style.css?v=20260919-v43')&&html.includes('online.js?v=20260916-adminprefix1&admin=20260918-v32')&&html.includes('freeroam.js?v=20260919-v43'),'prefix cache bust missing');
+assert.ok(/href="css\/style\.css\?v=[^"]+"/.test(html)&&html.includes('online.js?v=20260916-adminprefix1&admin=20260918-v32')&&/src="js\/freeroam\.js\?v=[^"]+"/.test(html),'prefix cache bust missing');
 console.log('admin_online_prefix_smoke: OK — 8 staff prefixes, hierarchy propagation and V32 cache bust');

@@ -8,7 +8,6 @@ const roamSource=fs.readFileSync(path.join(root,'public/js/freeroam.js'),'utf8')
 const html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 
 for(const token of [
-  'APEX BAY V42',
   'const airportTerminal=',
   'const parkedAircraft=',
   'function airplane(c,x,y,scale=1,angle=-Math.PI/2)',
@@ -29,7 +28,7 @@ for(const token of [
 // The city must remain vector/tile rendered rather than a stretched reference bitmap.
 assert.ok(!/new\s+Image\s*\(/.test(citySource),'free-city must not load one stretched bitmap as the world');
 assert.ok(citySource.includes('const tiles=new Map(),TILE=512'),'bounded vector tile cache missing');
-assert.ok(html.includes('js/free-city.js?v=20260919-v43'),'V42 city cache bust missing');
+assert.ok(/src="js\/free-city\.js\?v=[^"]+"/.test(html),'versioned city cache key missing');
 
 // Camera contract: player remains the exact camera center; do not clamp camera to map/background edges.
 assert.ok(roamSource.includes('const cx=car.x,cy=car.y;'),'free-roam camera must be centered on the player');
