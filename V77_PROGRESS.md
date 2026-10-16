@@ -94,3 +94,7 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 
 ## 2026-10-16 - CI portability correction
 - Run 38940800585 passed Worker bundling, server race tests, and WebKit including restart while an autosave is deliberately in flight on both mobile profiles. Its final regression failed only the new MAX_SAFE_INTEGER test fixture: Node 22's SQLite json_set serialized a bound REAL as one CR less before the operation was invoked. The production escrow already casts resulting balances to INTEGER. Corrected the fixture to cast its setup value to INTEGER and assert exact storage before testing overflow; targeted test passes locally. Next CI must verify on Node 22.
+
+## 2026-10-16 - Verified checkpoint
+- CI 38941498361 for 1d22678 completed SUCCESS: full npm test/test:v74, Worker dry-run, shared solo/multiplayer physics/input checks, and actual-page WebKit race/recovery/autosave/restart tests. Deploy skipped as required for Draft PR.
+- Inspected both race WebKit screenshots from artifact 12063197624. The captures caught the pause overlay before its entry animation finished, so they show the race field but are insufficient evidence of pause-button geometry. Updated screenshots to fast-forward CSS animations and added in-viewport bounds checks for every pause control; this strengthened visual assertion awaits CI. No physical iPhone was used.
