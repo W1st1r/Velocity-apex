@@ -9,7 +9,7 @@ export class RaceRoomSession {
   this.config={...config};this.entrants=entrants;this.seed=seed;
   const first=entrants[0],base=new RaceSession({...config,bots:0,difficulty:'extreme',carId:first.carId},first.carSave,seed);
   if(base.track.id!==config.trackId)throw Error('INVALID_TRACK');
-  this.base=base;this.R=base.R;this.track=base.track;this.frame=0;this.finishOrder=[];this.scores={};this.results={};
+  this.base=base;this.R=base.R;this.track=base.track;this.frame=0;this.finishOrder=[];this.scores={};this.results={};this.lastInputs={};
   this.cars=entrants.map((e,i)=>{
    if(typeof e.id!=='string'||!/^[A-Za-z0-9-]{1,40}$/.test(e.id)||!this.R.LIVERIES[e.carId]||!e.carSave?.ownedLiveries?.includes(e.carId))throw Error('CAR_NOT_OWNED');
    const c=new this.R.Car({id:e.id,name:e.id,player:true,...this.R.RACE_PHYSICS});
@@ -21,15 +21,16 @@ export class RaceRoomSession {
  }
  restore(s){
   if(!Number.isSafeInteger(s?.frame)||s.frame<0||s.cars?.length!==this.cars.length)throw Error('INVALID_ROOM_STATE');
-  this.frame=s.frame;this.finishOrder=s.finishOrder.slice();this.results=structuredClone(s.results);this.scores=structuredClone(s.scores);this.R.setRandomState(s.rng);
+  this.frame=s.frame;this.lastInputs=structuredClone(s.lastInputs||{});this.finishOrder=s.finishOrder.slice();this.results=structuredClone(s.results);this.scores=structuredClone(s.scores);this.R.setRandomState(s.rng);
   for(let i=0;i<this.cars.length;i++){if(s.cars[i].id!==this.cars[i].id)throw Error('INVALID_ROOM_STATE');Object.assign(this.cars[i],s.cars[i]);}
  }
- serialize(){return {frame:this.frame,finishOrder:this.finishOrder.slice(),results:structuredClone(this.results),scores:structuredClone(this.scores),rng:this.R.getRandomState(),cars:this.cars.map(scalar)};}
+ serialize(){return {frame:this.frame,lastInputs:structuredClone(this.lastInputs),finishOrder:this.finishOrder.slice(),results:structuredClone(this.results),scores:structuredClone(this.scores),rng:this.R.getRandomState(),cars:this.cars.map(scalar)};}
  step(inputs){
   if(!inputs||typeof inputs!=='object'||Array.isArray(inputs)||Object.keys(inputs).some(id=>!Object.hasOwn(this.scores,id)))throw Error('INVALID_ROOM_INPUT');
   // Validate every supplied control before mutating any car or advancing time.
   for(const frame of Object.values(inputs))validateInputs([frame]);
   const controls=new Map(this.cars.map(c=>{const v=inputs[c.id]||[0,0,.2,0];return[c.id,{steer:v[0],throttle:c.raceFinished?0:v[1],brake:c.raceFinished?1:v[2],handbrake:this.config.mode==='drift'?v[3]:0,drift:this.config.mode==='drift'}];}));
+  this.lastInputs=Object.fromEntries([...controls].map(([id,c])=>[id,[c.steer,c.throttle,c.brake,c.handbrake]]));
   const collisions=new Set();this.frame++;
   for(let sub=0;sub<2;sub++){
    for(const c of this.cars){const hit=c.update(1/120,controls.get(c.id),this.track);if(hit.impact>.05)collisions.add(c.id);}

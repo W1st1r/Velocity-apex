@@ -1,3 +1,4 @@
+import {freezeRaceLoadout} from './race-loadout.mjs';
 import {RaceSession,validateRaceConfig,validateInputs,settleRace,RACE_RUNTIME_VERSION,RACE_HZ} from '../public/js/race-session-v77.mjs';
 import {ensureProgressionSchema,getProgression,PROGRESSION_REWARDS} from './progression.mjs';
 const raceSchema=["-- Additive only: existing player_saves, inventories and progress are not rewritten.\nCREATE TABLE IF NOT EXISTS race_sessions (\n id TEXT PRIMARY KEY,\n user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,\n start_request_id TEXT NOT NULL,\n start_hash TEXT NOT NULL,\n runtime_version TEXT NOT NULL,\n config_json TEXT NOT NULL,\n car_save_json TEXT NOT NULL,\n seed INTEGER NOT NULL,\n state_json TEXT NOT NULL,\n sequence INTEGER NOT NULL DEFAULT 0,\n revision INTEGER NOT NULL DEFAULT 1,\n status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paid','cancelled','expired')),\n created_at INTEGER NOT NULL,\n starts_at INTEGER NOT NULL,\n expires_at INTEGER NOT NULL,\n updated_at INTEGER NOT NULL,\n UNIQUE(user_id,start_request_id)\n)", "CREATE UNIQUE INDEX IF NOT EXISTS idx_race_one_active_user ON race_sessions(user_id) WHERE status='active'", "CREATE TABLE IF NOT EXISTS race_input_receipts (\n race_id TEXT NOT NULL REFERENCES race_sessions(id) ON DELETE CASCADE,\n sequence INTEGER NOT NULL,\n payload_hash TEXT NOT NULL,\n response_json TEXT NOT NULL,\n created_at INTEGER NOT NULL,\n PRIMARY KEY(race_id,sequence)\n)"];
@@ -22,11 +23,7 @@ export async function handleRaceAuthority(request,env,url,session,{readBody,save
     if(prior)return prior.start_hash===startHash?json({ok:true,replay:true,...publicSession(prior)}):json({error:'IDEMPOTENCY_KEY_REUSED'},409);
     const row=await saveRow(env,userId);if(!row.save)return json({error:'SAVE_NOT_FOUND'},409);
     let config;try{config=validateRaceConfig(b.config,row.save);}catch(e){return json({error:e.message},400);}
-    const owner=await settings(env),override={...(owner.cars?.[config.carId]||{})};
-    if(!session.user.isAdmin&&(override.enabled===false||override.unavailable))return json({error:'CAR_UNAVAILABLE'},400);
-    if(session.user.isAdmin){delete override.enabled;delete override.unavailable;}
-    const personal=await env.DB.prepare('SELECT value FROM owner_tuning WHERE user_id=? AND car_id=?').bind(userId,config.carId).first();
-    const carSave={ownedLiveries:[config.carId],carUpgrades:{[config.carId]:row.save.carUpgrades?.[config.carId]||{}},bestLap:Number(row.save.bestLap)||0,ownerCars:{[config.carId]:override},ownerTuning:{[config.carId]:personal?JSON.parse(personal.value):{}}};
+    let carSave;try{carSave=await freezeRaceLoadout(env,userId,config.carId,{isAdmin:session.user.isAdmin,save:row.save,owner:await settings(env)});}catch(e){return json({error:e.message},400);}
     const seed=crypto.getRandomValues(new Uint32Array(1))[0],engine=new RaceSession(config,carSave,seed),raceId=crypto.randomUUID();
     try{
       await env.DB.batch([
