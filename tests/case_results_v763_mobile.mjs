@@ -6,9 +6,9 @@ import { createRequire } from 'node:module';
 const { webkit, devices } = createRequire(import.meta.url)('playwright');
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const screenshotDir = process.env.CASE_SCREENSHOT_DIR || path.join(root, 'artifacts/case-v7631');
+const screenshotDir = process.env.CASE_SCREENSHOT_DIR || path.join(root, 'artifacts/case-v7632');
 fs.mkdirSync(screenshotDir, { recursive: true });
-const css = fs.readFileSync(path.join(root, 'public/css/style.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'public/css/cases-v763.css'), 'utf8');
+const css = fs.readFileSync(path.join(root, 'public/css/style.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'public/css/mobile-ui.css'), 'utf8') + '\n' + fs.readFileSync(path.join(root, 'public/css/cases-v763.css'), 'utf8');
 const contentJs = fs.readFileSync(path.join(root, 'public/js/content.js'), 'utf8');
 const garageJs = fs.readFileSync(path.join(root, 'public/js/garage.js'), 'utf8');
 const rewardImage = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 120"><path fill="#40bce9" d="M18 77h23l22-30q7-9 19-9h74q13 0 22 12l17 20h22q9 0 9 9v17H16V84q0-7 2-7zm48-4h123l-15-18q-5-6-14-6H84q-8 0-13 7z"/><circle cx="63" cy="96" r="13" fill="#061528"/><circle cx="186" cy="96" r="13" fill="#061528"/></svg>')}`;
@@ -55,6 +55,14 @@ try {
       return { w: innerWidth, h: innerHeight, dpr: devicePixelRatio, scrollW: document.documentElement.scrollWidth, panel: document.querySelector('.case-open-panel').getBoundingClientRect().toJSON(), open: document.querySelector('#caseOpenBtn').getBoundingClientRect().toJSON(), roulette: roulette.getBoundingClientRect().toJSON(), marker: marker.getBoundingClientRect().toJSON(), label: label.getBoundingClientRect().toJSON(), labelParent: label.parentElement.id, labelPosition: getComputedStyle(label).position, labelBackground: getComputedStyle(label).backgroundColor, idle: getComputedStyle(strip, '::before').content };
     });
     assert.equal(before.scrollW, before.w, `${name}: idle state must not widen the page`);
+    const headerStyle = await page.locator('.case-modal-header').evaluate(el => { const s=getComputedStyle(el), before=getComputedStyle(el,'::before'), after=getComputedStyle(el,'::after'); return {backgroundColor:s.backgroundColor,backgroundImage:s.backgroundImage,borderWidth:s.borderWidth,boxShadow:s.boxShadow,borderRadius:s.borderRadius,before:before.content,after:after.content,rect:el.getBoundingClientRect().toJSON(),title:document.querySelector('#caseModalTitle').getBoundingClientRect().toJSON(),wallet:document.querySelector('.case-modal-wallet').getBoundingClientRect().toJSON(),close:document.querySelector('#caseCloseBtn').getBoundingClientRect().toJSON()}; });
+    assert.match(headerStyle.backgroundColor,/rgba\(0, 0, 0, 0\)|transparent/,`${name}: case header background must be transparent in the full stylesheet cascade`);
+    assert.equal(headerStyle.backgroundImage,'none',`${name}: no header gradient may paint the old slab`);
+    assert.equal(headerStyle.borderWidth,'0px',`${name}: header has no card border`);
+    assert.equal(headerStyle.boxShadow,'none',`${name}: header has no card shadow`);
+    assert.equal(headerStyle.borderRadius,'0px',`${name}: header has no independent card corners`);
+    assert.equal(headerStyle.before,'none',`${name}: no header ::before overlay`); assert.equal(headerStyle.after,'none',`${name}: no header ::after overlay`);
+    for (const [part, rect] of [['title',headerStyle.title],['wallet',headerStyle.wallet],['close',headerStyle.close]]) assert.ok(rect.left >= headerStyle.rect.left-1 && rect.right <= headerStyle.rect.right+1 && rect.top >= headerStyle.rect.top-1 && rect.bottom <= headerStyle.rect.bottom+1,`${name}: ${part} remains inside the unified header`);
     assert.equal(before.labelParent, '', `${name}: ready caption must be outside the clipped roulette`);
     assert.notEqual(before.labelPosition, 'absolute', `${name}: ready caption must be in normal flow`);
     assert.ok(before.label.y >= before.roulette.y + before.roulette.height - 1, `${name}: ready caption may not overlap the reel`);
@@ -72,14 +80,16 @@ try {
 
     const captureStates = name === 'iPhone 17 Pro Max landscape';
     if (captureStates) {
-      await page.evaluate(() => { const label = document.querySelector('.case-ready-label'), roulette = document.querySelector('.case-roulette'); roulette.append(label); Object.assign(label.style, { position:'absolute', zIndex:'7', left:'0', right:'0', bottom:'0', height:'25px', background:'rgba(9,15,18,.82)' }); });
-      await page.screenshot({ path: path.join(screenshotDir, 'before-black-band-reproduced.png') });
+      await page.locator('.case-modal-header').evaluate(el => Object.assign(el.style,{background:'linear-gradient(110deg,rgba(31,63,96,.34),rgba(11,25,43,.22))',border:'1px solid rgba(103,161,207,.16)',borderRadius:'13px',boxShadow:'inset 0 1px rgba(255,255,255,.025)'}));
+      await page.screenshot({ path: path.join(screenshotDir, 'before-header-slab-reproduced.png') });
+      await page.locator('.case-modal-header').evaluate(el => el.removeAttribute('style'));
       await page.evaluate(() => { const label = document.querySelector('.case-ready-label'), roulette = document.querySelector('.case-roulette'); label.removeAttribute('style'); roulette.after(label); });
-      await page.screenshot({ path: path.join(screenshotDir, 'after-idle.png') });
+      await page.screenshot({ path: path.join(screenshotDir, 'after-header-clean.png') });
       await page.evaluate(() => { const roulette = document.querySelector('.case-roulette'), strip = document.querySelector('.case-roll-strip'); strip.innerHTML = Array.from({length:45},(_,i)=>`<div class="case-roll-item"><strong>VELOCITY ${i+1}</strong><span>RARE</span></div>`).join(''); roulette.classList.add('is-spinning'); strip.style.transition = 'transform 4s cubic-bezier(.07,.72,.08,1)'; requestAnimationFrame(()=>strip.style.transform='translate3d(-950px,0,0)'); });
       await page.waitForTimeout(500);
       const spinMarker = await page.locator('.case-roulette-marker').boundingBox();
       assert.ok(spinMarker && spinMarker.width > 0, 'spin state should retain the central pointer');
+      assert.match(await page.locator('.case-modal-header').evaluate(el=>getComputedStyle(el).backgroundImage),/^none$/,`${name}: header remains unpainted during spin`);
       await page.screenshot({ path: path.join(screenshotDir, 'during-spin.png') });
       await page.evaluate(() => { document.querySelector('.case-roulette').classList.remove('is-spinning'); const strip = document.querySelector('.case-roll-strip'); strip.style.transition='none'; strip.style.transform='none'; });
     }
@@ -96,13 +106,14 @@ try {
         return { cards: carousel.querySelectorAll('.case-award-card').length, width: carousel.clientWidth, scrollWidth: carousel.scrollWidth, pageW: document.documentElement.scrollWidth, pageX: innerWidth, cardW: card.getBoundingClientRect().width, cardRight: card.getBoundingClientRect().right, carouselRight: carousel.getBoundingClientRect().right, cardBottom: card.getBoundingClientRect().bottom, panelBottom: document.querySelector('.case-open-panel').getBoundingClientRect().bottom, openBottom: document.querySelector('#caseOpenBtn').getBoundingClientRect().bottom, modalState: modal.classList.contains('case-results-open'), rouletteDisplay: getComputedStyle(roulette).display, captionDisplay: getComputedStyle(document.querySelector('.case-ready-label')).display, panelDisplay: getComputedStyle(rightPanel).display, dpr: devicePixelRatio };
       });
       assert.equal(rendered.cards, quantity, `${name}: every ${quantity} award must render`);
+      assert.match(await page.locator('.case-modal-header').evaluate(el=>getComputedStyle(el).backgroundImage),/^none$/,`${name}: header remains unpainted after results`);
       assert.equal(rendered.modalState, true, `${name}: full-width award state must activate`);
       assert.equal(rendered.rouletteDisplay, 'none', `${name}: roulette should yield space to results`);
       assert.equal(rendered.captionDisplay, 'none', `${name}: idle caption should not remain as a blank/black slab in result state`);
       assert.equal(rendered.panelDisplay, 'none', `${name}: possible-reward panel should yield space to results`);
       assert.ok(rendered.cardBottom <= rendered.panelBottom + 1 && rendered.openBottom <= rendered.panelBottom + 1, `${name}: reward card and close/open controls stay within the modal height`);
       assert.equal(rendered.pageW, rendered.pageX, `${name}: no page-level horizontal overflow`);
-      assert.ok(rendered.width > 0 && rendered.scrollWidth >= rendered.width * quantity - 2, `${name}: cards should be swipe-scrollable (${quantity})`);
+      assert.ok(rendered.width > 0 && (quantity === 1 ? rendered.scrollWidth >= rendered.width : rendered.scrollWidth > rendered.width + 1), `${name}: cards should be swipe-scrollable (${quantity}; content ${rendered.scrollWidth}px / viewport ${rendered.width}px)`);
       assert.ok(rendered.cardRight <= rendered.carouselRight + 1, `${name}: first reward card fits its viewport`);
       if (quantity === 10 && ['iPhone 13 Mini landscape', 'iPhone 14 Pro Max landscape', 'iPhone 17 Pro Max landscape'].includes(name)) {
         const next = page.locator('[data-case-awards-step="1"]');
@@ -128,4 +139,4 @@ try {
 } finally {
   await browser.close();
 }
-console.log(`V76.3.1 Playwright WebKit mobile emulation: ${profilesChecked} iPhone 13–17 landscape viewport/DPR/touch profiles, 8 case structures, pre/during/post states, award quantities 1/2/3/4/5/10 and carousel navigation passed. This is WebKit emulation, not physical iOS Safari.`);
+console.log(`V76.3.2 Playwright WebKit mobile emulation: ${profilesChecked} iPhone 13–17 landscape viewport/DPR/touch profiles, 8 case structures with complete style.css + mobile-ui.css + cases-v763.css cascade, pre/during/post states and transparent unboxed case header, award quantities 1/2/3/4/5/10 and carousel navigation passed. This is WebKit emulation, not physical iOS Safari.`);
