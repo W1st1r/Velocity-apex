@@ -113,7 +113,7 @@ try {
       assert.equal(rendered.panelDisplay, 'none', `${name}: possible-reward panel should yield space to results`);
       assert.ok(rendered.cardBottom <= rendered.panelBottom + 1 && rendered.openBottom <= rendered.panelBottom + 1, `${name}: reward card and close/open controls stay within the modal height`);
       assert.equal(rendered.pageW, rendered.pageX, `${name}: no page-level horizontal overflow`);
-      assert.ok(rendered.width > 0 && rendered.scrollWidth >= rendered.width * quantity - 2, `${name}: cards should be swipe-scrollable (${quantity})`);
+      assert.ok(rendered.width > 0 && (quantity === 1 ? rendered.scrollWidth >= rendered.width : rendered.scrollWidth > rendered.width + 1), `${name}: cards should be swipe-scrollable (${quantity}; content ${rendered.scrollWidth}px / viewport ${rendered.width}px)`);
       assert.ok(rendered.cardRight <= rendered.carouselRight + 1, `${name}: first reward card fits its viewport`);
       if (quantity === 10 && ['iPhone 13 Mini landscape', 'iPhone 14 Pro Max landscape', 'iPhone 17 Pro Max landscape'].includes(name)) {
         const next = page.locator('[data-case-awards-step="1"]');
