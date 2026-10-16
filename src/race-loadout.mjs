@@ -1,8 +1,9 @@
+import {backupAccountState} from './account-authority-backup.mjs';
 import {settings} from './owner.mjs';
 import {CARS} from './car-catalog.mjs';
 // The same ownership/performance snapshot is used by solo and room authorities.
 export async function freezeRaceLoadout(env,userId,carId,{isAdmin=false,save=null,owner=null}={}){
- if(!env.DB||!userId)throw Error('AUTH_REQUIRED');
+ if(!env.DB||!userId)throw Error('AUTH_REQUIRED');await backupAccountState(env,userId);
  if(!save){const row=await env.DB.prepare('SELECT save_json FROM player_saves WHERE user_id=?').bind(userId).first();if(!row)throw Error('SAVE_NOT_FOUND');save=JSON.parse(row.save_json);}
  if(!Object.hasOwn(CARS,carId)||(carId!=='apexLime'&&(!Array.isArray(save.ownedLiveries)||!save.ownedLiveries.includes(carId))))throw Error('CAR_NOT_OWNED');
  owner=owner||await settings(env);const override={...(owner.cars?.[carId]||{})};

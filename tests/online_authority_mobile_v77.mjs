@@ -50,11 +50,15 @@ try{
    connections.set(id,(connections.get(id)||0)+1);const peer={a:{playerId:id,lastSeenAt:Date.now()},deserializeAttachment(){return this.a;},serializeAttachment(a){this.a=a;},send(raw){const m=JSON.parse(raw);if(id===hostId&&Date.now()<dropUntil&&['race_world','race_input_ack'].includes(m.type))return;socket.send(raw);},close(code=1000,reason=''){socket.close({code,reason});}};
    ctx.sockets.push(peer);p.connected=true;p.disconnectedUntil=0;
    socket.onMessage(raw=>{try{const m=JSON.parse(raw);if(m.type==='race_inputs'&&id===hostId){const key=id+':'+m.packet.sequence;packetCounts.set(key,(packetCounts.get(key)||0)+1);if(packetCounts.get(key)>1)retried=true;if(!dropped){dropped=true;dropUntil=Date.now()+650;}}room.webSocketMessage(peer,raw).catch(e=>serverErrors.push(e.message));}catch(e){serverErrors.push(e.message);}});
-   socket.onClose(()=>{ctx.sockets=ctx.sockets.filter(x=>x!==peer);room.webSocketClose(peer).catch(e=>serverErrors.push(e.message));});
+   socket.onClose((code,reason)=>{if(peer.closed)return;peer.closed=true;socket.close({code:code||1000,reason:reason||''});ctx.sockets=ctx.sockets.filter(x=>x!==peer);room.webSocketClose(peer).catch(e=>serverErrors.push(e.message));});
    room.send(peer,{type:'hello',v:1,playerId:id,serverTime:Date.now(),room:room.publicRoom()});room.broadcast({type:'room_state',v:1,serverTime:Date.now(),room:room.publicRoom()},peer);
   });
   await page.goto(origin);await page.waitForFunction(()=>window.VelocityAccount?.authenticated&&window.VelocityOnline);
  }
+ const cutover=await pages[0].evaluate(async()=>{
+  const original=await(await fetch('/api/account/save')).json();const attack=await fetch('/api/account/save',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({save:{...original.save,credits:999999999,ownedLiveries:['apexLime','apollo-evo'],careerUnlocked:50},revision:original.revision})});
+  window.VelocityAccount.queueSave({...original.save,credits:999999999,ownedLiveries:['apexLime','apollo-evo'],careerUnlocked:50,muted:true});const ok=await window.VelocityAccount.flushSave();const confirmed=await(await fetch('/api/account/save')).json();return{attackStatus:attack.status,attack:await attack.json(),ok,save:confirmed.save};
+ });assert.equal(cutover.attackStatus,409);assert.equal(cutover.attack.error,'CLIENT_UPDATE_REQUIRED');assert.equal(cutover.ok,true);assert.equal(cutover.save.credits,1000);assert.deepEqual(cutover.save.ownedLiveries,['apexLime']);assert.equal(cutover.save.muted,true);assert.notEqual(cutover.save.careerUnlocked,50);
  const created=await pages[0].evaluate(async()=>{window.VelocityOnline.state.active=true;return window.VelocityOnline.client.create('RACER A',{trackId:'apexCircuit',laps:3,maxPlayers:2,wager:250,collisions:true},{liveryId:'apexLime',effectId:'standard'});});hostId=created.playerId;
  await pages[1].evaluate(async code=>{window.VelocityOnline.state.active=true;return window.VelocityOnline.client.join(code,'RACER B',{liveryId:'apexLime',effectId:'standard'});},created.code);
  for(const page of pages)await page.waitForFunction(()=>window.VelocityOnline.connected&&window.VelocityOnline.room?.players.filter(p=>p.connected).length===2);

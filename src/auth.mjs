@@ -1,3 +1,5 @@
+import {validatePreferences} from '../public/js/account-preferences-v77.mjs';
+import {backupAccountState} from './account-authority-backup.mjs';
 import {adminSelfMutation} from './admin-self-economy.mjs';
 import {handleRaceAuthority} from './race-authority.mjs';
 import {maintenanceGate,settings} from './owner.mjs';
@@ -161,6 +163,7 @@ async function activeBan(env,userId,t=now()){
 }
 async function banResponse(env,user,status=423){const ban=await activeBan(env,user.id);return ban?json({error:'ACCOUNT_BANNED',user:adminUser(user),ban},status):null;}
 async function saveRow(env,userId){
+  await backupAccountState(env,userId);
   const row=await env.DB.prepare('SELECT save_json,revision,updated_at FROM player_saves WHERE user_id=? LIMIT 1').bind(userId).first();
   if(!row)return {save:null,revision:0,updatedAt:0};
   let save=null;try{save=JSON.parse(row.save_json);}catch{}
@@ -780,10 +783,15 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     if(url.pathname==='/api/account/save'&&(request.method==='PUT'||request.method==='POST')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
       const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
-      const b=await readBody(request),expectedRevision=Number.isInteger(b?.revision)?b.revision:null,before=await saveRow(env,session.user.id),result=await writeSave(env,session.user.id,b?.save,expectedRevision);
+      const b=await readBody(request),before=await saveRow(env,session.user.id);
+      if(b&&Object.hasOwn(b,'save'))return json({error:'CLIENT_UPDATE_REQUIRED',updateRequired:true,save:before.save,revision:before.revision},409);
+      if(!b||typeof b!=='object'||Array.isArray(b)||Object.keys(b).some(k=>!['preferences','revision'].includes(k)))return json({error:'SERVER_STATE_ONLY'},400);
+      let preferences;try{preferences=validatePreferences(b.preferences);}catch(e){return json({error:e.message},400);}
+      if(!Number.isSafeInteger(b.revision)||b.revision<0)return json({error:'INVALID_REVISION'},400);
+      if(b.revision!==before.revision)return json({error:'SAVE_CONFLICT',save:before.save,revision:before.revision,updatedAt:before.updatedAt},409);
+      const next={...(before.save||defaultSave()),...preferences},result=await writeSave(env,session.user.id,next,b.revision);
       if(!result.ok)return json({error:result.error,save:result.save??null,revision:result.revision||0,updatedAt:result.updatedAt||0},result.error==='SAVE_CONFLICT'?409:400);
-      try{const purchase=detectSavePurchases(before.save,b?.save);if(purchase){const one=purchase.items.length===1?purchase.items[0]:null,subject=one?`${one.kind}: ${one.carId?one.carId+' / ':''}${one.id}`:`Пакет покупок · ${purchase.items.length}`;await writeGameLog(env,{category:'purchases',eventType:one?'purchase':'purchase_batch',actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'STORE_CLOUD_SAVE',subject,amount:purchase.spent,currency:'CR',metadata:purchase});}}catch(e){console.error('purchase log',e);}
-      return json(result);
+      return json({ok:true,...await saveRow(env,session.user.id)});
     }
     return json({error:'NOT_FOUND'},404);
   }catch(e){

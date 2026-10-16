@@ -41,6 +41,7 @@
     if(options.sync!==false)window.VelocityAccount?.queueSave?.(save);
   }
   function claimDriftCreditsOnce(claimId,reward){
+    if(window.VelocityAccount?.authenticated)return false;
     const amount=Math.max(0,Math.floor(Number(reward)||0));if(!claimId||!amount)return false;
     try{
       const ledger=JSON.parse(localStorage.getItem(DRIFT_REWARD_CLAIMS)||'{}');if(ledger&&ledger[claimId])return false;
@@ -625,6 +626,7 @@
   }
 
   function finishRace(){
+    if(window.VelocityAccount?.authenticated&&!authoritativeRace){mainMenu();toast('ГОСТЕВОЙ ЗАЕЗД НЕ МЕНЯЕТ ОБЛАЧНЫЙ ПРОГРЕСС · НАЧНИТЕ НОВЫЙ','warn');return;}
     if(state!=='racing'||!player||!player.raceFinished||player.laps<raceSettings.laps||raceRewardClaimed)return;
     raceRewardClaimed=true;if(localMode==='career'){finishCareerRace();return;}const drift=localMode==='drift';window.VelocityRecordRace?.({raceId:currentRaceRewardKey,kind:drift?'drift':'solo',won:player.finishPlace===1,time:raceTime*1000});
     const reward=drift?R.driftReward(raceSettings,player.finishPlace,score,track.length):R.raceReward(raceSettings,player.finishPlace);if(drift)claimDriftCreditsOnce(currentRaceRewardKey||('offline:'+Date.now()),reward);else{save.credits=Math.min(Number.MAX_SAFE_INTEGER,save.credits+reward);writeSave();}

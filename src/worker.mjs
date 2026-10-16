@@ -2,7 +2,7 @@ import {prepareRoomAuthority,roomEngine,publicRoomAuthority,handleRoomAuthorityM
 import {lockRoomWager,settleRoomWager,readRoomWager} from './room-wager-escrow.mjs';
 import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.mjs';
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
-import {handleAuthRequest,freeAccountIdentity} from './auth.mjs';
+import {handleAuthRequest,freeAccountIdentity,mutateTargetSave} from './auth.mjs';
 import {handleMarketRequest} from './market.mjs';
 import {handleAdminSystemRequest,activeMute,staffOnlineLevel} from './admin-system.mjs';
 import {getProgression,awardProgression,PROGRESSION_REWARDS,levelFromTotalExp} from './progression.mjs';
@@ -661,12 +661,14 @@ export class Room {
       const effectId=ownedEffects.includes(requested.effectId)?requested.effectId:'standard',custom=save.carCustomizations?.[requested.liveryId]||{};
       const ownedColors=new Set(['stock',...(Array.isArray(custom.ownedColors)?custom.ownedColors:[])]),ownedVinyls=new Set(['none',...(Array.isArray(custom.ownedVinyls)?custom.ownedVinyls:[])]);
       const colorId=STYLE_COLORS.has(custom.colorId)&&ownedColors.has(custom.colorId)?custom.colorId:'stock',vinylId=STYLE_VINYLS.has(custom.vinylId)&&ownedVinyls.has(custom.vinylId)?custom.vinylId:'none';
-      p.liveryId=requested.liveryId;p.effectId=effectId;p.colorId=colorId;p.vinylId=vinylId;
+      const selected=await mutateTargetSave(this.env,p.userId,current=>{
+        if(requested.liveryId!=='apexLime'&&(!Array.isArray(current.ownedLiveries)||!current.ownedLiveries.includes(requested.liveryId)))return {error:'CAR_NOT_OWNED'};
+        const selectedEffect=Array.isArray(current.ownedEffects)&&current.ownedEffects.includes(effectId)?effectId:'standard';current.selectedLivery=requested.liveryId;current.selectedEffect=selectedEffect;return {effectId:selectedEffect};
+      });if(!selected.ok)return this.error(ws,selected.error||'SAVE_CONFLICT','Не удалось сохранить выбранную машину');
+      p.liveryId=requested.liveryId;p.effectId=selected.result.effectId;p.colorId=colorId;p.vinylId=vinylId;
       p.state={...(p.state||{}),x:FREE_GARAGE.exitX,y:FREE_GARAGE.exitY,vx:0,vy:0,speed:0,angle:FREE_GARAGE.exitAngle,sampleTime:now(),serverTime:now()};
       await this.save();const room=this.publicFreeRoom();this.send(ws,{type:'loadout_updated',v:PROTOCOL_VERSION,loadout:{liveryId:p.liveryId,effectId:p.effectId,colorId:p.colorId,vinylId:p.vinylId},spawn:{x:FREE_GARAGE.exitX,y:FREE_GARAGE.exitY,angle:FREE_GARAGE.exitAngle},serverTime:now()});this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:now(),room});return;
     }
-    if(this.env.DB&&!this.room.raceAuthority&&['player_state','race_finish'].includes(m.type))return this.error(ws,'RACE_CLIENT_UPDATE_REQUIRED','Старый заезд не может назначать серверные награды');
-    if(await handleRoomAuthorityMessage(this,ws,p,m))return;
     if(m.type==='ping'){if(await this.refreshPublicIdentity(p)){await this.save();this.broadcast({type:'free_room',v:PROTOCOL_VERSION,room:this.publicFreeRoom(),serverTime:now()});}if(typeof m.clientTime==='number'){const t=now(),probeId=crypto.randomUUID().slice(0,12);p.syncProbeId=probeId;p.syncProbeAt=t;this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:t,probeId});}return;}
     if(m.type==='sync_echo'){if(typeof m.probeId!=='string'||m.probeId!==p.syncProbeId||!p.syncProbeAt)return;const rtt=now()-p.syncProbeAt;delete p.syncProbeId;delete p.syncProbeAt;if(rtt>=0&&rtt<=2000)p.netRttMs=Number.isFinite(p.netRttMs)?Math.min(rtt,p.netRttMs+8):rtt;return;}
     if(this.room.mediaEvent&&m.type==='media_ready'){await this.mediaReady(ws,p,m.ready!==false);return;}

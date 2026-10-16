@@ -7,8 +7,8 @@
   };
   if(!els.root||!els.button||!els.gate)return;
 
-  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0,pendingEconomy:new Map()};
-  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
+  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0,pendingEconomy:new Map(),saveGeneration:0};
+  const errors={CLIENT_UPDATE_REQUIRED:'Обновите игру: старый формат сохранений больше не принимается.',SERVER_STATE_ONLY:'Баланс и имущество изменяются только игровыми действиями на сервере.',INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
   function installId(){try{let id=localStorage.getItem(INSTALL_KEY)||'';if(!/^[A-Za-z0-9_-]{16,128}$/.test(id)){id=(crypto.randomUUID?.()||String(Date.now())+Math.random()).replace(/[^A-Za-z0-9_-]/g,'');localStorage.setItem(INSTALL_KEY,id);}return id;}catch{return '';} }
   function localSave(){try{const x=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');return normalizeSave(x);}catch{return normalizeSave({});}}
@@ -124,16 +124,24 @@
   }
   async function performSave(){
     clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
-    const source=state.lastSave,snapshot=normalizeSave(source),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
-    try{const data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({save:snapshot,revision:state.revision}),signal:controller.signal});state.revision=data.revision||state.revision;els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;}
-    catch(e){
-      if(e.code==='SAVE_CONFLICT'){
-        state.revision=Number(e.data?.revision)||state.revision;if(e.data?.save)applySave(e.data.save);els.sync.textContent='ОБНОВЛЕНО С СЕРВЕРА';setMessage('Профиль обновлён сервером.',false,true);return true;
+    const generation=state.saveGeneration,snapshot=normalizeSave(state.lastSave),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+    try{
+      const {preferencesFromSave}=await import('./account-preferences-v77.mjs'),preferences=preferencesFromSave(snapshot);let data;
+      for(let attempt=0;attempt<3;attempt++){
+        try{data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({preferences,revision:state.revision}),signal:controller.signal});break;}
+        catch(e){if(e.code!=='SAVE_CONFLICT'||attempt===2)throw e;state.revision=Number(e.data?.revision)||state.revision;}
       }
-      if(e.code==='ACCOUNT_BANNED'){showBan(e.ban,e.data?.user);window.dispatchEvent(new CustomEvent('velocity-account-banned',{detail:e.data||{}}));}else if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;
-    }
-    finally{clearTimeout(timeout);state.syncing=false;if(state.user&&state.lastSave!==source){clearTimeout(state.syncTimer);state.syncTimer=setTimeout(flushSave,0);}}
+      state.revision=data.revision||state.revision;
+      if(data.save){const pending=state.saveGeneration!==generation?preferencesFromSave(state.lastSave):{};applySave({...data.save,...pending});}
+      els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;
+    }catch(e){
+      if(e.code==='SAVE_CONFLICT'){state.revision=Number(e.data?.revision)||state.revision;if(e.data?.save)applySave(e.data.save);setMessage('Профиль изменён другой операцией. Повторите сохранение настроек.',true,true);}
+      if(e.code==='ACCOUNT_BANNED'){showBan(e.ban,e.data?.user);window.dispatchEvent(new CustomEvent('velocity-account-banned',{detail:e.data||{}}));}else if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}
+      else if(e.code==='CLIENT_UPDATE_REQUIRED'||e.code==='SERVER_STATE_ONLY')setMessage(errors[e.code],true,true);
+      els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;
+    }finally{clearTimeout(timeout);state.syncing=false;if(state.user&&state.saveGeneration!==generation){clearTimeout(state.syncTimer);state.syncTimer=setTimeout(flushSave,0);}}
   }
+
   async function economyTransaction(endpoint,payload){
     if(!state.user)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});
     const fingerprint=JSON.stringify([endpoint,payload]);let requestId=state.pendingEconomy.get(fingerprint);
@@ -160,7 +168,7 @@
     return data;
   }
   const caseTransaction=(action,caseId,quantity)=>economyTransaction('/api/economy/cases/'+(action==='buy'?'buy':'open'),{caseId,quantity});
-  function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
+  function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));state.saveGeneration++;if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
   function referralMessage(ref){
     if(!ref?.rewarded)return '';const parts=[];const credits=Math.max(0,Math.floor(Number(ref.inviteeReward?.credits)||0));if(credits)parts.push(credits.toLocaleString('ru-RU')+' CR');for(const [id,qty] of Object.entries(ref.inviteeReward?.cases||{}))if(Number(qty)>0)parts.push((window.Racing?.CASES?.[id]?.label||String(id).toUpperCase())+' ×'+Number(qty));
     return `Реферальный бонус LVL ${Number(ref.inviterLevel)||1}: вы получили ${parts.join(' + ')||'бонус'}. Пригласителю начислено ${Number(ref.rewardCredits||0).toLocaleString('ru-RU')} CR.`;
