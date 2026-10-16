@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V76",
+  "version": "V76.1",
   "theme": "Race Control Blue",
-  "update": "Case Results UX and Scroll Reliability",
+  "update": "Transparent Case RTP, STANDARD / RISK Upgrade, and Mobile UI Fixes",
   "released": "2026-10-16",
-  "release": "Case header refresh, complete batch result scrolling, and preserved server-authoritative UPGRADE"
+  "release": "Effects case RTP rebalance, server-calculated STANDARD / RISK upgrade, 25% protected refund, blue mobile target empty state, and refreshed asset cache"
 }

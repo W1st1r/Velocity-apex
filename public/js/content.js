@@ -762,7 +762,10 @@
     const oldExpected=Math.max(1,Number(previous.expectedValue)||1);
     const oldPrice=Math.max(1,Number(previous.price)||1);
     const preservedPriceToEv=oldPrice/oldExpected;
-    const price=economyCaseRound(expectedValue*preservedPriceToEv);
+    // Effects previously retained a punitive legacy price after the reward pool
+    // was revalued. Bring only this outlier back to the same transparent 80% RTP
+    // used by the other seven cases; do not apply another blanket price increase.
+    const price=economyCaseRound(expectedValue*(id==='effects'?1.25:preservedPriceToEv));
     v63Cases[id]=Object.freeze({...previous,price,expectedValue:Math.round(expectedValue),rewards:Object.freeze(rewards)});
   }
   R.CASES=Object.freeze(v63Cases);
