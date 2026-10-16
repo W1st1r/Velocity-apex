@@ -15,6 +15,8 @@ const MAX_STAKE_ITEMS=UPGRADE_CONFIG.maxStakeItems;
 const MAX_CREDITS=UPGRADE_CONFIG.maxCredits;
 const EFFECTS=UPGRADE_EFFECT_VALUES;
 const PROTECTION_REFUND_BPS=UPGRADE_CONFIG.protectionRefundBps;
+const STANDARD_MAX_STAKE_SHARE_BPS=UPGRADE_CONFIG.standardMaxStakeShareBps;
+const RISK_MAX_STAKE_SHARE_BPS=UPGRADE_CONFIG.riskMaxStakeShareBps;
 let schemaPromise=null;
 
 const sameOrigin=request=>{const origin=request.headers.get('origin');return !origin||origin===new URL(request.url).origin;};
@@ -32,7 +34,7 @@ const cleanPayload=body=>({
 const baseChanceBps=(stakeValue,targetValue,protection=false,mode='standard')=>{
   if(!(stakeValue>0)||!(targetValue>0))return 0;
   const returnBps=mode==='risk'?RISK_RETURN_BPS:RETURN_BPS;
-  // The refund is a payout on failure. This keeps the expected return near 96%
+  // The refund is a payout on failure. This keeps the expected return near selected mode RTP
   // across both settings, instead of silently charging a hidden protection fee.
   if(protection){
     const denominator=10000*targetValue-PROTECTION_REFUND_BPS*stakeValue;
@@ -44,7 +46,7 @@ const chanceBps=(stakeValue,targetValue,protection=false,mode='standard')=>Math.
 const refundForStake=(stakeValue,protection)=>protection?Math.floor(Math.max(0,stakeValue)*PROTECTION_REFUND_BPS/10000):0;
 // Avoid modulo bias: sample uniformly on [0,10000) with rejection sampling.
 const randomTicket=()=>{const a=new Uint32Array(1),limit=0x100000000-(0x100000000%10000);do{crypto.getRandomValues(a);}while(a[0]>=limit);return a[0]%10000;};
-const publicConfig=()=>({returnBps:RETURN_BPS,riskReturnBps:RISK_RETURN_BPS,modes:{standard:{returnBps:RETURN_BPS},risk:{returnBps:RISK_RETURN_BPS}},protectionRefundBps:PROTECTION_REFUND_BPS,protectionAvailable:true,accountIndependent:true,minChanceBps:MIN_CHANCE_BPS,maxChanceBps:MAX_CHANCE_BPS,maxStakeItems:MAX_STAKE_ITEMS,oddsPolicy:'STANDARD: 96% nominal expected return; RISK: 80%; protected losses return 25% of assessed stake in CR; odds independent of account, level, streak and spend.'});
+const publicConfig=()=>({returnBps:RETURN_BPS,riskReturnBps:RISK_RETURN_BPS,modes:{standard:{returnBps:RETURN_BPS,maxStakeShareBps:STANDARD_MAX_STAKE_SHARE_BPS},risk:{returnBps:RISK_RETURN_BPS,maxStakeShareBps:RISK_MAX_STAKE_SHARE_BPS}},protectionRefundBps:PROTECTION_REFUND_BPS,protectionAvailable:true,accountIndependent:true,minChanceBps:MIN_CHANCE_BPS,maxChanceBps:MAX_CHANCE_BPS,maxStakeItems:MAX_STAKE_ITEMS,oddsPolicy:'STANDARD: 98% nominal expected payout; max stake 10% of account net worth. RISK: 94%; max stake 5%. Protected losses return 25% of assessed stake; payout probability is adjusted so quoted RTP includes this refund. No account- or streak-based odds.'});
 const publicOddsProfile=mode=>({returnBps:mode==='risk'?RISK_RETURN_BPS:RETURN_BPS,mode:mode==='risk'?'risk':'standard',protectionRefundBps:PROTECTION_REFUND_BPS,accountIndependent:true});
 
 async function ensureUpgradeSchema(env){
@@ -111,6 +113,16 @@ function itemMeta(kind,id,cars){
   const item=EFFECTS[id];if(!item)return null;
   return {kind,id,name:item.name||id,category:'effect',price:Math.max(0,Math.floor(Number(item.price)||0)),enabled:true,unavailable:false};
 }
+function netWorth(save,cars){
+  const ownedCars=Array.isArray(save?.ownedLiveries)?save.ownedLiveries:[],ownedEffects=Array.isArray(save?.ownedEffects)?save.ownedEffects:[];
+  const carValue=ownedCars.filter(id=>id!=='apexLime').reduce((sum,id)=>sum+Math.max(0,Math.floor(Number(cars[id]?.price)||0)),0);
+  const effectValue=ownedEffects.filter(id=>id!=='standard').reduce((sum,id)=>sum+Math.max(0,Math.floor(Number(EFFECTS[id]?.price)||0)),0);
+  return safeCredits(save?.credits)+carValue+effectValue;
+}
+function actualReturnBps(chance,stakeValue,targetValue,refund){
+  if(!(stakeValue>0))return 0;
+  return Math.max(0,Math.floor((chance*targetValue+(10000-chance)*refund)/stakeValue));
+}
 function evaluate(save,payload,cars){
   const ownedCars=Array.isArray(save?.ownedLiveries)?save.ownedLiveries:[],ownedEffects=Array.isArray(save?.ownedEffects)?save.ownedEffects:[];
   const stakeCars=payload.stake.cars,stakeEffects=payload.stake.effects,credits=payload.stake.credits;
@@ -135,6 +147,8 @@ function evaluate(save,payload,cars){
   const carItems=stakeCars.map(id=>itemMeta('car',id,cars)),effectItems=stakeEffects.map(id=>itemMeta('effect',id,cars));
   const target=itemMeta(payload.target.kind,payload.target.id,cars);
   const stakeValue=carItems.reduce((s,x)=>s+x.price,0)+effectItems.reduce((s,x)=>s+x.price,0)+credits,targetValue=target?.price||0;
+  const maxStakeShareBps=payload.mode==='risk'?RISK_MAX_STAKE_SHARE_BPS:STANDARD_MAX_STAKE_SHARE_BPS,maxStakeValue=Math.floor(netWorth(save,cars)*maxStakeShareBps/10000);
+  if(stakeValue>maxStakeValue)return {error:'STAKE_LIMIT',stakeValue,targetValue,maxStakeValue,maxStakeShareBps};
   if(!(targetValue>0))return {error:'INVALID_TARGET'};
   if(stakeValue>=targetValue)return {error:'TARGET_NOT_HIGHER',stakeValue,targetValue};
   const refundOnLoss=refundForStake(stakeValue,payload.protection);
@@ -142,7 +156,8 @@ function evaluate(save,payload,cars){
   if(payload.protection&&refundOnLoss>MAX_CREDITS-(safeCredits(save?.credits)-credits))return {error:'REFUND_BALANCE_LIMIT',stakeValue,targetValue};
   const bps=chanceBps(stakeValue,targetValue,payload.protection,payload.mode);
   if(baseChanceBps(stakeValue,targetValue,payload.protection,payload.mode)<MIN_CHANCE_BPS)return {error:'CHANCE_TOO_LOW',stakeValue,targetValue,chanceBps:bps};
-  return {ok:true,stakeValue,targetValue,chanceBps:bps,refundOnLoss,protection:payload.protection===true,mode:payload.mode,returnBps:payload.mode==='risk'?RISK_RETURN_BPS:RETURN_BPS,stakeItems:[...carItems,...effectItems],target};
+  const nominalReturnBps=payload.mode==='risk'?RISK_RETURN_BPS:RETURN_BPS,quotedReturnBps=actualReturnBps(bps,stakeValue,targetValue,refundOnLoss);
+  return {ok:true,stakeValue,targetValue,chanceBps:bps,refundOnLoss,protection:payload.protection===true,mode:payload.mode,returnBps:quotedReturnBps,nominalReturnBps,maxStakeValue,maxStakeShareBps,netWorth:netWorth(save,cars),stakeItems:[...carItems,...effectItems],target};
 }
 function consumeStake(save,payload){
   save.credits=safeCredits(save.credits)-payload.stake.credits;
@@ -175,8 +190,8 @@ async function quote(env,session,payload){
   const row=await env.DB.prepare('SELECT save_json FROM player_saves WHERE user_id=? LIMIT 1').bind(session.user.id).first();
   let save={};try{save=JSON.parse(row?.save_json||'{}');}catch{}
   const cars=await carCatalog(env),ev=evaluate(save,payload,cars);
-  if(!ev.ok)return json({error:ev.error,stakeValue:ev.stakeValue||0,targetValue:ev.targetValue||0,chanceBps:ev.chanceBps||0,config:publicConfig()},409);
-  return json({ok:true,stakeValue:ev.stakeValue,targetValue:ev.targetValue,chanceBps:ev.chanceBps,refundOnLoss:ev.refundOnLoss,protection:ev.protection,mode:ev.mode,returnBps:ev.returnBps,stakeItems:ev.stakeItems,target:ev.target,profile:publicOddsProfile(ev.mode),config:publicConfig()});
+  if(!ev.ok)return json({error:ev.error,stakeValue:ev.stakeValue||0,targetValue:ev.targetValue||0,chanceBps:ev.chanceBps||0,maxStakeValue:ev.maxStakeValue||0,maxStakeShareBps:ev.maxStakeShareBps||0,config:publicConfig()},409);
+  return json({ok:true,stakeValue:ev.stakeValue,targetValue:ev.targetValue,chanceBps:ev.chanceBps,refundOnLoss:ev.refundOnLoss,protection:ev.protection,mode:ev.mode,returnBps:ev.returnBps,nominalReturnBps:ev.nominalReturnBps,maxStakeValue:ev.maxStakeValue,maxStakeShareBps:ev.maxStakeShareBps,netWorth:ev.netWorth,stakeItems:ev.stakeItems,target:ev.target,profile:publicOddsProfile(ev.mode),config:publicConfig()});
 }
 
 async function attempt(env,session,body){
@@ -191,7 +206,7 @@ async function attempt(env,session,body){
   const cars=await carCatalog(env);
   let finalEval=null,ticket=null,success=false,refundCredits=0;
   const mutation=(save)=>{
-    const ev=evaluate(save,payload,cars);if(!ev.ok)return {error:ev.error,stakeValue:ev.stakeValue||0,targetValue:ev.targetValue||0,chanceBps:ev.chanceBps||0};
+    const ev=evaluate(save,payload,cars);if(!ev.ok)return {error:ev.error,stakeValue:ev.stakeValue||0,targetValue:ev.targetValue||0,chanceBps:ev.chanceBps||0,maxStakeValue:ev.maxStakeValue||0,maxStakeShareBps:ev.maxStakeShareBps||0};
     finalEval=ev;ticket=randomTicket();success=ticket<ev.chanceBps;
     consumeStake(save,payload);
     if(success)grantTarget(save,payload.target);

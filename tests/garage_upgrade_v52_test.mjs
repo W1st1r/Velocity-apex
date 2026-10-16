@@ -29,24 +29,24 @@ assert.match(html,/id="upgradePickerSort"/);
 assert.match(garage,/pickerSort:'asc'/);
 
 // V65 odds are server-authoritative; visible wheel odds match the real chance.
-assert.equal(publicConfig().returnBps,9600);
+assert.equal(publicConfig().returnBps,9800);
 assert.equal(publicConfig().minChanceBps,100);
-assert.equal(publicConfig().maxChanceBps,9500);
+assert.equal(publicConfig().maxChanceBps,9900);
 assert.equal(publicConfig().maxStakeItems,12);
-assert.match(upgradeConfig,/returnBps:9600/);
-assert.match(upgradeConfig,/maxChanceBps:9500/);
-assert.equal(upgradeChanceBps(100000,200000),4800);
-assert.equal(upgradeChanceBps(150000,200000),7200);
-assert.equal(upgradeChanceBps(180000,200000),8640);
-assert.equal(upgradeChanceBps(190000,200000),9120);
-assert.equal(upgradeChanceBps(196000,200000),9408);
-assert.equal(upgradeChanceBps(199999,200000),9500);
+assert.match(upgradeConfig,/returnBps:9800/);
+assert.match(upgradeConfig,/maxChanceBps:9900/);
+assert.equal(upgradeChanceBps(100000,200000),4900);
+assert.equal(upgradeChanceBps(150000,200000),7350);
+assert.equal(upgradeChanceBps(180000,200000),8820);
+assert.equal(upgradeChanceBps(190000,200000),9310);
+assert.equal(upgradeChanceBps(196000,200000),9604);
+assert.equal(upgradeChanceBps(199999,200000),9799);
 assert.equal(upgradeChanceBps(0,200000),0);
 assert.match(upgrade,/baseChanceBps\(stakeValue,targetValue,payload\.protection,payload\.mode\)<MIN_CHANCE_BPS/);
 const realChance=upgradeChanceBps(100000,200000);
 const outcomes=Array.from({length:10000},(_,ticket)=>ticket<realChance);
-assert.equal(outcomes.filter(Boolean).length,4800);
-assert.equal(outcomes.filter(success=>!success).length,5200);
+assert.equal(outcomes.filter(Boolean).length,4900);
+assert.equal(outcomes.filter(success=>!success).length,5100);
 
 // Result is server-side and idempotent.
 assert.match(upgrade,/crypto\.getRandomValues/);

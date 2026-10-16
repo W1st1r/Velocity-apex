@@ -15,7 +15,7 @@ const sha256=async v=>Buffer.from(await realCrypto.subtle.digest('SHA-256',new T
 for(const [id,username] of users){
  db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(id,username,username,'x','x',t,t);
  db.prepare('INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES (?,?,?,?,?)').run(await sha256('cookie-'+id),id,t,t+86400000,t);
- db.prepare('INSERT INTO player_saves(user_id,save_json,revision,created_at,updated_at) VALUES(?,?,?,?,?)').run(id,JSON.stringify({saveVersion:6,credits:3000,ownedLiveries:['apexLime'],ownedEffects:['standard'],selectedLivery:'apexLime',selectedEffect:'standard'}),1,t,t);
+ db.prepare('INSERT INTO player_saves(user_id,save_json,revision,created_at,updated_at) VALUES(?,?,?,?,?)').run(id,JSON.stringify({saveVersion:6,credits:30000,ownedLiveries:['apexLime'],ownedEffects:['standard'],selectedLivery:'apexLime',selectedEffect:'standard'}),1,t,t);
 }
 // A veteran is not penalized; history and progression are irrelevant in V69.
 for(let i=0;i<25;i++)db.prepare("INSERT INTO upgrade_attempts(id,user_id,status,payload_json,created_at) VALUES (?,?,?,?,?)").run(`old-${i}`,'b','complete','{}',t-i*1000);
@@ -34,13 +34,14 @@ assert.equal(fresh.refundOnLoss,250);
 assert.equal(fresh.config.accountIndependent,true);
 assert.equal(fresh.protection,true);
 const unguarded=await call('a','quote',{...bet,protection:false});
+const overCap=await call('a','quote',{...bet,stake:{cars:[],effects:[],credits:3001}});assert.equal(overCap.status,409);assert.equal(overCap.error,'STAKE_LIMIT');assert.equal(overCap.maxStakeValue,3000);
 assert.ok(unguarded.chanceBps>fresh.chanceBps);
 assert.equal(unguarded.refundOnLoss,0);
 const risk=await call('a','quote',{...bet,protection:false,mode:'risk'});
 assert.equal(risk.status,200,JSON.stringify(risk));
-assert.equal(risk.returnBps,8000);
+assert.ok(risk.returnBps>=9398&&risk.returnBps<=9400);
 assert.equal(risk.profile.mode,'risk');
-assert.equal(risk.chanceBps,Math.floor(risk.stakeValue/risk.targetValue*8000));
+assert.equal(risk.chanceBps,Math.floor(risk.stakeValue/risk.targetValue*9400));
 const invalidMode=await call('a','quote',{...bet,mode:'client-controlled-cheat'});
 assert.equal(invalidMode.profile.mode,'standard','unknown mode must resolve to transparent STANDARD');
 const save=id=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(id).save_json);
@@ -53,10 +54,10 @@ try{
  assert.equal(first.attempt.success,false);
  assert.equal(first.attempt.protection,true);
  assert.equal(first.attempt.refundCredits,250);
- assert.equal(save('a').credits,2250);
+ assert.equal(save('a').credits,29250);
  const repeated=await call('a','attempt',{...bet,upgradeId:attemptId});
  assert.equal(repeated.attempt.refundCredits,250);
- assert.equal(save('a').credits,2250,'duplicate request must never charge or refund twice');
+ assert.equal(save('a').credits,29250,'duplicate request must never charge or refund twice');
  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM upgrade_attempts WHERE user_id='a' AND status='complete'").get().n,1);
  Object.defineProperty(globalThis,'crypto',{configurable:true,value:{subtle:realCrypto.subtle,randomUUID:()=>realCrypto.randomUUID(),getRandomValues(arr){arr[0]=0;return arr;}}});
  const won=await call('a','attempt',{...bet,upgradeId:'22222222-2222-4222-8222-222222222222'});
@@ -65,7 +66,7 @@ try{
  assert.equal(won.attempt.mode,'standard');
  assert.equal(won.attempt.refundCredits,0);
  assert.ok(save('a').ownedEffects.includes('blueFlame'));
- assert.equal(save('a').credits,1250);
+ assert.equal(save('a').credits,28250);
  const owned=await call('a','quote',bet);
  assert.equal(owned.status,409);assert.equal(owned.error,'TARGET_ALREADY_OWNED');
  Object.defineProperty(globalThis,'crypto',{configurable:true,value:{subtle:realCrypto.subtle,randomUUID:()=>realCrypto.randomUUID(),getRandomValues(arr){arr[0]=9900;return arr;}}});
@@ -73,8 +74,8 @@ try{
  const riskLoss=await call('a','attempt',{...riskBet,upgradeId:riskId});
  assert.equal(riskLoss.status,200,JSON.stringify(riskLoss));assert.equal(riskLoss.attempt.success,false);assert.equal(riskLoss.attempt.mode,'risk');
  assert.equal(db.prepare("SELECT status FROM upgrade_attempts WHERE id=?").get(riskId).status,'complete','result receipt must commit with the balance mutation');
- assert.equal(save('a').credits,250);
- await call('a','attempt',{...riskBet,upgradeId:riskId});assert.equal(save('a').credits,250,'risk replay cannot charge twice');
+ assert.equal(save('a').credits,27250);
+ await call('a','attempt',{...riskBet,upgradeId:riskId});assert.equal(save('a').credits,27250,'risk replay cannot charge twice');
  const history=await call('a','history');
  assert.equal(history.items[0].mode,'risk');
  assert.equal(history.items[1].protection,true);

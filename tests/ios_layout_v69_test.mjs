@@ -3,8 +3,8 @@ import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const html=read('public/index.html'),style=read('public/css/ios-upgrade-v69.css'),garage=read('public/js/garage.js');
 const version=JSON.parse(read('public/version.json'));
-assert.ok(/^V(69|70|71|74(?:\.1)?|76(?:\.1)?)$/.test(version.version),'V69 features must survive in later releases');
-assert.match(html,/<title>Velocity Apex · V(?:69|70|71|74(?:\.1)?|76(?:\.1)?)<\/title>/);
+assert.ok(/^V(69|70|71|74(?:\.1)?|76(?:\.(?:1|2))?)$/.test(version.version),'V69 features must survive in later releases');
+assert.match(html,/<title>Velocity Apex · V(?:69|70|71|74(?:\.1)?|76(?:\.(?:1|2))?)<\/title>/);
 assert.match(html,/viewport-fit=cover/);
 assert.match(html,/ios-upgrade-v69\.css\?v=20261015-v73-4/);
 assert.ok(html.indexOf('polish-v68.css')<html.indexOf('ios-upgrade-v69.css'));
@@ -12,6 +12,6 @@ for(const id of ['garageUpgradePanel','upgradeProtectionToggle','upgradeProtecti
 for(const selector of ['.upgrade-protection-switch',':has(input:checked)','safe-area-inset-top','safe-area-inset-left','100dvh','max-width:740px','orientation:portrait','pointer:coarse','font-size:16px','prefers-reduced-motion'])assert.ok(style.includes(selector),'responsive rule missing '+selector);
 assert.match(garage,/upgradeQuoteToken\+\+/);assert.match(garage,/refundOnLoss/);
 assert.match(garage,/atRisk>=40/);
-assert.match(garage,/Math\.min\(9500/);
+assert.match(garage,/Math\.min\(9900/);
 const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);assert.equal(ids.length,new Set(ids).size,'duplicate HTML ID');
 console.log('ios_layout_v69_test: safe areas, dynamic viewport, touch inputs, no duplicated UI IDs, confirmation protection passed');
