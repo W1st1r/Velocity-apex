@@ -19,6 +19,7 @@ try{
  run(window,document,fetch,storage,storage,window.addEventListener.bind(window),interval,clearInterval,timeout,clearTimeout);
  const waitFor=async condition=>{const end=Date.now()+2000;while(!condition()){if(Date.now()>end)throw Error('client flush fixture timed out');await new Promise(r=>setTimeout(r,1));}};
  await waitFor(()=>window.VelocityAccount?.ready);const account=window.VelocityAccount;
+ window.addEventListener('velocity-account-save',e=>{account.queueSave({...e.detail.save});account.queueSave({...e.detail.save});});
  account.queueSave({...server,muted:false});const first=account.flushSave();await waitFor(()=>posts.length===1&&releaseFirst);
  account.queueSave({...server,credits:999999999,ownedLiveries:['apexLime','apollo-evo'],careerUnlocked:50,muted:true});const second=account.flushSave();releaseFirst();
  assert.equal(await first,true);assert.equal(await second,true);assert.equal(server.muted,true,'both flush callers must wait for the later queued preferences');assert.equal(server.credits,1200);assert.deepEqual(server.ownedLiveries,['apexLime']);assert.equal(posts.length,2,'concurrent callers share each actual write');

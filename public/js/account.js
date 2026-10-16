@@ -171,7 +171,7 @@
     return data;
   }
   const caseTransaction=(action,caseId,quantity)=>economyTransaction('/api/economy/cases/'+(action==='buy'?'buy':'open'),{caseId,quantity});
-  function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));state.saveGeneration++;if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
+  function queueSave(raw){if(!raw||typeof raw!=='object')return;const next=normalizeSave(JSON.parse(JSON.stringify(raw))),unchanged=preferenceTools&&state.lastSave&&JSON.stringify(preferenceTools.preferencesFromSave(next))===JSON.stringify(preferenceTools.preferencesFromSave(state.lastSave));state.lastSave=next;if(unchanged)return;state.saveGeneration++;if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
   function referralMessage(ref){
     if(!ref?.rewarded)return '';const parts=[];const credits=Math.max(0,Math.floor(Number(ref.inviteeReward?.credits)||0));if(credits)parts.push(credits.toLocaleString('ru-RU')+' CR');for(const [id,qty] of Object.entries(ref.inviteeReward?.cases||{}))if(Number(qty)>0)parts.push((window.Racing?.CASES?.[id]?.label||String(id).toUpperCase())+' ×'+Number(qty));
     return `Реферальный бонус LVL ${Number(ref.inviterLevel)||1}: вы получили ${parts.join(' + ')||'бонус'}. Пригласителю начислено ${Number(ref.rewardCredits||0).toLocaleString('ru-RU')} CR.`;

@@ -1,3 +1,4 @@
+import {applyAccountTransaction} from './account-transactions.mjs';
 import {validatePreferences} from '../public/js/account-preferences-v77.mjs';
 import {backupAccountState} from './account-authority-backup.mjs';
 import {adminSelfMutation} from './admin-self-economy.mjs';
@@ -384,16 +385,23 @@ async function handleReferralRequest(request,env,url){
   const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
   if(url.pathname==='/api/referrals/profile'&&request.method==='GET')return json({ok:true,profile:await referralProfile(env,session.user.id)});
   if(url.pathname==='/api/referrals/upgrade'&&request.method==='POST'){
-    const before=await referralProfile(env,session.user.id);if(before.level>=10)return json({error:'REFERRAL_MAX_LEVEL',profile:before},409);
-    const next=referralTier(before.level+1);if(before.stats.rewarded<next.requiredInvites)return json({error:'REFERRAL_INVITES_REQUIRED',requiredInvites:next.requiredInvites,currentInvites:before.stats.rewarded,profile:before},409);
-    if(before.balance<next.cost)return json({error:'REFERRAL_CREDITS_REQUIRED',cost:next.cost,balance:before.balance,profile:before},409);
-    const charged=await mutateTargetSave(env,session.user.id,save=>{const balance=Math.max(0,Math.floor(Number(save.credits)||0));if(balance<next.cost)return {error:'REFERRAL_CREDITS_REQUIRED'};save.credits=balance-next.cost;return {before:balance,after:save.credits,delta:-next.cost};});
-    if(charged.error)return json({error:charged.error},charged.error==='REFERRAL_CREDITS_REQUIRED'?409:500);
-    const t=now(),up=await env.DB.prepare('UPDATE referral_profiles SET level=?,total_spent=total_spent+?,updated_at=? WHERE user_id=? AND level=?').bind(next.level,next.cost,t,session.user.id,before.level).run();
-    if(Number(up?.meta?.changes||0)!==1){await mutateTargetSave(env,session.user.id,save=>{const b=Math.max(0,Math.floor(Number(save.credits)||0));save.credits=Math.min(ADMIN_MAX_CREDITS,b+next.cost);return {before:b,after:save.credits,delta:next.cost};});return json({error:'REFERRAL_LEVEL_CONFLICT',profile:await referralProfile(env,session.user.id)},409);}
-    const purchaseId=crypto.randomUUID();await env.DB.prepare('INSERT INTO referral_level_purchases (id,user_id,from_level,to_level,cost,verified_invites,created_at) VALUES (?,?,?,?,?,?,?)').bind(purchaseId,session.user.id,before.level,next.level,next.cost,before.stats.rewarded,t).run();
-    try{await writeGameLog(env,{category:'purchases',eventType:'referral_level_upgrade',actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'REFERRAL',subject:`Реферальная система · LVL ${next.level}`,amount:next.cost,currency:'CR',relatedId:purchaseId,metadata:{fromLevel:before.level,toLevel:next.level,cost:next.cost,verifiedInvites:before.stats.rewarded},createdAt:t});}catch(e){console.error('referral upgrade log',e);}
-    return json({ok:true,profile:await referralProfile(env,session.user.id)});
+    const body=await readBody(request);if(!body||typeof body!=='object'||Array.isArray(body))return json({error:'INVALID_REQUEST'},400);
+    if(!body.requestId)return json({error:'CLIENT_UPDATE_REQUIRED',updateRequired:true},409);
+    const target=Number(body.level);if(!Number.isInteger(target)||target<2||target>10)return json({error:'INVALID_REFERRAL_LEVEL'},400);
+    const userId=session.user.id;await referralProfile(env,userId);
+    const outcome=await applyAccountTransaction(env,{actorId:userId,requestId:body.requestId,type:'referral:upgrade:'+target,accountIds:[userId],plan:async saves=>{
+      const profile=await env.DB.prepare('SELECT level FROM referral_profiles WHERE user_id=?').bind(userId).first(),level=Number(profile?.level),next=referralTier(target),stats=await referralStats(env,userId);
+      if(level!==target-1)return {error:level>=10?'REFERRAL_MAX_LEVEL':'REFERRAL_LEVEL_CONFLICT'};
+      if(stats.rewarded<next.requiredInvites)return {error:'REFERRAL_INVITES_REQUIRED'};
+      if(saves[userId].credits<next.cost)return {error:'REFERRAL_CREDITS_REQUIRED'};
+      saves[userId].credits-=next.cost;
+      return {result:{fromLevel:level,level:target,cost:next.cost},guardSql:'EXISTS(SELECT 1 FROM referral_profiles WHERE user_id=? AND level=?) AND (SELECT COUNT(*) FROM referrals WHERE inviter_user_id=? AND status=\'rewarded\')>=?',guardArgs:[userId,level,userId,next.requiredInvites],statements:({transactionId,time,receiptSql,receiptArgs})=>[
+        env.DB.prepare('UPDATE referral_profiles SET level=?,total_spent=total_spent+?,updated_at=? WHERE user_id=? AND '+receiptSql).bind(target,next.cost,time,userId,...receiptArgs),
+        env.DB.prepare('INSERT INTO referral_level_purchases(id,user_id,from_level,to_level,cost,verified_invites,created_at) SELECT ?,?,?,?,?,?,? WHERE '+receiptSql).bind(transactionId,userId,level,target,next.cost,stats.rewarded,time,...receiptArgs)
+      ]};
+    }});
+    if(outcome.error)return json({error:outcome.error,profile:await referralProfile(env,userId)},409);
+    const profile=await referralProfile(env,userId);return json({...outcome,profile,result:{...outcome.result,profile}});
   }
   return json({error:'NOT_FOUND'},404);
 }
@@ -656,7 +664,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       return await handleRaceAuthority(request,env,url,session,{readBody,saveRow,applyEconomyOperation,settings});
     }
     if(url.pathname.startsWith('/api/promocodes/'))return handlePromoRequest(request,env,url);
-    if(url.pathname.startsWith('/api/referrals/'))return handleReferralRequest(request,env,url);
+    if(url.pathname.startsWith('/api/referrals/'))return await handleReferralRequest(request,env,url);
     if(url.pathname.startsWith('/api/friends'))return handleFriendsRequest(request,env,url);
     if(url.pathname.startsWith('/api/admin/'))return handleAdminRequest(request,env,url);
     if((url.pathname.startsWith('/api/economy/cases/')||/^\/api\/economy\/(store\/(buy|sell|select)|tuning\/(upgrade|style))$/.test(url.pathname))&&request.method==='POST'){

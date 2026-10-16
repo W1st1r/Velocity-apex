@@ -25,10 +25,10 @@ for(let i=1;i<REFERRAL_LEVELS.length;i++){
 }
 for(const id of ['referral_profiles','referral_level_purchases','referral_reward_details'])assert.ok(migration.includes(`CREATE TABLE IF NOT EXISTS ${id}`),`missing migration ${id}`);
 for(const route of ['/api/referrals/profile','/api/referrals/upgrade'])assert.ok(auth.includes(route),`missing API ${route}`);
-for(const token of ['REFERRAL_INVITES_REQUIRED','REFERRAL_CREDITS_REQUIRED','status=\'rewarded\'','referral_level_upgrade','referral_welcome_reward'])assert.ok(auth.includes(token),`missing server rule ${token}`);
+for(const token of ['REFERRAL_INVITES_REQUIRED','REFERRAL_CREDITS_REQUIRED','status=\'rewarded\'','referral_welcome_reward'])assert.ok(auth.includes(token),`missing server rule ${token}`);
 assert.ok(auth.includes("WHERE user_id=? AND level=?"),'level upgrade must use compare-and-swap protection');
-assert.ok(auth.includes("if(before.stats.rewarded<next.requiredInvites)"),'verified invite gate missing');
-assert.ok(auth.includes("if(before.balance<next.cost)"),'credit gate missing');
+assert.ok(auth.includes("if(stats.rewarded<next.requiredInvites)"),'verified invite gate missing');
+assert.ok(auth.includes("if(saves[userId].credits<next.cost)"),'credit gate missing');
 assert.ok(auth.includes('applyReferralInviteeReward'),'invitee bonus mutation missing');
 for(const id of ['referralBtn','referrals','referralLevel','referralVerified','referralUpgradeBtn','referralTiers'])assert.ok(html.includes(`id="${id}"`),`missing referral UI ${id}`);
 assert.ok(client.includes("fetch(path")&&client.includes('/api/referrals/profile')&&client.includes('/api/referrals/upgrade'),'referral client API wiring missing');
