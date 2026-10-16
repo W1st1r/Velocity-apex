@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V76.2",
+  "version": "V76.3",
   "theme": "Race Control Blue",
-  "update": "UPGRADE bankroll protection, 98% / 94% modes, transparent risk caps, and server quote clarity",
+  "update": "Responsive case roulette and swipeable multi-drop reward cards",
   "released": "2026-10-16",
-  "release": "RTP-adjusted upgrade modes with 10% / 5% net-worth attempt limits, explicit 25% loss refund, and cache-busted garage script"
+  "release": "Case roulette idle-state cleanup and full-size, accessible award carousel for single and batch drops"
 }
