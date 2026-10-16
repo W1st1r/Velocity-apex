@@ -23,7 +23,7 @@ assert.doesNotMatch(server,/COUNT\(\*\) AS count FROM upgrade_attempts/);
 assert.match(server,/randomTicket=\(\)=>/);
 assert.match(server,/crypto\.getRandomValues/);
 assert.match(server,/status='processing'/);
-assert.match(server,/mutateTargetSave\(env,session\.user\.id/);
+assert.match(server,/mutateUpgradeSaveWithReceipt\(env,session\.user\.id/);
 assert.match(server,/consumeStake\(save,payload\)/);assert.match(server,/if\(success\)grantTarget/);
 assert.match(server,/\/api\/upgrade\/profile/);
 assert.doesNotMatch(client,/UPGRADE_VISUAL_MULTIPLIER/);

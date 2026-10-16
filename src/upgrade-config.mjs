@@ -2,6 +2,7 @@
 // Standard payout: 96% before cap. Protected: 25% of stake refunded on loss; probability is adjusted for the same expected payout.
 export const UPGRADE_CONFIG=Object.freeze({
   returnBps:9600,          // universal, never depends on account, level or streak
+  riskReturnBps:8000,      // openly displayed high-risk profile; same server RNG and target values
   minChanceBps:100,
   maxChanceBps:9500,
   chanceDivisor:1,

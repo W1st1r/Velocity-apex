@@ -7,6 +7,7 @@ import {UPGRADE_CONFIG,UPGRADE_EFFECT_VALUES} from './upgrade-config.mjs';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const now=()=>Date.now();
 const RETURN_BPS=UPGRADE_CONFIG.returnBps;
+const RISK_RETURN_BPS=UPGRADE_CONFIG.riskReturnBps;
 const MIN_CHANCE_BPS=UPGRADE_CONFIG.minChanceBps;
 const MAX_CHANCE_BPS=UPGRADE_CONFIG.maxChanceBps;
 const CHANCE_DIVISOR=UPGRADE_CONFIG.chanceDivisor;
@@ -24,25 +25,27 @@ const safeCredits=value=>{const n=Math.floor(Number(value)||0);return Number.isS
 const cleanPayload=body=>({
   stake:{cars:uniqueIds(body?.stake?.cars),effects:uniqueIds(body?.stake?.effects),credits:safeCredits(body?.stake?.credits)},
   target:{kind:body?.target?.kind==='effect'?'effect':'car',id:safeId(body?.target?.id)},
-  protection:body?.protection===true
+  protection:body?.protection===true,
+  mode:body?.mode==='risk'?'risk':'standard'
 });
 // V69: odds never depend on account identity, player level or previous results.
-const baseChanceBps=(stakeValue,targetValue,protection=false)=>{
+const baseChanceBps=(stakeValue,targetValue,protection=false,mode='standard')=>{
   if(!(stakeValue>0)||!(targetValue>0))return 0;
+  const returnBps=mode==='risk'?RISK_RETURN_BPS:RETURN_BPS;
   // The refund is a payout on failure. This keeps the expected return near 96%
   // across both settings, instead of silently charging a hidden protection fee.
   if(protection){
     const denominator=10000*targetValue-PROTECTION_REFUND_BPS*stakeValue;
-    return denominator>0?Math.max(0,Math.min(MAX_CHANCE_BPS,Math.floor((RETURN_BPS-PROTECTION_REFUND_BPS)*stakeValue*10000/denominator))):0;
+    return denominator>0?Math.max(0,Math.min(MAX_CHANCE_BPS,Math.floor((returnBps-PROTECTION_REFUND_BPS)*stakeValue*10000/denominator))):0;
   }
-  return Math.max(0,Math.min(MAX_CHANCE_BPS,Math.floor(stakeValue/targetValue*RETURN_BPS)));
+  return Math.max(0,Math.min(MAX_CHANCE_BPS,Math.floor(stakeValue/targetValue*returnBps)));
 };
-const chanceBps=(stakeValue,targetValue,protection=false)=>Math.floor(baseChanceBps(stakeValue,targetValue,protection)/CHANCE_DIVISOR);
+const chanceBps=(stakeValue,targetValue,protection=false,mode='standard')=>Math.floor(baseChanceBps(stakeValue,targetValue,protection,mode)/CHANCE_DIVISOR);
 const refundForStake=(stakeValue,protection)=>protection?Math.floor(Math.max(0,stakeValue)*PROTECTION_REFUND_BPS/10000):0;
 // Avoid modulo bias: sample uniformly on [0,10000) with rejection sampling.
 const randomTicket=()=>{const a=new Uint32Array(1),limit=0x100000000-(0x100000000%10000);do{crypto.getRandomValues(a);}while(a[0]>=limit);return a[0]%10000;};
-const publicConfig=()=>({returnBps:RETURN_BPS,protectionRefundBps:PROTECTION_REFUND_BPS,protectionAvailable:true,accountIndependent:true,minChanceBps:MIN_CHANCE_BPS,maxChanceBps:MAX_CHANCE_BPS,maxStakeItems:MAX_STAKE_ITEMS,oddsPolicy:'96% nominal expected return (subject to chance cap and rounding); protected losses return 25% of assessed stake in CR; odds independent of account, level, streak and spend.'});
-const publicOddsProfile=()=>({returnBps:RETURN_BPS,protectionRefundBps:PROTECTION_REFUND_BPS,accountIndependent:true});
+const publicConfig=()=>({returnBps:RETURN_BPS,riskReturnBps:RISK_RETURN_BPS,modes:{standard:{returnBps:RETURN_BPS},risk:{returnBps:RISK_RETURN_BPS}},protectionRefundBps:PROTECTION_REFUND_BPS,protectionAvailable:true,accountIndependent:true,minChanceBps:MIN_CHANCE_BPS,maxChanceBps:MAX_CHANCE_BPS,maxStakeItems:MAX_STAKE_ITEMS,oddsPolicy:'STANDARD: 96% nominal expected return; RISK: 80%; protected losses return 25% of assessed stake in CR; odds independent of account, level, streak and spend.'});
+const publicOddsProfile=mode=>({returnBps:mode==='risk'?RISK_RETURN_BPS:RETURN_BPS,mode:mode==='risk'?'risk':'standard',protectionRefundBps:PROTECTION_REFUND_BPS,accountIndependent:true});
 
 async function ensureUpgradeSchema(env){
   if(schemaPromise)return schemaPromise;
@@ -69,10 +72,31 @@ async function ensureUpgradeSchema(env){
 }
 
 function parseJson(text,fallback={}){try{const v=JSON.parse(text||'{}');return v&&typeof v==='object'?v:fallback;}catch{return fallback;}}
+async function mutateUpgradeSaveWithReceipt(env,userId,mutator,receipt){
+  for(let attempt=0;attempt<4;attempt++){
+    const row=await env.DB.prepare('SELECT save_json,revision FROM player_saves WHERE user_id=? LIMIT 1').bind(userId).first();
+    const revision=Number(row?.revision)||0,save=parseJson(row?.save_json||'{}');
+    const result=mutator(save);if(result?.error)return result;
+    const saveJson=JSON.stringify(save);if(new TextEncoder().encode(saveJson).byteLength>64*1024)return {error:'INVALID_SAVE'};
+    const nextRevision=revision+1,t=now();
+    const statements=revision>0?[
+      env.DB.prepare('UPDATE player_saves SET save_json=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?').bind(saveJson,t,userId,revision),
+      receipt(result,t,saveJson,nextRevision)
+    ]:[
+      env.DB.prepare('INSERT INTO player_saves(user_id,save_json,revision,created_at,updated_at) VALUES(?,?,1,?,?)').bind(userId,saveJson,t,t),
+      receipt(result,t,saveJson,nextRevision)
+    ];
+    try{
+      const committed=await env.DB.batch(statements);
+      if(Number(committed?.[0]?.meta?.changes||0)===1&&Number(committed?.[1]?.meta?.changes||0)===1)return {ok:true,result,revision:nextRevision,updatedAt:t};
+    }catch(error){if(revision===0){const current=await env.DB.prepare('SELECT revision FROM player_saves WHERE user_id=? LIMIT 1').bind(userId).first();if(Number(current?.revision)>0)continue;}throw error;}
+  }
+  return {error:'SAVE_CONFLICT'};
+}
 function publicAttempt(row){
   if(!row)return null;
   const payload=parseJson(row.payload_json),result=parseJson(row.result_json);
-  return {id:row.id,status:row.status,stake:payload.stake||{cars:[],effects:[],credits:0},target:payload.target||null,protection:payload.protection===true,refundCredits:Number(result.refundCredits)||0,stakeValue:Number(row.stake_value)||0,targetValue:Number(row.target_value)||0,chanceBps:Number(row.chance_bps)||0,rngValue:row.rng_value===null||row.rng_value===undefined?null:Number(row.rng_value),success:row.success===null||row.success===undefined?null:!!row.success,result,createdAt:Number(row.created_at)||0,completedAt:Number(row.completed_at)||0};
+  return {id:row.id,status:row.status,stake:payload.stake||{cars:[],effects:[],credits:0},target:payload.target||null,mode:payload.mode==='risk'?'risk':'standard',protection:payload.protection===true,refundCredits:Number(result.refundCredits)||0,stakeValue:Number(row.stake_value)||0,targetValue:Number(row.target_value)||0,chanceBps:Number(row.chance_bps)||0,rngValue:row.rng_value===null||row.rng_value===undefined?null:Number(row.rng_value),success:row.success===null||row.success===undefined?null:!!row.success,result,createdAt:Number(row.created_at)||0,completedAt:Number(row.completed_at)||0};
 }
 
 async function carCatalog(env){
@@ -116,9 +140,9 @@ function evaluate(save,payload,cars){
   const refundOnLoss=refundForStake(stakeValue,payload.protection);
   // Guarantee the displayed protection refund is never truncated by the CR limit.
   if(payload.protection&&refundOnLoss>MAX_CREDITS-(safeCredits(save?.credits)-credits))return {error:'REFUND_BALANCE_LIMIT',stakeValue,targetValue};
-  const bps=chanceBps(stakeValue,targetValue,payload.protection);
-  if(baseChanceBps(stakeValue,targetValue,payload.protection)<MIN_CHANCE_BPS)return {error:'CHANCE_TOO_LOW',stakeValue,targetValue,chanceBps:bps};
-  return {ok:true,stakeValue,targetValue,chanceBps:bps,refundOnLoss,protection:payload.protection===true,stakeItems:[...carItems,...effectItems],target};
+  const bps=chanceBps(stakeValue,targetValue,payload.protection,payload.mode);
+  if(baseChanceBps(stakeValue,targetValue,payload.protection,payload.mode)<MIN_CHANCE_BPS)return {error:'CHANCE_TOO_LOW',stakeValue,targetValue,chanceBps:bps};
+  return {ok:true,stakeValue,targetValue,chanceBps:bps,refundOnLoss,protection:payload.protection===true,mode:payload.mode,returnBps:payload.mode==='risk'?RISK_RETURN_BPS:RETURN_BPS,stakeItems:[...carItems,...effectItems],target};
 }
 function consumeStake(save,payload){
   save.credits=safeCredits(save.credits)-payload.stake.credits;
@@ -152,7 +176,7 @@ async function quote(env,session,payload){
   let save={};try{save=JSON.parse(row?.save_json||'{}');}catch{}
   const cars=await carCatalog(env),ev=evaluate(save,payload,cars);
   if(!ev.ok)return json({error:ev.error,stakeValue:ev.stakeValue||0,targetValue:ev.targetValue||0,chanceBps:ev.chanceBps||0,config:publicConfig()},409);
-  return json({ok:true,stakeValue:ev.stakeValue,targetValue:ev.targetValue,chanceBps:ev.chanceBps,refundOnLoss:ev.refundOnLoss,protection:ev.protection,stakeItems:ev.stakeItems,target:ev.target,profile:publicOddsProfile(),config:publicConfig()});
+  return json({ok:true,stakeValue:ev.stakeValue,targetValue:ev.targetValue,chanceBps:ev.chanceBps,refundOnLoss:ev.refundOnLoss,protection:ev.protection,mode:ev.mode,returnBps:ev.returnBps,stakeItems:ev.stakeItems,target:ev.target,profile:publicOddsProfile(ev.mode),config:publicConfig()});
 }
 
 async function attempt(env,session,body){
@@ -166,23 +190,24 @@ async function attempt(env,session,body){
   if(Number(claim?.meta?.changes||0)!==1){const row=await env.DB.prepare('SELECT * FROM upgrade_attempts WHERE id=? AND user_id=? LIMIT 1').bind(attemptId,session.user.id).first();return json({error:'UPGRADE_PROCESSING',attempt:publicAttempt(row)},409);}
   const cars=await carCatalog(env);
   let finalEval=null,ticket=null,success=false,refundCredits=0;
-  const changed=await mutateTargetSave(env,session.user.id,save=>{
+  const mutation=(save)=>{
     const ev=evaluate(save,payload,cars);if(!ev.ok)return {error:ev.error,stakeValue:ev.stakeValue||0,targetValue:ev.targetValue||0,chanceBps:ev.chanceBps||0};
     finalEval=ev;ticket=randomTicket();success=ticket<ev.chanceBps;
     consumeStake(save,payload);
     if(success)grantTarget(save,payload.target);
     else if(payload.protection){refundCredits=Math.min(ev.refundOnLoss,Math.max(0,MAX_CREDITS-safeCredits(save.credits)));save.credits=safeCredits(save.credits)+refundCredits;}
-    return {upgradeId:attemptId,success,rngValue:ticket,stakeValue:ev.stakeValue,targetValue:ev.targetValue,chanceBps:ev.chanceBps,target:ev.target,stakeItems:ev.stakeItems,creditsStaked:payload.stake.credits,protection:payload.protection,refundCredits,returnBps:RETURN_BPS};
-  });
+    return {upgradeId:attemptId,success,rngValue:ticket,stakeValue:ev.stakeValue,targetValue:ev.targetValue,chanceBps:ev.chanceBps,target:ev.target,stakeItems:ev.stakeItems,creditsStaked:payload.stake.credits,protection:payload.protection,refundCredits,mode:ev.mode,returnBps:ev.returnBps};
+  };
+  const changed=await mutateUpgradeSaveWithReceipt(env,session.user.id,mutation,(out,t,saveJson,revision)=>env.DB.prepare("UPDATE upgrade_attempts SET status='complete',result_json=?,stake_value=?,target_value=?,chance_bps=?,rng_value=?,success=?,completed_at=? WHERE id=? AND user_id=? AND status='processing' AND EXISTS(SELECT 1 FROM player_saves WHERE user_id=? AND revision=? AND save_json=?)").bind(JSON.stringify({success:out.success,stakeItems:out.stakeItems,target:out.target,creditsStaked:out.creditsStaked,protection:out.protection,refundCredits:out.refundCredits,refundOnLoss:finalEval.refundOnLoss,mode:out.mode,returnBps:out.returnBps}),out.stakeValue,out.targetValue,out.chanceBps,out.rngValue,out.success?1:0,t,attemptId,session.user.id,session.user.id,revision,saveJson));
+  if(changed.error==='SAVE_CONFLICT')return json({error:'UPGRADE_PROCESSING',attempt:{id:attemptId,status:'processing'}},409);
   if(changed.error){
     const result={error:changed.error,stakeValue:changed.stakeValue||0,targetValue:changed.targetValue||0,chanceBps:changed.chanceBps||0};
     await env.DB.prepare("UPDATE upgrade_attempts SET status='rejected',result_json=?,stake_value=?,target_value=?,chance_bps=?,completed_at=? WHERE id=? AND user_id=?").bind(JSON.stringify(result),result.stakeValue,result.targetValue,result.chanceBps,now(),attemptId,session.user.id).run();
     return json({error:changed.error,attempt:{id:attemptId,status:'rejected',...result}},409);
   }
-  const result={success,stakeItems:finalEval.stakeItems,target:finalEval.target,creditsStaked:payload.stake.credits,protection:payload.protection,refundCredits,refundOnLoss:finalEval.refundOnLoss,returnBps:RETURN_BPS};
+  const result={success,stakeItems:finalEval.stakeItems,target:finalEval.target,creditsStaked:payload.stake.credits,protection:payload.protection,refundCredits,refundOnLoss:finalEval.refundOnLoss,mode:finalEval.mode,returnBps:finalEval.returnBps};
   const completedAt=now();
-  await env.DB.prepare("UPDATE upgrade_attempts SET status='complete',result_json=?,stake_value=?,target_value=?,chance_bps=?,rng_value=?,success=?,completed_at=? WHERE id=? AND user_id=?").bind(JSON.stringify(result),finalEval.stakeValue,finalEval.targetValue,finalEval.chanceBps,ticket,success?1:0,completedAt,attemptId,session.user.id).run();
-  try{await writeGameLog(env,{category:'upgrades',eventType:success?'upgrade_success':'upgrade_failed',actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'GARAGE_UPGRADE',subject:`${success?'SUCCESS':'FAILED'} · ${finalEval.target.name}`,amount:payload.stake.credits,currency:'CR',relatedId:attemptId,metadata:{upgradeId:attemptId,stake:payload.stake,stakeItems:finalEval.stakeItems,stakeValue:finalEval.stakeValue,target:finalEval.target,targetValue:finalEval.targetValue,chanceBps:finalEval.chanceBps,returnBps:RETURN_BPS,protection:payload.protection,refundCredits,rngValue:ticket,success},createdAt:completedAt});}catch(e){console.error('upgrade log',e);}
+  try{await writeGameLog(env,{category:'upgrades',eventType:success?'upgrade_success':'upgrade_failed',actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'GARAGE_UPGRADE',subject:`${success?'SUCCESS':'FAILED'} · ${finalEval.target.name}`,amount:payload.stake.credits,currency:'CR',relatedId:attemptId,metadata:{upgradeId:attemptId,mode:finalEval.mode,stake:payload.stake,stakeItems:finalEval.stakeItems,stakeValue:finalEval.stakeValue,target:finalEval.target,targetValue:finalEval.targetValue,chanceBps:finalEval.chanceBps,returnBps:finalEval.returnBps,protection:payload.protection,refundCredits,rngValue:ticket,success},createdAt:completedAt});}catch(e){console.error('upgrade log',e);}
   const row=await env.DB.prepare('SELECT * FROM upgrade_attempts WHERE id=? LIMIT 1').bind(attemptId).first();
   return json({ok:true,attempt:publicAttempt(row)});
 }

@@ -32,11 +32,14 @@ for(const id of R.CASE_ORDER){
   const box=R.CASES[id];
   assert.ok(box.price>0&&box.expectedValue>0);
   assert.equal(box.rewards.reduce((a,r)=>a+r.chanceBps,0),10000,'case odds changed for '+id);
+  const rtp=box.expectedValue/box.price;
+  assert.ok(rtp>=.79&&rtp<=.815,`${id} RTP outside transparent 79–81.5% band: ${(rtp*100).toFixed(2)}%`);
   for(const r of box.rewards){
     const source=r.kind==='livery'?R.LIVERIES[r.id]:R.EFFECTS[r.id];
     assert.equal(r.price,source.price,'stale reward price in '+id+':'+r.id);
   }
 }
+assert.equal(R.CASES.effects.price,4500,'effects case should be normalized from its legacy punitive price');
 
 const expectedPacks=[
   ['cr_5000',99,17000],['cr_12000',199,40000],['cr_35000',499,120000],['cr_80000',999,270000],['cr_180000',1990,600000]

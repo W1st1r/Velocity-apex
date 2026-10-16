@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {publicConfig,upgradeChanceBps,upgradeRefundCredits} from '../src/upgrade.mjs';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const server=read('src/upgrade.mjs'),client=read('public/js/garage.js'),html=read('public/index.html'),css=read('public/css/ios-upgrade-v69.css');
+const server=read('src/upgrade.mjs'),client=read('public/js/garage.js'),html=read('public/index.html'),css=read('public/css/ios-upgrade-v69.css'),style=read('public/css/style.css');
 const cfg=publicConfig();
-assert.deepEqual([cfg.returnBps,cfg.maxChanceBps,cfg.protectionRefundBps,cfg.accountIndependent],[9600,9500,2500,true]);
+assert.deepEqual([cfg.returnBps,cfg.riskReturnBps,cfg.maxChanceBps,cfg.protectionRefundBps,cfg.accountIndependent],[9600,8000,9500,2500,true]);
+assert.deepEqual({...cfg.modes},{standard:{returnBps:9600},risk:{returnBps:8000}});
 assert.doesNotMatch(server,/returnBpsForAccount|accountOddsProfile|getProgression/);
 assert.match(server,/protection:body\?\.protection===true/);
 assert.match(server,/JSON\.stringify\(payload\)/); // persisted in ID-claimed attempt
@@ -19,6 +20,13 @@ assert.match(html,/id="upgradeProtectionToggle"/);
 assert.match(html,/id="upgradeProtectionImpact"/);
 assert.match(html,/id="upgradeConfirmWarning"/);
 assert.match(client,/protection:u\.protection/);
+assert.match(client,/data-upgrade-mode/);
+assert.match(client,/mode:u\.mode/);
+assert.match(html,/data-upgrade-mode="standard"/);
+assert.match(html,/data-upgrade-mode="risk"/);
+assert.match(style,/:has\(> \.upgrade-empty\)/);
+assert.match(style,/\.upgrade-target-item:has\(> \.upgrade-empty\) > \.upgrade-empty/);
+assert.match(style,/\.upgrade-mode-switch button\.selected/);
 assert.match(client,/upgradeProtectionToggle.*addEventListener\('change'/);
 assert.match(client,/x\.protection\?' · ЗАЩИТА'/);
 assert.match(css,/:has\(input:checked\)/);
@@ -38,6 +46,8 @@ for(const target of [10000,100000,9999999])for(let ratio=2;ratio<=99;ratio++){
 }
 assert.equal(upgradeChanceBps(50000,100000,false),4800);
 assert.equal(upgradeChanceBps(50000,100000,true),4057);
+assert.equal(upgradeChanceBps(50000,100000,false,'risk'),4000);
+assert.equal(upgradeChanceBps(50000,100000,true,'risk'),3142);
 assert.equal(upgradeRefundCredits(50000,true),12500);
 assert.equal(upgradeRefundCredits(50000,false),0);
 for(const ticket of [0,999,4056,4057,4799,4800,9999]){

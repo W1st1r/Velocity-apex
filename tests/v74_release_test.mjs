@@ -7,9 +7,9 @@ const roam=read('public/js/freeroam.js');
 const worker=read('src/worker.mjs');
 const version=JSON.parse(read('public/version.json'));
 
-assert.equal(version.version,'V76');
-assert.match(html,/velocity-apex-version" content="V76"/);
-assert.match(html,/SEASON V76/);
+assert.equal(version.version,'V76.1');
+assert.match(html,/velocity-apex-version" content="V76.1"/);
+assert.match(html,/SEASON V76.1/);
 
 assert.match(worker,/const FREE_MAX_PLAYERS=50/);
 assert.doesNotMatch(html,/Максимум 20 игроков|открытый город на 20 игроков/);
