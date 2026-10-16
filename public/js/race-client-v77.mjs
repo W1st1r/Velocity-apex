@@ -22,13 +22,13 @@ export class AuthoritativeRaceClient {
   async finish(){await this.flush(true);const result=await this.request('finish',{raceId:this.raceId});try{sessionStorage.removeItem(KEY);}catch{}return result;}
   async cancel(){await this.request('cancel',{raceId:this.raceId});try{sessionStorage.removeItem(KEY);}catch{}}
 }
-export async function startAuthoritativeRace(config,request){
+export async function startAuthoritativeRace(config,request,{fresh=false}={}){
   let pending=null;try{pending=JSON.parse(sessionStorage.getItem(KEY)||'null');}catch{}
   if(pending?.raceId){
     try{
       const prior=await request('resume',{raceId:pending.raceId});
       if(prior.state?.result&&prior.status==='active')await request('finish',{raceId:pending.raceId});
-      else if(prior.status==='active'&&prior.runtimeVersion===RACE_RUNTIME_VERSION&&Object.entries(config).every(([k,v])=>prior.config[k]===v))return new AuthoritativeRaceClient(prior,request);
+      else if(!fresh&&prior.status==='active'&&prior.runtimeVersion===RACE_RUNTIME_VERSION&&Object.entries(config).every(([k,v])=>prior.config[k]===v))return new AuthoritativeRaceClient(prior,request);
       else if(prior.status==='active')await request('cancel',{raceId:pending.raceId});
     }catch(e){if(!['RACE_NOT_FOUND','RACE_CLOSED','RACE_EXPIRED'].includes(e.code))throw e;}
   }

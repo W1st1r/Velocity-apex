@@ -460,7 +460,7 @@
   function backToModeFromSetup(){
     state='localMode';UI.setup.classList.add('hidden');UI.localMode.classList.remove('hidden');last=performance.now();
   }
-  async function startRace(){
+  async function startRace(options={}){
     raceMode='offline';
     let nextAuthority=null;
     if(window.VelocityAccount?.authenticated){
@@ -468,7 +468,7 @@
         if(!await window.VelocityAccount.flushSave())throw Error('SAVE_SYNC_FAILED');
         const {startAuthoritativeRace}=await import('./race-client-v77.mjs');
         const config=localMode==='career'?{mode:'career',carId:save.selectedLivery,level:careerSelectedLevel}:{mode:localMode,carId:save.selectedLivery,trackId:raceSettings.trackId,bots:raceSettings.bots,laps:localMode==='drift'?1:raceSettings.laps,difficulty:raceSettings.difficulty};
-        nextAuthority=await startAuthoritativeRace(config,window.VelocityAccount.raceRequest);
+        nextAuthority=await startAuthoritativeRace(config,window.VelocityAccount.raceRequest,{fresh:options.fresh===true});
       }catch(e){toast('НЕ УДАЛОСЬ НАЧАТЬ ЗАЕЗД · '+(e.code||e.message),'bad');return;}
     }
     authoritativeRace=nextAuthority;authorityAccumulator=0;authorityFinishing=false;
@@ -499,7 +499,7 @@
     if(raceMode==='online'&&onlineLocalPaused){resetInput();audio.init();onlineLocalPaused=false;UI.pause.classList.add('hidden');UI.controls.classList.remove('hidden');controlInput.setActive(true);setPauseButton(true,true);last=performance.now();return;}
     if(state!=='paused')return;resetInput();audio.init();state='racing';UI.pause.classList.add('hidden');UI.controls.classList.remove('hidden');controlInput.setActive(true);setPauseButton(true,true);last=performance.now();if(player)audio.updateEngine(player.speed,0,true);
   }
-  function restartRace(){if(raceMode==='online')return;countdownToken++;resetInput();audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.finish.classList.add('hidden');startRace();}
+  function restartRace(){if(raceMode==='online')return;countdownToken++;resetInput();audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.finish.classList.add('hidden');startRace({fresh:true});}
 
   function openTelegramChannel(){
     const url='https://t.me/wistirapex';
@@ -624,8 +624,16 @@
     UI.finishCard.classList.toggle('winner',place===1);UI.finish.classList.remove('hidden');updateMenuStats();
   }
 
+  let authorityAppearanceCars=null;
   function syncAuthorityFrame(){
-    const e=authoritativeRace.engine;track=e.track;cars=e.cars;player=e.player;rankBuffer=cars.slice();raceTime=e.frame/60;score=e.score;raceBestLap=e.bestLapMs||0;driftPeakCombo=e.peakCombo;lapTime=(e.frame-e.lapStartFrame)/60*1000;
+    const e=authoritativeRace.engine;track=e.track;cars=e.cars;player=e.player;rankBuffer=cars.slice();raceTime=e.frame/60;score=e.score;raceBestLap=e.bestLapMs||0;driftPeakCombo=e.peakCombo;driftCombo=e.combo;driftChainDistance=e.chainDistance;driftChainTime=e.chainTime;lapTime=(e.frame-e.lapStartFrame)/60*1000;
+    if(authorityAppearanceCars!==cars){
+      authorityAppearanceCars=cars;let botPaint=0;
+      for(const car of cars){
+        if(car===player){car.effect=R.EFFECTS[save.selectedEffect]?save.selectedEffect:'standard';car.setCustomization(R.getCarStyle?.(save,e.config.carId));}
+        else {const paint=OFFLINE_BOT_PAINTS[botPaint++%OFFLINE_BOT_PAINTS.length];car.setPaintOverride({primary:paint[0],secondary:paint[1],accent:paint[1],stripe:paint[1]});}
+      }
+    }
   }
   async function finishAuthoritativeRace(){
     if(authorityFinishing)return;authorityFinishing=true;state='finishing';resetInput();controlInput.setActive(false);audio.updateEngine(0,0,false);
@@ -640,7 +648,7 @@
   function updateAuthoritativeRace(dt){
     controlInput.update(dt);const c=controlInput.getControl(),ctl=[(input.right?1:0)-(input.left?1:0)||c.steer,input.gas?1:c.throttle,input.brake?1:c.brake,localMode==='drift'?(input.handbrake?1:c.handbrake):0];authorityAccumulator+=dt;
     while(authorityAccumulator>=1/60&&!authoritativeRace.engine.result){if(!authoritativeRace.step(ctl)){pauseRace();toast('СВЯЗЬ ПОТЕРЯНА · ПРОДОЛЖИТЕ ПОСЛЕ ВОССТАНОВЛЕНИЯ','warn');authoritativeRace.flush(true).catch(()=>{});break;}authorityAccumulator-=1/60;}
-    syncAuthorityFrame();updateCamera(dt);updateHUD();audio.updateEngine(player.speed,ctl[1],true);if(authoritativeRace.engine.result)finishAuthoritativeRace();
+    syncAuthorityFrame();Object.assign(playerControl,{steer:ctl[0],throttle:ctl[1],brake:ctl[2],handbrake:ctl[3],drift:localMode==='drift'});updateEffects(dt);updateCamera(dt);updateHUD();if(state!=='racing')return;audio.updateEngine(player.speed,ctl[1],true);if(authoritativeRace.engine.result)finishAuthoritativeRace();
   }
   function updateRace(dt){
     if(authoritativeRace)return updateAuthoritativeRace(dt);

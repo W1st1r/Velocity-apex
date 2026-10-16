@@ -59,3 +59,9 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 - Passed targeted owner/self SQLite authorization/unlock, self-only target, idempotent/concurrent delta, negative amount/resource validation and legacy-field-preservation tests; equipped/unowned-car tests; full new race authority/transport tests; existing root tools/admin console/account/garage smoke checks.
 - Next blocking writers identified precisely: ordinary online-room wagers still use client creditSnapshot and online.js reconcileSettlement/changeCredits; online track-drift bonus is still calculated in game.js. Free-roam drag already has its own server debit/settlement and must not be duplicated. Move ordinary room wagers to persistent server escrow and replace online result claims with input-based authority before enabling snapshot settings-only enforcement.
 - Additional release gate: benchmark the shared race runtime under actual Cloudflare CPU/latency limits (local cold track construction is substantially more expensive than a cached input batch). No paid-plan or production setting was changed.
+
+## 2026-10-16 - Race integration follow-up
+- CI 38936880710 (d8b0755) passed, including Worker dry-run and WebKit gates.
+- Explicit race restart now settles a completed pending result or cancels an active session before creating a fresh one; reload recovery still resumes. Added transport regressions for all three paths.
+- Restored browser-only player cosmetics/effect and bot paint after authoritative corrections; synchronized live drift combo/chain HUD and control feedback; paused sessions no longer restart engine audio. Physics and reward formulas unchanged.
+- Targeted transport tests and JS syntax checks passed. Online authority/escrow, snapshot cutover and remaining release gates above remain next; no production changes.
