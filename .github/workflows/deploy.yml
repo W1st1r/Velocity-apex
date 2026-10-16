@@ -23,6 +23,19 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Install Playwright WebKit and system dependencies
+        run: npx playwright install --with-deps webkit
+      - name: Run mobile case roulette visual regression
+        run: npm run test:cases:mobile
+        env:
+          CASE_SCREENSHOT_DIR: artifacts/case-v7631
+      - name: Upload mobile case screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: case-roulette-v7631-webkit
+          path: artifacts/case-v7631/
+          if-no-files-found: ignore
       - name: Check server and mobile navigation tests
         run: npm test && npm run test:v74
   deploy:
