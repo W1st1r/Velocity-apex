@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 33088)
-Total output lines: 1308
-
 <!doctype html>
 <html lang="ru">
 <head>
@@ -531,7 +528,146 @@ Total output lines: 1308
               <div class="media-section-title"><div><small>TRACK EVENT</small><strong>ГОНОЧНЫЙ ЗАЕЗД</strong></div><span>Все трассы из обычного Online + режим наблюдателя</span></div>
               <div class="media-mobile-grid media-race-settings">
                 <label class="online-field online-setting-card"><span>ТИП ЗАЕЗДА</span><select id="onlineMediaRaceMode"><option value="race" selected>ОБЫЧНАЯ ГОНКА</option><option value="drift">DRIFT-ТРАССА</option></select></label>
-                <label class="online-field online-setting-card media-wide"><span>ТРАССА</span><select …3088 tokens truncated…Н</small><strong>ЛИЧНЫЙ</strong><em>Машины, эффекты и кейсы</em></span>
+                <label class="online-field online-setting-card media-wide"><span>ТРАССА</span><select id="onlineMediaTrack" aria-label="Трасса MEDIA Event"></select></label>
+                <label class="online-field online-setting-card"><span>КРУГИ</span><select id="onlineMediaLaps"><option value="3" selected>3</option><option value="5">5</option><option value="7">7</option><option value="10">10</option><option value="15">15</option></select></label>
+                <label class="online-field online-setting-card"><span>МАКС. ГОНЩИКОВ</span><select id="onlineMediaRaceMaxPlayers"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8" selected>8</option></select></label>
+                <label class="online-field online-setting-card"><span>МИН. ГОНЩИКОВ</span><select id="onlineMediaRaceMinPlayers"><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
+                <label class="online-field online-setting-card"><span>СТОЛКНОВЕНИЯ</span><select id="onlineMediaCollisions"><option value="off" selected>ВЫКЛ</option><option value="on">ВКЛ</option></select></label>
+              </div>
+              <div class="media-race-note"><strong>SPECTATOR</strong><span>Если организатор выбрал «НАБЛЮДАТЕЛЬ», он не занимает место гонщика и получает общий вид трассы + переключение между машинами.</span></div>
+            </div>
+
+            <div id="onlineMediaLimits" class="online-field-hint media-event-limits">MEDIA LIMITS · загрузка…</div>
+            <div id="onlineMediaCenter" class="media-center-summary"><strong>MEDIA CENTER</strong><span>История мероприятий загружается…</span></div>
+            <div class="online-action-row media-action-row"><button id="onlineMediaCreateBack" class="secondary-btn" type="button">НАЗАД</button><button id="onlineMediaCreateConfirm" class="primary-btn" type="button">СОЗДАТЬ EVENT</button></div>
+          </div>
+
+          <div id="onlineJoin" class="online-view hidden">
+            <div class="online-view-head"><div><span>JOIN / ROOM CODE</span><strong>ПОДКЛЮЧЕНИЕ К КОМНАТЕ</strong></div><p>Введите 6-значный код, который прислал host.</p></div>
+            <div class="online-join-card">
+              <label class="online-field code-field"><span>КОД КОМНАТЫ</span><input id="onlineRoomCode" type="text" maxlength="6" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="7KF3QP" aria-describedby="onlineCodeHint"></label>
+              <small id="onlineCodeHint" class="online-field-hint">Буквы A–Z и цифры 2–9 · без пробелов</small>
+            </div>
+            <div class="online-action-row"><button id="onlineJoinBack" class="secondary-btn" type="button">НАЗАД</button><button id="onlineJoinConfirm" class="primary-btn" type="button">ВОЙТИ В КОМНАТУ</button></div>
+          </div>
+
+          <div id="onlineLobby" class="online-view online-lobby-view hidden">
+            <div class="lobby-top">
+              <div class="room-code-box">
+                <div><span>ROOM CODE</span><small>ПРИГЛАСИТЕ ДРУЗЕЙ</small></div>
+                <strong id="lobbyRoomCode">------</strong>
+                <button id="onlineCopyCode" type="button"><span>КОПИРОВАТЬ</span><b aria-hidden="true">⌘</b></button>
+              </div>
+              <div class="lobby-summary" aria-label="Параметры комнаты">
+                <div><span>ТРАССА</span><strong id="lobbyTrackName">—</strong></div>
+                <div><span>РЕЖИМ</span><strong id="lobbyModeName">RACE</strong></div>
+                <div><span>КРУГИ</span><strong id="lobbyLaps">—</strong></div>
+                <div><span>ИГРОКИ</span><strong id="onlinePlayerCount">0 / 8</strong></div>
+                <div><span>СТАВКА</span><strong id="lobbyWager">0 CR</strong></div>
+                <div><span>БАНК</span><strong id="lobbyPot">0 CR</strong></div>
+              </div>
+            </div>
+            <div class="lobby-body">
+              <section class="online-roster-card" aria-labelledby="onlineRosterTitle">
+                <div class="online-section-head"><div><span>GRID</span><strong id="onlineRosterTitle">ИГРОКИ</strong></div><small>READY STATUS</small></div>
+                <div id="onlinePlayers" class="online-players"></div>
+              </section>
+              <section id="onlineHostSettings" class="host-settings hidden" aria-labelledby="hostSettingsTitle">
+                <div class="online-section-head"><div><span>HOST</span><strong id="hostSettingsTitle">НАСТРОЙКИ</strong></div><small>LIVE SYNC</small></div>
+                <div class="host-control-grid">
+                  <label class="host-track"><span>ТРАССА</span><select id="lobbyTrackSelect"></select></label>
+                  <label><span>КРУГИ</span><select id="lobbyLapsSelect"><option>3</option><option>5</option><option>7</option><option>10</option><option>15</option></select></label>
+                  <label><span>MAX</span><select id="lobbyMaxSelect"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+                  <label><span>СТАВКА</span><select id="lobbyWagerSelect"><option value="0">0 CR</option><option value="100">100</option><option value="250">250</option><option value="500">500</option><option value="1000">1K</option><option value="2500">2.5K</option><option value="5000">5K</option></select></label>
+                  <label class="host-check"><span>DRIFT</span><input id="lobbyDrift" type="checkbox" aria-label="Режим дрифта"><i class="online-switch" aria-hidden="true"></i></label>
+                  <label class="host-check"><span>COLLISIONS</span><input id="lobbyCollisions" type="checkbox" aria-label="Столкновения"><i class="online-switch" aria-hidden="true"></i></label>
+                </div>
+              </section>
+            </div>
+            <div class="lobby-actions"><button id="onlineLobbyLeave" class="secondary-btn lobby-leave-btn" type="button">ВЫЙТИ</button><button id="onlineWagerConfirm" class="secondary-btn wager-confirm-btn" type="button">ПОДТВЕРДИТЬ СТАВКУ</button><button id="onlineReady" class="secondary-btn ready-btn" type="button">ГОТОВ</button><button id="onlineStartRace" class="primary-btn" type="button" disabled>НАЧАТЬ ГОНКУ</button></div>
+          </div>
+        </div>
+        <div class="online-feedback-row"><div id="onlineMessage" class="online-message" aria-live="polite"></div><button id="onlineRetry" class="online-retry hidden" type="button">ПОВТОРИТЬ</button></div>
+      </section>
+    </div>
+
+    <div id="setup" class="overlay setup-screen hidden">
+      <section class="setup-card glass enter-panel" aria-labelledby="setupTitle">
+        <header class="setup-header">
+          <div>
+            <div id="setupEyebrow" class="eyebrow">ОДИНОЧНЫЙ ЗАЕЗД</div>
+            <h2 id="setupTitle">НАСТРОЙКА ЗАЕЗДА</h2>
+          </div>
+          <div class="event-badge"><span>VA</span><strong id="setupEventBadge">01</strong></div>
+        </header>
+
+        <div class="setup-grid">
+          <div class="track-section">
+            <div class="section-label">ТРАССА</div>
+            <div id="trackCards" class="track-carousel" aria-label="Выбор трассы"></div>
+            <div class="track-hint">6 ТРАСС · ЛИСТАЙТЕ →</div>
+          </div>
+
+          <div class="race-options">
+            <div class="option-row opponents-row">
+              <div class="option-copy"><span class="section-label">СОПЕРНИКИ</span><small>1 игрок + <b id="botsSummaryInline">7</b> ботов</small></div>
+              <div class="stepper" role="group" aria-label="Количество ботов">
+                <button id="botsMinus" type="button" aria-label="Уменьшить количество ботов">−</button>
+                <strong id="botCountValue">7</strong>
+                <button id="botsPlus" type="button" aria-label="Увеличить количество ботов">+</button>
+              </div>
+            </div>
+
+            <div id="setupLapsBlock" class="option-block">
+              <div class="section-label">КРУГИ</div>
+              <div id="lapsSelector" class="segmented laps-segmented" role="group" aria-label="Количество кругов">
+                <button type="button" data-laps="3">3</button>
+                <button type="button" data-laps="5">5</button>
+                <button type="button" data-laps="7">7</button>
+                <button type="button" data-laps="10">10</button>
+                <button type="button" data-laps="15">15</button>
+              </div>
+            </div>
+
+            <div class="option-block">
+              <div class="section-label">СЛОЖНОСТЬ</div>
+              <div id="difficultySelector" class="segmented difficulty-segmented" role="group" aria-label="Сложность соперников">
+                <button type="button" data-difficulty="easy">ЛЕГКО</button>
+                <button type="button" data-difficulty="medium">СРЕДНЕ</button>
+                <button type="button" data-difficulty="hard">СЛОЖНО</button>
+                <button type="button" data-difficulty="extreme">ЭКСТРИМ</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="loadout"><span>LOADOUT <strong id="loadoutLivery"></strong><small id="loadoutEffect"></small></span><button id="loadoutBtn" class="secondary-btn" type="button">ИЗМЕНИТЬ</button></div>
+        <div class="event-summary" aria-label="Выбранные параметры">
+          <div><span>EVENT</span><strong id="setupTrackSummary">APEX CIRCUIT</strong></div>
+          <div><span>БОТЫ</span><strong id="setupBotsSummary">7</strong></div>
+          <div id="setupLapsSummaryBlock"><span id="setupLapsSummaryLabel">КРУГИ</span><strong id="setupLapsSummary">5</strong></div>
+          <div><span>СЛОЖНОСТЬ</span><strong id="setupDifficultySummary">СРЕДНЕ</strong></div>
+        </div>
+        <div class="reward-estimate" aria-live="polite"><span>НАГРАДА</span><strong id="setupRewardEstimate">178–343 CR</strong></div>
+        <div id="driftSetupHint" class="drift-setup-hint hidden">DRIFT SCORE начисляется только при движении вперёд по трассе — вращение на месте не приносит очков.</div>
+
+        <div class="setup-actions">
+          <button id="setupBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button>
+          <button id="startRaceBtn" class="primary-btn start-btn" type="button"><span id="startRaceText">НАЧАТЬ ГОНКУ</span> <span aria-hidden="true">→</span></button>
+        </div>
+      </section>
+    </div>
+
+    <div id="shop" class="overlay shop-screen hidden">
+      <section id="shopLanding" class="shop-entry-panel glass" aria-labelledby="shopLandingTitle">
+        <header class="shop-entry-header">
+          <div><div class="eyebrow">VELOCITY APEX / STORE</div><h2 id="shopLandingTitle">МАГАЗИН</h2><p>ВЫБЕРИТЕ РАЗДЕЛ</p></div>
+          <button id="shopLandingBackBtn" class="secondary-btn shop-entry-back" type="button">НАЗАД</button>
+        </header>
+        <div class="shop-entry-grid">
+          <button id="shopPersonalBtn" class="shop-entry-card shop-entry-personal" type="button">
+            <span class="shop-entry-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 7h14l1 13H4L5 7Zm3 0V5a4 4 0 0 1 8 0v2"/></svg></span>
+            <span class="shop-entry-copy"><small>МОЙ МАГАЗИН</small><strong>ЛИЧНЫЙ</strong><em>Машины, эффекты и кейсы</em></span>
             <b aria-hidden="true">›</b>
           </button>
           <button id="shopMarketBtn" class="shop-entry-card shop-entry-market" type="button">
