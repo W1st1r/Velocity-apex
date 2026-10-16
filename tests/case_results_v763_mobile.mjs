@@ -44,6 +44,7 @@ try {
       fake.render = () => {};
       fake.caseSpinning = false;
       fake.activeCaseId = 'all';
+      Racing.Garage.prototype.bindCaseDialog.call(fake);
       window.__caseGarage = fake;
       const d = fake.caseDialog();
       d.modal.classList.remove('hidden');
