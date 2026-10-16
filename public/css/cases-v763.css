@@ -1,0 +1,215 @@
+/* V76.3 — case roulette idle state and award carousel. */
+.case-roulette {
+  isolation: isolate;
+  background-color: #0a1d34;
+  background-image:
+    radial-gradient(ellipse at 50% 52%, rgba(75, 173, 226, .12), transparent 63%),
+    linear-gradient(180deg, rgba(20, 48, 76, .7), rgba(7, 20, 38, .78));
+}
+.case-roulette-viewport { inset: 7px 0 23px; }
+.case-roll-strip:empty {
+  width: 100%;
+  padding-left: 0;
+  justify-content: center;
+}
+.case-roll-strip:empty::before {
+  content: "ЛЕНТА НАГРАД ГОТОВА К ЗАПУСКУ";
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 32px;
+  color: rgba(155, 199, 222, .7);
+  font-size: clamp(8px, 1.05vw, 12px);
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-align: center;
+  background: repeating-linear-gradient(90deg, transparent 0 11%, rgba(110, 193, 235, .045) 11% 11.2%, transparent 11.2% 22%);
+}
+.case-ready-label {
+  left: 8px;
+  right: 8px;
+  height: 21px;
+  padding-inline: 8px;
+  border-top: 1px solid rgba(108, 190, 231, .14);
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(180deg, rgba(9, 30, 53, .48), rgba(7, 23, 42, .88));
+  color: #84b7d1;
+  font-size: clamp(7px, .8vw, 9px);
+  letter-spacing: .09em;
+}
+.case-roulette-marker { bottom: 20px; }
+
+.case-modal.case-results-open .case-modal-body { grid-template-columns: minmax(0, 1fr); }
+.case-modal.case-results-open .case-rewards-panel,
+.case-modal.case-results-open .case-hero-row,
+.case-modal.case-results-open .case-buy-batch-btn,
+.case-modal.case-results-open .case-roulette,
+.case-modal.case-results-open .case-fairness-note { display: none; }
+.case-modal.case-results-open .case-opening-zone {
+  min-height: 0;
+  padding: clamp(7px, 1.2vw, 13px);
+  border-color: rgba(86, 185, 231, .2);
+  background: linear-gradient(145deg, rgba(20, 48, 76, .52), rgba(6, 19, 35, .82));
+}
+.case-modal.case-results-open .case-result.batch {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.case-awards-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 1px 3px 7px;
+  border-bottom: 1px solid rgba(111, 187, 226, .16);
+}
+.case-awards-head > div { min-width: 0; }
+.case-awards-head > div > span,
+.case-awards-head > div > strong { display: block; }
+.case-awards-head > div > span {
+  color: #77a9c3;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+.case-awards-head > div > strong {
+  margin-top: 2px;
+  color: #eff8fd;
+  font-size: clamp(15px, 2.15vw, 23px);
+  font-weight: 950;
+  letter-spacing: .035em;
+}
+.case-award-position {
+  flex: 0 0 auto;
+  color: #92d9fa;
+  font: 900 clamp(13px, 1.8vw, 19px)/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.case-awards-carousel {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 112px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.case-awards-carousel::-webkit-scrollbar { display: none; }
+.case-awards-carousel:focus-visible { outline: 2px solid rgba(98, 204, 255, .72); outline-offset: 2px; border-radius: 12px; }
+.case-award-card {
+  --rarity: #55c8ff;
+  position: relative;
+  display: grid;
+  flex: 0 0 100%;
+  grid-template-columns: minmax(100px, .32fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(10px, 2.2vw, 26px);
+  min-width: 0;
+  min-height: 112px;
+  padding: clamp(12px, 2vw, 22px);
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  border: 1px solid color-mix(in srgb, var(--rarity) 36%, rgba(255, 255, 255, .09));
+  border-radius: 15px;
+  background: radial-gradient(ellipse at 15% 50%, color-mix(in srgb, var(--rarity) 13%, transparent), transparent 52%), linear-gradient(115deg, rgba(17, 40, 63, .96), rgba(8, 22, 39, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 10px 24px rgba(0, 0, 0, .18);
+}
+.case-award-card::after {
+  position: absolute;
+  right: 7%;
+  bottom: 0;
+  left: 7%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--rarity), transparent);
+  content: "";
+  opacity: .7;
+}
+.case-award-card > .case-reward-visual {
+  width: 100%;
+  height: clamp(66px, 22dvh, 144px);
+  min-height: 58px;
+  border-radius: 11px;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--rarity) 14%, transparent), rgba(5, 16, 29, .32) 70%);
+}
+.case-award-copy { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 5px; }
+.case-award-number { position: absolute; top: 8px; right: 11px; color: rgba(201, 229, 244, .44); font-size: 8px; font-weight: 900; letter-spacing: .12em; }
+.case-award-status { color: #81d5a6; font-size: clamp(8px, 1vw, 11px); font-weight: 950; letter-spacing: .08em; }
+.case-award-status.duplicate { color: #ffd17f; }
+.case-award-copy > strong { max-width: 100%; color: #f3f8fb; font-size: clamp(16px, 2.5vw, 27px); font-weight: 950; line-height: 1.1; overflow-wrap: anywhere; }
+.case-award-rarity { color: var(--rarity); font-size: 10px; font-weight: 950; letter-spacing: .13em; }
+.case-award-value { color: #9bb9c9; font-size: clamp(9px, 1.2vw, 12px); font-weight: 800; line-height: 1.35; }
+.case-award-compensation { color: #ffd17f; font-size: clamp(12px, 1.6vw, 16px); }
+.case-awards-controls { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; }
+.case-awards-controls > button {
+  display: grid;
+  flex: 0 0 42px;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(98, 190, 235, .3);
+  border-radius: 12px;
+  background: rgba(22, 60, 91, .48);
+  color: #c7efff;
+  font-size: 25px;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.case-awards-controls > button:disabled { opacity: .35; }
+.case-awards-controls > span { min-width: 0; color: #83a9bd; font-size: clamp(8px, 1vw, 10px); font-weight: 900; letter-spacing: .07em; text-align: center; }
+.case-modal.case-results-open .case-open-btn { flex: 0 0 auto; min-height: 40px !important; margin-top: 7px !important; font-size: 10px !important; }
+
+@media (max-height: 520px) {
+  .case-modal.case-results-open .case-opening-zone { padding: 6px; }
+  .case-modal.case-results-open .case-result.batch { gap: 5px; }
+  .case-awards-head { padding-bottom: 4px; }
+  .case-awards-carousel { min-height: 88px; }
+  .case-award-card { min-height: 88px; padding: 9px 13px; }
+  .case-award-card > .case-reward-visual { height: clamp(54px, 19dvh, 90px); min-height: 48px; }
+  .case-award-copy { gap: 3px; }
+  .case-award-copy > strong { font-size: clamp(14px, 2vw, 21px); }
+  .case-awards-controls { min-height: 36px; }
+  .case-awards-controls > button { flex-basis: 36px; width: 36px; height: 36px; }
+  .case-modal.case-results-open .case-open-btn { min-height: 34px !important; margin-top: 4px !important; }
+}
+@media (max-width: 700px) and (orientation: landscape) {
+  .case-roulette-viewport { inset: 5px 0 22px; }
+  .case-ready-label { height: 20px; }
+  .case-roulette-marker { bottom: 19px; }
+  .case-award-card { grid-template-columns: minmax(92px, .3fr) minmax(0, 1fr); }
+}
+@media (orientation: portrait) {
+  .case-awards-carousel { flex: 0 0 auto; min-height: 164px; max-height: 30dvh; }
+  .case-award-card { min-height: 164px; }
+  .case-award-card > .case-reward-visual { height: 110px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .case-awards-carousel { scroll-behavior: auto; }
+}
+@supports not (height: 100dvh) {
+  .case-award-card > .case-reward-visual { height: clamp(66px, 22vh, 144px); }
+}
