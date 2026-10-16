@@ -12,6 +12,8 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 - Authenticated garage operations now have server routes for buying cars/effects, selling cars, buying performance upgrades, and buying/selecting styles. Prices and tuning costs come from canonical project catalogs; client-submitted prices/payouts are ignored.
 - Client case/store/tuning/sale flows use these routes when signed in; guest/offline flows remain local.
 - New account creation no longer accepts a client save snapshot as starting CR/items/progress; it starts from the server baseline.
+- Restored the full V77 HTML document after detecting that the first API commit had accidentally truncated `public/index.html`; all existing market/career/modal UI is present again. Added cache-busting versions for the updated account and garage scripts.
+- Updated stale V74 release assertions to check the current dynamic UI/data source instead of removed static markup.
 
 ## Verification completed
 
@@ -19,6 +21,7 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 - `npm run test:ai` — passed; existing six-track difficulty/traffic benchmark completed. It does not cover all requested vehicle-class/player-skill matrix combinations.
 - `tests/case_server_authority_v77_test.mjs` — catalog price/odds parity for eight cases and tuning-price parity across registered cars.
 - `tests/economy_case_api_v77_test.mjs` — authenticated server endpoints, case purchase/open, car purchase, tuning, sale, insufficient funds, idempotent retries, and concurrent duplicate request.
+- `npm run test:v74` — passed after correcting stale markup checks; market, career, mobile layout and free HUD regression tests pass.
 - Migration 0018 ran against the test SQLite database alongside all existing migrations; saves were not reset.
 
 ## Still blocking release
