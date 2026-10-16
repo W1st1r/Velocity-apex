@@ -32,14 +32,14 @@ for(const mode of ['standard','risk'])for(const protection of [false,true])for(c
  const rtp=modes[mode]/10000,refund=protection?C.protectionRefundBps/10000:0;
  const chance=upgradeChanceBps(100000,Math.round(100000*multiple),protection,mode)/10000;
  const minimumLegalWager=20,ruinThreshold=minimumLegalWager/share;
- let ruined=0,belowHalf=0,upOneHalf=0,doubled=0,sumRatio=0;const terminal=[],maxDrawdowns=[];
+ let ruined=0,belowHalf=0,upOneHalf=0,doubled=0,sumRatio=0;const terminal=[],maxDrawdowns=[],halfTimes=[];
  for(let path=0;path<625;path++){
    let bank=initial,peak=bank,maxDd=0;
    for(let turn=0;turn<25;turn++){
      if(bank<ruinThreshold)break;
      const wager=bank*share;
      if(rng()<chance)bank+=wager*(multiple-1);else bank-=wager*(1-refund);
-     peak=Math.max(peak,bank);maxDd=Math.max(maxDd,1-bank/peak);
+     peak=Math.max(peak,bank);maxDd=Math.max(maxDd,1-bank/peak);if(bank<initial*.5&&!halfTimes.some(x=>x.path===path))halfTimes.push({path,turn:turn+1});
    }
    if(bank<ruinThreshold)ruined++;
    if(bank<initial*.5)belowHalf++;
@@ -49,7 +49,7 @@ for(const mode of ['standard','risk'])for(const protection of [false,true])for(c
  }
  terminal.sort((a,b)=>a-b);maxDrawdowns.sort((a,b)=>a-b);
  const n=terminal.length,quantile=(xs,q)=>xs[Math.min(n-1,Math.floor(q*(n-1)))];
- bankrollRows.push({mode,protection,multiple,initialCR:initial,stakeSharePct:share*100,horizonAttempts:25,ruinThresholdCR:ruinThreshold,probabilityNoLegalBet:ruined/n,probabilityBelowHalf:belowHalf/n,probabilityAtLeast1_5x:upOneHalf/n,probabilityAtLeast2x:doubled/n,meanTerminalBankRatio:sumRatio/n,medianTerminalBankRatio:quantile(terminal,.5),p10TerminalBankRatio:quantile(terminal,.1),p90TerminalBankRatio:quantile(terminal,.9),medianMaxDrawdown:quantile(maxDrawdowns,.5),p90MaxDrawdown:quantile(maxDrawdowns,.9)});
+ bankrollRows.push({mode,protection,multiple,initialCR:initial,stakeSharePct:share*100,horizonAttempts:25,ruinThresholdCR:ruinThreshold,probabilityNoLegalBet:ruined/n,probabilityBelowHalf:belowHalf/n,probabilityEverBelowHalf:halfTimes.length/n,medianAttemptsToHalf:halfTimes.length?halfTimes.map(x=>x.turn).sort((a,b)=>a-b)[Math.floor(halfTimes.length/2)]:null,probabilityAtLeast1_5x:upOneHalf/n,probabilityAtLeast2x:doubled/n,meanTerminalBankRatio:sumRatio/n,medianTerminalBankRatio:quantile(terminal,.5),p10TerminalBankRatio:quantile(terminal,.1),p90TerminalBankRatio:quantile(terminal,.9),medianMaxDrawdown:quantile(maxDrawdowns,.5),p90MaxDrawdown:quantile(maxDrawdowns,.9)});
 }
 assert.equal(bankrollRows.length*625*25,500000);
 const streaks=[];
@@ -66,22 +66,22 @@ for(const mode of ['standard','risk'])for(const rtpBps of (mode==='standard'?[92
 // 200,000 additional reproducible bankroll attempts compare fixed-fractional staking
 // with a bounded martingale progression. All outcomes use the same declared odds.
 const strategyRows=[];
-for(const mode of ['standard','risk'])for(const initial of balances)for(const strategy of ['fixed_fraction','bounded_martingale']){
+for(const mode of ['standard','risk'])for(const initial of balances)for(const strategy of ['fixed_stake','fixed_fraction','bounded_martingale']){
  const share=(mode==='risk'?C.riskMaxStakeShareBps:C.standardMaxStakeShareBps)/10000,rtp=modes[mode]/10000,multiple=mode==='risk'?5:2;
  const chance=rtp/multiple,refund=0,threshold=20/share,paths=500;let ruined=0,belowHalf=0,upHalf=0,doubled=0,mean=0;const terminals=[];
  for(let path=0;path<paths;path++){
   let bank=initial,nextStake=0;
   for(let turn=0;turn<25;turn++){
    if(bank<threshold)break;
-   const stake=strategy==='fixed_fraction'?bank*share:Math.min(bank*share,Math.max(20,nextStake||bank*.01));
+   const stake=strategy==='fixed_stake'?Math.min(100,bank*share):strategy==='fixed_fraction'?bank*share:Math.min(bank*share,Math.max(20,nextStake||bank*.01));
    if(rng()<chance){bank+=stake*(multiple-1);nextStake=0;}else{bank-=stake;nextStake=strategy==='bounded_martingale'?Math.min(bank*share,stake*2):0;}
   }
   if(bank<threshold)ruined++;if(bank<initial*.5)belowHalf++;if(bank>=initial*1.5)upHalf++;if(bank>=initial*2)doubled++;mean+=bank/initial;terminals.push(bank/initial);
  }
  terminals.sort((a,b)=>a-b);strategyRows.push({mode,initialCR:initial,strategy,paths,attemptsPerPath:25,stakeCapPct:share*100,winChancePct:chance*100,probabilityNoLegalBet:ruined/paths,probabilityBelowHalf:belowHalf/paths,probabilityAtLeast1_5x:upHalf/paths,probabilityAtLeast2x:doubled/paths,meanTerminalBankRatio:mean/paths,medianTerminalBankRatio:terminals[Math.floor(paths*.5)]});
 }
-assert.equal(strategyRows.length*500*25,200000);
+assert.equal(strategyRows.length*500*25,300000);
 const limits={standard:C.standardMaxStakeShareBps,risk:C.riskMaxStakeShareBps};
 assert.deepEqual(publicConfig().modes.standard.maxStakeShareBps,1000);
 assert.deepEqual(publicConfig().modes.risk.maxStakeShareBps,500);
-console.log(JSON.stringify({seed:'0x76a2c0de',independentOddsAttempts:500000,bankrollAttempts:500000,strategyAttempts:200000,totalAttempts:1200000,scenarios:scenarioRows,bankroll:bankrollRows,strategies:strategyRows,streaks,candidateRtp,limits,protectedLosses:{refundPct:25,extraProtectionPremiumBps:0,standardRtpBps:C.returnBps,riskRtpBps:C.riskReturnBps}},null,2));
+console.log(JSON.stringify({seed:'0x76a2c0de',independentOddsAttempts:500000,bankrollAttempts:500000,strategyAttempts:300000,totalAttempts:1300000,scenarios:scenarioRows,bankroll:bankrollRows,strategies:strategyRows,streaks,candidateRtp,limits,protectedLosses:{refundPct:25,extraProtectionPremiumBps:0,standardRtpBps:C.returnBps,riskRtpBps:C.riskReturnBps}},null,2));
