@@ -294,7 +294,7 @@ input,select,textarea{user-select:text;-webkit-user-select:text}
 
   /* Cases: keep controls and rewards on screen without desktop-sized padding. */
   .case-open-panel{width:100%!important;height:100%!important;padding:9px 10px!important;border-radius:14px!important}
-  .case-modal-header{position:sticky;top:0;z-index:8;gap:7px!important;margin-bottom:6px!important;padding:2px 0 7px!important;background:linear-gradient(180deg,rgba(5,13,14,.995) 0 84%,transparent)}
+  .case-modal-header{position:sticky;top:0;z-index:8;gap:7px!important;margin-bottom:6px!important;padding:2px 0 7px!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important}
   .case-modal-header h2{font-size:18px!important}.case-close-btn{min-height:38px!important}
   .case-modal-body{grid-template-columns:minmax(0,1.18fr) minmax(180px,.82fr)!important;gap:7px!important}
   .case-opening-zone,.case-rewards-panel{border-radius:11px!important;padding:7px!important}
