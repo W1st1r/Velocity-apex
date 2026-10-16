@@ -49,6 +49,8 @@ try{
   const session=db.prepare('SELECT state_json,sequence FROM race_sessions WHERE id=?').get(data.raceId),state=JSON.parse(session.state_json);assert.ok(state.frame>=240);assert.ok(state.cars.at(-1).car.speed>0);assert.equal(db.prepare('SELECT COUNT(*) AS n FROM race_input_receipts WHERE race_id=? AND sequence=0').get(data.raceId).n,1);
   const account=JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('mobile'+i).save_json);assert.equal(account.credits,200,'no payout before authoritative finish');
   await page.locator('#pauseBtn').click();await page.locator('#continueBtn').waitFor({state:'visible'});await page.screenshot({path:path.join(screenDir,'race-'+i+'.png')});await page.locator('#continueBtn').click();await page.locator('#pause').waitFor({state:'hidden'});
-  await context.close();console.log('V77 WebKit race integration:',name,'real start, input stream, lost-response retry, no premature CR, pause/resume passed');
+  await page.locator('#pauseBtn').click();await page.locator('#restartBtn').waitFor({state:'visible'});
+  const restarted=page.waitForResponse(r=>r.url().endsWith('/api/economy/races/start')&&r.request().method()==='POST');await page.locator('#restartBtn').click();const restartResponse=await restarted;assert.equal(restartResponse.status(),200);const next=await restartResponse.json();assert.notEqual(next.raceId,data.raceId,'restart must not resume the previous session');assert.equal(db.prepare('SELECT status FROM race_sessions WHERE id=?').get(data.raceId).status,'cancelled');assert.equal(next.state.frame,0);
+  await context.close();console.log('V77 WebKit race integration:',name,'real start, input stream, lost-response retry, no premature CR, pause/resume and fresh restart passed');
  }
 }finally{await browser?.close();await new Promise(resolve=>server.close(resolve));db.close();}

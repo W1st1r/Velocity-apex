@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
 import {Room} from '../src/worker.mjs';
+import {DatabaseSync} from 'node:sqlite';
+import fs from 'node:fs';
+const sql=new DatabaseSync(':memory:');for(const name of fs.readdirSync(new URL('../migrations/',import.meta.url)).sort())sql.exec(fs.readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+let batchTail=Promise.resolve();
+const DB={prepare(query){let args=[];return{bind(...v){args=v;return this;},async first(){return sql.prepare(query).get(...args)||null;},async all(){return{results:sql.prepare(query).all(...args)};},async run(){const r=sql.prepare(query).run(...args);return{meta:{changes:Number(r.changes)}};}};},async batch(statements){let release;const prior=batchTail;batchTail=new Promise(r=>release=r);await prior;sql.exec('BEGIN');try{const out=[];for(const stmt of statements)out.push(await stmt.run());sql.exec('COMMIT');return out;}catch(e){sql.exec('ROLLBACK');throw e;}finally{release();}}};
+function account(id,credits){sql.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,0,0)').run(id,id,id,'x','x');sql.prepare('INSERT INTO player_saves(user_id,save_json,revision,created_at,updated_at) VALUES(?,?,1,0,0)').run(id,JSON.stringify({credits,ownedLiveries:['apexLime']}));}
+const credits=id=>JSON.parse(sql.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(id).save_json).credits;
+
 
 class Storage{
   constructor(){this.m=new Map();this.alarm=0;}
@@ -54,19 +62,35 @@ console.log('online_room_test: OK (2-client flow + 8-player capacity)');
 
 
 // Wager flow: server requires confirmation, locks a deterministic pot and awards it to server-confirmed P1.
-const ctx3=new Ctx(),room3=new Room(ctx3,{});
+const ctx3=new Ctx(),room3=new Room(ctx3,{DB});
 res=await room3.fetch(req('/create',{code:'BET234',name:'BANKER',settings:{trackId:'apexCircuit',laps:3,maxPlayers:2,collisions:false,wager:500},loadout:{effectId:'purpleFlame'}}));const bHostData=await res.json();
 res=await room3.fetch(req('/join',{name:'RIVAL',loadout:{effectId:'cyanFlame'}}));const bGuestData=await res.json();
-const bh=room3.room.players.find(p=>p.id===bHostData.playerId),bg=room3.room.players.find(p=>p.id===bGuestData.playerId);bh.connected=bg.connected=true;const bhws=new FakeWS(bh.id),bgws=new FakeWS(bg.id);ctx3.sockets=[bhws,bgws];
+const bh=room3.room.players.find(p=>p.id===bHostData.playerId),bg=room3.room.players.find(p=>p.id===bGuestData.playerId);bh.userId='bet-host';bg.userId='bet-guest';account(bh.userId,400);account(bg.userId,900);bh.connected=bg.connected=true;const bhws=new FakeWS(bh.id),bgws=new FakeWS(bg.id);ctx3.sockets=[bhws,bgws];
 await room3.webSocketMessage(bhws,JSON.stringify({type:'ready',v:1,ready:true}));assert.equal(bh.ready,false);assert.ok(bhws.sent.some(m=>m.code==='WAGER_CONFIRM_REQUIRED'));
 await room3.webSocketMessage(bhws,JSON.stringify({type:'wager_confirm',v:1,amount:500,balance:400}));assert.equal(bh.wagerConfirmed,false);assert.ok(bhws.sent.some(m=>m.code==='INSUFFICIENT_CR'));
-await room3.webSocketMessage(bhws,JSON.stringify({type:'wager_confirm',v:1,amount:500,balance:1500}));await room3.webSocketMessage(bgws,JSON.stringify({type:'wager_confirm',v:1,amount:500,balance:900}));assert.equal(bh.wagerConfirmed,true);assert.equal(bg.wagerConfirmed,true);
+sql.prepare("UPDATE player_saves SET save_json=json_set(save_json,'$.credits',1500) WHERE user_id=?").run(bh.userId);await room3.webSocketMessage(bhws,JSON.stringify({type:'wager_confirm',v:1,amount:500,balance:0}));await room3.webSocketMessage(bgws,JSON.stringify({type:'wager_confirm',v:1,amount:500,balance:900}));assert.equal(bh.wagerConfirmed,true);assert.equal(bg.wagerConfirmed,true);
 await room3.webSocketMessage(bhws,JSON.stringify({type:'ready',v:1,ready:true}));await room3.webSocketMessage(bgws,JSON.stringify({type:'ready',v:1,ready:true}));await room3.webSocketMessage(bhws,JSON.stringify({type:'start_race',v:1}));
-assert.equal(room3.room.settlement.status,'locked');assert.equal(room3.room.settlement.pot,1000);assert.equal(room3.room.settlement.stakes[bh.id],500);assert.equal(room3.room.settlement.stakes[bg.id],500);
+assert.equal(credits(bh.userId),1000);assert.equal(credits(bg.userId),400);assert.equal(room3.publicRoom().settlement.authority,'server');assert.equal(room3.room.settlement.status,'locked');assert.equal(room3.room.settlement.pot,1000);assert.equal(room3.room.settlement.stakes[bh.id],500);assert.equal(room3.room.settlement.stakes[bg.id],500);
 const wagerRaceId=room3.room.raceId;room3.room.status='racing';for(const p of [bh,bg]){p.serverLaps=3;p.state=state(0,3,.95);p.lastSeq=0;p.lastStateAt=Date.now()-100;}
-await room3.webSocketMessage(bgws,JSON.stringify({type:'race_finish',v:1,raceId:wagerRaceId,state:state(1,3,.99)}));assert.equal(bg.finishPlace,1);assert.equal(room3.room.settlement.status,'awarded');assert.equal(room3.room.settlement.winnerId,bg.id);assert.equal(room3.publicRoom().settlement.pot,1000);
+await room3.webSocketMessage(bgws,JSON.stringify({type:'race_finish',v:1,raceId:wagerRaceId,state:state(1,3,.99)}));assert.equal(bg.finishPlace,1);assert.equal(room3.room.settlement.status,'awarded');assert.equal(room3.room.settlement.winnerId,bg.id);assert.equal(room3.publicRoom().settlement.pot,1000);assert.equal(credits(bg.userId),1400);assert.equal(credits(bh.userId),1000);
 
 // If a participant leaves while a wager is locked, the race is cancelled and escrow is refunded server-side.
-const ctx4=new Ctx(),room4=new Room(ctx4,{});res=await room4.fetch(req('/create',{code:'REF234',name:'HOSTR',settings:{trackId:'apexCircuit',laps:3,maxPlayers:2,collisions:false,wager:250},loadout:{}}));const rhd=await res.json();res=await room4.fetch(req('/join',{name:'GUESTR',loadout:{}}));const rgd=await res.json();const rh=room4.room.players.find(p=>p.id===rhd.playerId),rg=room4.room.players.find(p=>p.id===rgd.playerId);rh.connected=rg.connected=true;const rhws=new FakeWS(rh.id),rgws=new FakeWS(rg.id);ctx4.sockets=[rhws,rgws];for(const [p,ws] of [[rh,rhws],[rg,rgws]]){await room4.webSocketMessage(ws,JSON.stringify({type:'wager_confirm',v:1,amount:250,balance:1000}));await room4.webSocketMessage(ws,JSON.stringify({type:'ready',v:1,ready:true}));}
+const ctx4=new Ctx(),room4=new Room(ctx4,{DB});res=await room4.fetch(req('/create',{code:'REF234',name:'HOSTR',settings:{trackId:'apexCircuit',laps:3,maxPlayers:2,collisions:false,wager:250},loadout:{}}));const rhd=await res.json();res=await room4.fetch(req('/join',{name:'GUESTR',loadout:{}}));const rgd=await res.json();const rh=room4.room.players.find(p=>p.id===rhd.playerId),rg=room4.room.players.find(p=>p.id===rgd.playerId);rh.userId='refund-host';rg.userId='refund-guest';account(rh.userId,1000);account(rg.userId,1000);rh.connected=rg.connected=true;const rhws=new FakeWS(rh.id),rgws=new FakeWS(rg.id);ctx4.sockets=[rhws,rgws];for(const [p,ws] of [[rh,rhws],[rg,rgws]]){await room4.webSocketMessage(ws,JSON.stringify({type:'wager_confirm',v:1,amount:250,balance:1000}));await room4.webSocketMessage(ws,JSON.stringify({type:'ready',v:1,ready:true}));}
 await room4.webSocketMessage(rhws,JSON.stringify({type:'start_race',v:1}));assert.equal(room4.room.settlement.status,'locked');await room4.webSocketMessage(rhws,JSON.stringify({type:'leave',v:1}));assert.equal(room4.room.status,'lobby');assert.equal(room4.room.settlement.status,'refunded');assert.equal(room4.room.settlement.reason,'PLAYER_LEFT');assert.ok(rgws.sent.some(m=>m.type==='race_cancelled'));
+assert.equal(credits(rh.userId),1000);assert.equal(credits(rg.userId),1000);
 console.log('online_wager_flow: OK (confirm + pot + payout + refund)');
+
+// Crash between D1 lock and final Durable Object countdown persistence.
+const {lockRoomWager}=await import('../src/room-wager-escrow.mjs');
+const interrupted=structuredClone(room4.room);interrupted.status='locking';interrupted.raceId='crash-window';interrupted.players=[{...rh},{...rg}];interrupted.settlement={raceId:'crash-window',authority:'server',status:'locking',wager:250,pot:500,stakes:{[rh.id]:250,[rg.id]:250}};
+assert((await lockRoomWager(DB,{raceId:'crash-window',userIds:[rh.userId,rg.userId],stake:250})).ok);assert.equal(credits(rh.userId),750);
+const recoveredCtx=new Ctx();await recoveredCtx.storage.put('room',interrupted);const recovered=new Room(recoveredCtx,{DB});await recovered.load();assert.equal(recovered.room.status,'lobby');assert.equal(recovered.room.settlement.status,'refunded');assert.equal(credits(rh.userId),1000);assert.equal(credits(rg.userId),1000);
+const secondRecovery=new Room(recoveredCtx,{DB});await secondRecovery.load();assert.equal(credits(rh.userId),1000,'recovery refund must be idempotent');
+console.log('online_wager_recovery: OK (D1/DO crash window refunded once)');
+
+// Payout committed in D1 before room state was saved; winner survives restart.
+const {settleRoomWager}=await import('../src/room-wager-escrow.mjs');
+const payoutRoom=structuredClone(interrupted);payoutRoom.status='racing';payoutRoom.raceId='payout-window';payoutRoom.raceStartAt=Date.now()-10000;payoutRoom.settlement={...payoutRoom.settlement,raceId:'payout-window',status:'locked'};
+assert((await lockRoomWager(DB,{raceId:'payout-window',userIds:[rh.userId,rg.userId],stake:250})).ok);assert((await settleRoomWager(DB,{raceId:'payout-window',winnerUserId:rg.userId})).ok);
+const payoutCtx=new Ctx();await payoutCtx.storage.put('room',payoutRoom);const payoutRecovery=new Room(payoutCtx,{DB});await payoutRecovery.load();assert.equal(payoutRecovery.room.settlement.status,'awarded');assert.equal(payoutRecovery.room.settlement.winnerId,rg.id);assert.equal(payoutRecovery.room.players.find(p=>p.id===rg.id).finishPlace,1);assert.equal(credits(rg.userId),1250);assert.equal(credits(rh.userId),750);
+console.log('online_wager_recovery: OK (durable payout winner restored without double credit)');

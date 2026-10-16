@@ -30,13 +30,14 @@
   }
   function reconcileSettlement(room){
     const s=room?.settlement,id=s?.raceId;if(!id||!state.playerId)return;
+    if(s.authority==='server'){const marker=id+':'+s.status;if(state.walletMarker!==marker){state.walletMarker=marker;window.VelocityAccount?.refreshCloud?.().then(()=>publishWallet(walletBalance())).catch(()=>{state.walletMarker=null;});}return;}
     const stake=Math.max(0,Number(s.stakes?.[state.playerId])||0),ledger=readLedger(),entry=ledger[id];
     if(stake>0&&s.status!=='refunded'&&!(entry?.debited))changeCredits(-stake,id,'debited',stake);
     const after=readLedger()[id];
     if(s.status==='refunded'&&stake>0&&after?.debited&&!after.refunded)changeCredits(stake,id,'refunded',stake);
     if(s.status==='awarded'&&s.winnerId===state.playerId&&s.pot>0&&!after?.payout)changeCredits(s.pot,id,'payout',stake);
   }
-  function refundLockedBeforeLeave(){const room=state.room,s=room?.settlement;if(!s||s.status!=='locked'||!s.raceId)return;const copy={...room,settlement:{...s,status:'refunded',reason:'PLAYER_LEFT'}};reconcileSettlement(copy);}
+  function refundLockedBeforeLeave(){const room=state.room,s=room?.settlement;if(!s||s.authority==='server'||s.status!=='locked'||!s.raceId)return;const copy={...room,settlement:{...s,status:'refunded',reason:'PLAYER_LEFT'}};reconcileSettlement(copy);}
 
   const isTextEditor=target=>target instanceof Element&&!!target.closest('input[type="text"],input:not([type]),textarea,[contenteditable="true"]');
   for(const type of ['selectstart','dragstart','contextmenu'])els.root.addEventListener(type,event=>{if(!isTextEditor(event.target))event.preventDefault();});
