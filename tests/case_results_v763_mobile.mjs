@@ -80,9 +80,12 @@ try {
 
     const captureStates = name === 'iPhone 17 Pro Max landscape';
     if (captureStates) {
-      await page.locator('.case-modal-header').evaluate(el => Object.assign(el.style,{background:'linear-gradient(110deg,rgba(31,63,96,.34),rgba(11,25,43,.22))',border:'1px solid rgba(103,161,207,.16)',borderRadius:'13px',boxShadow:'inset 0 1px rgba(255,255,255,.025)'}));
+      await page.locator('.case-modal-header').evaluate(el => { el.style.setProperty('background','linear-gradient(180deg,rgba(5,13,14,.995) 0 84%,transparent)','important'); el.style.setProperty('border','1px solid rgba(103,161,207,.16)','important'); el.style.setProperty('border-radius','13px','important'); el.style.setProperty('box-shadow','inset 0 1px rgba(255,255,255,.025)','important'); });
+      const legacyHeaderBackground = await page.locator('.case-modal-header').evaluate(el=>getComputedStyle(el).backgroundImage);
+      assert.match(legacyHeaderBackground,/linear-gradient/,`${name}: before screenshot must reproduce the old opaque header band`);
       await page.screenshot({ path: path.join(screenshotDir, 'before-header-slab-reproduced.png') });
       await page.locator('.case-modal-header').evaluate(el => el.removeAttribute('style'));
+      assert.equal(await page.locator('.case-modal-header').evaluate(el=>getComputedStyle(el).backgroundImage),'none',`${name}: after screenshot must show the removed header background`);
       await page.evaluate(() => { const label = document.querySelector('.case-ready-label'), roulette = document.querySelector('.case-roulette'); label.removeAttribute('style'); roulette.after(label); });
       await page.screenshot({ path: path.join(screenshotDir, 'after-header-clean.png') });
       await page.evaluate(() => { const roulette = document.querySelector('.case-roulette'), strip = document.querySelector('.case-roll-strip'); strip.innerHTML = Array.from({length:45},(_,i)=>`<div class="case-roll-item"><strong>VELOCITY ${i+1}</strong><span>RARE</span></div>`).join(''); roulette.classList.add('is-spinning'); strip.style.transition = 'transform 4s cubic-bezier(.07,.72,.08,1)'; requestAnimationFrame(()=>strip.style.transform='translate3d(-950px,0,0)'); });
