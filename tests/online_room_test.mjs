@@ -94,3 +94,10 @@ const payoutRoom=structuredClone(interrupted);payoutRoom.status='racing';payoutR
 assert((await lockRoomWager(DB,{raceId:'payout-window',userIds:[rh.userId,rg.userId],stake:250})).ok);assert((await settleRoomWager(DB,{raceId:'payout-window',winnerUserId:rg.userId})).ok);
 const payoutCtx=new Ctx();await payoutCtx.storage.put('room',payoutRoom);const payoutRecovery=new Room(payoutCtx,{DB});await payoutRecovery.load();assert.equal(payoutRecovery.room.settlement.status,'awarded');assert.equal(payoutRecovery.room.settlement.winnerId,rg.id);assert.equal(payoutRecovery.room.players.find(p=>p.id===rg.id).finishPlace,1);assert.equal(credits(rg.userId),1250);assert.equal(credits(rh.userId),750);
 console.log('online_wager_recovery: OK (durable payout winner restored without double credit)');
+// Concurrent start/leave callbacks must not refund before the D1 lock commits.
+const serialRoom=structuredClone(payoutRoom);serialRoom.status='lobby';serialRoom.hostId=rh.id;serialRoom.raceId=null;serialRoom.settlement=null;serialRoom.gridOrder=[];serialRoom.finishOrder=[];
+for(const p of serialRoom.players){p.connected=true;p.ready=true;p.wagerConfirmed=true;p.finishPlace=0;}
+const serialCtx=new Ctx();await serialCtx.storage.put('room',serialRoom);serialCtx.sockets=[rhws,rgws];const serial=new Room(serialCtx,{DB});await serial.load();
+const beforeSerial=[credits(rh.userId),credits(rg.userId)];await Promise.all([serial.webSocketMessage(rhws,JSON.stringify({type:'start_race'})),serial.webSocketMessage(rgws,JSON.stringify({type:'leave'}))]);
+assert.equal(serial.room.settlement.status,'refunded');assert.equal(serial.room.status,'lobby');assert.deepEqual([credits(rh.userId),credits(rg.userId)],beforeSerial);
+console.log('online_wager_serialization: OK (concurrent start and leave conserve balances)');

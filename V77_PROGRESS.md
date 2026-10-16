@@ -73,3 +73,8 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 - Passed: escrow unit/integration cases (replay/conflict/concurrency/rollback/migration replay/legacy preservation), actual Room wager lock/payout/leave refund, interrupted-start and interrupted-payout recovery, existing room capacity/lifecycle, online UI/network, presence timeout and free-drag synchronization tests. WebKit fixture now also checks explicit fresh race restart; CI execution pending for these changes.
 - IMPORTANT: multiplayer finish/checkpoint messages are still client-derived, so server wallet custody does NOT yet prove fair race results. Snapshot writes also remain open until all reward paths migrate. Keep PR Draft and do not release.
 - Next: inspect CI for this checkpoint; implement input-driven shared multiplayer authority and migrate online drift payout, then finish economic-writer migration and settings-only snapshot cutover. Existing production backup/restore and CPU budget gates, long-term balancing, AI matrix and map QA remain required. No interim PDF.
+
+## 2026-10-16 - Cross-storage concurrency follow-up
+- Added ordinary-room event serialization for WebSocket messages, disconnects and alarms so an awaited D1 reservation cannot race a leave/refund callback. Free-roam state fan-out remains on its existing path.
+- Added an actual Room concurrent start/leave test; balances are conserved and the journal is refunded once. Fixed failed wallet refresh markers to allow a later retry.
+- Targeted Room lifecycle/escrow/recovery/concurrency, presence timeout, account auth smoke and online UI tests passed. CI for a5752bf was in progress when this follow-up was prepared; no deployment requested.

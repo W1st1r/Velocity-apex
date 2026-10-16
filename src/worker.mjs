@@ -906,7 +906,14 @@ export class Room {
     }
     return json({error:'NOT_FOUND'},404);
   }
+  serializeRoomEvent(action){
+    const task=(this.roomEventTail||Promise.resolve()).then(action);this.roomEventTail=task.catch(()=>{});return task;
+  }
   async webSocketMessage(ws,message){
+    await this.load();if(this.room?.mode==='freeroam')return this.handleSocketMessage(ws,message);
+    return this.serializeRoomEvent(()=>this.handleSocketMessage(ws,message));
+  }
+  async handleSocketMessage(ws,message){
     if(this.env.DB){const t=now();if(!this.ownerCheckAt||t-this.ownerCheckAt>10000){this.ownerMaintenance=(await settings(this.env)).maintenance;this.ownerCheckAt=t;}if(this.ownerMaintenance){await this.load();const pid=ws.deserializeAttachment?.()?.playerId,p=this.room?.players.find(x=>x.id===pid);if(!p?.owner){try{ws.close(4003,'maintenance');}catch{}return;}}}
 
     await this.load();if(!this.room)return;const a=this.markSocketSeen(ws)||ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return this.error(ws,'SESSION_INVALID','Сессия игрока недействительна');
@@ -992,15 +999,16 @@ export class Room {
       await this.save();this.broadcast({type:wagerCancelled?'race_cancelled':'room_state',v:PROTOCOL_VERSION,serverTime:now(),reason:wagerCancelled?'PLAYER_LEFT':'',room:this.publicRoom()},ws);try{ws.close(1000,'leave');}catch{};return;
     }
   }
-  async webSocketClose(ws){await this.handleDisconnect(ws);}
-  async webSocketError(ws){await this.handleDisconnect(ws);}
+  async webSocketClose(ws){await this.load();return this.room?.mode==='freeroam'?this.handleDisconnect(ws):this.serializeRoomEvent(()=>this.handleDisconnect(ws));}
+  async webSocketError(ws){return this.webSocketClose(ws);}
   async handleDisconnect(ws){
     await this.load();if(!this.room)return;const a=ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return;
     const stillLive=this.ctx.getWebSockets().some(s=>s!==ws&&s.deserializeAttachment?.()?.playerId===p.id);if(stillLive)return;
     if(this.room.mode==='freeroam'){const active=this.freeDragForPlayer(p.id);if(!active){this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>id!==p.id);p.dragWager=0;}p.connected=false;}
     p.connected=false;p.disconnectReason=p.disconnectReason||'connection_lost';p.disconnectedUntil=now()+(this.room.mode==='freeroam'?FREE_RECONNECT_GRACE_MS:RECONNECT_GRACE_MS);if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();this.broadcast({type:this.room.mode==='freeroam'?'free_room':'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.room.mode==='freeroam'?this.publicFreeRoom():this.publicRoom()});
   }
-  async alarm(){
+  async alarm(){await this.load();return this.room?.mode==='freeroam'?this.handleAlarm():this.serializeRoomEvent(()=>this.handleAlarm());}
+  async handleAlarm(){
     await this.load();if(!this.room)return;await this.recoverInterruptedWager();const t=now(),expired=this.expireHeartbeatPlayers(t),removed=this.room.players.filter(p=>!p.connected&&p.disconnectedUntil&&p.disconnectedUntil<=t);
     if(this.room.mode==='freeroam'){await this.advanceFreeActivities(t);if(!this.room)return;if(removed.length){const ids=new Set(removed.map(p=>p.id));for(const player of removed)await this.endSessionLog(player,player.disconnectReason||'connection_lost');for(const player of removed){const active=this.freeDragForPlayer(player.id);if(active)await this.cancelFreeDrag(active,'CONNECTION_TIMEOUT',player.id,true);}for(const id of ids)this.handleActivityDeparture(id,true);this.room.players=this.room.players.filter(p=>!ids.has(p.id));this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>!ids.has(id));}if(!this.room.players.length||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){for(const c of [...Object.values(this.room.dragChallenges||{})])await this.cancelFreeDrag(c,'ROOM_EXPIRED',null,false);if(this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}const rosterSync=removed.length||expired.length||t-(this.room.lastRosterBroadcastAt||0)>=10000;if(rosterSync)this.room.lastRosterBroadcastAt=t;await this.save();if(rosterSync)this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:t,room:this.publicFreeRoom()});return;}
     const removedLockedRacer=removed.some(p=>this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id));if(removedLockedRacer)await this.refundActiveWager('CONNECTION_TIMEOUT');

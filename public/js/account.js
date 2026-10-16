@@ -108,8 +108,8 @@
   function applySave(raw){const save=normalizeSave(raw);if(!save||typeof save!=='object')return;state.pendingSave=save;state.lastSave=save;try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch{}window.dispatchEvent(new CustomEvent('velocity-account-save',{detail:{save,source:'cloud'}}));}
   async function loadCloud(){
     if(!state.user)return;clearTimeout(state.syncTimer);state.syncTimer=0;els.sync.textContent='СИНХРОНИЗАЦИЯ…';
-    try{const data=await api('/api/account/save');state.revision=data.revision||0;if(data.save){applySave(data.save);els.sync.textContent='СИНХРОНИЗИРОВАНО';}else{state.lastSave=localSave();await flushSave();}}
-    catch(e){els.sync.textContent='ОШИБКА СИНХРОНИЗАЦИИ';setMessage(errors[e.code]||'Не удалось загрузить облачный прогресс.',true,true);}
+    try{const data=await api('/api/account/save');state.revision=data.revision||0;if(data.save){applySave(data.save);els.sync.textContent='СИНХРОНИЗИРОВАНО';}else{state.lastSave=localSave();await flushSave();}return true;}
+    catch(e){els.sync.textContent='ОШИБКА СИНХРОНИЗАЦИИ';setMessage(errors[e.code]||'Не удалось загрузить облачный прогресс.',true,true);return false;}
   }
   async function bootstrap(){
     let banned=null;

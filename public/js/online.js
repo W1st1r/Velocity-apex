@@ -30,7 +30,7 @@
   }
   function reconcileSettlement(room){
     const s=room?.settlement,id=s?.raceId;if(!id||!state.playerId)return;
-    if(s.authority==='server'){const marker=id+':'+s.status;if(state.walletMarker!==marker){state.walletMarker=marker;window.VelocityAccount?.refreshCloud?.().then(()=>publishWallet(walletBalance())).catch(()=>{state.walletMarker=null;});}return;}
+    if(s.authority==='server'){const marker=id+':'+s.status;if(state.walletMarker!==marker){state.walletMarker=marker;window.VelocityAccount?.refreshCloud?.().then(ok=>{if(ok===false)state.walletMarker=null;else publishWallet(walletBalance());}).catch(()=>{state.walletMarker=null;});}return;}
     const stake=Math.max(0,Number(s.stakes?.[state.playerId])||0),ledger=readLedger(),entry=ledger[id];
     if(stake>0&&s.status!=='refunded'&&!(entry?.debited))changeCredits(-stake,id,'debited',stake);
     const after=readLedger()[id];
