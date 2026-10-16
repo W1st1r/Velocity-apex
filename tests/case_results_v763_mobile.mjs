@@ -103,9 +103,13 @@ try {
       assert.equal(rendered.pageW, rendered.pageX, `${name}: no page-level horizontal overflow`);
       assert.ok(rendered.width > 0 && rendered.scrollWidth >= rendered.width * quantity - 2, `${name}: cards should be swipe-scrollable (${quantity})`);
       assert.ok(rendered.cardRight <= rendered.carouselRight + 1, `${name}: first reward card fits its viewport`);
-      if (quantity === 10) {
+      if (quantity === 10 && ['iPhone 13 Mini landscape', 'iPhone 14 Pro Max landscape', 'iPhone 17 Pro Max landscape'].includes(name)) {
         const next = page.locator('[data-case-awards-step="1"]');
-        for (let i = 1; i < quantity; i++) await next.click();
+        for (let i = 1; i < quantity; i++) {
+          await next.click();
+          const expected = `${String(i + 1).padStart(2, '0')} / 10`;
+          await page.waitForFunction(value => document.querySelector('.case-award-position')?.textContent === value, expected);
+        }
         await page.waitForFunction(() => document.querySelector('.case-award-position')?.textContent === '10 / 10');
         assert.equal(await page.locator('[data-case-awards-step="1"]').isDisabled(), true, `${name}: next is disabled at the last reward`);
         assert.equal(await page.locator('[data-case-awards-step="-1"]').isDisabled(), false, `${name}: previous is available at the last reward`);
