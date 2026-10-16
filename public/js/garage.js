@@ -178,7 +178,7 @@
         v.message.classList.toggle('warning',result==='insufficient'||result==='invalid');
         if(result==='purchased')this.onChange();
       }else if(action&&mode==='garage'&&action.classList.contains('select-btn')){
-        const result=R.selectOwned(this.save,s.tab,id),v=this.view(mode);
+        let result;try{result=window.VelocityAccount?.authenticated?(await window.VelocityAccount.economyTransaction('/api/economy/store/select',{kind:s.tab,id})).status:R.selectOwned(this.save,s.tab,id);}catch{result='invalid';}const v=this.view(mode);
         v.message.textContent=result==='selected'?'ВЫБРАНО · готово к следующему заезду':'Предмет недоступен';
         v.message.classList.toggle('warning',result!=='selected');
         if(result==='selected')this.onChange();

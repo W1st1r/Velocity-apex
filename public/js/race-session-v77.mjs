@@ -8,7 +8,7 @@ export function validateRaceConfig(raw,save){
   const R=createRaceRuntime(1),mode=raw?.mode;
   if(!['normal','career','drift'].includes(mode))throw Error('INVALID_RACE_MODE');
   const carId=raw.carId;
-  if(typeof carId!=='string'||!R.LIVERIES[carId]||!save?.ownedLiveries?.includes(carId))throw Error('CAR_NOT_OWNED');
+  if(typeof carId!=='string'||!R.LIVERIES[carId]||(!Array.isArray(save?.ownedLiveries)||!save.ownedLiveries.includes(carId)))throw Error('CAR_NOT_OWNED');
   if(mode==='career'){
     const level=raw.level;
     if(!Number.isInteger(level)||level<1||level>R.CAREER_LEVELS.length||level>Math.max(1,Number(save.careerUnlocked)||1))throw Error('CAREER_LOCKED');

@@ -1,3 +1,4 @@
+import {adminSelfMutation} from './admin-self-economy.mjs';
 import {handleRaceAuthority} from './race-authority.mjs';
 import {maintenanceGate,settings} from './owner.mjs';
 import {writeGameLog,classifyAuditAction,detectSavePurchases} from './logs.mjs';
@@ -63,7 +64,14 @@ function sessionCookie(request,value,maxAge=Math.floor(SESSION_TTL_MS/1000)){
   return `${SESSION_COOKIE}=${encodeURIComponent(value)}; Path=/; HttpOnly${secure}; SameSite=Lax; Max-Age=${maxAge}`;
 }
 function sameOrigin(request){const origin=request.headers.get('origin');return !origin||origin===new URL(request.url).origin;}
-async function readBody(request){const len=Number(request.headers.get('content-length')||0);if(len>SAVE_LIMIT_BYTES+8192)throw new Error('REQUEST_TOO_LARGE');return request.json();}
+async function readBody(request){
+  const limit=SAVE_LIMIT_BYTES+8192,len=Number(request.headers.get('content-length')||0);if(len>limit)throw new Error('REQUEST_TOO_LARGE');
+  if(!request.body)return JSON.parse('');
+  const reader=request.body.getReader(),chunks=[];let size=0;
+  try{for(;;){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>limit){await reader.cancel();throw new Error('REQUEST_TOO_LARGE');}chunks.push(value);}}
+  finally{reader.releaseLock();}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}return JSON.parse(new TextDecoder().decode(bytes));
+}
 async function passwordHash(password,salt,iterations=PASSWORD_ITERATIONS){
   const key=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']);
   const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations},key,256);
@@ -535,6 +543,14 @@ async function handleAdminRequest(request,env,url){
     await env.DB.prepare('DELETE FROM admin_unlocks WHERE session_token_hash=?').bind(access.session.hash).run();return json({ok:true});
   }
 
+  if(url.pathname==='/api/admin/self/operation'&&request.method==='POST'){
+    const access=await requireAdmin(env,request);if(access.error)return access.error;
+    const b=await readBody(request);if(!/^[\w-]{16,80}$/.test(String(b?.requestId||'')))return json({error:'IDEMPOTENCY_KEY_REQUIRED'},400);
+    await ensureEconomySchema(env);const result=await applyEconomyOperation(env,access.session.user.id,b.requestId,'owner_self:'+String(b.action),save=>adminSelfMutation(save,b));
+    if(result.error)return json({error:result.error},400);
+    if(!result.replay)await audit(env,access.session.user.id,access.session.user.id,'self_'+String(b.action),result.result);
+    return json(result);
+  }
   const access=await requireAdmin(env,request);if(access.error)return access.error;
   if(url.pathname==='/api/admin/accounts'&&request.method==='GET'){
     const q=normalizeUsername(url.searchParams.get('q')||'').replace(/^@/,'').slice(0,24),blocked=url.searchParams.get('blocked')==='1',like='%'+q+'%',t=now();
@@ -640,12 +656,19 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     if(url.pathname.startsWith('/api/referrals/'))return handleReferralRequest(request,env,url);
     if(url.pathname.startsWith('/api/friends'))return handleFriendsRequest(request,env,url);
     if(url.pathname.startsWith('/api/admin/'))return handleAdminRequest(request,env,url);
-    if((url.pathname.startsWith('/api/economy/cases/')||/^\/api\/economy\/(store\/(buy|sell)|tuning\/(upgrade|style))$/.test(url.pathname))&&request.method==='POST'){
+    if((url.pathname.startsWith('/api/economy/cases/')||/^\/api\/economy\/(store\/(buy|sell|select)|tuning\/(upgrade|style))$/.test(url.pathname))&&request.method==='POST'){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
       const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
       let b;try{b=await readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
       const requestId=String(b?.requestId||''),caseId=String(b?.caseId||''),quantity=Number(b?.quantity);
       if(!/^[\w-]{16,80}$/.test(requestId))return json({error:'IDEMPOTENCY_KEY_REQUIRED'},400);
+      if(url.pathname==='/api/economy/store/select'){
+        const kind=b?.kind==='livery'?'livery':b?.kind==='effect'?'effect':'',id=String(b?.id||''),catalog=kind==='livery'?SERVER_CARS:kind==='effect'?SERVER_EFFECTS:null;
+        if(!catalog?.[id])return json({error:'INVALID_ITEM'},400);
+        const owner=kind==='livery'?await settings(env):null;if(!session.user.isAdmin&&(owner?.cars?.[id]?.enabled===false||owner?.cars?.[id]?.unavailable))return json({error:'ITEM_UNAVAILABLE'},400);
+        const result=await applyEconomyOperation(env,session.user.id,requestId,'store_select',save=>{const owned=kind==='livery'?'ownedLiveries':'ownedEffects',selected=kind==='livery'?'selectedLivery':'selectedEffect';if(!Array.isArray(save[owned])||!save[owned].includes(id))return {error:'ITEM_NOT_OWNED'};save[selected]=id;return {status:'selected',kind,id,cost:0};});
+        return json(result,result.error?400:200);
+      }
       if(url.pathname==='/api/economy/store/buy'){
         const kind=b?.kind==='livery'?'livery':b?.kind==='effect'?'effect':'';const id=String(b?.id||''),catalog=kind==='livery'?SERVER_CARS:kind==='effect'?SERVER_EFFECTS:null,item=catalog?.[id];
         if(!item||!kind||kind==='livery'&&(!item.enabled||item.unavailable||item.limited))return json({error:'INVALID_ITEM'},400);

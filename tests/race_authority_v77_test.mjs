@@ -25,6 +25,7 @@ try{
  assert.equal((await call('start',{requestId:'unauthorized-0001',config:career,runtimeVersion:RACE_RUNTIME_VERSION},false)).status,401);
  assert.equal((await start('locked-career-001',{...career,level:2})).data.error,'CAREER_LOCKED');
  assert.equal((await start('unowned-car-00001',{...career,carId:'mary'})).data.error,'CAR_NOT_OWNED');
+ assert.equal((await call('start',{requestId:'oversized-body-0001',runtimeVersion:RACE_RUNTIME_VERSION,config:career,padding:'x'.repeat(80000)})).status,413,'stream body limit applies without Content-Length');
  const begun=await start('honest-career-0001');assert.equal(begun.status,200,JSON.stringify(begun.data));
  assert.equal((await start('honest-career-0001')).data.raceId,begun.data.raceId);
  assert.equal((await start('honest-career-0001',{...career,level:2})).data.error,'IDEMPOTENCY_KEY_REUSED');

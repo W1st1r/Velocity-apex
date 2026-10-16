@@ -11,7 +11,7 @@ export async function handleRaceAuthority(request,env,url,session,{readBody,save
   await ensureRaceSchema(env);
   const route=url.pathname.slice('/api/economy/races/'.length),userId=session.user.id;
   if(request.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
-  let b;try{b=await readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
+  let b;try{b=await readBody(request);}catch(e){return json({error:e.message==='REQUEST_TOO_LARGE'?'REQUEST_TOO_LARGE':'INVALID_REQUEST'},e.message==='REQUEST_TOO_LARGE'?413:400);}
   if(!b||typeof b!=='object'||Array.isArray(b))return json({error:'INVALID_REQUEST'},400);
   const t=Date.now();
   if(route==='start'){
