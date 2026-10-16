@@ -346,6 +346,28 @@ async function referralProfile(env,userId){
   const balance=Math.max(0,Math.floor(Number((cloud.save&&typeof cloud.save==='object'?cloud.save:defaultSave()).credits)||0));
   return {level,totalSpent:Number(profile?.total_spent)||0,updatedAt:Number(profile?.updated_at)||0,balance,stats,current:{...tier,inviteeReward:cloneReferralReward(tier.inviteeReward)},next:next?{...next,inviteeReward:cloneReferralReward(next.inviteeReward)}:null,canUpgrade:!!next&&stats.rewarded>=next.requiredInvites&&balance>=next.cost,tiers:publicReferralTiers(),limits:{daily:REFERRAL_DAILY_LIMIT,monthly:REFERRAL_MONTHLY_LIMIT,network7d:REFERRAL_NETWORK_7D_LIMIT}};
 }
+async function settlePendingReferral(env,invitedUserId){
+  const row=await env.DB.prepare('SELECT r.*,d.inviter_level,d.invitee_reward_json FROM referrals r LEFT JOIN referral_reward_details d ON d.invited_user_id=r.invited_user_id WHERE r.invited_user_id=?').bind(invitedUserId).first();
+  if(!row)return null;
+  const inviterLevel=Number(row.inviter_level)||1,inviteeReward=cloneReferralReward(JSON.parse(row.invitee_reward_json||'{}')),ownerReward=referralTier(inviterLevel).inviterReward;
+  const response=(rewarded,reason='')=>({provided:true,rewarded,rewardCredits:rewarded?ownerReward:0,inviterLevel,inviteeReward:rewarded?inviteeReward:{credits:0,cases:{}},reason});
+  if(row.status==='rewarded')return {...response(true),rewardCredits:Number(row.reward_credits)||0,replay:true};
+  if(row.status!=='processing'||row.reason!=='authority-v77'||!row.invitee_reward_json)return response(false,row.status==='processing'?'LEGACY_RECONCILIATION_REQUIRED':row.reason);
+  const t=Number(row.created_at),inviterId=row.inviter_user_id;
+  const limits=[{sql:"(SELECT COUNT(*) FROM referrals WHERE inviter_user_id=? AND status='rewarded' AND created_at>=?)<?",args:[inviterId,t-86400000,REFERRAL_DAILY_LIMIT],reason:'DAILY_LIMIT'},{sql:"(SELECT COUNT(*) FROM referrals WHERE inviter_user_id=? AND status='rewarded' AND created_at>=?)<?",args:[inviterId,t-30*86400000,REFERRAL_MONTHLY_LIMIT],reason:'MONTHLY_LIMIT'}];
+  if(row.device_hash)limits.push({sql:"NOT EXISTS(SELECT 1 FROM referrals WHERE device_hash=? AND status='rewarded')",args:[row.device_hash],reason:'DEVICE_ALREADY_USED'});
+  if(row.network_hash)limits.push({sql:"(SELECT COUNT(*) FROM referrals WHERE network_hash=? AND status='rewarded' AND created_at>=?)<?",args:[row.network_hash,t-7*86400000,REFERRAL_NETWORK_7D_LIMIT],reason:'NETWORK_LIMIT'});
+  const outcome=await applyAccountTransaction(env,{actorId:invitedUserId,requestId:'referral-welcome-'+invitedUserId,type:'referral:welcome',accountIds:[inviterId,invitedUserId],plan:async saves=>{
+    for(const gate of limits){const allowed=await env.DB.prepare('SELECT ('+gate.sql+') AS ok').bind(...gate.args).first();if(!allowed?.ok)return {error:gate.reason};}
+    const before=saves[inviterId].credits;saves[inviterId].credits=Math.min(ADMIN_MAX_CREDITS,before+ownerReward);const granted=saves[inviterId].credits-before;
+    const welcome=applyReferralInviteeReward(saves[invitedUserId],inviteeReward);
+    return {result:{...response(true),ownerCreditsAdded:granted,welcome},guardSql:"EXISTS(SELECT 1 FROM referrals WHERE invited_user_id=? AND inviter_user_id=? AND status='processing' AND reason='authority-v77') AND "+limits.map(g=>'('+g.sql+')').join(' AND '),guardArgs:[invitedUserId,inviterId,...limits.flatMap(g=>g.args)],statements:({time,receiptSql,receiptArgs})=>[
+      env.DB.prepare("UPDATE referrals SET status='rewarded',reward_credits=?,reason='',rewarded_at=? WHERE invited_user_id=? AND "+receiptSql).bind(granted,time,invitedUserId,...receiptArgs)
+    ]};
+  }});
+  if(outcome.error){if(limits.some(g=>g.reason===outcome.error))await env.DB.prepare("UPDATE referrals SET status='rejected',reason=? WHERE invited_user_id=? AND status='processing' AND reason='authority-v77'").bind(outcome.error,invitedUserId).run();return response(false,outcome.error);}
+  return {...outcome.result,replay:!!outcome.replay};
+}
 async function processReferral(env,{invitedUserId,inviter,signals,t}){
   let reason='',rewarded=false;
   if(!inviter)return {provided:false,rewarded:false,rewardCredits:0,inviterLevel:0,inviteeReward:{credits:0,cases:{}},reason:''};
@@ -361,24 +383,16 @@ async function processReferral(env,{invitedUserId,inviter,signals,t}){
   if(!reason){const day=await env.DB.prepare("SELECT COUNT(*) AS c FROM referrals WHERE inviter_user_id=? AND status='rewarded' AND created_at>=?").bind(inviter.id,t-24*60*60*1000).first();if(Number(day?.c||0)>=REFERRAL_DAILY_LIMIT)reason='DAILY_LIMIT';}
   if(!reason){const month=await env.DB.prepare("SELECT COUNT(*) AS c FROM referrals WHERE inviter_user_id=? AND status='rewarded' AND created_at>=?").bind(inviter.id,t-30*24*60*60*1000).first();if(Number(month?.c||0)>=REFERRAL_MONTHLY_LIMIT)reason='MONTHLY_LIMIT';}
   const inviterLevel=await referralLevelForUser(env,inviter.id),tier=referralTier(inviterLevel),inviteeReward=cloneReferralReward(tier.inviteeReward),ownerReward=tier.inviterReward;
-  await env.DB.prepare(`INSERT OR IGNORE INTO referrals (invited_user_id,inviter_user_id,status,reward_credits,reason,network_hash,device_hash,created_at,rewarded_at) VALUES (?,?,?,?,?,?,?,?,?)`)
-    .bind(invitedUserId,inviter.id,reason?'rejected':'processing',0,reason,signals.networkHash||null,signals.deviceHash||null,t,null).run();
-  if(!reason){
-    const ownerChanged=await mutateTargetSave(env,inviter.id,save=>{const before=Math.max(0,Math.floor(Number(save.credits)||0)),after=Math.min(ADMIN_MAX_CREDITS,before+ownerReward);save.credits=after;return {before,after,delta:after-before};});
-    if(!ownerChanged.ok)reason='REWARD_WRITE_FAILED';
-    else{
-      const invitedChanged=await mutateTargetSave(env,invitedUserId,save=>applyReferralInviteeReward(save,inviteeReward));
-      if(!invitedChanged.ok){reason='INVITEE_REWARD_WRITE_FAILED';await mutateTargetSave(env,inviter.id,save=>{const before=Math.max(0,Math.floor(Number(save.credits)||0));save.credits=Math.max(0,before-Math.max(0,Number(ownerChanged.result?.delta)||0));return {before,after:save.credits};});}
-      else rewarded=true;
-    }
-  }
-  await env.DB.prepare('UPDATE referrals SET status=?,reward_credits=?,reason=?,rewarded_at=? WHERE invited_user_id=?').bind(rewarded?'rewarded':'rejected',rewarded?ownerReward:0,reason,rewarded?t:null,invitedUserId).run();
-  if(rewarded){
-    await env.DB.prepare('INSERT OR REPLACE INTO referral_reward_details (invited_user_id,inviter_level,invitee_reward_json,created_at) VALUES (?,?,?,?)').bind(invitedUserId,inviterLevel,JSON.stringify(inviteeReward),t).run();
+  await env.DB.batch([
+    env.DB.prepare(`INSERT OR IGNORE INTO referrals (invited_user_id,inviter_user_id,status,reward_credits,reason,network_hash,device_hash,created_at,rewarded_at) VALUES (?,?,?,?,?,?,?,?,?)`).bind(invitedUserId,inviter.id,reason?'rejected':'processing',0,reason||'authority-v77',signals.networkHash||null,signals.deviceHash||null,t,null),
+    env.DB.prepare("INSERT OR IGNORE INTO referral_reward_details (invited_user_id,inviter_level,invitee_reward_json,created_at) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM referrals WHERE invited_user_id=? AND status='processing' AND reason='authority-v77')").bind(invitedUserId,inviterLevel,JSON.stringify(inviteeReward),t,invitedUserId)
+  ]);
+  const settled=await settlePendingReferral(env,invitedUserId);rewarded=!!settled?.rewarded;reason=settled?.reason||reason;
+  if(rewarded&&!settled?.replay){
     try{await writeGameLog(env,{category:'system',eventType:'referral_reward',actorRole:'SYSTEM',targetUserId:inviter.id,targetUsername:inviter.username,source:'REFERRAL',subject:`Реферальная награда · LVL ${inviterLevel}`,amount:ownerReward,currency:'CR',relatedId:invitedUserId,metadata:{invitedUserId,inviterLevel,rewardCredits:ownerReward,inviteeReward},createdAt:t});}catch(e){console.error('referral log',e);}
     try{await writeGameLog(env,{category:'system',eventType:'referral_welcome_reward',actorRole:'SYSTEM',targetUserId:invitedUserId,source:'REFERRAL',subject:`Бонус новичка · реферал LVL ${inviterLevel}`,amount:inviteeReward.credits,currency:'CR',relatedId:inviter.id,metadata:{inviterUserId:inviter.id,inviterUsername:inviter.username,inviterLevel,inviteeReward},createdAt:t});}catch(e){console.error('referral welcome log',e);}
   }
-  return {provided:true,rewarded,rewardCredits:rewarded?ownerReward:0,inviterLevel,inviteeReward:rewarded?inviteeReward:{credits:0,cases:{}},reason};
+  return settled||{provided:true,rewarded:false,rewardCredits:0,inviterLevel,inviteeReward:{credits:0,cases:{}},reason};
 }
 async function handleReferralRequest(request,env,url){
   await ensureRewardSchema(env);if(!sameOrigin(request)&&request.method!=='GET')return json({error:'ORIGIN_REJECTED'},403);
@@ -401,6 +415,7 @@ async function handleReferralRequest(request,env,url){
       ]};
     }});
     if(outcome.error)return json({error:outcome.error,profile:await referralProfile(env,userId)},409);
+    if(!outcome.replay)try{await writeGameLog(env,{category:'purchases',eventType:'referral_level_upgrade',actorUserId:userId,actorUsername:session.user.username,targetUserId:userId,source:'REFERRAL',subject:`Реферальная система · LVL ${target}`,amount:outcome.result.cost,currency:'CR',relatedId:outcome.transactionId,metadata:outcome.result});}catch(e){console.error('referral upgrade log',e);}
     const profile=await referralProfile(env,userId);return json({...outcome,profile,result:{...outcome.result,profile}});
   }
   return json({error:'NOT_FOUND'},404);
@@ -413,18 +428,26 @@ async function handlePromoRequest(request,env,url){
   if(url.pathname==='/api/promocodes/redeem'&&request.method==='POST'){
     const b=await readBody(request),code=normalizePromoCode(b?.code);if(!validPromoCode(code))return json({error:'PROMO_INVALID'},400);
     const promo=await env.DB.prepare('SELECT * FROM promo_codes WHERE code=? COLLATE NOCASE LIMIT 1').bind(code).first();if(!promo)return json({error:'PROMO_NOT_FOUND'},404);
-    const t=now();if(!promo.enabled)return json({error:'PROMO_DISABLED'},409);if(Number(promo.starts_at)>t)return json({error:'PROMO_NOT_STARTED'},409);if(Number(promo.expires_at)>0&&Number(promo.expires_at)<=t)return json({error:'PROMO_EXPIRED'},409);
-    const prior=await env.DB.prepare('SELECT redeemed_at FROM promo_redemptions WHERE promo_id=? AND user_id=? LIMIT 1').bind(promo.id,access.session.user.id).first();if(prior)return json({error:'PROMO_ALREADY_USED',redeemedAt:Number(prior.redeemed_at)||0},409);
+    const t=now();
     const reward=normalizePromoReward(JSON.parse(promo.reward_json||'{}'));if(!reward)return json({error:'PROMO_REWARD_INVALID'},500);
-    const reserved=await env.DB.prepare(`UPDATE promo_codes SET uses_count=uses_count+1,updated_at=? WHERE id=? AND enabled=1 AND starts_at<=? AND (expires_at=0 OR expires_at>?) AND (max_uses=0 OR uses_count<max_uses)`).bind(t,promo.id,t,t).run();
-    if(Number(reserved?.meta?.changes||0)!==1)return json({error:'PROMO_LIMIT_REACHED'},409);
-    const redemptionId=crypto.randomUUID();
-    try{await env.DB.prepare('INSERT INTO promo_redemptions (id,promo_id,user_id,reward_json,redeemed_at) VALUES (?,?,?,?,?)').bind(redemptionId,promo.id,access.session.user.id,JSON.stringify(reward),t).run();}
-    catch(e){await env.DB.prepare('UPDATE promo_codes SET uses_count=MAX(0,uses_count-1),updated_at=? WHERE id=?').bind(now(),promo.id).run();return json({error:'PROMO_ALREADY_USED'},409);}
-    const changed=await mutateTargetSave(env,access.session.user.id,save=>applyPromoReward(save,reward));
-    if(changed.error){await env.DB.batch([env.DB.prepare('DELETE FROM promo_redemptions WHERE id=?').bind(redemptionId),env.DB.prepare('UPDATE promo_codes SET uses_count=MAX(0,uses_count-1),updated_at=? WHERE id=?').bind(now(),promo.id)]);return json({error:changed.error},changed.error==='SAVE_CONFLICT'?409:500);}
-    try{await writeGameLog(env,{category:'system',eventType:'promo_redeem',actorUserId:access.session.user.id,actorUsername:access.session.user.username,actorRole:access.session.user.isAdmin?'OWNER':'PLAYER',targetUserId:access.session.user.id,targetUsername:access.session.user.username,source:'PROMOCODE',subject:`Промокод ${promo.code}`,amount:Number(changed.result?.creditsAdded)||0,currency:'CR',relatedId:redemptionId,metadata:{promoId:promo.id,code:promo.code,title:promo.title||'',reward,result:changed.result},createdAt:t});}catch(e){console.error('promo log',e);}
-    return json({ok:true,code:promo.code,title:promo.title||'',reward,result:changed.result,revision:changed.revision,updatedAt:changed.updatedAt});
+    const userId=access.session.user.id;
+    const changed=await applyAccountTransaction(env,{actorId:userId,requestId:'promo-'+promo.id,type:'promo:redeem',accountIds:[userId],plan:async saves=>{
+      if(await env.DB.prepare('SELECT 1 AS ok FROM promo_redemptions WHERE promo_id=? AND user_id=?').bind(promo.id,userId).first())return {error:'PROMO_ALREADY_USED'};
+      const current=await env.DB.prepare('SELECT * FROM promo_codes WHERE id=?').bind(promo.id).first(),time=now();
+      if(!current?.enabled)return {error:'PROMO_DISABLED'};
+      if(Number(current.starts_at)>time)return {error:'PROMO_NOT_STARTED'};
+      if(Number(current.expires_at)>0&&Number(current.expires_at)<=time)return {error:'PROMO_EXPIRED'};
+      if(Number(current.max_uses)>0&&Number(current.uses_count)>=Number(current.max_uses))return {error:'PROMO_LIMIT_REACHED'};
+      const frozen=normalizePromoReward(JSON.parse(current.reward_json||'{}'));if(!frozen)return {error:'PROMO_REWARD_INVALID'};
+      const result=applyPromoReward(saves[userId],frozen);
+      return {result:{...result,code:current.code,title:current.title||'',reward:frozen},guardSql:'EXISTS(SELECT 1 FROM promo_codes WHERE id=? AND enabled=1 AND starts_at<=? AND (expires_at=0 OR expires_at>?) AND (max_uses=0 OR uses_count<max_uses) AND reward_json=?) AND NOT EXISTS(SELECT 1 FROM promo_redemptions WHERE promo_id=? AND user_id=?)',guardArgs:[promo.id,time,time,current.reward_json,promo.id,userId],statements:({transactionId,time,receiptSql,receiptArgs})=>[
+        env.DB.prepare('UPDATE promo_codes SET uses_count=uses_count+1,updated_at=? WHERE id=? AND '+receiptSql).bind(time,promo.id,...receiptArgs),
+        env.DB.prepare('INSERT INTO promo_redemptions(id,promo_id,user_id,reward_json,redeemed_at) SELECT ?,?,?,?,? WHERE '+receiptSql).bind(transactionId,promo.id,userId,JSON.stringify(frozen),time,...receiptArgs)
+      ]};
+    }});
+    if(changed.error)return json({error:changed.error},409);
+    if(!changed.replay)try{await writeGameLog(env,{category:'system',eventType:'promo_redeem',actorUserId:userId,actorUsername:access.session.user.username,targetUserId:userId,source:'PROMOCODE',subject:`Промокод ${promo.code}`,amount:Number(changed.result?.creditsAdded)||0,currency:'CR',relatedId:changed.transactionId,metadata:{promoId:promo.id,reward:changed.result.reward},createdAt:t});}catch(e){console.error('promo log',e);}
+    return json({...changed,code:changed.result.code,title:changed.result.title,reward:changed.result.reward});
   }
   return json({error:'NOT_FOUND'},404);
 }
@@ -663,7 +686,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
       return await handleRaceAuthority(request,env,url,session,{readBody,saveRow,applyEconomyOperation,settings});
     }
-    if(url.pathname.startsWith('/api/promocodes/'))return handlePromoRequest(request,env,url);
+    if(url.pathname.startsWith('/api/promocodes/'))return await handlePromoRequest(request,env,url);
     if(url.pathname.startsWith('/api/referrals/'))return await handleReferralRequest(request,env,url);
     if(url.pathname.startsWith('/api/friends'))return handleFriendsRequest(request,env,url);
     if(url.pathname.startsWith('/api/admin/'))return handleAdminRequest(request,env,url);
@@ -736,6 +759,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     if(url.pathname==='/api/auth/me'&&request.method==='GET'){
       const session=await currentSession(env,request);if(!session)return json({authenticated:false});
       const banned=await banResponse(env,session.user);if(banned)return banned;
+      try{await settlePendingReferral(env,session.user.id);}catch(e){console.error('referral recovery',e);}
       const cloud=await saveRow(env,session.user.id);
       return json({authenticated:true,user:session.user,saveRevision:cloud.revision,saveUpdatedAt:cloud.updatedAt});
     }
@@ -808,4 +832,4 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
   }
 }
 
-export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse,REFERRAL_LEVELS,readBody};
+export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse,REFERRAL_LEVELS,readBody,processReferral,settlePendingReferral};
