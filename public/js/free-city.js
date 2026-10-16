@@ -842,7 +842,6 @@
     // Rooftop court, cafe parasols and park benches make districts recognizable.
     rr(c,1795,560,190,300,8,'#c8c5a6');rr(c,1807,574,166,269,5,'#608b83');
     c.strokeStyle='#ece5ca';c.lineWidth=3;c.strokeRect(1822,590,136,234);path(c,[[1822,707],[1958,707]],'#ece5ca',3);ellipse(c,1890,707,30,30,'#6e9b89');
-    for(const [x,y] of [[1882,1260],[2730,1490],[2728,1570]]){ellipse(c,x+4,y+7,23,21,'#354b3e33');ellipse(c,x,y,22,22,'#ede4ca');path(c,[[x-18,y],[x+18,y]],'#d5a171',5);path(c,[[x,y-18],[x,y+18]],'#d5a171',5);}
     for(const [x,y] of [[1260,1220],[1450,1380],[1260,1390],[1450,1210]]){fill(c,x,y,30,9,'#9b7952');fill(c,x+3,y+8,3,6,'#4b6050');fill(c,x+24,y+8,3,6,'#4b6050');}
     // Compact wayfinding signs sit on sidewalks, clear of the driving line.
     for(const [x,y,label,color] of [[1850,1590,'MEET →','#c0dd8f'],[1050,1870,'↓ PORT','#d3b0e5'],[3020,2380,'↓ AIRPORT','#acd9e7']]){
