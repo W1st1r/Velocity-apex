@@ -25,12 +25,19 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Install Playwright WebKit and system dependencies
         run: npx playwright install --with-deps webkit
+      - name: Reuse unchanged successful case visual checks
+        id: case-visual-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/case-v7632
+          key: case-webkit-v1-${{ runner.os }}-node22-${{ hashFiles('package-lock.json', 'tests/case_results_v763_mobile.mjs', 'public/css/style.css', 'public/css/mobile-ui.css', 'public/css/cases-v763.css', 'public/js/content.js', 'public/js/garage.js') }}
       - name: Run mobile case roulette visual regression
+        if: steps.case-visual-cache.outputs.cache-hit != 'true'
         run: npm run test:cases:mobile
         env:
           CASE_SCREENSHOT_DIR: artifacts/case-v7632
       - name: Upload mobile case screenshots
-        if: always()
+        if: always() && steps.case-visual-cache.outputs.cache-hit != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: case-header-v7632-webkit

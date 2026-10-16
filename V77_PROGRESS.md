@@ -78,3 +78,10 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 - Added ordinary-room event serialization for WebSocket messages, disconnects and alarms so an awaited D1 reservation cannot race a leave/refund callback. Free-roam state fan-out remains on its existing path.
 - Added an actual Room concurrent start/leave test; balances are conserved and the journal is refunded once. Fixed failed wallet refresh markers to allow a later retry.
 - Targeted Room lifecycle/escrow/recovery/concurrency, presence timeout, account auth smoke and online UI tests passed. CI for a5752bf was in progress when this follow-up was prepared; no deployment requested.
+
+## 2026-10-16 - Regression and browser follow-up
+- CI 38940204112 executed and passed the expanded actual-page WebKit race scenario on iPhone 13 Mini and 17 Pro Max landscape, including fresh restart. The job then failed an old prefix smoke assertion requiring the historical online.js version query; retained that compatible query and added the new authority cache parameter. Local npm test and test:v74 both passed after this correction.
+- Added an explicit in-flight-autosave restart fixture. Account flushSave now shares an active save promise rather than returning a spurious failure, has a 15-second network timeout, and reschedules a newer queued snapshot. Targeted account/UI smoke and syntax checks passed; new WebKit variant awaits CI.
+- Server-wallet display updates no longer queue another snapshot write. Added escrow overflow/fractional-balance rejection tests (passed).
+- Added successful-case-visual-result caching keyed by the fixture's exact CSS/JS/lockfile inputs, avoiding repeated screenshots of unchanged cases. Cache is populated only by a successful job. New race/mobile and economy checks remain live.
+- Continue from server-controlled multiplayer input/result validation and online drift reward migration. Do not enforce preferences-only snapshots or publish until all currently used economic actions have server replacements. No production deployment or intermediate PDF.

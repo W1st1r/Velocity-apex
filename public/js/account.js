@@ -117,17 +117,22 @@
     catch(e){state.user=null;render();if(e.code==='ACCOUNT_BANNED')banned={ban:e.ban,user:e.data?.user};}
     finally{state.bootstrapped=true;startStatusWatch();if(banned){if(banned.user)rememberAccount(banned.user);showBan(banned.ban,banned.user);}else if(state.user){enterGame();}else{enterGuestGame();}}
   }
-  async function flushSave(){
+  let saveFlight=null;
+  function flushSave(){
+    if(saveFlight)return saveFlight;
+    saveFlight=performSave().finally(()=>{saveFlight=null;});return saveFlight;
+  }
+  async function performSave(){
     clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
-    const snapshot=normalizeSave(state.lastSave);
-    try{const data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({save:snapshot,revision:state.revision})});state.revision=data.revision||state.revision;els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;}
+    const source=state.lastSave,snapshot=normalizeSave(source),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+    try{const data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({save:snapshot,revision:state.revision}),signal:controller.signal});state.revision=data.revision||state.revision;els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;}
     catch(e){
       if(e.code==='SAVE_CONFLICT'){
         state.revision=Number(e.data?.revision)||state.revision;if(e.data?.save)applySave(e.data.save);els.sync.textContent='ОБНОВЛЕНО С СЕРВЕРА';setMessage('Профиль обновлён сервером.',false,true);return true;
       }
       if(e.code==='ACCOUNT_BANNED'){showBan(e.ban,e.data?.user);window.dispatchEvent(new CustomEvent('velocity-account-banned',{detail:e.data||{}}));}else if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;
     }
-    finally{state.syncing=false;}
+    finally{clearTimeout(timeout);state.syncing=false;if(state.user&&state.lastSave!==source){clearTimeout(state.syncTimer);state.syncTimer=setTimeout(flushSave,0);}}
   }
   async function economyTransaction(endpoint,payload){
     if(!state.user)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});
