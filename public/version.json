@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V76.1",
+  "version": "V76.2",
   "theme": "Race Control Blue",
-  "update": "Transparent Case RTP, STANDARD / RISK Upgrade, and Mobile UI Fixes",
+  "update": "UPGRADE bankroll protection, 98% / 94% modes, transparent risk caps, and server quote clarity",
   "released": "2026-10-16",
-  "release": "Effects case RTP rebalance, server-calculated STANDARD / RISK upgrade, 25% protected refund, blue mobile target empty state, and refreshed asset cache"
+  "release": "RTP-adjusted upgrade modes with 10% / 5% net-worth attempt limits, explicit 25% loss refund, and cache-busted garage script"
 }

@@ -1,12 +1,14 @@
 // Velocity Apex V69 · universal server-authoritative upgrade policy.
-// Standard payout: 96% before cap. Protected: 25% of stake refunded on loss; probability is adjusted for the same expected payout.
+// Standard payout: mode-specific nominal RTP. Protected: 25% of stake refunded on loss; probability is adjusted for the same expected payout.
 export const UPGRADE_CONFIG=Object.freeze({
-  returnBps:9600,          // universal, never depends on account, level or streak
-  riskReturnBps:8000,      // openly displayed high-risk profile; same server RNG and target values
+  returnBps:9800,          // conservative STANDARD house edge; never depends on account or streak
+  riskReturnBps:9400,      // higher RISK volatility/edge; identical RNG and target-value semantics
   minChanceBps:100,
-  maxChanceBps:9500,
+  maxChanceBps:9900,
   chanceDivisor:1,
-  protectionRefundBps:2500, // failed protected bet returns 25% of the full estimated stake as CR
+  protectionRefundBps:2500, // failed protected bet returns 25% of the assessed stake as CR
+  standardMaxStakeShareBps:1000, // limit exposure to 10% of current CR + owned item value per attempt
+  riskMaxStakeShareBps:500,      // RISK limit exposure to 5% per attempt
   maxStakeItems:12,
   maxCredits:999999999
 });
