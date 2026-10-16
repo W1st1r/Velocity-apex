@@ -28,7 +28,7 @@ console.log('room_wager_escrow_v77_test: atomic lock/payout/refund, retries, con
 // Refuse overflow without consuming the escrow; a later refund remains possible.
 for(const id of ['overflow-a','overflow-b'])insert.run(id,JSON.stringify({credits:100}));
 assert((await lock('overflow',['overflow-a','overflow-b'],10)).ok);
-db.prepare("UPDATE player_saves SET save_json=json_set(save_json,'$.credits',?) WHERE user_id='overflow-a'").run(Number.MAX_SAFE_INTEGER);
+db.prepare("UPDATE player_saves SET save_json=json_set(save_json,'$.credits',CAST(? AS INTEGER)) WHERE user_id='overflow-a'").run(Number.MAX_SAFE_INTEGER);assert.equal(balance('overflow-a'),Number.MAX_SAFE_INTEGER,'fixture must store an exact integer before testing payout');
 assert.equal((await settleRoomWager(DB,{raceId:'overflow',winnerUserId:'overflow-a'})).code,'WAGER_PAYOUT_BLOCKED');assert.equal(balance('overflow-a'),Number.MAX_SAFE_INTEGER);assert.equal(db.prepare("SELECT status FROM room_wager_escrows WHERE race_id='overflow'").get().status,'locked');
 db.prepare("UPDATE player_saves SET save_json=json_set(save_json,'$.credits',100) WHERE user_id='overflow-a'").run();assert((await settleRoomWager(DB,{raceId:'overflow',refund:true})).ok);
 insert.run('fractional',JSON.stringify({credits:50.5}));assert.equal((await lock('fraction',['fractional','overflow-b'],5)).code,'INSUFFICIENT_CR');assert.equal(balance('fractional'),50.5);
