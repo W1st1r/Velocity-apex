@@ -7,7 +7,8 @@
   };
   if(!els.root||!els.button||!els.gate)return;
 
-  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0,pendingEconomy:new Map(),saveGeneration:0};
+  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0,pendingEconomy:new Map(),saveGeneration:0,savedGeneration:-1};
+  let preferenceTools=null;const preferenceToolsReady=import('./account-preferences-v77.mjs').then(module=>{preferenceTools=module;return module;}).catch(()=>null);
   const errors={CLIENT_UPDATE_REQUIRED:'Обновите игру: старый формат сохранений больше не принимается.',SERVER_STATE_ONLY:'Баланс и имущество изменяются только игровыми действиями на сервере.',INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
   function installId(){try{let id=localStorage.getItem(INSTALL_KEY)||'';if(!/^[A-Za-z0-9_-]{16,128}$/.test(id)){id=(crypto.randomUUID?.()||String(Date.now())+Math.random()).replace(/[^A-Za-z0-9_-]/g,'');localStorage.setItem(INSTALL_KEY,id);}return id;}catch{return '';} }
@@ -118,15 +119,17 @@
     finally{state.bootstrapped=true;startStatusWatch();if(banned){if(banned.user)rememberAccount(banned.user);showBan(banned.ban,banned.user);}else if(state.user){enterGame();}else{enterGuestGame();}}
   }
   let saveFlight=null;
-  function flushSave(){
-    if(saveFlight)return saveFlight;
-    saveFlight=performSave().finally(()=>{saveFlight=null;});return saveFlight;
+  async function flushSave(){
+    if(!saveFlight){const generation=state.saveGeneration;saveFlight=performSave().then(ok=>{if(ok)state.savedGeneration=Math.max(state.savedGeneration,generation);return ok;}).finally(()=>{saveFlight=null;});}
+    const ok=await saveFlight;
+    if(ok&&state.savedGeneration<state.saveGeneration)return flushSave();
+    return ok;
   }
   async function performSave(){
     clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
     const generation=state.saveGeneration,snapshot=normalizeSave(state.lastSave),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
     try{
-      const {preferencesFromSave}=await import('./account-preferences-v77.mjs'),preferences=preferencesFromSave(snapshot);let data;
+      const {preferencesFromSave}=await preferenceToolsReady,preferences=preferencesFromSave(snapshot);let data;
       for(let attempt=0;attempt<3;attempt++){
         try{data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({preferences,revision:state.revision}),signal:controller.signal});break;}
         catch(e){if(e.code!=='SAVE_CONFLICT'||attempt===2)throw e;state.revision=Number(e.data?.revision)||state.revision;}
@@ -232,7 +235,7 @@
   els.button.addEventListener('click',open);els.close.addEventListener('click',close);els.loginTab.addEventListener('click',()=>setMode('login'));els.registerTab.addEventListener('click',()=>setMode('register'));els.form.addEventListener('submit',onSubmit);els.logout.addEventListener('click',logout);
   els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave,revision:state.revision}),keepalive:true}).catch(()=>{});});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave&&preferenceTools)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({preferences:preferenceTools.preferencesFromSave(state.lastSave),revision:state.revision}),keepalive:true}).catch(()=>{});});
   window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,raceRequest,economyTransaction,caseTransaction,open,enterGame,enterGuestGame,requestAuth};
   setMode('login');setGateMode('login');render();bootstrap();
 })();
