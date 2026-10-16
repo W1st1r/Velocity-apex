@@ -1,5 +1,10 @@
 import {maintenanceGate,settings} from './owner.mjs';
 import {writeGameLog,classifyAuditAction,detectSavePurchases} from './logs.mjs';
+import {CASES as SERVER_CASES} from './case-catalog.mjs';
+import {openCaseBatch} from './economy.mjs';
+import {CARS as SERVER_CARS} from './car-catalog.mjs';
+import {UPGRADE_EFFECT_VALUES as SERVER_EFFECTS} from './upgrade-config.mjs';
+import {GARAGE_ECONOMY} from './tuning-catalog.mjs';
 const SESSION_COOKIE='va_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
 const PASSWORD_ITERATIONS=100000;
@@ -193,6 +198,39 @@ async function mutateTargetSave(env,id,mutator){
     const written=await writeSave(env,id,save,row.revision);
     if(written.ok)return {ok:true,result:result||{},revision:written.revision,updatedAt:written.updatedAt,detail:await accountDetail(env,id)};
     if(written.error!=='SAVE_CONFLICT')return {error:written.error};
+  }
+  return {error:'SAVE_CONFLICT'};
+}
+
+async function ensureEconomySchema(env){
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS economy_operations (
+    user_id TEXT NOT NULL, request_id TEXT NOT NULL, operation_type TEXT NOT NULL,
+    response_json TEXT NOT NULL, created_at INTEGER NOT NULL,
+    PRIMARY KEY(user_id,request_id), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  )`).run();
+}
+async function applyEconomyOperation(env,userId,requestId,type,mutator){
+  const existing=await env.DB.prepare('SELECT operation_type,response_json FROM economy_operations WHERE user_id=? AND request_id=?').bind(userId,requestId).first();
+  if(existing){if(existing.operation_type!==type)return {error:'IDEMPOTENCY_KEY_REUSED'};try{return {replay:true,...JSON.parse(existing.response_json)};}catch{return {error:'OPERATION_RECORD_INVALID'};}}
+  for(let attempt=0;attempt<6;attempt++){
+    let row=await saveRow(env,userId);
+    if(!row.save){const initialized=await writeSave(env,userId,defaultSave(),row.revision);if(!initialized.ok&&initialized.error!=='SAVE_CONFLICT')return {error:initialized.error};row=await saveRow(env,userId);}
+    const save=structuredClone(row.save),result=mutator(save);if(result?.error)return result;
+    const nextRevision=row.revision+1,t=now(),response={ok:true,result:result||{},save,revision:nextRevision,updatedAt:t},text=safeSave(save);
+    if(!text)return {error:'INVALID_SAVE'};
+    try{
+      const batch=await env.DB.batch([
+        env.DB.prepare('UPDATE player_saves SET save_json=?,revision=revision+1,updated_at=? WHERE user_id=? AND revision=?').bind(text,t,userId,row.revision),
+        env.DB.prepare('INSERT INTO economy_operations(user_id,request_id,operation_type,response_json,created_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(userId,requestId,type,JSON.stringify(response),t)
+      ]);
+      if(Number(batch?.[0]?.meta?.changes||0)===1)return response;
+    }catch(error){
+      const replay=await env.DB.prepare('SELECT operation_type,response_json FROM economy_operations WHERE user_id=? AND request_id=?').bind(userId,requestId).first();
+      if(replay){if(replay.operation_type!==type)return {error:'IDEMPOTENCY_KEY_REUSED'};try{return {replay:true,...JSON.parse(replay.response_json)};}catch{return {error:'OPERATION_RECORD_INVALID'};}}
+      throw error;
+    }
+    const replay=await env.DB.prepare('SELECT operation_type,response_json FROM economy_operations WHERE user_id=? AND request_id=?').bind(userId,requestId).first();
+    if(replay){if(replay.operation_type!==type)return {error:'IDEMPOTENCY_KEY_REUSED'};try{return {replay:true,...JSON.parse(replay.response_json)};}catch{return {error:'OPERATION_RECORD_INVALID'};}}
   }
   return {error:'SAVE_CONFLICT'};
 }
@@ -586,14 +624,74 @@ export async function freeAccountIdentity(env,request){
 }
 
 export async function handleAuthRequest(request,env,url=new URL(request.url)){
-  if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/admin/')&&!url.pathname.startsWith('/api/friends')&&!url.pathname.startsWith('/api/promocodes/')&&!url.pathname.startsWith('/api/referrals/'))return null;
+  if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/economy/')&&!url.pathname.startsWith('/api/admin/')&&!url.pathname.startsWith('/api/friends')&&!url.pathname.startsWith('/api/promocodes/')&&!url.pathname.startsWith('/api/referrals/'))return null;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{
     await ensureAdminSchema(env);await ensureRewardSchema(env);
+    if(url.pathname.startsWith('/api/economy/'))await ensureEconomySchema(env);
     if(url.pathname.startsWith('/api/promocodes/'))return handlePromoRequest(request,env,url);
     if(url.pathname.startsWith('/api/referrals/'))return handleReferralRequest(request,env,url);
     if(url.pathname.startsWith('/api/friends'))return handleFriendsRequest(request,env,url);
     if(url.pathname.startsWith('/api/admin/'))return handleAdminRequest(request,env,url);
+    if((url.pathname.startsWith('/api/economy/cases/')||/^\/api\/economy\/(store\/(buy|sell)|tuning\/(upgrade|style))$/.test(url.pathname))&&request.method==='POST'){
+      if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+      const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
+      let b;try{b=await readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
+      const requestId=String(b?.requestId||''),caseId=String(b?.caseId||''),quantity=Number(b?.quantity);
+      if(!/^[\w-]{16,80}$/.test(requestId))return json({error:'IDEMPOTENCY_KEY_REQUIRED'},400);
+      if(url.pathname==='/api/economy/store/buy'){
+        const kind=b?.kind==='livery'?'livery':b?.kind==='effect'?'effect':'';const id=String(b?.id||''),catalog=kind==='livery'?SERVER_CARS:kind==='effect'?SERVER_EFFECTS:null,item=catalog?.[id];
+        if(!item||!kind||kind==='livery'&&(!item.enabled||item.unavailable||item.limited))return json({error:'INVALID_ITEM'},400);
+        const result=await applyEconomyOperation(env,session.user.id,requestId,'store_buy',save=>{
+          const key=kind==='livery'?'ownedLiveries':'ownedEffects',selected=kind==='livery'?'selectedLivery':'selectedEffect';if(!Array.isArray(save[key]))save[key]=[];
+          if(save[key].includes(id)){save[selected]=id;return {status:'selected',kind,id,cost:0};}
+          const cost=Math.max(0,Math.floor(Number(item.price)||0)),balance=Math.max(0,Math.floor(Number(save.credits)||0));if(balance<cost)return {error:'INSUFFICIENT_CR'};
+          save.credits=balance-cost;save[key].push(id);return {status:'purchased',kind,id,cost};
+        });
+        if(result.error)return json({error:result.error},result.error==='INSUFFICIENT_CR'?409:400);
+        if(!result.replay){try{await writeGameLog(env,{category:'purchases',eventType:'store_purchase',actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'SERVER_STORE_API',subject:`${kind}: ${item.name||id}`,amount:-(result.result?.cost||0),currency:'CR',metadata:{kind,id}});}catch(e){console.error('store economy log',e);}}
+        return json(result);
+      }
+      if(url.pathname==='/api/economy/store/sell'){
+        const id=String(b?.id||''),item=SERVER_CARS[id],cfg=GARAGE_ECONOMY.cars[id];if(!item||!cfg)return json({error:'INVALID_ITEM'},400);
+        const result=await applyEconomyOperation(env,session.user.id,requestId,'car_sell',save=>{
+          if(!Array.isArray(save.ownedLiveries)||!save.ownedLiveries.includes(id))return {error:'CAR_NOT_OWNED'};if(id==='apexLime')return {error:'CAR_PROTECTED'};
+          let total=Math.max(0,Math.floor(Number(item.price)||0));const levels=save.carUpgrades?.[id]||{};
+          for(const [key,costs] of Object.entries(cfg.upgradeCosts)){const level=Math.max(0,Math.min(5,Math.floor(Number(levels[key])||0)));for(let i=0;i<level;i++)total+=Math.max(0,Math.floor(Number(costs[i])||0));}
+          const style=save.carCustomizations?.[id]||{};for(const color of style.ownedColors||[])total+=Math.max(0,Math.floor(Number(cfg.paintCosts[color])||0));for(const vinyl of style.ownedVinyls||[])total+=Math.max(0,Math.floor(Number(cfg.vinylCosts[vinyl])||0));
+          const payout=Math.max(0,Math.floor(total*GARAGE_ECONOMY.sellRate));save.credits=Math.min(ADMIN_MAX_CREDITS,Math.max(0,Math.floor(Number(save.credits)||0))+payout);save.ownedLiveries=save.ownedLiveries.filter(x=>x!==id);if(save.carUpgrades)delete save.carUpgrades[id];if(save.carCustomizations)delete save.carCustomizations[id];if(save.selectedLivery===id)save.selectedLivery=save.ownedLiveries.includes('apexLime')?'apexLime':(save.ownedLiveries[0]||'apexLime');
+          return {status:'sold',id,total,payout,credits:save.credits,selectedLivery:save.selectedLivery};
+        });
+        if(result.error)return json({error:result.error},result.error==='SAVE_CONFLICT'?409:400);
+        return json(result);
+      }
+      if(url.pathname==='/api/economy/tuning/upgrade'||url.pathname==='/api/economy/tuning/style'){
+        const id=String(b?.id||''),cfg=GARAGE_ECONOMY.cars[id],car=SERVER_CARS[id];if(!cfg||!car?.enabled||car.unavailable||car.limited)return json({error:'INVALID_ITEM'},400);
+        const styleAction=url.pathname.endsWith('/style'),type=styleAction?'tuning_style':'tuning_upgrade';
+        const result=await applyEconomyOperation(env,session.user.id,requestId,type,save=>{
+          if(!Array.isArray(save.ownedLiveries)||!save.ownedLiveries.includes(id))return {error:'CAR_NOT_OWNED'};
+          if(!styleAction){const key=String(b?.key||''),costs=cfg.upgradeCosts[key],level=Math.max(0,Math.floor(Number(save.carUpgrades?.[id]?.[key])||0));if(!costs)return {error:'INVALID_UPGRADE'};if(level>=5)return {error:'UPGRADE_MAX'};if(Number(b?.expectedLevel)!==level)return {error:'STALE_UPGRADE'};const cost=Math.max(0,Math.floor(Number(costs[level])||0)),balance=Math.max(0,Math.floor(Number(save.credits)||0));if(balance<cost)return {error:'INSUFFICIENT_CR'};save.credits=balance-cost;if(!save.carUpgrades||typeof save.carUpgrades!=='object')save.carUpgrades={};if(!save.carUpgrades[id])save.carUpgrades[id]={speed:0,acceleration:0,brakes:0};save.carUpgrades[id][key]=level+1;return {status:'purchased',id,key,cost,level:level+1};}
+          const kind=b?.kind==='color'?'color':b?.kind==='vinyl'?'vinyl':'';if(!kind)return {error:'INVALID_STYLE'};const value=String(b?.value||''),costMap=kind==='color'?cfg.paintCosts:cfg.vinylCosts;if(!Object.hasOwn(costMap,value))return {error:'INVALID_STYLE'};
+          const free=kind==='color'?'stock':'none',ownedKey=kind==='color'?'ownedColors':'ownedVinyls',selectedKey=kind==='color'?'colorId':'vinylId';if(!save.carCustomizations||typeof save.carCustomizations!=='object')save.carCustomizations={};const current=save.carCustomizations[id]&&typeof save.carCustomizations[id]==='object'?save.carCustomizations[id]:{};const owned=Array.isArray(current[ownedKey])?current[ownedKey]:[free];if(!owned.includes(free))owned.unshift(free);const cost=owned.includes(value)?0:Math.max(0,Math.floor(Number(costMap[value])||0)),balance=Math.max(0,Math.floor(Number(save.credits)||0));if(balance<cost)return {error:'INSUFFICIENT_CR'};if(cost)save.credits=balance-cost;if(!owned.includes(value))owned.push(value);current[ownedKey]=owned;current[selectedKey]=value;save.carCustomizations[id]=current;return {status:cost?'purchased':'applied',id,kind,value,cost};
+        });
+        if(result.error)return json({error:result.error},result.error==='INSUFFICIENT_CR'?409:400);return json(result);
+      }
+      if(!Object.hasOwn(SERVER_CASES,caseId)||!Number.isInteger(quantity)||quantity<1||quantity>10)return json({error:'INVALID_CASE_REQUEST'},400);
+      const action=url.pathname.endsWith('/buy')?'case_buy':url.pathname.endsWith('/open')?'case_open':'';if(!action)return json({error:'NOT_FOUND'},404);
+      const box=SERVER_CASES[caseId],result=await applyEconomyOperation(env,session.user.id,requestId,action,save=>{
+        const credits=Math.max(0,Math.floor(Number(save.credits)||0)),inventory=save.caseInventory&&typeof save.caseInventory==='object'&&!Array.isArray(save.caseInventory)?save.caseInventory:(save.caseInventory={});
+        if(action==='case_buy'){
+          const cost=box.price*quantity,owned=Math.max(0,Math.floor(Number(inventory[caseId])||0));
+          if(credits<cost)return {error:'INSUFFICIENT_CR'};if(owned+quantity>999)return {error:'CASE_LIMIT'};
+          save.credits=credits-cost;inventory[caseId]=owned+quantity;return {status:'purchased',caseId,quantity,cost,remaining:inventory[caseId]};
+        }
+        const owned=Math.max(0,Math.floor(Number(inventory[caseId])||0)),count=Math.min(quantity,owned);if(count<1)return {error:'NO_CASES'};
+          const opened=openCaseBatch(save,caseId,count);return opened.error?opened:{status:'opened',caseId,...opened};
+      });
+      if(result.error){const status=result.error==='INSUFFICIENT_CR'?409:result.error==='NO_CASES'?409:result.error==='SAVE_CONFLICT'?409:400;return json({error:result.error},status);}
+      if(!result.replay){try{await writeGameLog(env,{category:action==='case_buy'?'purchases':'rewards',eventType:action,actorUserId:session.user.id,actorUsername:session.user.username,actorRole:session.user.isAdmin?'OWNER':'PLAYER',targetUserId:session.user.id,targetUsername:session.user.username,source:'SERVER_CASE_API',subject:box.name,amount:action==='case_buy'?-box.price*quantity:(result.result?.results||[]).reduce((sum,x)=>sum+(x.compensation||0),0),currency:'CR',metadata:{caseId,quantity,resultCount:result.result?.results?.length||0}});}catch(e){console.error('case economy log',e);}}
+      return json(result);
+    }
     if(url.pathname==='/api/auth/me'&&request.method==='GET'){
       const session=await currentSession(env,request);if(!session)return json({authenticated:false});
       const banned=await banResponse(env,session.user);if(banned)return banned;
@@ -618,7 +716,9 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
           .bind(id,username,displayName,hash,b64url(salt),PASSWORD_ITERATIONS,t,t,t).run();
       }catch(e){if(String(e?.message||e).toLowerCase().includes('unique'))return json({error:'USERNAME_TAKEN'},409);throw e;}
       await env.DB.prepare('INSERT OR REPLACE INTO user_registration_signals (user_id,network_hash,device_hash,created_at) VALUES (?,?,?,?)').bind(id,signals.networkHash||null,signals.deviceHash||null,t).run();
-      if(b?.save&&safeSave(b.save))await writeSave(env,id,b.save);
+      // A new account starts from the server-defined baseline. Never bootstrap
+      // credits, items, levels, or completion state from a client snapshot.
+      await writeSave(env,id,defaultSave());
       let referral={provided:false,rewarded:false,rewardCredits:0,inviterLevel:0,inviteeReward:{credits:0,cases:{}},reason:''};if(inviter){try{referral=await processReferral(env,{invitedUserId:id,inviter,signals,t});}catch(e){console.error('referral error',e);referral={provided:true,rewarded:false,rewardCredits:0,inviterLevel:0,inviteeReward:{credits:0,cases:{}},reason:'PROCESSING_ERROR'};}}
       const session=await createSession(env,request,id);
       return json({ok:true,user:adminUser({id,username,displayName,createdAt:t}),referral},201,{'set-cookie':sessionCookie(request,session.raw)});

@@ -7,7 +7,7 @@
   };
   if(!els.root||!els.button||!els.gate)return;
 
-  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0};
+  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0,pendingEconomy:new Map()};
   const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
   function installId(){try{let id=localStorage.getItem(INSTALL_KEY)||'';if(!/^[A-Za-z0-9_-]{16,128}$/.test(id)){id=(crypto.randomUUID?.()||String(Date.now())+Math.random()).replace(/[^A-Za-z0-9_-]/g,'');localStorage.setItem(INSTALL_KEY,id);}return id;}catch{return '';} }
@@ -129,6 +129,24 @@
     }
     finally{state.syncing=false;}
   }
+  async function economyTransaction(endpoint,payload){
+    if(!state.user)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});
+    const fingerprint=JSON.stringify([endpoint,payload]);let requestId=state.pendingEconomy.get(fingerprint);
+    if(!requestId){try{const storageKey='velocityApex.economy.pending.v1:'+fingerprint;requestId=sessionStorage.getItem(storageKey)||crypto.randomUUID();sessionStorage.setItem(storageKey,requestId);state.pendingEconomy.set(fingerprint,{requestId,storageKey});}catch{requestId=crypto.randomUUID();state.pendingEconomy.set(fingerprint,{requestId,storageKey:''});}}
+    if(typeof requestId==='object')requestId=requestId.requestId;
+    while(state.syncing)await new Promise(resolve=>setTimeout(resolve,25));
+    if(await flushSave()===false)throw Object.assign(new Error('SAVE_SYNC_FAILED'),{code:'SAVE_SYNC_FAILED'});
+    try{
+      const data=await api(endpoint,{method:'POST',body:JSON.stringify({...payload,requestId})});
+      if(data.save)applySave(data.save);state.revision=Number(data.revision)||state.revision;
+      const pending=state.pendingEconomy.get(fingerprint),storageKey=pending?.storageKey;if(storageKey)try{sessionStorage.removeItem(storageKey);}catch{}state.pendingEconomy.delete(fingerprint);
+      els.sync.textContent='СИНХРОНИЗИРОВАНО';return data.result;
+    }catch(e){
+      if(['INSUFFICIENT_CR','CASE_LIMIT','NO_CASES','INVALID_CASE_REQUEST','INVALID_ITEM','IDEMPOTENCY_KEY_REUSED'].includes(e.code)){const pending=state.pendingEconomy.get(fingerprint);if(pending?.storageKey)try{sessionStorage.removeItem(pending.storageKey);}catch{}state.pendingEconomy.delete(fingerprint);}
+      throw e;
+    }
+  }
+  const caseTransaction=(action,caseId,quantity)=>economyTransaction('/api/economy/cases/'+(action==='buy'?'buy':'open'),{caseId,quantity});
   function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
   function referralMessage(ref){
     if(!ref?.rewarded)return '';const parts=[];const credits=Math.max(0,Math.floor(Number(ref.inviteeReward?.credits)||0));if(credits)parts.push(credits.toLocaleString('ru-RU')+' CR');for(const [id,qty] of Object.entries(ref.inviteeReward?.cases||{}))if(Number(qty)>0)parts.push((window.Racing?.CASES?.[id]?.label||String(id).toUpperCase())+' ×'+Number(qty));
@@ -144,7 +162,7 @@
       let data;
       if(state.mode==='register'){
         const displayName=els.display.value.trim();if(password!==els.confirm.value){setMessage('Пароли не совпадают.',true);return;}
-        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.inviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
+        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.inviter?.value.trim().replace(/^@/,'')||'',deviceId:installId()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
       await finishAuth(data);els.password.value='';els.confirm.value='';if(els.inviter)els.inviter.value='';setMessage(referralMessage(data.referral),false,true);
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.submit.disabled=false;}
@@ -155,7 +173,7 @@
       let data;
       if(state.gateMode==='register'){
         const displayName=els.gateDisplay.value.trim();if(password!==els.gateConfirm.value){setGateMessage('Пароли не совпадают.',true);return;}
-        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.gateInviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
+        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.gateInviter?.value.trim().replace(/^@/,'')||'',deviceId:installId()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
       await finishAuth(data);els.gatePassword.value='';els.gateConfirm.value='';if(els.gateInviter)els.gateInviter.value='';enterGame();
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setGateMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.gateSubmit.disabled=false;}
@@ -194,6 +212,6 @@
   els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave,revision:state.revision}),keepalive:true}).catch(()=>{});});
-  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,open,enterGame,enterGuestGame,requestAuth};
+  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,economyTransaction,caseTransaction,open,enterGame,enterGuestGame,requestAuth};
   setMode('login');setGateMode('login');render();bootstrap();
 })();

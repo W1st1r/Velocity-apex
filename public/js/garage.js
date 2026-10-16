@@ -135,9 +135,9 @@
       const modal=$('garageSellModal');if(!modal)return;
       modal.classList.add('hidden');modal.setAttribute('aria-hidden','true');this.pendingSell=null;
     }
-    confirmSell(){
+    async confirmSell(){
       const pending=this.pendingSell;if(!pending)return;
-      const result=R.sellOwnedCar?.(this.save,pending.id,pending.payout),v=this.view('garage');
+      let result;try{result=window.VelocityAccount?.authenticated?await window.VelocityAccount.economyTransaction('/api/economy/store/sell',{id:pending.id}):R.sellOwnedCar?.(this.save,pending.id,pending.payout);}catch{result=null;}const v=this.view('garage');
       if(result?.status==='sold'){
         this.pendingSell=null;this.closeSellDialog();
         for(const s of Object.values(this.state)){if(s.previewLivery===pending.id)s.previewLivery=this.save.selectedLivery;}
@@ -153,7 +153,7 @@
       }
       this.closeSellDialog();v.message.textContent=result?.status==='protected'?'БАЗОВАЯ МАШИНА НЕ ПРОДАЁТСЯ':'Продажа недоступна';v.message.classList.add('warning');this.render();
     }
-    handleItemsClick(mode,e){
+    async handleItemsClick(mode,e){
       const tuning=e.target.closest('[data-tune]');if(tuning&&mode==='garage'){this.openTuning(tuning.dataset.tune);return;}
       const caseCard=e.target.closest('[data-case]');
       if(caseCard&&mode==='shop'&&this.state.shop.tab==='case'){
@@ -171,9 +171,11 @@
       if(!action){if(changed)this.updatePreviewOnly(mode,id);return;}
       if(action&&mode==='garage'&&action.classList.contains('sell-btn')){this.openSellDialog(id);return;}
       if(action&&mode==='shop'&&action.classList.contains('purchase-btn')){
-        const kind=s.tab,result=R.shopAction(this.save,kind,id),v=this.view(mode);
+        const kind=s.tab,v=this.view(mode);let result;
+        try{result=window.VelocityAccount?.authenticated?(await window.VelocityAccount.economyTransaction('/api/economy/store/buy',{kind,id})).status:R.shopAction(this.save,kind,id);}
+        catch(error){result=error.code==='INSUFFICIENT_CR'?'insufficient':'invalid';}
         v.message.textContent=result==='insufficient'?'НЕДОСТАТОЧНО CR':result==='purchased'?'КУПЛЕНО · предмет уже доступен в ГАРАЖЕ':'Предмет недоступен';
-        v.message.classList.toggle('warning',result==='insufficient');
+        v.message.classList.toggle('warning',result==='insufficient'||result==='invalid');
         if(result==='purchased')this.onChange();
       }else if(action&&mode==='garage'&&action.classList.contains('select-btn')){
         const result=R.selectOwned(this.save,s.tab,id),v=this.view(mode);
@@ -194,24 +196,24 @@
         this.tuningPurchase={key:b.dataset.upgrade,level:Number(b.dataset.level)};this.renderTuning();$('tuningConfirm').focus();
       });
       $('tuningCancel').addEventListener('click',()=>{this.tuningPurchase=null;this.renderTuning();});
-      $('tuningConfirm').addEventListener('click',()=>{
+      $('tuningConfirm').addEventListener('click',async()=>{
         const pending=this.tuningPurchase;if(!pending)return;this.tuningPurchase=null;
-        const result=R.buyCarUpgrade(this.save,this.tuningId,pending.key,pending.level);
+        let result;try{result=window.VelocityAccount?.authenticated?await window.VelocityAccount.economyTransaction('/api/economy/tuning/upgrade',{id:this.tuningId,key:pending.key,expectedLevel:pending.level}):R.buyCarUpgrade(this.save,this.tuningId,pending.key,pending.level);}catch(error){result={status:error.code==='INSUFFICIENT_CR'?'insufficient':'invalid'};}
         if(result.status==='purchased'){this.onChange();this.render();}
         this.renderTuning();$('tuningStatus').textContent=result.status==='purchased'?`Установлено · уровень ${result.level} · −${formatCredits(result.cost)} CR`:result.status==='insufficient'?'Недостаточно CR. Покупка не выполнена.':'Данные изменились. Выберите улучшение заново.';
       });
-      const styleClick=e=>{
+      const styleClick=async e=>{
         const b=e.target.closest('[data-paint],[data-vinyl]');if(!b||b.disabled)return;
         const kind=b.dataset.paint?'color':'vinyl',value=b.dataset.paint||b.dataset.vinyl,c=R.getCarCustomization(this.save,this.tuningId),owned=kind==='color'?c.ownedColors:c.ownedVinyls;
         if(owned.includes(value)){
-          const result=R.buyCarStyle(this.save,this.tuningId,kind,value);if(result.status==='applied'){this.onChange();this.render();this.renderTuning();$('tuningStatus').textContent='Стиль применён. Машина обновлена во всех режимах.';}
+          let result;try{result=window.VelocityAccount?.authenticated?await window.VelocityAccount.economyTransaction('/api/economy/tuning/style',{id:this.tuningId,kind,value}):R.buyCarStyle(this.save,this.tuningId,kind,value);}catch{result={status:'invalid'};}if(result.status==='applied'){this.onChange();this.render();this.renderTuning();$('tuningStatus').textContent='Стиль применён. Машина обновлена во всех режимах.';}
         }else{this.tuningStylePurchase={kind,value};this.renderTuning();$('tuningStyleConfirm').focus();}
       };
       $('tuningColorGrid').addEventListener('click',styleClick);$('tuningVinylGrid').addEventListener('click',styleClick);
       $('tuningStyleCancel').addEventListener('click',()=>{this.tuningStylePurchase=null;this.renderTuning();});
-      $('tuningStyleConfirm').addEventListener('click',()=>{
+      $('tuningStyleConfirm').addEventListener('click',async()=>{
         const pending=this.tuningStylePurchase;if(!pending)return;this.tuningStylePurchase=null;
-        const result=R.buyCarStyle(this.save,this.tuningId,pending.kind,pending.value);
+        let result;try{result=window.VelocityAccount?.authenticated?await window.VelocityAccount.economyTransaction('/api/economy/tuning/style',{id:this.tuningId,kind:pending.kind,value:pending.value}):R.buyCarStyle(this.save,this.tuningId,pending.kind,pending.value);}catch(error){result={status:error.code==='INSUFFICIENT_CR'?'insufficient':'invalid'};}
         if(result.status==='purchased'||result.status==='applied'){this.onChange();this.render();}
         this.renderTuning();$('tuningStatus').textContent=result.status==='purchased'?`Куплено и применено · −${formatCredits(result.cost)} CR`:result.status==='applied'?'Стиль применён.':result.status==='insufficient'?'Недостаточно CR для этого оформления.':'Не удалось применить оформление.';
       });
@@ -459,9 +461,11 @@
     setCaseQuantity(value){
       this.caseQuantity=Math.max(1,Math.min(10,Math.floor(Number(value)||1)));this.refreshCaseDialogInventory();
     }
-    buyCaseBatch(){
+    async buyCaseBatch(){
       const id=this.activeCaseId,box=R.CASES[id],d=this.caseDialog();if(!box||this.caseSpinning)return;
-      const result=R.buyCases?R.buyCases(this.save,id,this.caseQuantity):{status:'invalid'};
+      let result;
+      try{result=window.VelocityAccount?.authenticated?await window.VelocityAccount.caseTransaction('buy',id,this.caseQuantity):(R.buyCases?R.buyCases(this.save,id,this.caseQuantity):{status:'invalid'});}
+      catch(error){const v=this.view('shop');v.message.textContent=error.code==='INSUFFICIENT_CR'?`НЕДОСТАТОЧНО CR · НУЖНО ${formatCredits(box.price*this.caseQuantity)} CR`:error.code==='AUTH_REQUIRED'?'ВОЙДИТЕ В АККАУНТ ДЛЯ ПОКУПКИ КЕЙСОВ':'НЕ УДАЛОСЬ СВЯЗАТЬСЯ С СЕРВЕРОМ · ПОВТОРИТЕ ПОПЫТКУ';v.message.classList.add('warning');this.refreshCaseDialogInventory();return;}
       const v=this.view('shop');
       if(result.status==='purchased'){
         v.message.textContent=`${box.name} · КУПЛЕНО x${result.quantity} · ${formatCredits(result.cost)} CR`;v.message.classList.remove('warning');this.onChange();this.render();this.refreshCaseDialogInventory();d.ready.classList.remove('hidden');d.ready.textContent=`КУПЛЕНО x${result.quantity} · МОЖНО ОТКРЫТЬ ОДНИМ НАЖАТИЕМ`;
@@ -502,10 +506,17 @@
       }
       return sequence;
     }
-    spinActiveCase(){
+    async spinActiveCase(){
       const id=this.activeCaseId,box=R.CASES[id],d=this.caseDialog();if(!box||this.caseSpinning)return;
       const available=Math.max(0,Math.floor(Number(this.save.caseInventory?.[id])||0)),quantity=Math.min(this.caseQuantity,available,10);if(quantity<1){this.refreshCaseDialogInventory();return;}
-      const batch=R.openCases?R.openCases(this.save,id,quantity):{status:'invalid',results:[]};if(batch.status!=='opened'||!batch.results.length){this.refreshCaseDialogInventory();return;}
+      let batch;
+      if(window.VelocityAccount?.authenticated){
+        this.caseSpinning=true;this.refreshCaseDialogInventory();
+        try{batch=await window.VelocityAccount.caseTransaction('open',id,quantity);}
+        catch(error){this.caseSpinning=false;this.refreshCaseDialogInventory();const v=this.view('shop');v.message.textContent=error.code==='NO_CASES'?'КЕЙСЫ ЗАКОНЧИЛИСЬ · ОБНОВИТЕ СПИСОК':'НЕ УДАЛОСЬ ПОЛУЧИТЬ РЕЗУЛЬТАТ · ПОВТОРИТЕ ПОПЫТКУ';v.message.classList.add('warning');return;}
+        this.caseSpinning=false;batch=batch||{status:'invalid',results:[]};
+      }else batch=R.openCases?R.openCases(this.save,id,quantity):{status:'invalid',results:[]};
+      if(batch.status!=='opened'||!batch.results.length){this.refreshCaseDialogInventory();return;}
       const results=batch.results,featured=results.reduce((best,item)=>!best||item.reward.price>best.reward.price?item:best,null);
       this.onChange();this.render();this.caseSpinning=true;this.refreshCaseDialogInventory();d.close.disabled=true;d.modal.classList.remove('case-results-open');d.result.className='case-result hidden';d.result.innerHTML='';d.ready.classList.remove('hidden');d.ready.textContent=results.length>1?`СИНХРОНИЗАЦИЯ ${results.length} DROPS…`:'СИНХРОНИЗАЦИЯ DROP…';
       d.roulette.classList.add('is-spinning');d.roulette.dataset.batchCount=String(results.length);
