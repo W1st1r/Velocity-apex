@@ -166,3 +166,8 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 - This confirms the AI code already present in GitHub; it does not establish whether uncommitted files in the previous Work session were lost. No local repository checkout or recoverable local changes were available in this workspace.
 - Release remains blocked: no full vehicle-class × track × difficulty × field-size × upgrade AI calibration or human playtest; no full CR source/sink and 3–5 month progression balance analysis; no comprehensive minigame gameplay/map browser QA; no production D1 backup/restore rehearsal or legacy pending-transaction reconciliation; no live TEST-account transaction QA. Do not merge or publish V77 until these gates are completed and validated. No production data or account was changed.
 - Next low-redundancy action: continue from HEAD above, run the missing targeted economy/AI/map release gates only where their evidence is still absent, append results here, and keep PR #13 Draft until the release gates pass.
+
+
+## 2026-10-17 - Recovery checkpoint CI result
+- CI run 39009076133 for recovery checkpoint `169c2fcb55397ac194fbcd91648ffa82a59aaaa0` completed SUCCESS. Worker dry-run, authoritative race tests, race/reconnect WebKit, `npm test`, and `npm run test:v74` all passed. Deploy remained skipped for the Draft PR.
+- This run did not execute `npm run test:ai`; its previous passing result remains the last benchmark evidence. No physical iPhone Safari, full AI vehicle/upgrades matrix, or production-data rehearsal was performed.
