@@ -787,7 +787,7 @@ export class Room {
     await this.load();const url=new URL(request.url);
 
     if(url.pathname==='/media/create'&&request.method==='POST'){
-      if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{},gameKey=String(event.gameKey||''),cfg=FREE_MINIGAME_CONFIG[gameKey],supported=!!cfg||['drift_battle','koth'].includes(gameKey);if(!supported||!event.id||!event.code)return json({error:'INVALID_MEDIA_EVENT'},400);const t=now(),settings=event.settings||{};
+      let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{};if(this.room?.mediaEvent){if(this.room.mode==='freeroam'&&this.room.mediaEvent.id===event.id&&this.room.mediaEvent.code===event.code)return json({ok:true,replay:true,room:this.publicFreeRoom()});return json({error:'ROOM_EXISTS'},409);}if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);const gameKey=String(event.gameKey||''),cfg=FREE_MINIGAME_CONFIG[gameKey],supported=!!cfg||['drift_battle','koth'].includes(gameKey);if(!supported||!event.id||!event.code)return json({error:'INVALID_MEDIA_EVENT'},400);const t=now(),settings=event.settings||{};
       this.room={mode:'freeroam',serverId:'MEDIA:'+event.code,createdAt:t,updatedAt:t,emptySince:t,records:{speed:0,drift:0},dragQueue:[],dragChallenges:{},driftBattle:null,koth:null,minigames:{},eventsDisabled:false,mediaEvent:{...event,status:'WAITING',settings},players:[]};
       if(gameKey==='drift_battle')this.room.driftBattle=this.makeEvent('drift_battle',[],t,{zoneId:'harbor',mediaEvent:true,settings});
       else if(gameKey==='koth')this.room.koth=this.makeEvent('koth',[],t,{zoneIndex:0,finalZone:false,lastTickAt:0,mediaEvent:true,settings});
@@ -817,7 +817,7 @@ export class Room {
     }
 
     if(url.pathname==='/media-race/create'&&request.method==='POST'){
-      if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{},raw=event.settings||{};if(!event.id||!event.code||event.gameKey!=='race')return json({error:'INVALID_MEDIA_EVENT'},400);
+      let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{};if(this.room?.mediaEvent){if(this.room.mode==='media_race'&&this.room.mediaEvent.id===event.id&&this.room.mediaEvent.code===event.code)return json({ok:true,replay:true,room:this.publicRoom()});return json({error:'ROOM_EXISTS'},409);}if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);const raw=event.settings||{};if(!event.id||!event.code||event.gameKey!=='race')return json({error:'INVALID_MEDIA_EVENT'},400);
       const settings=normalizeSettings({...raw,wager:0}),t=now();this.room={mode:'media_race',code:event.code,createdAt:t,updatedAt:t,emptySince:t,status:'lobby',settings:{...settings,wager:0},hostId:null,raceId:null,raceStartAt:0,gridOrder:[],finishOrder:[],settlement:null,mediaEvent:{...event,status:'WAITING',settings:{...raw,...settings,wager:0}},players:[]};await this.save();return json({ok:true,room:this.publicRoom()},201);
     }
     if(url.pathname==='/media-race/join'&&request.method==='POST'){

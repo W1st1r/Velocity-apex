@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {ensureMediaSchema,refundMediaEvent,settleMediaEvent} from '../src/media.mjs';
+import {ensureMediaSchema,handleMediaRequest,refundMediaEvent,settleMediaEvent} from '../src/media.mjs';
 
 const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
 for(const name of fs.readdirSync(new URL('../migrations/',import.meta.url)).sort())sqlite.exec(fs.readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
@@ -60,5 +60,23 @@ const legacy=await settleMediaEvent(env,'legacy-settling',['winner-a'],{});
 assert.equal(legacy.error,'EVENT_REQUIRES_RECONCILIATION');
 assert.equal(sqlite.prepare('SELECT status FROM media_events WHERE id=?').get('legacy-settling').status,'SETTLING');
 assert.equal(save('winner-a').legacy.keep,true);assert.equal(save('winner-b').legacy.keep,true);
+
+// The authenticated event-creation route now escrows CR and creates its D1 event
+// row under the same idempotency receipt; retries reuse the event and DO identity.
+const sessionToken='media-fixture-creator-session',sessionHash=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(sessionToken))).toString('base64url');
+sqlite.prepare('INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES(?,?,?,?,?)').run(sessionHash,'creator',time,time+86400000,time);
+sqlite.prepare('INSERT INTO media_creators(user_id,active,appointed_at,appointed_by,events_blocked,note,updated_at) VALUES(?,1,?,?,0,?,?)').run('creator',time,'creator','fixture',time);
+let failRoomCreate=false;const roomCalls=[];env.ROOMS={idFromName:name=>name,get:name=>({fetch:async request=>{roomCalls.push({name,path:new URL(request.url).pathname});return failRoomCreate?new Response('{"error":"ROOM_FAILED"}',{status:503}):new Response('{"ok":true}',{status:201});}})};
+async function createEvent(body){const url=new URL('https://apex.test/api/media/events/create'),response=await handleMediaRequest(new Request(url,{method:'POST',headers:{cookie:`va_session=${sessionToken}`,origin:url.origin,'content-type':'application/json'},body:JSON.stringify(body)}),env,url);return{status:response.status,data:await response.json()};}
+const createBody={requestId:'media-create-key-0001',gameKey:'checkpoint',title:'Atomic fixture',prize:29,settings:{maxPlayers:4,minPlayers:2,durationMs:90000,goalLimit:4,checkpointCount:12}};
+const creatorBefore=save('creator').credits,created=await createEvent(createBody);assert.equal(created.status,200,JSON.stringify(created));assert.equal(save('creator').credits,creatorBefore-29);
+const replayed=await createEvent(createBody);assert.equal(replayed.data.replay,true);assert.equal(replayed.data.event.id,created.data.event.id);assert.equal(save('creator').credits,creatorBefore-29);
+assert.equal(sqlite.prepare("SELECT COUNT(*) n FROM media_events WHERE creator_user_id='creator' AND title='Atomic fixture'").get().n,1);
+assert.equal(roomCalls.filter(x=>x.name==='MEDIA:'+created.data.event.code).length,2);
+
+const failureBody={...createBody,requestId:'media-create-key-0002',title:'Refund fixture',prize:41};failRoomCreate=true;
+const failed=await createEvent(failureBody);assert.equal(failed.status,503);assert.equal(failed.data.refunded,true);assert.equal(save('creator').credits,creatorBefore-29);
+const failedRow=sqlite.prepare("SELECT status FROM media_events WHERE creator_user_id='creator' AND title='Refund fixture'").get();assert.equal(failedRow.status,'CANCELLED');
+const failedReplay=await createEvent(failureBody);assert.equal(failedReplay.status,409);assert.equal(save('creator').credits,creatorBefore-29);
 console.log('media_atomic_v77_test: atomic multi-winner payouts/refunds, concurrent replay, rollback/retry and fail-closed legacy state passed');
 sqlite.close();
