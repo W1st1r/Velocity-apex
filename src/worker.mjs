@@ -1,3 +1,4 @@
+import {backupAccountState} from './account-authority-backup.mjs';
 import {prepareRoomAuthority,roomEngine,publicRoomAuthority,handleRoomAuthorityMessage,tickRoomAuthority,RACE_RUNTIME_VERSION} from './room-race-authority.mjs';
 import {lockRoomWager,settleRoomWager,readRoomWager} from './room-wager-escrow.mjs';
 import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.mjs';
@@ -167,7 +168,7 @@ export class Room {
     if(this.loaded)return;this.room=await this.ctx.storage.get('room')||null;this.loaded=true;
     if(!this.room)return;
     this.room.players=this.room.players||[];
-    if(this.room.mode==='freeroam'){this.room.records=this.room.records||{speed:0,drift:0};this.room.dragQueue=this.room.dragQueue||[];this.room.dragChallenges=this.room.dragChallenges||{};this.room.driftBattle=this.room.driftBattle||null;if(this.room.driftBattle&&!FREE_DRIFT_ZONES[this.room.driftBattle.zoneId])this.room.driftBattle=null;this.room.koth=this.room.koth||null;this.room.minigames=this.room.minigames||{};this.room.eventsDisabled=!!this.room.eventsDisabled;for(const p of this.room.players){p.adminLevel=Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0)));p.media=!!p.media;p.spectator=!!p.spectator;p.mediaReady=!!p.mediaReady;p.level=Math.max(0,Math.min(100,Math.floor(Number(p.level)||0)));p.totalExp=Math.max(0,Math.floor(Number(p.totalExp)||0));p.activePlayMs=Math.max(0,Number(p.activePlayMs)||0);p.onlineRewardCounter=Math.max(0,Math.floor(Number(p.onlineRewardCounter)||0));p.activeSessionId=p.activeSessionId||crypto.randomUUID();p.dragWager=validFreeDragWager(p.dragWager)?Number(p.dragWager):0;}return;}
+    if(this.room.mode==='freeroam'){this.room.records=this.room.records||{speed:0,drift:0};this.room.dragQueue=this.room.dragQueue||[];this.room.dragChallenges=this.room.dragChallenges||{};this.room.driftBattle=this.room.driftBattle||null;if(this.room.driftBattle&&!FREE_DRIFT_ZONES[this.room.driftBattle.zoneId])this.room.driftBattle=null;this.room.koth=this.room.koth||null;this.room.minigames=this.room.minigames||{};this.room.eventsDisabled=!!this.room.eventsDisabled;for(const p of this.room.players){p.adminLevel=Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0)));p.media=!!p.media;p.spectator=!!p.spectator;p.mediaReady=!!p.mediaReady;p.level=Math.max(0,Math.min(100,Math.floor(Number(p.level)||0)));p.totalExp=Math.max(0,Math.floor(Number(p.totalExp)||0));p.activePlayMs=Math.max(0,Number(p.activePlayMs)||0);p.onlineRewardCounter=Math.max(0,Math.floor(Number(p.onlineRewardCounter)||0));p.activeSessionId=p.activeSessionId||crypto.randomUUID();p.dragWager=validFreeDragWager(p.dragWager)?Number(p.dragWager):0;}await this.recoverFreeDragWagers();return;}
     try{
       await this.recoverInterruptedWager();
       if(this.room.settlement?.authority==='server'&&this.room.settlement.status==='locked'){
@@ -597,22 +598,38 @@ export class Room {
   async freeDragBalances(ids){
     const balances={};for(const id of ids||[]){const racer=this.room.players.find(p=>p.id===id);if(!racer?.userId||!this.env.DB){balances[id]=0;continue;}const row=await this.env.DB.prepare("SELECT COALESCE(json_extract(save_json,'$.credits'),0) AS credits FROM player_saves WHERE user_id=? LIMIT 1").bind(racer.userId).first();balances[id]=Math.max(0,Math.floor(Number(row?.credits)||0));}return balances;
   }
+  async recoverFreeDragWagers(){
+    if(!this.env.DB)return;
+    for(const challenge of Object.values(this.room.dragChallenges||{})){
+      if(challenge.wagerAuthorityVersion!==77)continue;
+      const escrow=await readRoomWager(this.env.DB,'drag:'+challenge.id);
+      if(!escrow){this.clearFreeDragChallenge(challenge);continue;}
+      challenge.wagerLocked=true;challenge.wagerSettled=escrow.status!=='locked';
+      if(challenge.wagerSettled){challenge.wagerSettlement=escrow.status;this.clearFreeDragChallenge(challenge);}
+    }
+    await this.save();
+  }
   async lockFreeDragWager(challenge){
     const wager=Math.max(0,Math.floor(Number(challenge?.wager)||0));challenge.wager=wager;challenge.pot=wager*2;if(!wager){challenge.wagerLocked=false;return {ok:true,balances:{}};}if(!validFreeDragWager(wager)||!this.env.DB)return {ok:false,code:'INVALID_WAGER'};
     const racers=(challenge.ids||[]).map(id=>this.room.players.find(p=>p.id===id));if(racers.length!==2||racers.some(p=>!p?.userId)||racers[0].userId===racers[1].userId)return {ok:false,code:'DRAG_ACCOUNT_REQUIRED'};
-    const before=await this.freeDragBalances(challenge.ids),badIds=challenge.ids.filter(id=>(before[id]||0)<wager);if(badIds.length)return {ok:false,code:'INSUFFICIENT_CR',badIds,balances:before};
-    const [a,b]=racers,t=now();const result=await this.env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',MAX(0,COALESCE(json_extract(save_json,'$.credits'),0)-?)),revision=revision+1,updated_at=? WHERE user_id IN (?,?) AND (SELECT COUNT(*) FROM player_saves WHERE user_id IN (?,?) AND COALESCE(json_extract(save_json,'$.credits'),0)>=?)=2`).bind(wager,t,a.userId,b.userId,a.userId,b.userId,wager).run();
-    if(Number(result?.meta?.changes)!==2){const balances=await this.freeDragBalances(challenge.ids);return {ok:false,code:'INSUFFICIENT_CR',badIds:challenge.ids.filter(id=>(balances[id]||0)<wager),balances};}
-    challenge.wagerLocked=true;challenge.wagerSettled=false;challenge.wagerLockedAt=t;const balances=await this.freeDragBalances(challenge.ids);
-    for(const racer of racers){try{await writeGameLog(this.env,{category:'system',eventType:'free_drag_wager_locked',actorUserId:racer.userId,actorUsername:this.logUsername(racer),actorRole:this.logRole(racer),targetUserId:racer.userId,targetUsername:this.logUsername(racer),serverId:this.room.serverId||'free',source:'FREE_DRAG',subject:'DRAG · ставка заблокирована',relatedId:challenge.id,metadata:{wager,pot:challenge.pot,playerId:racer.id},createdAt:t});}catch{}}
+    for(const racer of racers)await backupAccountState(this.env,racer.userId);
+    challenge.wagerAuthorityVersion=77;challenge.wagerUserIds=Object.fromEntries(racers.map(p=>[p.id,p.userId]));this.room.dragChallenges=this.room.dragChallenges||{};this.room.dragChallenges[challenge.id]=challenge;
+    // Keep a durable intent before the D1 debit; recovery reads the escrow receipt.
+    await this.save();
+    const result=await lockRoomWager(this.env.DB,{raceId:'drag:'+challenge.id,userIds:racers.map(p=>p.userId),stake:wager});
+    if(!result.ok){delete this.room.dragChallenges[challenge.id];await this.save();return {...result,balances:await this.freeDragBalances(challenge.ids)};}
+    if(result.status!=='locked')return {ok:false,code:'WAGER_ALREADY_SETTLED'};
+    challenge.wagerLocked=true;challenge.wagerSettled=false;challenge.wagerLockedAt=now();await this.save();const balances=await this.freeDragBalances(challenge.ids);
+    for(const racer of racers){try{await writeGameLog(this.env,{category:'system',eventType:'free_drag_wager_locked',actorUserId:racer.userId,actorUsername:this.logUsername(racer),actorRole:this.logRole(racer),targetUserId:racer.userId,targetUsername:this.logUsername(racer),serverId:this.room.serverId||'free',source:'FREE_DRAG',subject:'DRAG · ставка заблокирована',relatedId:challenge.id,metadata:{wager,pot:challenge.pot,playerId:racer.id},createdAt:now()});}catch{}}
     return {ok:true,balances};
   }
   async settleFreeDragWager(challenge,{draw=false,winnerId=null,reason='FINISH'}={}){
-    const wager=Math.max(0,Math.floor(Number(challenge?.wager)||0));if(!wager||!challenge?.wagerLocked)return {ok:true,balances:{}};if(challenge.wagerSettled)return {ok:true,balances:await this.freeDragBalances(challenge.ids)};if(!this.env.DB)return {ok:false,code:'WAGER_DB_UNAVAILABLE'};
-    const racers=challenge.ids.map(id=>this.room.players.find(p=>p.id===id)),t=now();if(racers.some(p=>!p?.userId))return {ok:false,code:'DRAG_ACCOUNT_REQUIRED'};
-    if(draw){const [a,b]=racers;const result=await this.env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',MIN(999999999,COALESCE(json_extract(save_json,'$.credits'),0)+?)),revision=revision+1,updated_at=? WHERE user_id IN (?,?)`).bind(wager,t,a.userId,b.userId).run();if(Number(result?.meta?.changes)!==2)return {ok:false,code:'WAGER_REFUND_FAILED'};}
-    else{const winner=racers.find(p=>p.id===winnerId);if(!winner)return {ok:false,code:'WAGER_WINNER_MISSING'};const result=await this.env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',MIN(999999999,COALESCE(json_extract(save_json,'$.credits'),0)+?)),revision=revision+1,updated_at=? WHERE user_id=?`).bind(challenge.pot||wager*2,t,winner.userId).run();if(Number(result?.meta?.changes)!==1)return {ok:false,code:'WAGER_PAYOUT_FAILED'};}
-    challenge.wagerSettled=true;challenge.wagerSettlement=draw?'refund':'winner';challenge.wagerSettledAt=t;const balances=await this.freeDragBalances(challenge.ids);
+    const wager=Math.max(0,Math.floor(Number(challenge?.wager)||0));if(!wager||!challenge?.wagerLocked)return {ok:true,balances:{}};if(!this.env.DB)return {ok:false,code:'WAGER_DB_UNAVAILABLE'};
+    if(challenge.wagerAuthorityVersion!==77||!challenge.wagerUserIds)return {ok:false,code:'LEGACY_WAGER_RECONCILIATION_REQUIRED'};
+    const racers=challenge.ids.map(id=>this.room.players.find(p=>p.id===id)||{id,userId:challenge.wagerUserIds[id]}),winnerUserId=winnerId?challenge.wagerUserIds[winnerId]:null;
+    if(!draw&&!winnerUserId)return {ok:false,code:'WAGER_WINNER_MISSING'};
+    const result=await settleRoomWager(this.env.DB,{raceId:'drag:'+challenge.id,winnerUserId,refund:draw});if(!result.ok)return result;
+    const t=now();challenge.wagerSettled=true;challenge.wagerSettlement=draw?'refund':'winner';challenge.wagerSettledAt=t;await this.save();const balances=await this.freeDragBalances(challenge.ids);
     try{const winner=winnerId?racers.find(p=>p.id===winnerId):null;await writeGameLog(this.env,{category:'system',eventType:draw?'free_drag_wager_refund':'free_drag_wager_payout',actorUserId:winner?.userId||null,actorUsername:winner?this.logUsername(winner):'SYSTEM',actorRole:winner?this.logRole(winner):'SYSTEM',targetUserId:winner?.userId||null,targetUsername:winner?this.logUsername(winner):'',serverId:this.room.serverId||'free',source:'FREE_DRAG',subject:draw?'DRAG · возврат ставки':'DRAG · выплата банка',reason,relatedId:challenge.id,metadata:{wager,pot:challenge.pot||wager*2,winnerId,draw,balances},createdAt:t});}catch{}
     return {ok:true,balances};
   }
@@ -624,7 +641,7 @@ export class Room {
   }
   async cancelFreeDrag(challenge,reason='CANCELLED',culpritId=null,allowForfeit=false){
     if(!challenge)return;const afterStart=now()>=Number(challenge.startAt||Infinity),otherId=culpritId&&(challenge.ids||[]).find(id=>id!==culpritId),other=this.room.players.find(p=>p.id===otherId);if(allowForfeit&&afterStart&&otherId&&other?.connected&&challenge.wagerLocked&&Number(challenge.wager)>0){const payout=await this.settleFreeDragWager(challenge,{draw:false,winnerId:otherId,reason:'FORFEIT'});if(payout.ok){const names=Object.fromEntries(challenge.ids.map(id=>[id,this.room.players.find(x=>x.id===id)?.name||'RACER']));this.sendToPlayers(challenge.ids,{type:'activity_result',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,participants:[...challenge.ids],winnerId:otherId,times:{},names,gapMs:0,draw:false,photoFinish:false,forfeit:true,wager:challenge.wager,pot:challenge.pot,balances:payout.balances,serverTime:now()});this.clearFreeDragChallenge(challenge);return;}}
-    const refund=await this.refundFreeDragWager(challenge,reason);this.sendToPlayers(challenge.ids||[],{type:'activity_cancelled',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,reason,wagerRefunded:!!Number(challenge.wager)&&refund.ok,wager:Number(challenge.wager)||0,balances:refund.balances||{},serverTime:now()});this.clearFreeDragChallenge(challenge);
+    const refund=await this.refundFreeDragWager(challenge,reason);if(!refund.ok)return;this.sendToPlayers(challenge.ids||[],{type:'activity_cancelled',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,reason,wagerRefunded:!!Number(challenge.wager)&&refund.ok,wager:Number(challenge.wager)||0,balances:refund.balances||{},serverTime:now()});this.clearFreeDragChallenge(challenge);
   }
   async settleFreeDrag(challenge){
     if(!challenge||challenge.settled)return false;if(!challenge.ids.every(id=>Number.isFinite(challenge.finishes?.[id])))return false;
@@ -916,8 +933,7 @@ export class Room {
     const task=(this.roomEventTail||Promise.resolve()).then(action);this.roomEventTail=task.catch(()=>{});return task;
   }
   async webSocketMessage(ws,message){
-    await this.load();if(this.room?.mode==='freeroam')return this.handleSocketMessage(ws,message);
-    return this.serializeRoomEvent(()=>this.handleSocketMessage(ws,message));
+    await this.load();const parsed=parseClientMessage(message),drag=parsed.ok&&((parsed.msg.type==='activity_join'&&parsed.msg.activity==='drag')||(parsed.msg.type==='activity_leave'&&parsed.msg.activity==='drag'));if(this.room?.mode==='freeroam'&&!drag)return this.handleSocketMessage(ws,message);return this.serializeRoomEvent(()=>this.handleSocketMessage(ws,message));
   }
   async handleSocketMessage(ws,message){
     if(this.env.DB){const t=now();if(!this.ownerCheckAt||t-this.ownerCheckAt>10000){this.ownerMaintenance=(await settings(this.env)).maintenance;this.ownerCheckAt=t;}if(this.ownerMaintenance){await this.load();const pid=ws.deserializeAttachment?.()?.playerId,p=this.room?.players.find(x=>x.id===pid);if(!p?.owner){try{ws.close(4003,'maintenance');}catch{}return;}}}
@@ -1016,7 +1032,7 @@ export class Room {
       await this.save();this.broadcast({type:wagerCancelled?'race_cancelled':'room_state',v:PROTOCOL_VERSION,serverTime:now(),reason:wagerCancelled?'PLAYER_LEFT':'',room:this.publicRoom()},ws);try{ws.close(1000,'leave');}catch{};return;
     }
   }
-  async webSocketClose(ws){await this.load();return this.room?.mode==='freeroam'?this.handleDisconnect(ws):this.serializeRoomEvent(()=>this.handleDisconnect(ws));}
+  async webSocketClose(ws){await this.load();return this.serializeRoomEvent(()=>this.handleDisconnect(ws));}
   async webSocketError(ws){return this.webSocketClose(ws);}
   async handleDisconnect(ws){
     await this.load();if(!this.room)return;const a=ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return;
@@ -1024,7 +1040,7 @@ export class Room {
     if(this.room.mode==='freeroam'){const active=this.freeDragForPlayer(p.id);if(!active){this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>id!==p.id);p.dragWager=0;}p.connected=false;}
     p.connected=false;p.disconnectReason=p.disconnectReason||'connection_lost';p.disconnectedUntil=now()+(this.room.mode==='freeroam'?FREE_RECONNECT_GRACE_MS:RECONNECT_GRACE_MS);if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();this.broadcast({type:this.room.mode==='freeroam'?'free_room':'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.room.mode==='freeroam'?this.publicFreeRoom():this.publicRoom()});
   }
-  async alarm(){await this.load();return this.room?.mode==='freeroam'?this.handleAlarm():this.serializeRoomEvent(()=>this.handleAlarm());}
+  async alarm(){await this.load();return this.serializeRoomEvent(()=>this.handleAlarm());}
   async handleAlarm(){
     await this.load();if(!this.room)return;await this.recoverInterruptedWager();const t=now(),expired=this.expireHeartbeatPlayers(t),removed=this.room.players.filter(p=>!p.connected&&p.disconnectedUntil&&p.disconnectedUntil<=t);
     if(this.room.mode==='freeroam'){await this.advanceFreeActivities(t);if(!this.room)return;if(removed.length){const ids=new Set(removed.map(p=>p.id));for(const player of removed)await this.endSessionLog(player,player.disconnectReason||'connection_lost');for(const player of removed){const active=this.freeDragForPlayer(player.id);if(active)await this.cancelFreeDrag(active,'CONNECTION_TIMEOUT',player.id,true);}for(const id of ids)this.handleActivityDeparture(id,true);this.room.players=this.room.players.filter(p=>!ids.has(p.id));this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>!ids.has(id));}if(!this.room.players.length||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){for(const c of [...Object.values(this.room.dragChallenges||{})])await this.cancelFreeDrag(c,'ROOM_EXPIRED',null,false);if(this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}const rosterSync=removed.length||expired.length||t-(this.room.lastRosterBroadcastAt||0)>=10000;if(rosterSync)this.room.lastRosterBroadcastAt=t;await this.save();if(rosterSync)this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:t,room:this.publicFreeRoom()});return;}

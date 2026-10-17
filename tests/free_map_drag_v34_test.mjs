@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
 import {Room} from '../src/worker.mjs';
 
 const client=readFileSync(new URL('../public/js/freeroam.js',import.meta.url),'utf8');
@@ -27,40 +28,18 @@ assert.ok(client.includes('DRAG_WAGER_OPTIONS=Object.freeze([0,100,250,500,1000,
 assert.ok(server.includes('FREE_DRAG_WAGERS=Object.freeze([0,100,250,500,1000,2500,5000])'),'server wager allowlist missing');
 for(const token of ['lockFreeDragWager','settleFreeDragWager','refundFreeDragWager','cancelFreeDrag'])assert.ok(server.includes(token),`server money-drag primitive missing ${token}`);
 
-class FakeStatement{
-  constructor(db,sql){this.db=db;this.sql=sql;this.args=[];}
-  bind(...args){this.args=args;return this;}
-  async first(){
-    if(this.sql.includes("json_extract(save_json,'$.credits')")){const uid=this.args[0];return {credits:this.db.balance.get(uid)??0};}
-    throw new Error('unsupported first: '+this.sql);
-  }
-  async run(){
-    const q=this.sql;
-    if(q.includes('SELECT COUNT(*) FROM player_saves')){
-      const [wager,,u1,u2,,,minimum]=this.args,b1=this.db.balance.get(u1),b2=this.db.balance.get(u2);
-      if(Number.isFinite(b1)&&Number.isFinite(b2)&&b1>=minimum&&b2>=minimum){this.db.balance.set(u1,b1-wager);this.db.balance.set(u2,b2-wager);return {meta:{changes:2}};}
-      return {meta:{changes:0}};
-    }
-    if(q.includes('WHERE user_id IN (?,?)')){
-      const [amount,,u1,u2]=this.args;this.db.balance.set(u1,(this.db.balance.get(u1)??0)+amount);this.db.balance.set(u2,(this.db.balance.get(u2)??0)+amount);return {meta:{changes:2}};
-    }
-    if(q.includes('WHERE user_id=?')){
-      const [amount,,uid]=this.args;this.db.balance.set(uid,(this.db.balance.get(uid)??0)+amount);return {meta:{changes:1}};
-    }
-    throw new Error('unsupported run: '+q);
-  }
-}
-class FakeDB{
-  constructor(entries){this.balance=new Map(entries);}
-  prepare(sql){return new FakeStatement(this,sql);}
-}
+const sqlite=new DatabaseSync(':memory:');sqlite.exec('PRAGMA foreign_keys=ON');
+for(const file of readFileSync(new URL('../migrations/0020_room_wager_escrow.sql',import.meta.url),'utf8').split(';').filter(x=>x.trim()))sqlite.exec(file);
+sqlite.exec('CREATE TABLE users(id TEXT PRIMARY KEY); CREATE TABLE player_saves(user_id TEXT PRIMARY KEY,save_json TEXT NOT NULL,revision INTEGER NOT NULL,created_at INTEGER,updated_at INTEGER);');
+for(const id of ['u1','u2']){sqlite.prepare('INSERT INTO users(id) VALUES(?)').run(id);sqlite.prepare('INSERT INTO player_saves VALUES(?,?,1,0,0)').run(id,JSON.stringify({credits:2000,legacy:{keep:true}}));}
+const DB={prepare(sql){let args=[];const runNow=()=>{const r=sqlite.prepare(sql).run(...args);return{meta:{changes:Number(r.changes)}};};return{bind(...v){args=v;return this;},async first(){return sqlite.prepare(sql).get(...args)||null;},async all(){return{results:sqlite.prepare(sql).all(...args)};},runNow,async run(){return runNow();}};},async batch(statements){sqlite.exec('BEGIN');try{const out=statements.map(s=>s.runNow());sqlite.exec('COMMIT');return out;}catch(e){sqlite.exec('ROLLBACK');throw e;}}};
 
 const sent1=[],sent2=[];
 const s1={deserializeAttachment(){return {playerId:'p1'}},send(t){sent1.push(JSON.parse(t))}};
 const s2={deserializeAttachment(){return {playerId:'p2'}},send(t){sent2.push(JSON.parse(t))}};
-const db=new FakeDB([['u1',2000],['u2',2000]]);
-const ctx={storage:{async put(){},async setAlarm(){},async get(){return null}},getWebSockets(){return [s1,s2]}};
-const room=new Room(ctx,{DB:db});room.loaded=true;room.save=async()=>{};
+const db={balance:{get:id=>JSON.parse(sqlite.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(id).save_json).credits}};
+const ctx={storage:{async put(k,v){this.value=structuredClone(v);},async setAlarm(){},async get(){return structuredClone(this.value||null)}},getWebSockets(){return [s1,s2]}};
+const room=new Room(ctx,{DB});room.loaded=true;room.save=async()=>{ctx.storage.value=structuredClone(room.room);};
 const player=(id,userId,name,y)=>({id,userId,name,connected:true,owner:false,adminLevel:0,level:0,totalExp:0,dragWager:0,lastSeq:0,lastStateAt:0,lastSampleTime:0,state:{x:3120,y,vx:0,vy:0,angle:0,speed:0,sampleTime:Date.now(),serverTime:Date.now()}});
 const p1=player('p1','u1','@one',2635),p2=player('p2','u2','@two',2705);
 room.room={mode:'freeroam',serverId:'v34-money-drag',createdAt:Date.now(),updatedAt:Date.now(),emptySince:0,records:{speed:0,drift:0},dragQueue:[],dragChallenges:{},driftBattle:null,koth:null,minigames:{},eventsDisabled:false,players:[p1,p2]};
@@ -80,4 +59,12 @@ const draw={id:'draw',ids:['p1','p2'],wager:250,pot:500,wagerLocked:false,wagerS
 const lockDraw=await room.lockFreeDragWager(draw);assert.equal(lockDraw.ok,true);assert.equal(db.balance.get('u1'),2250);assert.equal(db.balance.get('u2'),1250);
 const refund=await room.settleFreeDragWager(draw,{draw:true,reason:'DRAW'});assert.equal(refund.ok,true);assert.equal(db.balance.get('u1'),2500);assert.equal(db.balance.get('u2'),1500);
 
-console.log('free_map_drag_v34_test: OK — V40 single drift megapark + visible driveways + server-authoritative CR wagers');
+// D1/DO crash recovery, lock replay, rollback and ambiguous old escrow protection.
+let loseWrite=true;const saveNormally=room.save;room.save=async()=>{if(loseWrite&&Object.values(room.room.dragChallenges||{}).some(c=>c.id==='crash-lock'&&c.wagerLocked)){loseWrite=false;throw Error('INJECTED_DO_SAVE_FAILURE');}await saveNormally();};
+const interrupted={id:'crash-lock',ids:['p1','p2'],wager:250,pot:500,startAt:Date.now()+4000,createdAt:Date.now()};
+await assert.rejects(room.lockFreeDragWager(interrupted),/INJECTED_DO_SAVE_FAILURE/);assert.equal(db.balance.get('u1'),2250);assert.equal(db.balance.get('u2'),1250);
+const restored=new Room(ctx,{DB});restored.save=async()=>{ctx.storage.value=structuredClone(restored.room);};await restored.load();const crash=restored.room.dragChallenges['crash-lock'];assert.equal(crash.wagerLocked,true);assert.equal((await restored.lockFreeDragWager(crash)).ok,true);assert.equal(db.balance.get('u1'),2250);
+const conflict=await restored.settleFreeDragWager(crash,{draw:true});assert.equal(conflict.ok,true);assert.equal(db.balance.get('u1'),2500);assert.equal(db.balance.get('u2'),1500);assert.equal((await restored.settleFreeDragWager({...crash,wagerSettled:false},{draw:false,winnerId:'p1'})).code,'WAGER_ALREADY_SETTLED');
+const legacy={id:'legacy-wager',ids:['p1','p2'],wager:100,wagerLocked:true};assert.equal((await restored.settleFreeDragWager(legacy,{draw:true})).code,'LEGACY_WAGER_RECONCILIATION_REQUIRED');assert.equal(db.balance.get('u1')+db.balance.get('u2'),4000);
+assert.deepEqual(JSON.parse(sqlite.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('u1').save_json).legacy,{keep:true});sqlite.close();
+console.log('free_map_drag_v34_test: OK — geometry and real D1 escrow replay, interrupted DO lock recovery, conflicting settlement and legacy pending preservation');
