@@ -22,7 +22,8 @@
     "test:race:authority": "node scripts/build-race-runtime.mjs --check && node tests/race_authority_v77_test.mjs && node tests/race_session_engine_v77_test.mjs && node tests/race_client_v77_test.mjs && node tests/race_room_engine_v77_test.mjs && node tests/room_race_inputs_v77_test.mjs && node tests/online_authority_v77_test.mjs && node tests/room_race_client_v77_test.mjs",
     "test:race:mobile": "node tests/race_authority_mobile_v77.mjs && node tests/online_authority_mobile_v77.mjs",
     "test:owner:economy": "node tests/admin_self_economy_v77_test.mjs",
-    "test:room:escrow": "node tests/room_wager_escrow_v77_test.mjs"
+    "test:room:escrow": "node tests/room_wager_escrow_v77_test.mjs",
+    "test:d1-release": "node scripts/d1-release-safety.mjs simulate"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

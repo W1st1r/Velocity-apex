@@ -1,0 +1,118 @@
+name: Safe V77 production release
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full main commit SHA to release
+        required: true
+        type: string
+      production_confirmation:
+        description: Explicitly authorize production D1 migration and Worker deployment
+        required: true
+        type: choice
+        options:
+          - NO
+          - I_CONFIRM_PRODUCTION_D1_AND_WORKER_RELEASE
+        default: NO
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: velocity-apex-production-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main' && inputs.release_sha == github.sha && inputs.production_confirmation == 'I_CONFIRM_PRODUCTION_D1_AND_WORKER_RELEASE'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Download the approved main commit
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Require successful CI for this exact main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$RELEASE_SHA" = "${{ inputs.release_sha }}"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy.yml/runs?branch=main&per_page=100" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$RELEASE_SHA\" and .event == \"push\" and .conclusion == \"success\") | .id" | grep -q .
+      - name: Test backup, restore and migrations on an isolated SQLite copy
+        run: npm run test:d1-release
+      - name: Check release credentials before accessing D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_BACKUP_ENCRYPTION_KEY: ${{ secrets.D1_BACKUP_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          node -e 'if(!/^[0-9a-fA-F]{64}$/.test(process.env.D1_BACKUP_ENCRYPTION_KEY||""))process.exit(1)'
+      - name: Check production D1 state and unapplied migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx wrangler d1 info velocity-apex-db --json
+          npx wrangler d1 migrations list velocity-apex-db --remote 2>&1 | tee "$RUNNER_TEMP/d1-migrations-before.txt"
+      - name: Export, restore-check and encrypt the pre-migration backup
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_BACKUP_ENCRYPTION_KEY: ${{ secrets.D1_BACKUP_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          npx wrangler d1 export velocity-apex-db --remote --output="$RUNNER_TEMP/d1-before-v77.sql"
+          node scripts/d1-release-safety.mjs snapshot "$RUNNER_TEMP/d1-before-v77.sql" "$RUNNER_TEMP/d1-before-v77.json" before
+          node scripts/d1-release-safety.mjs encrypt "$RUNNER_TEMP/d1-before-v77.sql" "$RUNNER_TEMP/d1-before-v77.enc.json"
+          node scripts/d1-release-safety.mjs decrypt "$RUNNER_TEMP/d1-before-v77.enc.json" "$RUNNER_TEMP/d1-before-v77-restored.sql"
+          cmp "$RUNNER_TEMP/d1-before-v77.sql" "$RUNNER_TEMP/d1-before-v77-restored.sql"
+          node scripts/d1-release-safety.mjs snapshot "$RUNNER_TEMP/d1-before-v77-restored.sql" "$RUNNER_TEMP/d1-before-v77-restored.json" before
+          cmp "$RUNNER_TEMP/d1-before-v77.json" "$RUNNER_TEMP/d1-before-v77-restored.json"
+          rm -f "$RUNNER_TEMP/d1-before-v77.sql" "$RUNNER_TEMP/d1-before-v77-restored.sql" "$RUNNER_TEMP/d1-before-v77-restored.json"
+      - name: Retain encrypted recovery export before any D1 mutation
+        uses: actions/upload-artifact@v4
+        with:
+          name: velocity-apex-d1-pre-v77-${{ github.run_id }}
+          path: ${{ runner.temp }}/d1-before-v77.enc.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Record Cloudflare point-in-time recovery bookmark
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 time-travel info velocity-apex-db --json
+      - name: Apply only unapplied D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler d1 migrations apply velocity-apex-db --remote
+      - name: Verify migration state, integrity and protected records
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          npx wrangler d1 migrations list velocity-apex-db --remote 2>&1 | tee "$RUNNER_TEMP/d1-migrations-after.txt"
+          npx wrangler d1 export velocity-apex-db --remote --output="$RUNNER_TEMP/d1-after-v77.sql"
+          node scripts/d1-release-safety.mjs verify "$RUNNER_TEMP/d1-before-v77.json" "$RUNNER_TEMP/d1-after-v77.sql"
+          rm -f "$RUNNER_TEMP/d1-after-v77.sql" "$RUNNER_TEMP/d1-before-v77.json"
+      - name: Publish Worker and PWA
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --config wrangler.jsonc
+      - name: Smoke-test deployed V77 and critical auth gates
+        run: node scripts/d1-release-safety.mjs smoke https://velocity-apex.maximmanzha20.workers.dev

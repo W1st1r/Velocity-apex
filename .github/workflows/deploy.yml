@@ -1,4 +1,4 @@
-name: Test and Deploy Velocity Apex V76
+name: Test Velocity Apex V77
 on:
   pull_request:
     branches:
@@ -62,24 +62,5 @@ jobs:
         run: npm test && npm run test:v74
       - name: Calibrate AI across vehicles and upgrades
         run: npm run test:ai
-  deploy:
-    name: Deploy to Cloudflare Workers
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Download the project
-        uses: actions/checkout@v4
-      - name: Install Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Publish Cloudflare Worker and PWA
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --config wrangler.jsonc
+      - name: Verify D1 backup, restore and migration safety
+        run: npm run test:d1-release
