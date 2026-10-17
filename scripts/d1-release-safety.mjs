@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {createCipheriv,createDecipheriv,randomBytes,createHash} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
+import {createServer} from 'node:http';
 import {readFileSync,writeFileSync,mkdtempSync,rmSync,readdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -61,7 +62,7 @@ function verifySeed(db){
   assert.equal(db.prepare("SELECT status FROM market_buy_orders WHERE id='market-pending-a'").get().status,'active');
   assert.equal(db.prepare("SELECT status FROM payment_orders WHERE id='payment-pending-a'").get().status,'pending');
 }
-function simulate(){
+async function simulate(){
   const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
   const files=migrationFiles();assert.equal(files.length,21,'expected the checked-in migration set');
   db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
@@ -87,8 +88,27 @@ function simulate(){
     assert.deepEqual(copy.prepare("SELECT save_json FROM player_saves WHERE user_id='player-a'").get(),restored.prepare("SELECT save_json FROM player_saves WHERE user_id='player-a'").get());
     assert.equal(copy.prepare("SELECT status FROM room_wager_escrows WHERE race_id='wager-pending-a'").get().status,'locked');
     const sqlPath=path.join(dir,'backup.sql'),afterManifest=path.join(dir,'after.json'),encrypted=path.join(dir,'backup.enc'),decrypted=path.join(dir,'roundtrip.sql');writeFileSync(sqlPath,sql);snapshotSql(sqlPath,afterManifest,'after');verifySql(beforeManifest,sqlPath);process.env.D1_BACKUP_ENCRYPTION_KEY=randomBytes(32).toString('hex');encrypt(sqlPath,encrypted);decrypt(encrypted,decrypted);assert.equal(readFileSync(decrypted,'utf8'),sql,'encrypted backup roundtrip failed');
-    copy.close();restored.close();console.log('d1-release-safety: fixture backup/restore, migrations 15-21, retry idempotency and account/CR/progress/pending payment-market-race-wager preservation passed');
+    copy.close();restored.close();await exerciseSmoke();console.log('d1-release-safety: fixture backup/restore, migrations 15-21, retry idempotency and account/CR/progress/pending payment-market-race-wager preservation passed');
   }finally{rmSync(dir,{recursive:true,force:true});}
+}
+async function exerciseSmoke(){
+  const server=createServer(async(req,res)=>{
+    const route=new URL(req.url,'http://localhost').pathname,cookie=req.headers.cookie||'';
+    const send=(status,body,headers={})=>{res.writeHead(status,{'content-type':'application/json',...headers});res.end(JSON.stringify(body));};
+    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<script src="/js/ai.js?v=20261017-ai-cal-v77"></script>');return;}
+    if(route==='/api/health')return send(200,{ok:true,protocol:77});
+    if(route==='/api/account/save'&&req.method==='GET')return cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
+    if(route==='/api/economy/races/start')return send(401,{error:'AUTH_REQUIRED'});
+    if(route==='/api/auth/login'&&req.method==='POST'){
+      let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);
+      return input.username==='release-smoke'&&input.password==='test-secret'?send(200,{ok:true,user:{username:input.username}},{'set-cookie':'va_session=release-smoke; Path=/; HttpOnly'}):send(401,{error:'INVALID_CREDENTIALS'});
+    }
+    if(route==='/api/auth/logout'&&req.method==='POST')return cookie.includes('va_session=release-smoke')?send(200,{ok:true}):send(401,{error:'AUTH_REQUIRED'});
+    return send(404,{error:'NOT_FOUND'});
+  });
+  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
+  const oldUser=process.env.V77_SMOKE_USERNAME,oldPass=process.env.V77_SMOKE_PASSWORD;process.env.V77_SMOKE_USERNAME='release-smoke';process.env.V77_SMOKE_PASSWORD='test-secret';
+  try{await smoke(`http://127.0.0.1:${server.address().port}`);}finally{if(oldUser===undefined)delete process.env.V77_SMOKE_USERNAME;else process.env.V77_SMOKE_USERNAME=oldUser;if(oldPass===undefined)delete process.env.V77_SMOKE_PASSWORD;else process.env.V77_SMOKE_PASSWORD=oldPass;await new Promise(resolve=>server.close(resolve));}
 }
 function checkMigrationState(db,stage){
   const files=migrationFiles();const applied=tableNames(db).includes('d1_migrations');assert.ok(applied,'d1_migrations table missing; refusing to infer production schema state');
@@ -129,7 +149,7 @@ async function smoke(base){
   console.log(`V77 smoke passed: ${origin}, health protocol ${data.protocol}, authenticated login/save and unauthenticated access gates`);
 }
 const [mode,...args]=process.argv.slice(2);
-if(mode==='simulate')simulate();
+if(mode==='simulate')await simulate();
 else if(mode==='snapshot')snapshotSql(args[0],args[1],args[2]||'before');
 else if(mode==='verify')verifySql(args[0],args[1]);
 else if(mode==='encrypt')encrypt(args[0],args[1]);
