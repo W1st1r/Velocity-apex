@@ -171,3 +171,11 @@ Working branch: `v77-full-rework` (PR #13, keep Draft until all release gates pa
 ## 2026-10-17 - Recovery checkpoint CI result
 - CI run 39009076133 for recovery checkpoint `169c2fcb55397ac194fbcd91648ffa82a59aaaa0` completed SUCCESS. Worker dry-run, authoritative race tests, race/reconnect WebKit, `npm test`, and `npm run test:v74` all passed. Deploy remained skipped for the Draft PR.
 - This run did not execute `npm run test:ai`; its previous passing result remains the last benchmark evidence. No physical iPhone Safari, full AI vehicle/upgrades matrix, or production-data rehearsal was performed.
+
+
+## 2026-10-17 - Fleet and dense-traffic AI calibration
+- Baseline AI benchmark reproduced one stress failure: 13-car Medium traffic on Aurora Grand Loop (11.77s off-road, 3 barrier impacts). A general density-based speed reduction was rejected because it caused new barrier/off-road failures in other hard/extreme stress runs.
+- Added a Medium-only density-aware following gap, capped at +36 world units. This moves braking response earlier in dense packs while leaving Easy/Hard/Extreme speed profiles unchanged.
+- Expanded `tests/ai_benchmark.js`: real stats for all 42 shop cars across BASIC/SPORT/PREMIUM/RARE/LEGENDARY/LUX; 924 one-lap simulations across stock, each individual level-5 upgrade, all level-5 upgrades, all four difficulties, and technical/high-speed tracks. Verified monotonic stat gain for every car at levels 0–5.
+- Local Node 24 simulation passed the full legacy matrix plus the new fleet matrix: 144 traffic scenarios, 1,315 position changes, no stress threshold failures, all 42 models and 924 fleet runs finished without barrier hits. Mean CR/hour on the model/upgrades matrix: Hard 8,806 vs Extreme 9,228 (1.048×, under the 1.15× cap). This is local simulation evidence; GitHub Actions is the next required check.
+- Added the fleet benchmark to the PR workflow and refreshed the AI script cache-bust in the game page.

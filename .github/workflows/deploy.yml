@@ -60,6 +60,8 @@ jobs:
           if-no-files-found: ignore
       - name: Check server and mobile navigation tests
         run: npm test && npm run test:v74
+      - name: Calibrate AI across vehicles and upgrades
+        run: npm run test:ai
   deploy:
     name: Deploy to Cloudflare Workers
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')

@@ -189,7 +189,7 @@
       }
       if(traffic.lead){
         const closing=Math.max(0,speed-traffic.lead.speed),laneSeparation=Math.abs(lateral-traffic.leadLane);
-        if(!traffic.passing||laneSeparation<60){const safe=this.followGap+closing*.18+cornerSeverity*10,room=Math.max(0,traffic.leadGap-safe);desired=Math.min(desired,Math.sqrt(Math.max(0,traffic.lead.speed*traffic.lead.speed+2*brakeAvail*room)));if(traffic.leadGap<safe*.67)desired=Math.min(desired,Math.max(34,traffic.lead.speed-(safe*.67-traffic.leadGap)*1.10));}
+        if(!traffic.passing||laneSeparation<60){const densityGap=this.difficulty==='medium'?Math.min(36,Math.max(0,(traffic.density||0)-2)*3):0,safe=this.followGap+densityGap+closing*.18+cornerSeverity*10,room=Math.max(0,traffic.leadGap-safe);desired=Math.min(desired,Math.sqrt(Math.max(0,traffic.lead.speed*traffic.lead.speed+2*brakeAvail*room)));if(traffic.leadGap<safe*.67)desired=Math.min(desired,Math.max(34,traffic.lead.speed-(safe*.67-traffic.leadGap)*1.10));}
       }
       if(Math.abs(diff)>1.08)desired=Math.min(desired,76+34*this.pace);
 
