@@ -53,10 +53,14 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           D1_BACKUP_ENCRYPTION_KEY: ${{ secrets.D1_BACKUP_ENCRYPTION_KEY }}
+          V77_SMOKE_USERNAME: ${{ secrets.V77_SMOKE_USERNAME }}
+          V77_SMOKE_PASSWORD: ${{ secrets.V77_SMOKE_PASSWORD }}
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$V77_SMOKE_USERNAME"
+          test -n "$V77_SMOKE_PASSWORD"
           node -e 'if(!/^[0-9a-fA-F]{64}$/.test(process.env.D1_BACKUP_ENCRYPTION_KEY||""))process.exit(1)'
       - name: Check production D1 state and unapplied migrations
         env:
@@ -115,4 +119,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy --config wrangler.jsonc
       - name: Smoke-test deployed V77 and critical auth gates
+        env:
+          V77_SMOKE_USERNAME: ${{ secrets.V77_SMOKE_USERNAME }}
+          V77_SMOKE_PASSWORD: ${{ secrets.V77_SMOKE_PASSWORD }}
         run: node scripts/d1-release-safety.mjs smoke https://velocity-apex.maximmanzha20.workers.dev

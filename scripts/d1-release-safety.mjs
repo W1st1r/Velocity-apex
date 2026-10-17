@@ -120,7 +120,14 @@ async function smoke(base){
   const health=await fetch(origin+'/api/health');assert.equal(health.status,200,'health endpoint unavailable');const data=await health.json();assert.equal(data.ok,true,'health endpoint did not return ok');
   const save=await fetch(origin+'/api/account/save');assert.equal(save.status,401,'account save endpoint did not enforce authentication');
   const race=await fetch(origin+'/api/economy/races/start',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(race.status,401,'authoritative race start endpoint did not enforce authentication');
-  console.log(`V77 smoke passed: ${origin}, health protocol ${data.protocol}, account/race endpoints require authentication`);
+  const username=process.env.V77_SMOKE_USERNAME,password=process.env.V77_SMOKE_PASSWORD;assert.ok(username&&password,'release smoke test account secrets are required');
+  const login=await fetch(origin+'/api/auth/login',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({username,password})});assert.equal(login.status,200,'test account login failed');const loginBody=await login.json();assert.equal(loginBody.ok,true,'login response was not successful');
+  const cookies=login.headers.getSetCookie?.()||[login.headers.get('set-cookie')||''];const cookie=cookies[0].split(';',1)[0];assert.match(cookie,/^va_session=/,'login did not issue an authenticated session');
+  try{
+    const headers={cookie};const me=await fetch(origin+'/api/auth/me',{headers});assert.equal(me.status,200,'authenticated session lookup failed');const identity=await me.json();assert.equal(identity.authenticated,true,'session was not authenticated');
+    const loaded=await fetch(origin+'/api/account/save',{headers});assert.equal(loaded.status,200,'authenticated save load failed');const saveBody=await loaded.json();assert.equal(saveBody.ok,true,'save load response was not successful');assert.ok(saveBody.save&&typeof saveBody.save==='object','save payload missing');assert.ok(Number.isInteger(saveBody.revision)&&saveBody.revision>0,'save revision missing');
+  }finally{await fetch(origin+'/api/auth/logout',{method:'POST',headers:{origin,cookie,'content-type':'application/json'},body:'{}'});}
+  console.log(`V77 smoke passed: ${origin}, health protocol ${data.protocol}, authenticated login/save and unauthenticated access gates`);
 }
 const [mode,...args]=process.argv.slice(2);
 if(mode==='simulate')simulate();
