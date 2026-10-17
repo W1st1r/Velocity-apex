@@ -29,6 +29,6 @@ assert.match(roam,/const lx=z\.x\+\(Number\(z\.labelOffset\?\.x\)\|\|0\)/);
 assert.match(market,/\$\('marketCredits'\)\.textContent=state\.data\.balance===null\?'ЗАГРУЗКА…'/);
 assert.match(market,/wallet\.setAttribute\('aria-busy',String\(state\.loading\)\)/);
 assert.match(html,/css\/v74\.css\?v=20261016-v74/);
-assert.match(html,/js\/market\.js\?v=20261016-v74/);
+assert.match(html,/js\\/market\\.js\\?v=20261016-v74(?:[&\"]|$)/);
 
 console.log('v74_release_test: OK — version, 50-player copy, 50-level career, label separation and balance loading');
