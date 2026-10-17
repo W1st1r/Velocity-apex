@@ -3,6 +3,7 @@ import {staffOnlineLevel} from './admin-system.mjs';
 import {crewIdentity} from './crews.mjs';
 import {getProgression} from './progression.mjs';
 import {writeGameLog} from './logs.mjs';
+import {applyAccountTransaction} from './account-transactions.mjs';
 import {generateRoomCode,normalizeRoomCode,validRoomCode,RACE_TRACK_IDS,DRIFT_TRACK_IDS} from './protocol.mjs';
 
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
@@ -79,19 +80,38 @@ export async function markMediaEventRunning(env,eventId){await ensureMediaSchema
 export async function refundMediaEvent(env,eventId,reason='CANCELLED'){
   await ensureMediaSchema(env);const row=await env.DB.prepare('SELECT * FROM media_events WHERE id=? LIMIT 1').bind(eventId).first();if(!row)return {ok:false,error:'EVENT_NOT_FOUND'};
   if(['CANCELLED','FINISHED'].includes(row.status))return {ok:true,duplicate:true};
-  const claimed=await env.DB.prepare("UPDATE media_events SET status='REFUNDING',updated_at=? WHERE id=? AND status NOT IN ('CANCELLED','FINISHED','REFUNDING')").bind(now(),eventId).run();if(Number(claimed?.meta?.changes||0)!==1)return {ok:true,duplicate:true};
-  const prize=Math.max(0,Number(row.prize)||0);if(prize){const add=await mutateTargetSave(env,row.creator_user_id,s=>{const before=Math.max(0,Math.floor(Number(s.credits)||0));s.credits=Math.min(999999999,before+prize);return {before,after:s.credits,delta:s.credits-before};});if(!add.ok){await env.DB.prepare("UPDATE media_events SET status='FAILED',result_json=?,updated_at=? WHERE id=?").bind(JSON.stringify({reason:'REFUND_FAILED',detail:add.error}),now(),eventId).run();return {ok:false,error:add.error||'REFUND_FAILED'};}}
-  const t=now();await env.DB.prepare("UPDATE media_events SET status='CANCELLED',cancelled_at=?,finished_at=?,result_json=?,updated_at=? WHERE id=?").bind(t,t,JSON.stringify({reason,refunded:prize}),t,eventId).run();
+  if(!['WAITING','STARTING','RUNNING'].includes(row.status))return {ok:false,error:'EVENT_REQUIRES_RECONCILIATION'};
+  const prize=Math.max(0,Number(row.prize)||0),t=now();
+  if(prize){
+    const changed=await applyAccountTransaction(env,{actorId:row.creator_user_id,accountIds:[row.creator_user_id],requestId:`media-refund-${eventId}`,type:'media_event_refund',plan:saves=>{
+      const save=saves[row.creator_user_id],before=Math.max(0,Math.floor(Number(save.credits)||0)),after=Math.min(999999999,before+prize);save.credits=after;
+      return {result:{refunded:after-before},guardSql:"EXISTS(SELECT 1 FROM media_events WHERE id=? AND status IN ('WAITING','STARTING','RUNNING'))",guardArgs:[eventId],statements:({receiptSql,receiptArgs})=>[env.DB.prepare(`UPDATE media_events SET status='CANCELLED',cancelled_at=?,finished_at=?,result_json=?,updated_at=? WHERE id=? AND status IN ('WAITING','STARTING','RUNNING') AND ${receiptSql}`).bind(t,t,JSON.stringify({reason,refunded:after-before}),t,eventId,...receiptArgs)]};
+    }});
+    if(changed.error)return {ok:false,error:changed.error};
+  }else{
+    const updated=await env.DB.prepare("UPDATE media_events SET status='CANCELLED',cancelled_at=?,finished_at=?,result_json=?,updated_at=? WHERE id=? AND status IN ('WAITING','STARTING','RUNNING')").bind(t,t,JSON.stringify({reason,refunded:0}),t,eventId).run();
+    if(Number(updated?.meta?.changes||0)!==1)return {ok:false,error:'EVENT_NOT_SETTLEABLE'};
+  }
   try{await writeGameLog(env,{category:'system',eventType:'media_event_refund',actorRole:'SYSTEM',targetUserId:row.creator_user_id,source:'MEDIA_EVENT',subject:'MEDIA EVENT · возврат призового фонда',amount:prize,currency:'CR',relatedId:eventId,metadata:{code:row.code,reason},createdAt:t});}catch{}
   return {ok:true,refunded:prize};
 }
 export async function settleMediaEvent(env,eventId,winnerUserIds=[],result={}){
   await ensureMediaSchema(env);const row=await env.DB.prepare('SELECT * FROM media_events WHERE id=? LIMIT 1').bind(eventId).first();if(!row)return {ok:false,error:'EVENT_NOT_FOUND'};if(row.status==='FINISHED')return {ok:true,duplicate:true,event:publicEvent(row)};
-  const claim=await env.DB.prepare("UPDATE media_events SET status='SETTLING',updated_at=? WHERE id=? AND status IN ('WAITING','STARTING','RUNNING')").bind(now(),eventId).run();if(Number(claim?.meta?.changes||0)!==1)return {ok:false,error:'EVENT_NOT_SETTLEABLE'};
-  const unique=[...new Set((winnerUserIds||[]).filter(Boolean))],prize=Math.max(0,Number(row.prize)||0),payouts=[];
-  if(prize>0&&unique.length){const base=Math.floor(prize/unique.length),remainder=prize-base*unique.length;for(let i=0;i<unique.length;i++){const amount=base+(i<remainder?1:0);const changed=await mutateTargetSave(env,unique[i],s=>{const before=Math.max(0,Math.floor(Number(s.credits)||0));s.credits=Math.min(999999999,before+amount);return {before,after:s.credits,delta:s.credits-before};});if(!changed.ok){await env.DB.prepare("UPDATE media_events SET status='FAILED',result_json=?,updated_at=? WHERE id=?").bind(JSON.stringify({reason:'PAYOUT_FAILED',userId:unique[i],error:changed.error,result}),now(),eventId).run();return {ok:false,error:changed.error||'PAYOUT_FAILED'};}payouts.push({userId:unique[i],amount:changed.result?.delta||amount});}}
-  if(prize>0&&!unique.length){return refundMediaEvent(env,eventId,'NO_WINNER');}
-  const t=now(),finalResult={...result,payouts};await env.DB.prepare("UPDATE media_events SET status='FINISHED',winner_json=?,result_json=?,finished_at=?,updated_at=? WHERE id=?").bind(JSON.stringify(unique),JSON.stringify(finalResult),t,t,eventId).run();
+  if(!['WAITING','STARTING','RUNNING'].includes(row.status))return {ok:false,error:'EVENT_REQUIRES_RECONCILIATION'};
+  const unique=[...new Set((winnerUserIds||[]).filter(id=>typeof id==='string'&&id).slice(0,12))],prize=Math.max(0,Number(row.prize)||0),t=now();
+  if(prize>0&&!unique.length)return refundMediaEvent(env,eventId,'NO_WINNER');
+  let payouts=[];
+  if(prize>0){
+    const base=Math.floor(prize/unique.length),remainder=prize%unique.length,amounts=new Map(unique.map((id,i)=>[id,base+(i<remainder?1:0)]));
+    const changed=await applyAccountTransaction(env,{actorId:unique[0],accountIds:unique,requestId:`media-settle-${eventId}`,type:'media_event_settlement',plan:saves=>{
+      const pays=[];for(const id of unique){const save=saves[id],before=Math.max(0,Math.floor(Number(save.credits)||0)),amount=amounts.get(id);save.credits=Math.min(999999999,before+amount);pays.push({userId:id,amount:save.credits-before});}
+      return {result:{payouts:pays},guardSql:"EXISTS(SELECT 1 FROM media_events WHERE id=? AND status IN ('WAITING','STARTING','RUNNING'))",guardArgs:[eventId],statements:({receiptSql,receiptArgs})=>[env.DB.prepare(`UPDATE media_events SET status='FINISHED',winner_json=?,result_json=?,finished_at=?,updated_at=? WHERE id=? AND status IN ('WAITING','STARTING','RUNNING') AND ${receiptSql}`).bind(JSON.stringify(unique),JSON.stringify({...result,payouts:pays}),t,t,eventId,...receiptArgs)]};
+    }});
+    if(changed.error)return {ok:false,error:changed.error};payouts=changed.result?.payouts||[];
+  }else{
+    const updated=await env.DB.prepare("UPDATE media_events SET status='FINISHED',winner_json=?,result_json=?,finished_at=?,updated_at=? WHERE id=? AND status IN ('WAITING','STARTING','RUNNING')").bind(JSON.stringify(unique),JSON.stringify({...result,payouts:[]}),t,t,eventId).run();
+    if(Number(updated?.meta?.changes||0)!==1)return {ok:false,error:'EVENT_NOT_SETTLEABLE'};
+  }
   for(const p of payouts){try{await writeGameLog(env,{category:'system',eventType:'media_event_payout',actorRole:'SYSTEM',targetUserId:p.userId,source:'MEDIA_EVENT',subject:'MEDIA EVENT · приз',amount:p.amount,currency:'CR',relatedId:eventId,metadata:{code:row.code,gameKey:row.game_key,creatorUserId:row.creator_user_id},createdAt:t});}catch{}}
   return {ok:true,payouts,winners:unique};
 }

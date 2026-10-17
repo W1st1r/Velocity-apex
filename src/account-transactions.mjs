@@ -5,7 +5,7 @@ async function schema(env){let p=ready.get(env.DB);if(!p){p=env.DB.prepare('CREA
 // receipt/token model protects all balance, ownership and domain-row writes.
 export async function applyAccountTransaction(env,{actorId,requestId,type,accountIds,plan}){
  if(!/^[\w-]{16,80}$/.test(requestId||''))return {error:'IDEMPOTENCY_KEY_REQUIRED'};
- const ids=[...new Set(accountIds)];if(!ids.includes(actorId)||ids.length>8||!ids.length)return {error:'INVALID_TRANSACTION'};
+ const ids=[...new Set(accountIds)];if(!ids.includes(actorId)||ids.length>12||!ids.length)return {error:'INVALID_TRANSACTION'};
  await schema(env);for(const id of ids)await backupAccountState(env,id);
  const previous=async()=>{const r=await env.DB.prepare('SELECT operation_type,response_json FROM economy_operations WHERE user_id=? AND request_id=?').bind(actorId,requestId).first();if(!r)return null;if(r.operation_type!==type)return {error:'IDEMPOTENCY_KEY_REUSED'};const saved=await env.DB.prepare('SELECT save_json,revision,updated_at FROM player_saves WHERE user_id=?').bind(actorId).first();return {replay:true,...JSON.parse(r.response_json),...(saved?{save:JSON.parse(saved.save_json),revision:saved.revision,updatedAt:saved.updated_at}:{})};};
  for(let attempt=0;attempt<6;attempt++){
