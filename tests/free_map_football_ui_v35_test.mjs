@@ -16,8 +16,8 @@ assert.ok(!client.includes('driftIndustrial:')&&!client.includes('driftParking:'
 assert.ok(!server.includes("industrial:{x:2690")&&!server.includes("parking:{x:3700"),'only one authoritative drift zone may remain');
 assert.ok(city.includes("apron:{x:550,y:1290,w:390,h:195}"),'Bomb Arena apron must end before both arterial road surfaces');
 assert.ok(city.includes("building:{x:605,y:1128,w:330,h:138}"),'Bomb Arena building must remain fully off-road');
-assert.ok(client.includes("hotPotatoHub:{x:820,y:1410,r:105"),'Bomb Arena client trigger must follow the moved parking area');
-assert.ok(server.includes("hot_potato:{x:820,y:1410,r:118"),'Bomb Arena server trigger must follow the moved parking area');
+assert.ok(client.includes("hotPotatoHub:{...MINIGAME_VENUE_CENTERS.hot_potato,r:45"),'Bomb Arena client trigger must share the venue center/radius');
+assert.ok(server.includes("hot_potato:{x:745,y:1387.5,r:45"),'Bomb Arena server trigger must share the venue center/radius');
 
 // Every running mini-game gets the compact score strip, not football only.
 assert.ok(client.includes("compactPlaying=e.status==='running'"),'all running mini-games must activate compact HUD');

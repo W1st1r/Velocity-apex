@@ -1,5 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../public/js/free-city.js'),'utf8');
+for(const marker of ['1882,1260','2730,1490','2728,1570'])assert.ok(!source.includes(marker),`decorative white cross marker must stay removed: ${marker}`);
 const scope={window:{}};vm.createContext(scope);
 vm.runInContext(source.replace('window.ApexCity={','window.__geometry={roads,buildings,trees,areas};window.ApexCity={'),scope);
 const city=scope.window.ApexCity,{roads,buildings,trees}=scope.window.__geometry;

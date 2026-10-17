@@ -13,11 +13,11 @@ vm.createContext(context);
 vm.runInContext(citySrc.replace('window.ApexCity={','window.__map70={roads,buildings,trees,areas};window.ApexCity={'),context);
 const city=context.window.ApexCity,{roads,buildings,trees}=context.window.__map70;
 
-assert.ok(['V70','V71','V74','V76','V76.1','V76.2','V76.3','V76.3.2'].includes(version.version),'expected a Coastal Ring based release');
+assert.ok(['V70','V71','V74','V76','V76.1','V76.2','V76.3','V76.3.2','V77'].includes(version.version),'expected a Coastal Ring based release');
 assert.ok(city.coastalRingVersion>=70);
 assert.equal(city.width,5000);
 assert.equal(city.height,3000);
-assert.ok(['V74','V76','V76.1','V76.2','V76.3','V76.3.2'].includes(version.version)||/Coastal Ring/.test(version.update));
+assert.ok(['V74','V76','V76.1','V76.2','V76.3','V76.3.2','V77'].includes(version.version)||/Coastal Ring/.test(version.update));
 assert.match(html,/free-city\.js\?v=20260920-v49&release=20261016-v74/);
 assert.match(html,/freeroam\.js\?v=20260920-v49&release=20261016-v74/);
 assert.ok(roads.length>=16,'eastern coastal connections are missing');

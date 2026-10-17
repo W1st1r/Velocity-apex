@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import fs from 'node:fs';
+import {lockRoomWager,settleRoomWager} from '../src/room-wager-escrow.mjs';
+const db=new DatabaseSync(':memory:');
+db.exec('CREATE TABLE player_saves(user_id TEXT PRIMARY KEY,save_json TEXT,revision INTEGER,updated_at INTEGER)');
+const migration=fs.readFileSync(new URL('../migrations/0020_room_wager_escrow.sql',import.meta.url),'utf8');db.exec(migration);db.exec(migration);
+let tail=Promise.resolve(),injected=false;
+const DB={prepare(sql){let args=[];return{bind(...v){args=v;return this;},async first(){return db.prepare(sql).get(...args)||null;},async run(){if(injected&&sql.startsWith('UPDATE player_saves')){injected=false;throw Error('injected storage failure');}const r=db.prepare(sql).run(...args);return{meta:{changes:Number(r.changes)}};}};},async batch(statements){let release;const before=tail;tail=new Promise(r=>release=r);await before;db.exec('BEGIN');try{const out=[];for(const s of statements)out.push(await s.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}finally{release();}}};
+const insert=db.prepare('INSERT INTO player_saves VALUES(?,?,1,0)');for(const [id,credits] of [['a',100],['b',100],['c',5]])insert.run(id,JSON.stringify({credits,ownedLiveries:['legacy-car'],careerUnlocked:7,legacy:{keep:true}}));
+const balance=id=>JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(id).save_json).credits;
+const lock=(raceId,userIds=['a','b'],stake=20)=>lockRoomWager(DB,{raceId,userIds,stake});
+assert.equal((await lock('poor',['a','c'])).code,'INSUFFICIENT_CR');assert.equal(balance('a'),100);
+assert.equal((await lock('duplicate',['a','a'])).code,'INVALID_WAGER');
+injected=true;await assert.rejects(lock('failed'),/injected/);assert.equal(balance('a'),100);assert.equal(db.prepare("SELECT COUNT(*) n FROM room_wager_escrows WHERE race_id='failed'").get().n,0);
+const concurrent=await Promise.all([lock('race1'),lock('race1',['b','a'])]);assert(concurrent.every(r=>r.ok));assert.equal(balance('a'),80);assert.equal(balance('b'),80);
+assert.equal((await lock('race1',['a','b'],30)).code,'IDEMPOTENCY_KEY_REUSED');
+assert.equal((await settleRoomWager(DB,{raceId:'race1',winnerUserId:'c'})).code,'WAGER_WINNER_MISSING');
+injected=true;await assert.rejects(settleRoomWager(DB,{raceId:'race1',winnerUserId:'a'}),/injected/);assert.equal(balance('a'),80);assert.equal(db.prepare("SELECT status FROM room_wager_escrows WHERE race_id='race1'").get().status,'locked');
+const payouts=await Promise.all([settleRoomWager(DB,{raceId:'race1',winnerUserId:'a'}),settleRoomWager(DB,{raceId:'race1',winnerUserId:'a'})]);assert(payouts.every(r=>r.ok),JSON.stringify(payouts));assert.equal(balance('a'),120);assert.equal(balance('b'),80);
+assert.equal((await settleRoomWager(DB,{raceId:'race1',refund:true})).code,'WAGER_ALREADY_SETTLED');
+assert.equal((await lock('race1')).replayed,true);assert.equal(balance('a'),120);
+assert((await lock('race2')).ok);const results=await Promise.all([settleRoomWager(DB,{raceId:'race2',refund:true}),settleRoomWager(DB,{raceId:'race2',winnerUserId:'b'})]);assert.equal(results.filter(x=>x.ok).length,1);assert.equal(balance('a')+balance('b'),200);
+const three=await lock('three',['a','b','c'],5);assert(three.ok);assert.equal(three.pot,15);assert((await settleRoomWager(DB,{raceId:'three',refund:true})).ok);assert.equal(balance('c'),5);
+const spend=await Promise.all([lock('spend1',['a','b'],60),lock('spend2',['a','b'],60)]);assert.equal(spend.filter(x=>x.ok).length,1);assert(balance('a')>=0&&balance('b')>=0);
+for(const id of ['a','b','c']){const s=JSON.parse(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get(id).save_json);assert.deepEqual(s.ownedLiveries,['legacy-car']);assert.equal(s.careerUnlocked,7);assert.deepEqual(s.legacy,{keep:true});}
+console.log('room_wager_escrow_v77_test: atomic lock/payout/refund, retries, conflicting settlements, concurrent spends, rollback, migration replay and legacy preservation passed');
+// Refuse overflow without consuming the escrow; a later refund remains possible.
+for(const id of ['overflow-a','overflow-b'])insert.run(id,JSON.stringify({credits:100}));
+assert((await lock('overflow',['overflow-a','overflow-b'],10)).ok);
+db.prepare("UPDATE player_saves SET save_json=json_set(save_json,'$.credits',CAST(? AS INTEGER)) WHERE user_id='overflow-a'").run(Number.MAX_SAFE_INTEGER);assert.equal(balance('overflow-a'),Number.MAX_SAFE_INTEGER,'fixture must store an exact integer before testing payout');
+assert.equal((await settleRoomWager(DB,{raceId:'overflow',winnerUserId:'overflow-a'})).code,'WAGER_PAYOUT_BLOCKED');assert.equal(balance('overflow-a'),Number.MAX_SAFE_INTEGER);assert.equal(db.prepare("SELECT status FROM room_wager_escrows WHERE race_id='overflow'").get().status,'locked');
+db.prepare("UPDATE player_saves SET save_json=json_set(save_json,'$.credits',100) WHERE user_id='overflow-a'").run();assert((await settleRoomWager(DB,{raceId:'overflow',refund:true})).ok);
+insert.run('fractional',JSON.stringify({credits:50.5}));assert.equal((await lock('fraction',['fractional','overflow-b'],5)).code,'INSUFFICIENT_CR');assert.equal(balance('fractional'),50.5);
+console.log('room_wager_escrow_v77_test: unsafe overflow and malformed fractional balances cannot settle or enter escrow');

@@ -1,6 +1,9 @@
+import {backupAccountState} from './account-authority-backup.mjs';
+import {prepareRoomAuthority,roomEngine,publicRoomAuthority,handleRoomAuthorityMessage,tickRoomAuthority,RACE_RUNTIME_VERSION} from './room-race-authority.mjs';
+import {lockRoomWager,settleRoomWager,readRoomWager} from './room-wager-escrow.mjs';
 import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.mjs';
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
-import {handleAuthRequest,freeAccountIdentity} from './auth.mjs';
+import {handleAuthRequest,freeAccountIdentity,mutateTargetSave} from './auth.mjs';
 import {handleMarketRequest} from './market.mjs';
 import {handleAdminSystemRequest,activeMute,staffOnlineLevel} from './admin-system.mjs';
 import {getProgression,awardProgression,PROGRESSION_REWARDS,levelFromTotalExp} from './progression.mjs';
@@ -72,9 +75,10 @@ const FREE_FOOTBALL_CONTACT_RADIUS=78;
 const FREE_FOOTBALL_MAX_BALL_SPEED=1050;
 const FREE_MINIGAME_ARENA=Object.freeze({x:2500,y:1500,w:2500,h:1500,left:1250,right:3750,top:750,bottom:2250});
 const FREE_MINIGAME_HUBS=Object.freeze({
-  football:{x:1835,y:300,r:125,label:'APEX STADIUM'},
-  checkpoint:{x:3338,y:865,r:125,label:'RUSH CENTER'},
-  hot_potato:{x:820,y:1410,r:118,label:'BOMB ARENA'}
+  // Centers match the client city-map aprons; keep r aligned with the prompt.
+  football:{x:1997.5,y:272.5,r:45,label:'APEX STADIUM'},
+  checkpoint:{x:3337.5,y:860,r:45,label:'RUSH CENTER'},
+  hot_potato:{x:745,y:1387.5,r:45,label:'BOMB ARENA'}
 });
 const FREE_MINIGAME_CONFIG=Object.freeze({
   football_3v3:{hub:'football',label:'MINI FOOTBALL 3×3',minPlayers:6,maxPlayers:6,durationMs:150000,teamSize:3,kind:'football'},
@@ -164,7 +168,20 @@ export class Room {
     if(this.loaded)return;this.room=await this.ctx.storage.get('room')||null;this.loaded=true;
     if(!this.room)return;
     this.room.players=this.room.players||[];
-    if(this.room.mode==='freeroam'){this.room.records=this.room.records||{speed:0,drift:0};this.room.dragQueue=this.room.dragQueue||[];this.room.dragChallenges=this.room.dragChallenges||{};this.room.driftBattle=this.room.driftBattle||null;if(this.room.driftBattle&&!FREE_DRIFT_ZONES[this.room.driftBattle.zoneId])this.room.driftBattle=null;this.room.koth=this.room.koth||null;this.room.minigames=this.room.minigames||{};this.room.eventsDisabled=!!this.room.eventsDisabled;for(const p of this.room.players){p.adminLevel=Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0)));p.media=!!p.media;p.spectator=!!p.spectator;p.mediaReady=!!p.mediaReady;p.level=Math.max(0,Math.min(100,Math.floor(Number(p.level)||0)));p.totalExp=Math.max(0,Math.floor(Number(p.totalExp)||0));p.activePlayMs=Math.max(0,Number(p.activePlayMs)||0);p.onlineRewardCounter=Math.max(0,Math.floor(Number(p.onlineRewardCounter)||0));p.activeSessionId=p.activeSessionId||crypto.randomUUID();p.dragWager=validFreeDragWager(p.dragWager)?Number(p.dragWager):0;}return;}
+    if(this.room.mode==='freeroam'){this.room.records=this.room.records||{speed:0,drift:0};this.room.dragQueue=this.room.dragQueue||[];this.room.dragChallenges=this.room.dragChallenges||{};this.room.driftBattle=this.room.driftBattle||null;if(this.room.driftBattle&&!FREE_DRIFT_ZONES[this.room.driftBattle.zoneId])this.room.driftBattle=null;this.room.koth=this.room.koth||null;this.room.minigames=this.room.minigames||{};this.room.eventsDisabled=!!this.room.eventsDisabled;for(const p of this.room.players){p.adminLevel=Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0)));p.media=!!p.media;p.spectator=!!p.spectator;p.mediaReady=!!p.mediaReady;p.level=Math.max(0,Math.min(100,Math.floor(Number(p.level)||0)));p.totalExp=Math.max(0,Math.floor(Number(p.totalExp)||0));p.activePlayMs=Math.max(0,Number(p.activePlayMs)||0);p.onlineRewardCounter=Math.max(0,Math.floor(Number(p.onlineRewardCounter)||0));p.activeSessionId=p.activeSessionId||crypto.randomUUID();p.dragWager=validFreeDragWager(p.dragWager)?Number(p.dragWager):0;}await this.recoverFreeDragWagers();return;}
+    try{
+      await this.recoverInterruptedWager();
+      if(this.room.settlement?.authority==='server'&&this.room.settlement.status==='locked'){
+        const escrow=await readRoomWager(this.env.DB,this.room.settlement.raceId);
+        if(!escrow)throw Error('WAGER_JOURNAL_MISSING');
+        if(escrow.status==='refunded'){this.room.settlement.status='refunded';this.room.settlement.reason='RECOVERED_REFUND';this.resetRaceState({resetConfirmation:true});await this.save();}
+        else if(escrow.status==='awarded'){
+          const winner=this.room.players.find(p=>p.userId===escrow.winner_user_id);if(!winner)throw Error('WAGER_WINNER_MISSING');
+          this.room.settlement.status='awarded';this.room.settlement.winnerId=winner.id;this.room.settlement.awardedAt=escrow.settled_at;
+          winner.finishPlace=1;winner.finishTime=Math.max(0,escrow.settled_at-this.room.raceStartAt);this.room.finishOrder=[winner.id,...(this.room.finishOrder||[]).filter(id=>id!==winner.id)];await this.save();
+        }
+      }
+    }catch(e){this.loaded=false;throw e;}
     this.room.finishOrder=this.room.finishOrder||[];this.room.settings=normalizeSettings(this.room.settings||{});this.room.settlement=this.room.settlement||null;
     if(this.room.mode==='media_race'&&this.room.mediaEvent){this.room.mediaEvent.status=this.room.mediaEvent.status||'WAITING';this.room.mediaEvent.settings=this.room.mediaEvent.settings||{};}
     for(const p of this.room.players){
@@ -179,6 +196,7 @@ export class Room {
     if(this.room.mode==='freeroam'){const t=now();for(const event of [this.room.driftBattle,this.room.koth]){if(!event)continue;if(event.status==='waiting'&&event.createdAt)at=Math.min(at,event.createdAt+FREE_ACTIVITY_WAIT_MS);if(event.status==='countdown'&&event.startAt)at=Math.min(at,event.startAt);if(event.status==='running'&&event.endAt)at=Math.min(at,event.endAt);if(event.activity==='koth'&&event.status==='running'){const elapsed=Math.max(0,t-event.startAt);for(const off of FREE_KOTH_SWITCH_MS)if(off>elapsed+50){at=Math.min(at,event.startAt+off);break;}}}for(const event of Object.values(this.room.minigames||{})){if(!event)continue;if(event.status==='waiting'&&event.createdAt)at=Math.min(at,event.createdAt+FREE_MINIGAME_WAIT_MS);if(event.status==='countdown'&&event.startAt)at=Math.min(at,event.startAt);if(event.status==='running'&&event.endAt)at=Math.min(at,event.endAt);if(event.gameKey==='hot_potato'&&event.status==='running'&&event.bombDeadline)at=Math.min(at,event.bombDeadline);}}
     const disconnected=this.room.players.filter(p=>!p.connected&&p.disconnectedUntil).map(p=>p.disconnectedUntil);
     if(disconnected.length)at=Math.min(at,...disconnected);
+    if(this.room.raceAuthority&&['countdown','racing'].includes(this.room.status))at=Math.min(at,now()+1000);
     if(this.room.players.some(p=>p.connected))at=Math.min(at,now()+(this.room.mode==='freeroam'?FREE_HEARTBEAT_SWEEP_MS:CONNECTION_HEARTBEAT_SWEEP_MS));
     if(!this.room.players.some(p=>p.connected))at=Math.min(at,this.room.emptySince?this.room.emptySince+EMPTY_ROOM_TTL_MS:now()+EMPTY_ROOM_TTL_MS);
     await this.ctx.storage.setAlarm(Math.max(now()+1000,at));
@@ -263,7 +281,7 @@ export class Room {
   }
   async joinMinigame(ws,p,gameKey,t){
     const cfg=FREE_MINIGAME_CONFIG[gameKey],hub=cfg&&FREE_MINIGAME_HUBS[cfg.hub];if(!cfg||!hub)return this.error(ws,'INVALID_ACTIVITY','Неизвестная мини-игра');
-    if(!insideCircle(p.state,hub,110))return this.error(ws,'ACTIVITY_LOCATION',`Подъедьте к ${hub.label}`);
+    if(!insideCircle(p.state,hub))return this.error(ws,'ACTIVITY_LOCATION',`Подъедьте к ${hub.label}`);
     if(this.playerBusy(p.id))return this.error(ws,'ACTIVITY_BUSY','Вы уже участвуете в активности');
     this.room.minigames=this.room.minigames||{};let e=this.room.minigames[gameKey];
     if(e?.status==='running')return this.error(ws,'ACTIVITY_RUNNING',`${cfg.label} уже идёт`);
@@ -580,22 +598,38 @@ export class Room {
   async freeDragBalances(ids){
     const balances={};for(const id of ids||[]){const racer=this.room.players.find(p=>p.id===id);if(!racer?.userId||!this.env.DB){balances[id]=0;continue;}const row=await this.env.DB.prepare("SELECT COALESCE(json_extract(save_json,'$.credits'),0) AS credits FROM player_saves WHERE user_id=? LIMIT 1").bind(racer.userId).first();balances[id]=Math.max(0,Math.floor(Number(row?.credits)||0));}return balances;
   }
+  async recoverFreeDragWagers(){
+    if(!this.env.DB)return;
+    for(const challenge of Object.values(this.room.dragChallenges||{})){
+      if(challenge.wagerAuthorityVersion!==77)continue;
+      const escrow=await readRoomWager(this.env.DB,'drag:'+challenge.id);
+      if(!escrow){this.clearFreeDragChallenge(challenge);continue;}
+      challenge.wagerLocked=true;challenge.wagerSettled=escrow.status!=='locked';
+      if(challenge.wagerSettled){challenge.wagerSettlement=escrow.status;this.clearFreeDragChallenge(challenge);}
+    }
+    await this.save();
+  }
   async lockFreeDragWager(challenge){
     const wager=Math.max(0,Math.floor(Number(challenge?.wager)||0));challenge.wager=wager;challenge.pot=wager*2;if(!wager){challenge.wagerLocked=false;return {ok:true,balances:{}};}if(!validFreeDragWager(wager)||!this.env.DB)return {ok:false,code:'INVALID_WAGER'};
     const racers=(challenge.ids||[]).map(id=>this.room.players.find(p=>p.id===id));if(racers.length!==2||racers.some(p=>!p?.userId)||racers[0].userId===racers[1].userId)return {ok:false,code:'DRAG_ACCOUNT_REQUIRED'};
-    const before=await this.freeDragBalances(challenge.ids),badIds=challenge.ids.filter(id=>(before[id]||0)<wager);if(badIds.length)return {ok:false,code:'INSUFFICIENT_CR',badIds,balances:before};
-    const [a,b]=racers,t=now();const result=await this.env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',MAX(0,COALESCE(json_extract(save_json,'$.credits'),0)-?)),revision=revision+1,updated_at=? WHERE user_id IN (?,?) AND (SELECT COUNT(*) FROM player_saves WHERE user_id IN (?,?) AND COALESCE(json_extract(save_json,'$.credits'),0)>=?)=2`).bind(wager,t,a.userId,b.userId,a.userId,b.userId,wager).run();
-    if(Number(result?.meta?.changes)!==2){const balances=await this.freeDragBalances(challenge.ids);return {ok:false,code:'INSUFFICIENT_CR',badIds:challenge.ids.filter(id=>(balances[id]||0)<wager),balances};}
-    challenge.wagerLocked=true;challenge.wagerSettled=false;challenge.wagerLockedAt=t;const balances=await this.freeDragBalances(challenge.ids);
-    for(const racer of racers){try{await writeGameLog(this.env,{category:'system',eventType:'free_drag_wager_locked',actorUserId:racer.userId,actorUsername:this.logUsername(racer),actorRole:this.logRole(racer),targetUserId:racer.userId,targetUsername:this.logUsername(racer),serverId:this.room.serverId||'free',source:'FREE_DRAG',subject:'DRAG · ставка заблокирована',relatedId:challenge.id,metadata:{wager,pot:challenge.pot,playerId:racer.id},createdAt:t});}catch{}}
+    for(const racer of racers)await backupAccountState(this.env,racer.userId);
+    challenge.wagerAuthorityVersion=77;challenge.wagerUserIds=Object.fromEntries(racers.map(p=>[p.id,p.userId]));this.room.dragChallenges=this.room.dragChallenges||{};this.room.dragChallenges[challenge.id]=challenge;
+    // Keep a durable intent before the D1 debit; recovery reads the escrow receipt.
+    await this.save();
+    const result=await lockRoomWager(this.env.DB,{raceId:'drag:'+challenge.id,userIds:racers.map(p=>p.userId),stake:wager});
+    if(!result.ok){delete this.room.dragChallenges[challenge.id];await this.save();return {...result,balances:await this.freeDragBalances(challenge.ids)};}
+    if(result.status!=='locked')return {ok:false,code:'WAGER_ALREADY_SETTLED'};
+    challenge.wagerLocked=true;challenge.wagerSettled=false;challenge.wagerLockedAt=now();await this.save();const balances=await this.freeDragBalances(challenge.ids);
+    for(const racer of racers){try{await writeGameLog(this.env,{category:'system',eventType:'free_drag_wager_locked',actorUserId:racer.userId,actorUsername:this.logUsername(racer),actorRole:this.logRole(racer),targetUserId:racer.userId,targetUsername:this.logUsername(racer),serverId:this.room.serverId||'free',source:'FREE_DRAG',subject:'DRAG · ставка заблокирована',relatedId:challenge.id,metadata:{wager,pot:challenge.pot,playerId:racer.id},createdAt:now()});}catch{}}
     return {ok:true,balances};
   }
   async settleFreeDragWager(challenge,{draw=false,winnerId=null,reason='FINISH'}={}){
-    const wager=Math.max(0,Math.floor(Number(challenge?.wager)||0));if(!wager||!challenge?.wagerLocked)return {ok:true,balances:{}};if(challenge.wagerSettled)return {ok:true,balances:await this.freeDragBalances(challenge.ids)};if(!this.env.DB)return {ok:false,code:'WAGER_DB_UNAVAILABLE'};
-    const racers=challenge.ids.map(id=>this.room.players.find(p=>p.id===id)),t=now();if(racers.some(p=>!p?.userId))return {ok:false,code:'DRAG_ACCOUNT_REQUIRED'};
-    if(draw){const [a,b]=racers;const result=await this.env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',MIN(999999999,COALESCE(json_extract(save_json,'$.credits'),0)+?)),revision=revision+1,updated_at=? WHERE user_id IN (?,?)`).bind(wager,t,a.userId,b.userId).run();if(Number(result?.meta?.changes)!==2)return {ok:false,code:'WAGER_REFUND_FAILED'};}
-    else{const winner=racers.find(p=>p.id===winnerId);if(!winner)return {ok:false,code:'WAGER_WINNER_MISSING'};const result=await this.env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',MIN(999999999,COALESCE(json_extract(save_json,'$.credits'),0)+?)),revision=revision+1,updated_at=? WHERE user_id=?`).bind(challenge.pot||wager*2,t,winner.userId).run();if(Number(result?.meta?.changes)!==1)return {ok:false,code:'WAGER_PAYOUT_FAILED'};}
-    challenge.wagerSettled=true;challenge.wagerSettlement=draw?'refund':'winner';challenge.wagerSettledAt=t;const balances=await this.freeDragBalances(challenge.ids);
+    const wager=Math.max(0,Math.floor(Number(challenge?.wager)||0));if(!wager||!challenge?.wagerLocked)return {ok:true,balances:{}};if(!this.env.DB)return {ok:false,code:'WAGER_DB_UNAVAILABLE'};
+    if(challenge.wagerAuthorityVersion!==77||!challenge.wagerUserIds)return {ok:false,code:'LEGACY_WAGER_RECONCILIATION_REQUIRED'};
+    const racers=challenge.ids.map(id=>this.room.players.find(p=>p.id===id)||{id,userId:challenge.wagerUserIds[id]}),winnerUserId=winnerId?challenge.wagerUserIds[winnerId]:null;
+    if(!draw&&!winnerUserId)return {ok:false,code:'WAGER_WINNER_MISSING'};
+    const result=await settleRoomWager(this.env.DB,{raceId:'drag:'+challenge.id,winnerUserId,refund:draw});if(!result.ok)return result;
+    const t=now();challenge.wagerSettled=true;challenge.wagerSettlement=draw?'refund':'winner';challenge.wagerSettledAt=t;await this.save();const balances=await this.freeDragBalances(challenge.ids);
     try{const winner=winnerId?racers.find(p=>p.id===winnerId):null;await writeGameLog(this.env,{category:'system',eventType:draw?'free_drag_wager_refund':'free_drag_wager_payout',actorUserId:winner?.userId||null,actorUsername:winner?this.logUsername(winner):'SYSTEM',actorRole:winner?this.logRole(winner):'SYSTEM',targetUserId:winner?.userId||null,targetUsername:winner?this.logUsername(winner):'',serverId:this.room.serverId||'free',source:'FREE_DRAG',subject:draw?'DRAG · возврат ставки':'DRAG · выплата банка',reason,relatedId:challenge.id,metadata:{wager,pot:challenge.pot||wager*2,winnerId,draw,balances},createdAt:t});}catch{}
     return {ok:true,balances};
   }
@@ -607,7 +641,7 @@ export class Room {
   }
   async cancelFreeDrag(challenge,reason='CANCELLED',culpritId=null,allowForfeit=false){
     if(!challenge)return;const afterStart=now()>=Number(challenge.startAt||Infinity),otherId=culpritId&&(challenge.ids||[]).find(id=>id!==culpritId),other=this.room.players.find(p=>p.id===otherId);if(allowForfeit&&afterStart&&otherId&&other?.connected&&challenge.wagerLocked&&Number(challenge.wager)>0){const payout=await this.settleFreeDragWager(challenge,{draw:false,winnerId:otherId,reason:'FORFEIT'});if(payout.ok){const names=Object.fromEntries(challenge.ids.map(id=>[id,this.room.players.find(x=>x.id===id)?.name||'RACER']));this.sendToPlayers(challenge.ids,{type:'activity_result',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,participants:[...challenge.ids],winnerId:otherId,times:{},names,gapMs:0,draw:false,photoFinish:false,forfeit:true,wager:challenge.wager,pot:challenge.pot,balances:payout.balances,serverTime:now()});this.clearFreeDragChallenge(challenge);return;}}
-    const refund=await this.refundFreeDragWager(challenge,reason);this.sendToPlayers(challenge.ids||[],{type:'activity_cancelled',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,reason,wagerRefunded:!!Number(challenge.wager)&&refund.ok,wager:Number(challenge.wager)||0,balances:refund.balances||{},serverTime:now()});this.clearFreeDragChallenge(challenge);
+    const refund=await this.refundFreeDragWager(challenge,reason);if(!refund.ok)return;this.sendToPlayers(challenge.ids||[],{type:'activity_cancelled',v:PROTOCOL_VERSION,activity:'drag',challengeId:challenge.id,reason,wagerRefunded:!!Number(challenge.wager)&&refund.ok,wager:Number(challenge.wager)||0,balances:refund.balances||{},serverTime:now()});this.clearFreeDragChallenge(challenge);
   }
   async settleFreeDrag(challenge){
     if(!challenge||challenge.settled)return false;if(!challenge.ids.every(id=>Number.isFinite(challenge.finishes?.[id])))return false;
@@ -644,7 +678,11 @@ export class Room {
       const effectId=ownedEffects.includes(requested.effectId)?requested.effectId:'standard',custom=save.carCustomizations?.[requested.liveryId]||{};
       const ownedColors=new Set(['stock',...(Array.isArray(custom.ownedColors)?custom.ownedColors:[])]),ownedVinyls=new Set(['none',...(Array.isArray(custom.ownedVinyls)?custom.ownedVinyls:[])]);
       const colorId=STYLE_COLORS.has(custom.colorId)&&ownedColors.has(custom.colorId)?custom.colorId:'stock',vinylId=STYLE_VINYLS.has(custom.vinylId)&&ownedVinyls.has(custom.vinylId)?custom.vinylId:'none';
-      p.liveryId=requested.liveryId;p.effectId=effectId;p.colorId=colorId;p.vinylId=vinylId;
+      const selected=await mutateTargetSave(this.env,p.userId,current=>{
+        if(requested.liveryId!=='apexLime'&&(!Array.isArray(current.ownedLiveries)||!current.ownedLiveries.includes(requested.liveryId)))return {error:'CAR_NOT_OWNED'};
+        const selectedEffect=Array.isArray(current.ownedEffects)&&current.ownedEffects.includes(effectId)?effectId:'standard';current.selectedLivery=requested.liveryId;current.selectedEffect=selectedEffect;return {effectId:selectedEffect};
+      });if(!selected.ok)return this.error(ws,selected.error||'SAVE_CONFLICT','Не удалось сохранить выбранную машину');
+      p.liveryId=requested.liveryId;p.effectId=selected.result.effectId;p.colorId=colorId;p.vinylId=vinylId;
       p.state={...(p.state||{}),x:FREE_GARAGE.exitX,y:FREE_GARAGE.exitY,vx:0,vy:0,speed:0,angle:FREE_GARAGE.exitAngle,sampleTime:now(),serverTime:now()};
       await this.save();const room=this.publicFreeRoom();this.send(ws,{type:'loadout_updated',v:PROTOCOL_VERSION,loadout:{liveryId:p.liveryId,effectId:p.effectId,colorId:p.colorId,vinylId:p.vinylId},spawn:{x:FREE_GARAGE.exitX,y:FREE_GARAGE.exitY,angle:FREE_GARAGE.exitAngle},serverTime:now()});this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:now(),room});return;
     }
@@ -710,9 +748,9 @@ export class Room {
   }
 
   publicRoom(){
-    const r=this.room,settlement=r.settlement?{raceId:r.settlement.raceId,status:r.settlement.status,pot:r.settlement.pot||0,wager:r.settlement.wager||0,winnerId:r.settlement.winnerId||null,reason:r.settlement.reason||'',stakes:r.settlement.stakes||{}}:null;
+    const r=this.room,settlement=r.settlement?{raceId:r.settlement.raceId,authority:r.settlement.authority||'legacy',status:r.settlement.status,pot:r.settlement.pot||0,wager:r.settlement.wager||0,winnerId:r.settlement.winnerId||null,reason:r.settlement.reason||'',stakes:r.settlement.stakes||{}}:null;
     const mediaEvent=r.mode==='media_race'&&r.mediaEvent?{id:r.mediaEvent.id,code:r.mediaEvent.code,title:r.mediaEvent.title,gameKey:r.mediaEvent.gameKey,creatorUserId:r.mediaEvent.creatorUserId,organizerMode:r.mediaEvent.organizerMode,prize:Number(r.mediaEvent.prize)||0,status:r.mediaEvent.status||'WAITING',settings:r.mediaEvent.settings||{},result:r.mediaEvent.result||null}:null;
-    return {protocol:PROTOCOL_VERSION,mode:r.mode||'race',mediaEvent,code:r.code,status:r.status,settings:r.settings,hostId:r.hostId,raceId:r.raceId||null,raceStartAt:r.raceStartAt||0,gridOrder:r.gridOrder||[],finishOrder:r.finishOrder||[],settlement,pot:settlement?.pot||0,players:r.players.map(p=>({id:p.id,userId:p.userId||null,crew:p.crew||null,name:p.name,media:!!p.media,spectator:!!p.spectator,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),ready:!!p.ready,connected:!!p.connected,host:p.id===r.hostId,liveryId:p.liveryId,effectId:p.effectId,colorId:p.colorId||'stock',vinylId:p.vinylId||'none',wagerConfirmed:!!p.wagerConfirmed,stake:p.stake||0,finishPlace:p.finishPlace||0,finishTime:p.finishTime||0,state:p.state?{laps:p.state.laps,progress:p.state.progress,finished:!!p.state.finished,driftScore:Math.max(0,Math.floor(Number(p.state.driftScore)||0))}:null}))};
+    return {protocol:PROTOCOL_VERSION,mode:r.mode||'race',authority:publicRoomAuthority(this),mediaEvent,code:r.code,status:r.status,settings:r.settings,hostId:r.hostId,raceId:r.raceId||null,raceStartAt:r.raceStartAt||0,gridOrder:r.gridOrder||[],finishOrder:r.finishOrder||[],settlement,pot:settlement?.pot||0,players:r.players.map(p=>({id:p.id,userId:p.userId||null,crew:p.crew||null,name:p.name,media:!!p.media,spectator:!!p.spectator,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),ready:!!p.ready,connected:!!p.connected,host:p.id===r.hostId,liveryId:p.liveryId,effectId:p.effectId,colorId:p.colorId||'stock',vinylId:p.vinylId||'none',wagerConfirmed:!!p.wagerConfirmed,stake:p.stake||0,finishPlace:p.finishPlace||0,finishTime:p.finishTime||0,state:p.state?{laps:p.state.laps,progress:p.state.progress,finished:!!p.state.finished,driftScore:Math.max(0,Math.floor(Number(p.state.driftScore)||0))}:null}))};
   }
   send(ws,obj){try{ws.send(JSON.stringify(obj));}catch{}}
   broadcast(obj,except=null){const text=JSON.stringify(obj);for(const ws of this.ctx.getWebSockets()){if(ws===except)continue;try{ws.send(text);}catch{}}}
@@ -729,11 +767,19 @@ export class Room {
     p.logSessionId='';p.logSessionStartedAt=0;p.disconnectReason='';
   }
   resetRaceState({resetConfirmation=false}={}){
-    const r=this.room;r.status='lobby';r.raceId=null;r.raceStartAt=0;r.gridOrder=[];r.finishOrder=[];
+    const r=this.room;r.raceAuthority=null;this.authorityEngine=null;this.authorityRaceId=null;r.status='lobby';r.raceId=null;r.raceStartAt=0;r.gridOrder=[];r.finishOrder=[];
     for(const x of r.players){x.ready=false;x.finishPlace=0;x.finishTime=0;x.state=null;x.lastSeq=-1;x.lastStateAt=0;x.serverLaps=0;x.lastLapAt=0;x.stake=0;if(resetConfirmation)x.wagerConfirmed=r.settings.wager===0;}
   }
-  refundActiveWager(reason='RACE_CANCELLED'){
+  async recoverInterruptedWager(){
+    if(this.room?.settlement?.authority!=='server'||this.room.settlement.status!=='locking')return false;
+    const escrow=await readRoomWager(this.env.DB,this.room.settlement.raceId);
+    if(escrow?.status==='locked'){const refund=await settleRoomWager(this.env.DB,{raceId:escrow.race_id,refund:true});if(!refund.ok)throw Error(refund.code);}
+    if(escrow?.status==='awarded')throw Error('UNEXPECTED_SETTLED_START');
+    this.room.settlement.status='refunded';this.room.settlement.reason='START_INTERRUPTED';this.resetRaceState({resetConfirmation:true});await this.save();return true;
+  }
+  async refundActiveWager(reason='RACE_CANCELLED'){
     const s=this.room?.settlement;if(!s||s.status!=='locked')return false;
+    if(s.authority==='server'){const result=await settleRoomWager(this.env.DB,{raceId:s.raceId,refund:true});if(!result.ok)throw Error(result.code);}
     s.status='refunded';s.reason=reason;s.refundedAt=now();s.winnerId=null;
     this.resetRaceState({resetConfirmation:true});return true;
   }
@@ -741,7 +787,7 @@ export class Room {
     await this.load();const url=new URL(request.url);
 
     if(url.pathname==='/media/create'&&request.method==='POST'){
-      if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{},gameKey=String(event.gameKey||''),cfg=FREE_MINIGAME_CONFIG[gameKey],supported=!!cfg||['drift_battle','koth'].includes(gameKey);if(!supported||!event.id||!event.code)return json({error:'INVALID_MEDIA_EVENT'},400);const t=now(),settings=event.settings||{};
+      let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{};if(this.room?.mediaEvent){if(this.room.mode==='freeroam'&&this.room.mediaEvent.id===event.id&&this.room.mediaEvent.code===event.code)return json({ok:true,replay:true,room:this.publicFreeRoom()});return json({error:'ROOM_EXISTS'},409);}if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);const gameKey=String(event.gameKey||''),cfg=FREE_MINIGAME_CONFIG[gameKey],supported=!!cfg||['drift_battle','koth'].includes(gameKey);if(!supported||!event.id||!event.code)return json({error:'INVALID_MEDIA_EVENT'},400);const t=now(),settings=event.settings||{};
       this.room={mode:'freeroam',serverId:'MEDIA:'+event.code,createdAt:t,updatedAt:t,emptySince:t,records:{speed:0,drift:0},dragQueue:[],dragChallenges:{},driftBattle:null,koth:null,minigames:{},eventsDisabled:false,mediaEvent:{...event,status:'WAITING',settings},players:[]};
       if(gameKey==='drift_battle')this.room.driftBattle=this.makeEvent('drift_battle',[],t,{zoneId:'harbor',mediaEvent:true,settings});
       else if(gameKey==='koth')this.room.koth=this.makeEvent('koth',[],t,{zoneIndex:0,finalZone:false,lastTickAt:0,mediaEvent:true,settings});
@@ -771,7 +817,7 @@ export class Room {
     }
 
     if(url.pathname==='/media-race/create'&&request.method==='POST'){
-      if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{},raw=event.settings||{};if(!event.id||!event.code||event.gameKey!=='race')return json({error:'INVALID_MEDIA_EVENT'},400);
+      let b={};try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}const event=b.event||{};if(this.room?.mediaEvent){if(this.room.mode==='media_race'&&this.room.mediaEvent.id===event.id&&this.room.mediaEvent.code===event.code)return json({ok:true,replay:true,room:this.publicRoom()});return json({error:'ROOM_EXISTS'},409);}if(this.room&&this.room.players?.length)return json({error:'ROOM_EXISTS'},409);const raw=event.settings||{};if(!event.id||!event.code||event.gameKey!=='race')return json({error:'INVALID_MEDIA_EVENT'},400);
       const settings=normalizeSettings({...raw,wager:0}),t=now();this.room={mode:'media_race',code:event.code,createdAt:t,updatedAt:t,emptySince:t,status:'lobby',settings:{...settings,wager:0},hostId:null,raceId:null,raceStartAt:0,gridOrder:[],finishOrder:[],settlement:null,mediaEvent:{...event,status:'WAITING',settings:{...raw,...settings,wager:0}},players:[]};await this.save();return json({ok:true,room:this.publicRoom()},201);
     }
     if(url.pathname==='/media-race/join'&&request.method==='POST'){
@@ -883,23 +929,33 @@ export class Room {
     }
     return json({error:'NOT_FOUND'},404);
   }
+  serializeRoomEvent(action){
+    const task=(this.roomEventTail||Promise.resolve()).then(action);this.roomEventTail=task.catch(()=>{});return task;
+  }
   async webSocketMessage(ws,message){
+    await this.load();const parsed=parseClientMessage(message),drag=parsed.ok&&((parsed.msg.type==='activity_join'&&parsed.msg.activity==='drag')||(parsed.msg.type==='activity_leave'&&parsed.msg.activity==='drag'));if(this.room?.mode==='freeroam'&&!drag)return this.handleSocketMessage(ws,message);return this.serializeRoomEvent(()=>this.handleSocketMessage(ws,message));
+  }
+  async handleSocketMessage(ws,message){
     if(this.env.DB){const t=now();if(!this.ownerCheckAt||t-this.ownerCheckAt>10000){this.ownerMaintenance=(await settings(this.env)).maintenance;this.ownerCheckAt=t;}if(this.ownerMaintenance){await this.load();const pid=ws.deserializeAttachment?.()?.playerId,p=this.room?.players.find(x=>x.id===pid);if(!p?.owner){try{ws.close(4003,'maintenance');}catch{}return;}}}
 
     await this.load();if(!this.room)return;const a=this.markSocketSeen(ws)||ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return this.error(ws,'SESSION_INVALID','Сессия игрока недействительна');
     const parsed=parseClientMessage(message);if(!parsed.ok){if(parsed.error==='message_too_large')try{ws.close(1009,'message too large');}catch{};return;}
     const m=parsed.msg;if(['state','finish'].includes(m.type))await this.refreshOwnerLimits(p);if(this.room.mode==='freeroam')return this.handleFreeMessage(ws,p,m);if(m.v!==undefined&&m.v!==PROTOCOL_VERSION)return this.error(ws,'PROTOCOL_VERSION','Версия Online-протокола не поддерживается');
+    if(this.env.DB&&!this.room.raceAuthority&&['player_state','race_finish'].includes(m.type))return this.error(ws,'RACE_CLIENT_UPDATE_REQUIRED','Старый заезд не может назначать серверные награды');
+    if(await handleRoomAuthorityMessage(this,ws,p,m))return;
     if(m.type==='ping'){if(await this.refreshPublicIdentity(p)){await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});}if(typeof m.clientTime==='number')this.send(ws,{type:'pong',v:PROTOCOL_VERSION,clientTime:m.clientTime,serverTime:now()});return;}
     if(m.type==='wager_confirm'){
       if(this.room.mode==='media_race')return this.error(ws,'MEDIA_WAGER_DISABLED','В MEDIA гонке используется отдельный призовой фонд');
       if(this.room.status!=='lobby')return;
-      const amount=m.amount,balance=safeBalance(m.balance);if(!validWager(amount)||amount!==this.room.settings.wager)return this.error(ws,'WAGER_MISMATCH','Ставка комнаты изменилась');
+      const amount=m.amount,balance=p.userId&&this.env.DB?(await this.freeDragBalances([p.id]))[p.id]:null;if(!validWager(amount)||amount!==this.room.settings.wager)return this.error(ws,'WAGER_MISMATCH','Ставка комнаты изменилась');
       if(balance===null||balance<amount)return this.error(ws,'INSUFFICIENT_CR','Недостаточно CR для этой ставки');
       p.wagerConfirmed=true;p.creditSnapshot=balance;p.ready=false;await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;
     }
     if(m.type==='ready'){
       if(p.spectator)return this.error(ws,'SPECTATOR_ONLY','Наблюдатель не участвует в READY');
       if(this.room.status!=='lobby'||typeof m.ready!=='boolean')return;
+      if(m.ready&&this.env.DB&&m.runtimeVersion!==RACE_RUNTIME_VERSION)return this.error(ws,'RACE_CLIENT_UPDATE_REQUIRED','Обновите игру для серверных гонок');
+      if(m.ready)p.raceRuntime=m.runtimeVersion;
       if(m.ready&&this.room.settings.wager>0&&!p.wagerConfirmed)return this.error(ws,'WAGER_CONFIRM_REQUIRED','Сначала подтвердите ставку');
       p.ready=m.ready;await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;
     }
@@ -913,14 +969,29 @@ export class Room {
       await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;
     }
     if(m.type==='start_race'){
+      if(await this.recoverInterruptedWager()){this.broadcast({type:'race_cancelled',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;}
       if(p.id!==this.room.hostId)return this.error(ws,'HOST_ONLY','Только HOST может начать гонку');
       if(this.room.status!=='lobby')return;
       const mediaRace=this.room.mode==='media_race',live=this.room.players.filter(x=>x.connected&&!x.spectator),minPlayers=mediaRace?Math.max(2,Number(this.room.mediaEvent?.settings?.minPlayers)||2):2;if(live.length<minPlayers)return this.error(ws,'NEED_PLAYERS',`Нужно минимум ${minPlayers} игрока`);
       if(live.some(x=>!x.ready))return this.error(ws,'NOT_READY','Все игроки должны быть готовы');
-      const wager=mediaRace?0:(this.room.settings.wager||0);if(wager>0&&live.some(x=>!x.wagerConfirmed||safeBalance(x.creditSnapshot)===null||x.creditSnapshot<wager))return this.error(ws,'WAGER_NOT_CONFIRMED','Все игроки должны подтвердить ставку и иметь достаточно CR');
+      let authority=null;
+      if(this.env.DB){
+        if(m.runtimeVersion!==RACE_RUNTIME_VERSION||live.some(x=>x.raceRuntime!==RACE_RUNTIME_VERSION))return this.error(ws,'RACE_CLIENT_UPDATE_REQUIRED','Все участники должны обновить игру');
+        try{authority=await prepareRoomAuthority(this,live);}catch(e){return this.error(ws,e.message,'Не удалось подтвердить автомобили участников');}
+      }
+      const wager=mediaRace?0:(this.room.settings.wager||0);if(wager>0&&live.some(x=>!x.wagerConfirmed||!x.userId))return this.error(ws,'WAGER_NOT_CONFIRMED','Все игроки должны подтвердить ставку и иметь достаточно CR');
       this.room.status='countdown';this.room.raceId=crypto.randomUUID();this.room.raceStartAt=now()+3500;this.room.gridOrder=live.map(x=>x.id);this.room.finishOrder=[];if(mediaRace){this.room.mediaEvent.status='STARTING';await markMediaEventRunning(this.env,this.room.mediaEvent.id);this.room.mediaEvent.status='RUNNING';}
       const stakes={};for(const x of this.room.players){x.finishPlace=0;x.finishTime=0;x.state=null;x.lastSeq=-1;x.lastStateAt=0;x.serverLaps=0;x.lastLapAt=this.room.raceStartAt;x.stake=this.room.gridOrder.includes(x.id)?wager:0;if(x.stake)stakes[x.id]=x.stake;}
       this.room.settlement={raceId:this.room.raceId,status:wager>0?'locked':'none',wager,pot:wager*live.length,winnerId:null,reason:'',stakes,createdAt:now()};
+      if(wager>0){
+        this.room.status='locking';this.room.settlement.authority='server';this.room.settlement.status='locking';await this.save();
+        const locked=await lockRoomWager(this.env.DB,{raceId:this.room.raceId,userIds:live.map(x=>x.userId),stake:wager});
+        if(!locked.ok){this.room.settlement.status='refunded';this.room.settlement.reason=locked.code;this.resetRaceState({resetConfirmation:true});await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return this.error(ws,locked.code,'Не удалось зарезервировать ставки');}
+        this.room.status='countdown';this.room.settlement.status='locked';this.room.raceStartAt=now()+3500;
+        for(const x of this.room.players)x.lastLapAt=this.room.raceStartAt;
+      }
+      this.room.raceAuthority=authority;this.authorityEngine=null;this.authorityRaceId=null;
+      if(authority){authority.state=roomEngine(this).serialize();this.room.settlement.authority='server';}
       await this.save();this.broadcast({type:'start_countdown',v:PROTOCOL_VERSION,serverTime:now(),raceStartAt:this.room.raceStartAt,raceId:this.room.raceId,room:this.publicRoom()});return;
     }
     if(m.type==='player_state'){
@@ -937,6 +1008,10 @@ export class Room {
       if(this.room.status!=='racing'||m.raceId!==this.room.raceId||p.finishPlace)return;
       if(validPlayerState(m.state,p.speedLimit||650,p.yawLimit||20)&&m.state.seq>p.lastSeq){const t=now(),knownLaps=Number.isInteger(p.serverLaps)?p.serverLaps:(p.state?.laps||0);if(m.state.laps>=knownLaps&&m.state.laps<=knownLaps+1&&(!(m.state.laps>knownLaps)||t-(p.lastLapAt||this.room.raceStartAt)>=8000)){if(m.state.laps>knownLaps){p.serverLaps=m.state.laps;p.lastLapAt=t;}p.lastSeq=m.state.seq;p.lastStateAt=t;p.state={...m.state,serverTime:t};}}
       if(!p.state||p.state.laps<this.room.settings.laps)return this.error(ws,'FINISH_REJECTED','Финиш не подтверждён состоянием гонки');
+      if(!this.room.finishOrder.length&&this.room.settlement?.status==='locked'&&this.room.settlement.authority==='server'){
+        const paid=await settleRoomWager(this.env.DB,{raceId:this.room.raceId,winnerUserId:p.userId});
+        if(!paid.ok)return this.error(ws,paid.code,'Выплата ожидает восстановления связи');
+      }
       p.finishPlace=this.room.finishOrder.length+1;p.finishTime=Math.max(0,now()-this.room.raceStartAt);this.room.finishOrder.push(p.id);p.state.finished=true;
       if(p.finishPlace===1&&this.room.settlement?.status==='locked'){this.room.settlement.status='awarded';this.room.settlement.winnerId=p.id;this.room.settlement.awardedAt=now();}
       await recordResult(this.env,this.room.raceId,p.userId,'online',p.finishPlace===1,p.finishTime);
@@ -951,26 +1026,28 @@ export class Room {
       this.resetRaceState({resetConfirmation:true});await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;
     }
     if(m.type==='leave'){
-      const mediaRace=this.room.mode==='media_race',wagerCancelled=!mediaRace&&this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id);if(wagerCancelled)this.refundActiveWager('PLAYER_LEFT');const creatorLeft=mediaRace&&p.userId===this.room.mediaEvent?.creatorUserId;
+      const mediaRace=this.room.mode==='media_race',wagerCancelled=!mediaRace&&this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id);if(wagerCancelled)await this.refundActiveWager('PLAYER_LEFT');const creatorLeft=mediaRace&&p.userId===this.room.mediaEvent?.creatorUserId;
       await this.endSessionLog(p,mediaRace?'media_race_leave':'normal_exit');this.room.players=this.room.players.filter(x=>x.id!==p.id);if(creatorLeft&&['WAITING','STARTING'].includes(this.room.mediaEvent?.status||'')){await refundMediaEvent(this.env,this.room.mediaEvent.id,'ORGANIZER_LEFT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'ORGANIZER_LEFT'};}if(mediaRace&&this.room.mediaEvent?.status==='RUNNING'&&!this.room.players.some(x=>!x.spectator)){await refundMediaEvent(this.env,this.room.mediaEvent.id,'NO_RACERS_LEFT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'NO_RACERS_LEFT'};}if(this.room.hostId===p.id)this.room.hostId=mediaRace?(this.room.players.find(x=>x.userId===this.room.mediaEvent?.creatorUserId)?.id||null):(this.room.players.find(x=>x.connected)?.id||this.room.players[0]?.id||null);
       if(!this.room.players.length){if(mediaRace&&this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ALL_PLAYERS_LEFT');this.room=null;await this.ctx.storage.deleteAll();try{ws.close(1000,'leave');}catch{};return;}
       await this.save();this.broadcast({type:wagerCancelled?'race_cancelled':'room_state',v:PROTOCOL_VERSION,serverTime:now(),reason:wagerCancelled?'PLAYER_LEFT':'',room:this.publicRoom()},ws);try{ws.close(1000,'leave');}catch{};return;
     }
   }
-  async webSocketClose(ws){await this.handleDisconnect(ws);}
-  async webSocketError(ws){await this.handleDisconnect(ws);}
+  async webSocketClose(ws){await this.load();return this.serializeRoomEvent(()=>this.handleDisconnect(ws));}
+  async webSocketError(ws){return this.webSocketClose(ws);}
   async handleDisconnect(ws){
     await this.load();if(!this.room)return;const a=ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return;
     const stillLive=this.ctx.getWebSockets().some(s=>s!==ws&&s.deserializeAttachment?.()?.playerId===p.id);if(stillLive)return;
     if(this.room.mode==='freeroam'){const active=this.freeDragForPlayer(p.id);if(!active){this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>id!==p.id);p.dragWager=0;}p.connected=false;}
     p.connected=false;p.disconnectReason=p.disconnectReason||'connection_lost';p.disconnectedUntil=now()+(this.room.mode==='freeroam'?FREE_RECONNECT_GRACE_MS:RECONNECT_GRACE_MS);if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();this.broadcast({type:this.room.mode==='freeroam'?'free_room':'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.room.mode==='freeroam'?this.publicFreeRoom():this.publicRoom()});
   }
-  async alarm(){
-    await this.load();if(!this.room)return;const t=now(),expired=this.expireHeartbeatPlayers(t),removed=this.room.players.filter(p=>!p.connected&&p.disconnectedUntil&&p.disconnectedUntil<=t);
+  async alarm(){await this.load();return this.serializeRoomEvent(()=>this.handleAlarm());}
+  async handleAlarm(){
+    await this.load();if(!this.room)return;await this.recoverInterruptedWager();const t=now(),expired=this.expireHeartbeatPlayers(t),removed=this.room.players.filter(p=>!p.connected&&p.disconnectedUntil&&p.disconnectedUntil<=t);
     if(this.room.mode==='freeroam'){await this.advanceFreeActivities(t);if(!this.room)return;if(removed.length){const ids=new Set(removed.map(p=>p.id));for(const player of removed)await this.endSessionLog(player,player.disconnectReason||'connection_lost');for(const player of removed){const active=this.freeDragForPlayer(player.id);if(active)await this.cancelFreeDrag(active,'CONNECTION_TIMEOUT',player.id,true);}for(const id of ids)this.handleActivityDeparture(id,true);this.room.players=this.room.players.filter(p=>!ids.has(p.id));this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>!ids.has(id));}if(!this.room.players.length||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){for(const c of [...Object.values(this.room.dragChallenges||{})])await this.cancelFreeDrag(c,'ROOM_EXPIRED',null,false);if(this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}const rosterSync=removed.length||expired.length||t-(this.room.lastRosterBroadcastAt||0)>=10000;if(rosterSync)this.room.lastRosterBroadcastAt=t;await this.save();if(rosterSync)this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:t,room:this.publicFreeRoom()});return;}
-    const removedLockedRacer=removed.some(p=>this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id));if(removedLockedRacer)this.refundActiveWager('CONNECTION_TIMEOUT');
+    if(this.room.raceAuthority&&['countdown','racing'].includes(this.room.status))await tickRoomAuthority(this,t,{force:true});
+    const removedLockedRacer=removed.some(p=>this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id));if(removedLockedRacer)await this.refundActiveWager('CONNECTION_TIMEOUT');
     if(removed.length){for(const player of removed)await this.endSessionLog(player,player.disconnectReason||'connection_lost');const creatorExpired=this.room.mode==='media_race'&&removed.some(p=>p.userId===this.room.mediaEvent?.creatorUserId);this.room.players=this.room.players.filter(p=>!removed.includes(p));if(creatorExpired&&['WAITING','STARTING'].includes(this.room.mediaEvent?.status||'')){await refundMediaEvent(this.env,this.room.mediaEvent.id,'ORGANIZER_TIMEOUT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'ORGANIZER_TIMEOUT'};this.broadcast({type:'media_event_cancelled',v:PROTOCOL_VERSION,eventId:this.room.mediaEvent.id,reason:'ORGANIZER_TIMEOUT',serverTime:t});}if(!this.room.players.some(p=>p.id===this.room.hostId))this.room.hostId=this.room.mode==='media_race'?(this.room.players.find(p=>p.userId===this.room.mediaEvent?.creatorUserId)?.id||null):(this.room.players.find(p=>p.connected)?.id||this.room.players[0]?.id||null);if(this.room.mode==='media_race'&&this.room.mediaEvent?.status==='RUNNING'&&!this.room.players.some(p=>!p.spectator)){await refundMediaEvent(this.env,this.room.mediaEvent.id,'NO_RACERS_LEFT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'NO_RACERS_LEFT'};}}
-    if(!this.room.players.length||t>=this.room.createdAt+ROOM_TTL_MS||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){if(this.room?.settlement?.status==='locked')this.refundActiveWager('ROOM_EXPIRED');if(this.room?.mode==='media_race'&&this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}
+    if(!this.room.players.length||t>=this.room.createdAt+ROOM_TTL_MS||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){if(this.room?.settlement?.status==='locked')await this.refundActiveWager('ROOM_EXPIRED');if(this.room?.mode==='media_race'&&this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}
     await this.save();this.broadcast({type:removedLockedRacer?'race_cancelled':'room_state',v:PROTOCOL_VERSION,serverTime:t,reason:removedLockedRacer?'CONNECTION_TIMEOUT':'',room:this.publicRoom()});
   }
 }

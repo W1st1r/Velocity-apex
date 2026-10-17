@@ -5,11 +5,12 @@
   const money=value=>Math.max(0,Math.floor(Number(value)||0)).toLocaleString('ru-RU')+' CR';
   const date=value=>{try{return new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(Number(value)||0));}catch{return '—';}};
   const state={tab:'cars',data:{listings:[],buyOrders:[],history:[],balance:null},loading:false,tradeMode:null,pending:null};
-  const errors={
+  const errors={CLIENT_UPDATE_REQUIRED:'Обновите игру для безопасных сделок.',IDEMPOTENCY_KEY_REUSED:'Обновите рынок и повторите действие.',
     AUTH_REQUIRED:'Нужно войти в аккаунт.',INVALID_CAR:'Эту машину нельзя выставить на рынок.',INVALID_PRICE:'Укажите корректную цену.',CAR_NOT_OWNED:'Этой машины больше нет в вашем гараже.',CAR_ALREADY_OWNED:'Эта машина уже есть в вашем гараже.',INSUFFICIENT_CREDITS:'Недостаточно кредитов.',ALREADY_LISTED:'Машина уже выставлена на продажу.',ORDER_EXISTS:'У вас уже есть активная заявка на эту машину.',LISTING_NOT_FOUND:'Объявление уже недоступно.',LISTING_UNAVAILABLE:'Объявление уже изменилось. Обновите рынок.',ORDER_NOT_FOUND:'Заявка уже недоступна.',ORDER_UNAVAILABLE:'Заявка уже изменилась. Обновите рынок.',CANNOT_BUY_OWN:'Нельзя купить собственную машину.',CANNOT_FILL_OWN:'Нельзя выполнить собственную заявку.',TRADE_RETRY:'Сделка не завершена. Средства и машина возвращены, попробуйте ещё раз.',CREDIT_LIMIT:'Достигнут лимит баланса.',SERVER_ERROR:'Ошибка сервера рынка. Попробуйте обновить.'
   };
 
   async function api(path,options={}){
+    if(options.method==='POST'&&window.VelocityAccount?.authenticated)return {ok:true,...await window.VelocityAccount.economyTransaction(path,JSON.parse(options.body||'{}'))};
     const response=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json',...(options.headers||{})},...options});
     let data={};try{data=await response.json();}catch{}
     if(!response.ok){const error=new Error(data.error||'MARKET_ERROR');error.code=data.error||'MARKET_ERROR';error.data=data;throw error;}return data;

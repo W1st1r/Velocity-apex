@@ -8,7 +8,7 @@ const migration=fs.readFileSync(path.join(root,'migrations/0008_market.sql'),'ut
 for(const id of ['shopMarketPanel','marketTabs','marketList','marketCredits','marketDialog','marketCarSelect','marketPriceInput'])assert.ok(html.includes(`id="${id}"`),`missing market UI ${id}`);
 for(const tab of ['cars','purchases','sales','history'])assert.ok(html.includes(`data-market-tab="${tab}"`),`missing market tab ${tab}`);
 for(const endpoint of ['/api/market/listings','/api/market/buy-orders'])assert.ok(server.includes(endpoint),`missing endpoint ${endpoint}`);
-assert.ok(server.includes("status='processing'")&&server.includes('upgrades_json'),'market escrow/tuning safeguards missing');
+assert.ok(server.includes('applyAccountTransaction')&&server.includes('receiptSql')&&server.includes('upgrades_json'),'market escrow/tuning safeguards missing');
 assert.ok(server.includes('changeCredits(save,-price)')&&server.includes('takeCar(save,carId)'),'market asset reservation missing');
 assert.ok(worker.includes("handleMarketRequest"),'market route not wired');
 for(const table of ['market_sell_listings','market_buy_orders','market_history'])assert.ok(migration.includes(table),`missing ${table} migration`);

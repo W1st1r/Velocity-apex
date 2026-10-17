@@ -12,6 +12,9 @@
   const CITY=window.ApexCity;
   if(!CITY)throw new Error("APEX BAY map module is missing");
   const WORLD={w:CITY.width,h:CITY.height};
+  // Interaction beacons are derived from the same rendered venue aprons as the
+  // city map. This prevents the visual arena and its prompt from drifting apart.
+  const MINIGAME_VENUE_CENTERS=Object.fromEntries((CITY.minigameVenues||[]).map(v=>[v.id,{x:v.apron.x+v.apron.w/2,y:v.apron.y+v.apron.h/2}]));
   const GARAGE_VENUE=CITY.garageVenue||{apron:{x:2470,y:560,w:410,h:200},access:{x:2590,y:475,w:170,h:135}};
   const GARAGE_ZONE={x:GARAGE_VENUE.apron.x+GARAGE_VENUE.apron.w/2,y:GARAGE_VENUE.apron.y+GARAGE_VENUE.apron.h/2-6,r:125,label:'GARAGE',kind:'garage'};
   const MAX=50;
@@ -22,9 +25,9 @@
     drift:{x:670,y:2310,r:320,label:'HARBOR DRIFT MEGAPARK',kind:'drift',battleId:'harbor'},
     koth:{x:2320,y:1590,r:100,label:'KING OF THE HILL',kind:'koth',labelOffset:{x:-76,y:-8}},
     levels:{x:2470,y:1590,r:100,label:'LEVELS',kind:'levels',labelOffset:{x:76,y:8}},
-    footballHub:{x:1835,y:300,r:112,label:'APEX STADIUM',kind:'minigame',hub:'football'},
-    checkpointHub:{x:3338,y:865,r:112,label:'RUSH CENTER',kind:'minigame',hub:'checkpoint'},
-    hotPotatoHub:{x:820,y:1410,r:105,label:'BOMB ARENA',kind:'minigame',hub:'hot_potato'},
+    footballHub:{...MINIGAME_VENUE_CENTERS.football,r:45,label:'APEX STADIUM',kind:'minigame',hub:'football'},
+    checkpointHub:{...MINIGAME_VENUE_CENTERS.checkpoint,r:45,label:'RUSH CENTER',kind:'minigame',hub:'checkpoint'},
+    hotPotatoHub:{...MINIGAME_VENUE_CENTERS.hot_potato,r:45,label:'BOMB ARENA',kind:'minigame',hub:'hot_potato'},
     garage:GARAGE_ZONE,
     meet:{x:2320,y:1590,r:260,label:'CAR MEET',kind:'meet'}
   };
@@ -234,9 +237,8 @@
     const key=`${r.liveryId}|${r.effectId}|${team}`;if(r._miniVisualKey!==key||!r._miniVisual){r._miniVisualKey=key;r._miniVisual=createVisual(r.liveryId,r.effectId,teamColorId(team),'none');}return r._miniVisual;
   }
   function drawMinigameEntrance(c,z,color,label){
-    // V37: the city artwork now contains real ENTRY / EXIT lanes and event gates.
-    // Keep only a restrained interaction beacon so no floating plate covers the venue.
-    c.save();c.translate(z.x,z.y);const pulse=1+Math.sin(performance.now()/260)*.08;c.globalAlpha=.78;c.strokeStyle=color;c.lineWidth=3;c.setLineDash([8,8]);c.beginPath();c.arc(0,0,34*pulse,0,TAU);c.stroke();c.setLineDash([]);c.globalAlpha=.9;c.fillStyle='rgba(11,27,30,.74)';roundRect(c,-43,-10,86,20,7,true,false);c.fillStyle=color;c.font='900 9px system-ui';c.textAlign='center';c.fillText('PLAY · '+label,0,3);c.restore();
+    // The event-pad ring is the authoritative radius; this label adds no second ring.
+    c.save();c.translate(z.x,z.y);c.globalAlpha=.9;c.fillStyle='rgba(11,27,30,.74)';roundRect(c,-43,-10,86,20,7,true,false);c.fillStyle=color;c.font='900 9px system-ui';c.textAlign='center';c.fillText('PLAY · '+label,0,3);c.restore();
   }
   function projectMinigameBall(e,serverNow=Date.now()+state.serverOffset){
     const b=e?.ball;if(!b)return null;const syncAt=Number(e._ballServerTime)||Number(e.serverTime)||serverNow,age=clamp((serverNow-syncAt)/1000,0,.32),drag=Math.exp(-.58*age),travel=age>0?(1-drag)/.58:0;
@@ -519,7 +521,7 @@
       const recv=Date.now(),rtt=Math.max(0,recv-m.clientTime);if(rtt<1500){const estimate=m.serverTime+rtt*.5,offset=estimate-recv,alpha=!state.serverOffsetReady?1:(rtt<80?.36:rtt<180?.24:.14);state.serverOffset+=(offset-state.serverOffset)*alpha;state.serverOffsetReady=true;state.rtt=state.rtt?state.rtt*.72+rtt*.28:rtt;}if(typeof m.probeId==='string')send({type:'sync_echo',v:1,probeId:m.probeId});return;
     }
     if(m.type==='loadout_updated'){
-      state.garageBusy=false;if(m.loadout){const save=loadSave();if(save.ownedLiveries?.includes(m.loadout.liveryId)){save.selectedLivery=m.loadout.liveryId;try{localStorage.setItem('velocityApex.v1',JSON.stringify(save));}catch{}window.VelocityAccount?.queueSave?.(save);}refreshPlayerLoadout();state.loadout={...state.loadout,...m.loadout,livery:R.LIVERIES?.[m.loadout.liveryId]||state.loadout?.livery};if(car.setLoadout){car.setLoadout(m.loadout.liveryId,m.loadout.effectId,'full');car.setCustomization(R.getCarStyleByIds?.(m.loadout.colorId,m.loadout.vinylId));R.applyCarPerformance?.(car,m.loadout.liveryId,save);}}
+      state.garageBusy=false;if(m.loadout){const save=loadSave();if(save.ownedLiveries?.includes(m.loadout.liveryId)){save.selectedLivery=m.loadout.liveryId;try{localStorage.setItem('velocityApex.v1',JSON.stringify(save));}catch{}window.VelocityAccount?.refreshCloud?.();}refreshPlayerLoadout();state.loadout={...state.loadout,...m.loadout,livery:R.LIVERIES?.[m.loadout.liveryId]||state.loadout?.livery};if(car.setLoadout){car.setLoadout(m.loadout.liveryId,m.loadout.effectId,'full');car.setCustomization(R.getCarStyleByIds?.(m.loadout.colorId,m.loadout.vinylId));R.applyCarPerformance?.(car,m.loadout.liveryId,save);}}
       if(m.spawn){car.x=Number(m.spawn.x)||GARAGE_VENUE.access.x+GARAGE_VENUE.access.w/2;car.y=Number(m.spawn.y)||535;car.angle=Number.isFinite(m.spawn.angle)?m.spawn.angle:-Math.PI/2;car.vx=car.vy=car.speed=0;car.yawRate=0;}
       closeFreeGarage();setBanner(`ГАРАЖ · ${state.loadout?.livery?.name||'МАШИНА'} ВЫБРАНА`,2600);return;
     }
@@ -977,9 +979,8 @@
     drawZone(ctx,ZONES.koth,'#ffad5a','KOTH');
     drawZone(ctx,ZONES.levels,'#ffd86a','LEVELS');
     drawZone(ctx,ZONES.garage,'#8dff49','GARAGE');
-    drawMinigameEntrance(ctx,ZONES.footballHub,'#68d8ff','MINI FOOTBALL');
-    drawMinigameEntrance(ctx,ZONES.checkpointHub,'#7dff91','CHECKPOINT RUSH');
-    drawMinigameEntrance(ctx,ZONES.hotPotatoHub,'#ff8d66','HOT POTATO');
+    // The venue apron itself draws the interaction ring. Do not paint a second
+    // independent beacon over it; the same center/radius drives the prompt.
     drawZone(ctx,ZONES.meet,'#8dff49','CAR MEET');
     if(state.liveEvent?.activity==='koth'&&state.liveEvent.zone){drawZone(ctx,{...state.liveEvent.zone,kind:'koth'},state.liveEvent.finalZone?'#ffd86a':'#ff8f4f',state.liveEvent.finalZone?'FINAL ZONE':'ACTIVE ZONE');}
     if(state.waypoint)drawWaypoint(ctx,state.waypoint);

@@ -7,8 +7,9 @@
   };
   if(!els.root||!els.button||!els.gate)return;
 
-  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0};
-  const errors={INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
+  const state={mode:'login',gateMode:'login',user:null,revision:0,lastSave:null,pendingSave:null,syncTimer:0,syncing:false,bootstrapped:false,gameEntered:false,banTimer:0,ban:null,statusTimer:0,pendingEconomy:new Map(),saveGeneration:0,savedGeneration:-1};
+  let preferenceTools=null;const preferenceToolsReady=import('./account-preferences-v77.mjs').then(module=>{preferenceTools=module;return module;}).catch(()=>null);
+  const errors={CLIENT_UPDATE_REQUIRED:'Обновите игру: старый формат сохранений больше не принимается.',SERVER_STATE_ONLY:'Баланс и имущество изменяются только игровыми действиями на сервере.',INVALID_USERNAME:'Логин: 3–24 символа, только a-z, 0-9 и _.',INVALID_DISPLAY_NAME:'Имя игрока: 2–24 символа без опасных спецсимволов.',INVALID_PASSWORD:'Пароль должен содержать от 8 до 128 символов.',USERNAME_TAKEN:'Этот логин уже занят.',INVALID_CREDENTIALS:'Неверный логин или пароль.',AUTH_REQUIRED:'Сессия истекла. Войдите снова.',REQUEST_TOO_LARGE:'Сохранение слишком большое.',DATABASE_UNAVAILABLE:'База аккаунтов временно недоступна.',SERVER_ERROR:'Ошибка сервера. Повторите попытку.',MAINTENANCE:'Технические работы. Вход временно закрыт.',ACCOUNT_BANNED:'Аккаунт заблокирован.',ADMIN_REQUIRED:'Недостаточно прав.',SAVE_CONFLICT:'Облачное сохранение было обновлено на сервере.',INVALID_INVITER:'Ник пригласителя указан неверно.',INVITER_NOT_FOUND:'Пригласитель с таким ником не найден.',CANNOT_INVITE_SELF:'Нельзя указать собственный ник как пригласителя.'};
   const normalizeSave=raw=>window.Racing?.normalizeSave?window.Racing.normalizeSave(raw):raw;
   function installId(){try{let id=localStorage.getItem(INSTALL_KEY)||'';if(!/^[A-Za-z0-9_-]{16,128}$/.test(id)){id=(crypto.randomUUID?.()||String(Date.now())+Math.random()).replace(/[^A-Za-z0-9_-]/g,'');localStorage.setItem(INSTALL_KEY,id);}return id;}catch{return '';} }
   function localSave(){try{const x=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}');return normalizeSave(x);}catch{return normalizeSave({});}}
@@ -108,8 +109,8 @@
   function applySave(raw){const save=normalizeSave(raw);if(!save||typeof save!=='object')return;state.pendingSave=save;state.lastSave=save;try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch{}window.dispatchEvent(new CustomEvent('velocity-account-save',{detail:{save,source:'cloud'}}));}
   async function loadCloud(){
     if(!state.user)return;clearTimeout(state.syncTimer);state.syncTimer=0;els.sync.textContent='СИНХРОНИЗАЦИЯ…';
-    try{const data=await api('/api/account/save');state.revision=data.revision||0;if(data.save){applySave(data.save);els.sync.textContent='СИНХРОНИЗИРОВАНО';}else{state.lastSave=localSave();await flushSave();}}
-    catch(e){els.sync.textContent='ОШИБКА СИНХРОНИЗАЦИИ';setMessage(errors[e.code]||'Не удалось загрузить облачный прогресс.',true,true);}
+    try{const data=await api('/api/account/save');state.revision=data.revision||0;if(data.save){applySave(data.save);els.sync.textContent='СИНХРОНИЗИРОВАНО';}else{state.lastSave=localSave();await flushSave();}return true;}
+    catch(e){els.sync.textContent='ОШИБКА СИНХРОНИЗАЦИИ';setMessage(errors[e.code]||'Не удалось загрузить облачный прогресс.',true,true);return false;}
   }
   async function bootstrap(){
     let banned=null;
@@ -117,19 +118,60 @@
     catch(e){state.user=null;render();if(e.code==='ACCOUNT_BANNED')banned={ban:e.ban,user:e.data?.user};}
     finally{state.bootstrapped=true;startStatusWatch();if(banned){if(banned.user)rememberAccount(banned.user);showBan(banned.ban,banned.user);}else if(state.user){enterGame();}else{enterGuestGame();}}
   }
+  let saveFlight=null;
   async function flushSave(){
-    clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
-    const snapshot=normalizeSave(state.lastSave);
-    try{const data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({save:snapshot,revision:state.revision})});state.revision=data.revision||state.revision;els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;}
-    catch(e){
-      if(e.code==='SAVE_CONFLICT'){
-        state.revision=Number(e.data?.revision)||state.revision;if(e.data?.save)applySave(e.data.save);els.sync.textContent='ОБНОВЛЕНО С СЕРВЕРА';setMessage('Профиль обновлён сервером.',false,true);return true;
-      }
-      if(e.code==='ACCOUNT_BANNED'){showBan(e.ban,e.data?.user);window.dispatchEvent(new CustomEvent('velocity-account-banned',{detail:e.data||{}}));}else if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;
-    }
-    finally{state.syncing=false;}
+    if(!saveFlight){const generation=state.saveGeneration;saveFlight=performSave().then(ok=>{if(ok)state.savedGeneration=Math.max(state.savedGeneration,generation);return ok;}).finally(()=>{saveFlight=null;});}
+    const ok=await saveFlight;
+    if(ok&&state.savedGeneration<state.saveGeneration)return flushSave();
+    return ok;
   }
-  function queueSave(raw){if(!raw||typeof raw!=='object')return;state.lastSave=normalizeSave(JSON.parse(JSON.stringify(raw)));if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
+  async function performSave(){
+    clearTimeout(state.syncTimer);state.syncTimer=0;if(!state.user||state.syncing||!state.lastSave)return false;state.syncing=true;els.sync.textContent='СОХРАНЕНИЕ…';
+    const generation=state.saveGeneration,snapshot=normalizeSave(state.lastSave),controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+    try{
+      const {preferencesFromSave}=await preferenceToolsReady,preferences=preferencesFromSave(snapshot);let data;
+      for(let attempt=0;attempt<3;attempt++){
+        try{data=await api('/api/account/save',{method:'PUT',body:JSON.stringify({preferences,revision:state.revision}),signal:controller.signal});break;}
+        catch(e){if(e.code!=='SAVE_CONFLICT'||attempt===2)throw e;state.revision=Number(e.data?.revision)||state.revision;}
+      }
+      state.revision=data.revision||state.revision;
+      if(data.save){const pending=state.saveGeneration!==generation?preferencesFromSave(state.lastSave):{};applySave({...data.save,...pending});}
+      els.sync.textContent='СИНХРОНИЗИРОВАНО';return true;
+    }catch(e){
+      if(e.code==='SAVE_CONFLICT'){state.revision=Number(e.data?.revision)||state.revision;if(e.data?.save)applySave(e.data.save);setMessage('Профиль изменён другой операцией. Повторите сохранение настроек.',true,true);}
+      if(e.code==='ACCOUNT_BANNED'){showBan(e.ban,e.data?.user);window.dispatchEvent(new CustomEvent('velocity-account-banned',{detail:e.data||{}}));}else if(e.code==='AUTH_REQUIRED'){state.user=null;render();requireGate('Сессия истекла. Войдите снова.');}
+      else if(e.code==='CLIENT_UPDATE_REQUIRED'||e.code==='SERVER_STATE_ONLY')setMessage(errors[e.code],true,true);
+      els.sync.textContent='НЕ СИНХРОНИЗИРОВАНО';return false;
+    }finally{clearTimeout(timeout);state.syncing=false;if(state.user&&state.saveGeneration!==generation){clearTimeout(state.syncTimer);state.syncTimer=setTimeout(flushSave,0);}}
+  }
+
+  async function economyTransaction(endpoint,payload){
+    if(!state.user)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});
+    const fingerprint=JSON.stringify([endpoint,payload]);let requestId=state.pendingEconomy.get(fingerprint);
+    if(!requestId){try{const storageKey='velocityApex.economy.pending.v1:'+fingerprint;requestId=sessionStorage.getItem(storageKey)||crypto.randomUUID();sessionStorage.setItem(storageKey,requestId);state.pendingEconomy.set(fingerprint,{requestId,storageKey});}catch{requestId=crypto.randomUUID();state.pendingEconomy.set(fingerprint,{requestId,storageKey:''});}}
+    if(typeof requestId==='object')requestId=requestId.requestId;
+    while(state.syncing)await new Promise(resolve=>setTimeout(resolve,25));
+    if(await flushSave()===false)throw Object.assign(new Error('SAVE_SYNC_FAILED'),{code:'SAVE_SYNC_FAILED'});
+    try{
+      const data=await api(endpoint,{method:'POST',body:JSON.stringify({...payload,requestId})});
+      if(data.save)applySave(data.save);state.revision=Number(data.revision)||state.revision;
+      const pending=state.pendingEconomy.get(fingerprint),storageKey=pending?.storageKey;if(storageKey)try{sessionStorage.removeItem(storageKey);}catch{}state.pendingEconomy.delete(fingerprint);
+      els.sync.textContent='СИНХРОНИЗИРОВАНО';return data.result;
+    }catch(e){
+      if(['INSUFFICIENT_CR','CASE_LIMIT','NO_CASES','INVALID_CASE_REQUEST','INVALID_ITEM','IDEMPOTENCY_KEY_REUSED'].includes(e.code)){const pending=state.pendingEconomy.get(fingerprint);if(pending?.storageKey)try{sessionStorage.removeItem(pending.storageKey);}catch{}state.pendingEconomy.delete(fingerprint);}
+      throw e;
+    }
+  }
+  async function raceRequest(action,payload){
+    if(!state.user)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);let data;
+    try{data=await api('/api/economy/races/'+action,{method:'POST',body:JSON.stringify(payload),signal:controller.signal});}finally{clearTimeout(timer);}
+    if(data.save){state.revision=Number(data.revision)||state.revision;applySave(data.save);els.sync.textContent='СИНХРОНИЗИРОВАНО';}
+    if(data.progression)window.dispatchEvent(new CustomEvent('velocity-progression-updated',{detail:data.progression}));
+    return data;
+  }
+  const caseTransaction=(action,caseId,quantity)=>economyTransaction('/api/economy/cases/'+(action==='buy'?'buy':'open'),{caseId,quantity});
+  function queueSave(raw){if(!raw||typeof raw!=='object')return;const next=normalizeSave(JSON.parse(JSON.stringify(raw))),unchanged=preferenceTools&&state.lastSave&&JSON.stringify(preferenceTools.preferencesFromSave(next))===JSON.stringify(preferenceTools.preferencesFromSave(state.lastSave));state.lastSave=next;if(unchanged)return;state.saveGeneration++;if(!state.user)return;clearTimeout(state.syncTimer);els.sync.textContent='ОЖИДАНИЕ…';state.syncTimer=setTimeout(flushSave,650);}
   function referralMessage(ref){
     if(!ref?.rewarded)return '';const parts=[];const credits=Math.max(0,Math.floor(Number(ref.inviteeReward?.credits)||0));if(credits)parts.push(credits.toLocaleString('ru-RU')+' CR');for(const [id,qty] of Object.entries(ref.inviteeReward?.cases||{}))if(Number(qty)>0)parts.push((window.Racing?.CASES?.[id]?.label||String(id).toUpperCase())+' ×'+Number(qty));
     return `Реферальный бонус LVL ${Number(ref.inviterLevel)||1}: вы получили ${parts.join(' + ')||'бонус'}. Пригласителю начислено ${Number(ref.rewardCredits||0).toLocaleString('ru-RU')} CR.`;
@@ -144,7 +186,7 @@
       let data;
       if(state.mode==='register'){
         const displayName=els.display.value.trim();if(password!==els.confirm.value){setMessage('Пароли не совпадают.',true);return;}
-        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.inviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
+        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.inviter?.value.trim().replace(/^@/,'')||'',deviceId:installId()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
       await finishAuth(data);els.password.value='';els.confirm.value='';if(els.inviter)els.inviter.value='';setMessage(referralMessage(data.referral),false,true);
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.submit.disabled=false;}
@@ -155,7 +197,7 @@
       let data;
       if(state.gateMode==='register'){
         const displayName=els.gateDisplay.value.trim();if(password!==els.gateConfirm.value){setGateMessage('Пароли не совпадают.',true);return;}
-        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.gateInviter?.value.trim().replace(/^@/,'')||'',deviceId:installId(),save:localSave()})});
+        data=await api('/api/auth/register',{method:'POST',body:JSON.stringify({username,displayName,password,inviterUsername:els.gateInviter?.value.trim().replace(/^@/,'')||'',deviceId:installId()})});
       }else data=await api('/api/auth/login',{method:'POST',body:JSON.stringify({username,password})});
       await finishAuth(data);els.gatePassword.value='';els.gateConfirm.value='';if(els.gateInviter)els.gateInviter.value='';enterGame();
     }catch(e){if(e.code==='ACCOUNT_BANNED')showBan(e.ban,e.data?.user||{username});else setGateMessage(errors[e.code]||'Не удалось выполнить запрос.',true);}finally{els.gateSubmit.disabled=false;}
@@ -193,7 +235,7 @@
   els.button.addEventListener('click',open);els.close.addEventListener('click',close);els.loginTab.addEventListener('click',()=>setMode('login'));els.registerTab.addEventListener('click',()=>setMode('register'));els.form.addEventListener('submit',onSubmit);els.logout.addEventListener('click',logout);
   els.gateSession.addEventListener('click',enterGame);els.gateOther.addEventListener('click',()=>showGateForm('login'));els.banOther.addEventListener('click',showGateChooser);els.gateCreate.addEventListener('click',()=>showGateForm('register'));els.gateBack.addEventListener('click',showGateChooser);els.gateLoginTab.addEventListener('click',()=>setGateMode('login'));els.gateRegisterTab.addEventListener('click',()=>setGateMode('register'));els.gateForm.addEventListener('submit',onGateSubmit);
   els.root.addEventListener('click',e=>{if(e.target===els.root)close();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!els.root.classList.contains('hidden'))close();});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({save:state.lastSave,revision:state.revision}),keepalive:true}).catch(()=>{});});
-  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,open,enterGame,enterGuestGame,requestAuth};
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushSave();else checkAccess();});addEventListener('pagehide',()=>{if(state.user&&state.lastSave&&preferenceTools)fetch('/api/account/save',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({preferences:preferenceTools.preferencesFromSave(state.lastSave),revision:state.revision}),keepalive:true}).catch(()=>{});});
+  window.VelocityAccount={get user(){return state.user;},get authenticated(){return!!state.user;},get isAdmin(){return!!state.user?.isAdmin;},get pendingSave(){return state.pendingSave;},get ready(){return state.bootstrapped;},queueSave,flushSave,refreshCloud:loadCloud,raceRequest,economyTransaction,caseTransaction,open,enterGame,enterGuestGame,requestAuth};
   setMode('login');setGateMode('login');render();bootstrap();
 })();

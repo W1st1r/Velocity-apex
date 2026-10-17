@@ -1,8 +1,8 @@
 {
   "app": "Velocity Apex",
-  "version": "V76.3.2",
+  "version": "V77",
   "theme": "Race Control Blue",
-  "update": "Case roulette black-band hotfix and responsive reward carousel",
+  "update": "Freeroam minigame activation geometry, Extreme traffic safety, race reward economy",
   "released": "2026-10-16",
-  "release": "Case status moved out of the masked roulette track; reel, pointer and award carousel retained"
+  "release": "Minigame venue and server activation rings aligned; Extreme AI traffic clearances calibrated; race payout/hour kept in balance"
 }

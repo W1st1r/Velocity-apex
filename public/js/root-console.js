@@ -86,20 +86,26 @@
       this.tabs.querySelectorAll('[data-root-tab]').forEach(b=>b.classList.toggle('active',b.dataset.rootTab===tab));this.console.querySelectorAll('[data-root-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.rootPane!==tab));
       if(tab==='accounts')this.searchAccounts(false);if(tab==='blocked')this.searchAccounts(true);if(tab==='promocodes')this.loadPromocodes();if(tab==='admins')window.VelocityAdminSystem?.openOwner?.();this.renderLocal();
     }
-    applyCredits(){if(!R.RootTools.setCredits(this.save,this.creditInput.value)){this.message('INVALID CREDIT VALUE','bad');this.creditInput.classList.remove('root-shake');void this.creditInput.offsetWidth;this.creditInput.classList.add('root-shake');return;}this.creditInput.value=String(this.save.credits);this.message('BALANCE APPLIED');this.changed('credits');}
+    async selfOperation(action,payload={}){
+      if(!this.authorized||this.selfBusy)return;this.selfBusy=true;this.message('ОБРАБОТКА…');
+      try{await window.VelocityAccount.economyTransaction('/api/admin/self/operation',{action,...payload});this.message('SERVER OPERATION APPLIED');this.changed(action);}
+      catch(e){this.message(e.code||'SERVER OPERATION FAILED','bad');}
+      finally{this.selfBusy=false;}
+    }
+    applyCredits(){const raw=this.creditInput.value.trim();if(!/^\d+$/.test(raw)){this.message('INVALID CREDIT VALUE','bad');return;}return this.selfOperation('set_credits',{value:Number(raw)});}
     _quickAction(e){
       const btn=e.target.closest('[data-root-action]');if(!btn)return;const action=btn.dataset.rootAction;
-      if(action==='add-credits'){const add=Number(btn.dataset.amount),next=this.save.credits+add;if(!Number.isSafeInteger(next)||!R.RootTools.setCredits(this.save,next)){this.message('CREDIT LIMIT REACHED','bad');return;}this.message('CREDITS ADDED');this.changed('credits');return;}
-      if(action==='set-zero'){R.RootTools.setCredits(this.save,0);this.message('BALANCE SET TO 0');this.changed('credits');return;}if(action==='max-cr'){R.RootTools.setCredits(this.save,R.RootTools.MAX_CR);this.message('MAX CR APPLIED');this.changed('credits');return;}
-      if(action==='unlock'){R.RootTools.unlockEverything(this.save);this.message('ALL ITEMS UNLOCKED');this.changed('inventory');return;}if(action==='reset-inventory'){this.askConfirm('RESET INVENTORY?','Extra cars, effects and cases will be revoked.','reset-inventory');return;}
-      if(action==='grant-cars'){R.RootTools.grantAll(this.save,'car');this.message('ALL CARS GRANTED');this.changed('inventory');return;}if(action==='revoke-cars'){R.RootTools.revokeExtras(this.save,'car');this.message('PAID CARS REVOKED');this.changed('inventory');return;}
-      if(action==='grant-effects'){R.RootTools.grantAll(this.save,'effect');this.message('ALL EFFECTS GRANTED');this.changed('inventory');return;}if(action==='revoke-effects'){R.RootTools.revokeExtras(this.save,'effect');this.message('EXTRA EFFECTS REVOKED');this.changed('inventory');}
+      if(action==='add-credits')return this.selfOperation('add_credits',{value:Number(btn.dataset.amount)});
+      if(action==='set-zero'||action==='max-cr')return this.selfOperation('set_credits',{value:action==='set-zero'?0:R.RootTools.MAX_CR});
+      if(action==='unlock')return this.selfOperation('unlock');
+      if(action==='reset-inventory'){this.askConfirm('RESET INVENTORY?','Extra cars, effects and cases will be revoked.','reset-inventory');return;}
+      const bulk={'grant-cars':['grant_all','car'],'revoke-cars':['revoke_extras','car'],'grant-effects':['grant_all','effect'],'revoke-effects':['revoke_extras','effect']}[action];if(bulk)return this.selfOperation(bulk[0],{kind:bulk[1]});
     }
-    _itemAction(e,kind){const btn=e.target.closest('[data-item-action]');if(!btn)return;const id=btn.dataset.itemId,action=btn.dataset.itemAction;let ok=false;if(action==='grant')ok=R.RootTools.grant(this.save,kind,id);if(action==='revoke')ok=R.RootTools.revoke(this.save,kind,id);if(action==='equip')ok=R.RootTools.equip(this.save,kind,id);if(!ok){this.message('ACTION REJECTED','bad');return;}this.message((action+' '+id).toUpperCase());this.changed('inventory');}
-    _caseAction(e){const btn=e.target.closest('[data-case-action]');if(!btn)return;const id=btn.dataset.caseId,delta=Number(btn.dataset.delta)||0;if(!R.RootTools.changeCase(this.save,id,delta)){this.message('CASE ACTION REJECTED','bad');return;}this.message(`${id.toUpperCase()} ${delta>0?'+':''}${delta}`);this.changed('cases');}
+    _itemAction(e,kind){const b=e.target.closest('[data-item-action]');if(b)return this.selfOperation(b.dataset.itemAction,{kind,id:b.dataset.itemId});}
+    _caseAction(e){const b=e.target.closest('[data-case-action]');if(b)return this.selfOperation('case_delta',{id:b.dataset.caseId,delta:Number(b.dataset.delta)||0});}
     askConfirm(title,text,action){this.confirmAction=action;this.confirmTitle.textContent=title;this.confirmText.textContent=text;this.confirm.classList.remove('hidden');}
     closeConfirm(){this.confirmAction=null;if(this.confirm)this.confirm.classList.add('hidden');}
-    runConfirm(){const action=this.confirmAction;this.closeConfirm();if(action==='reset-inventory'){R.RootTools.resetInventory(this.save);this.message('INVENTORY RESET','warn');this.changed('inventory');}else if(action==='reset-progress'){R.RootTools.resetPlayerProgress(this.save);this.message('PLAYER PROGRESS RESET','warn');this.changed('reset-progress');}}
+    runConfirm(){const action=this.confirmAction;this.closeConfirm();if(action==='reset-inventory')return this.selfOperation('reset_inventory');if(action==='reset-progress')return this.selfOperation('reset_progress');}
     async copySave(){const text=JSON.stringify(this.save,null,2);let ok=false;try{if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(text);ok=true;}}catch(_){}if(!ok){try{const area=document.createElement('textarea');area.value=text;area.className='root-copy-fallback';document.body.appendChild(area);area.focus();area.select();ok=document.execCommand&&document.execCommand('copy');area.remove();}catch(_){}}this.message(ok?'SAVE COPIED':'CLIPBOARD UNAVAILABLE',ok?'ok':'bad');}
     storageStatus(){try{const key='__va_root_probe__';localStorage.setItem(key,'1');localStorage.removeItem(key);return 'AVAILABLE';}catch(_){return 'UNAVAILABLE';}}
     render(){if(!this.authorized||this.console.classList.contains('hidden'))return;this.renderLocal();}

@@ -20,5 +20,5 @@ for(let y=500;y<=590;y+=5)assert.equal(city.roadAt(cx,y,-20),true,`garage curb-c
 assert.equal(city.roadAt(g.apron.x+g.apron.w/2,g.apron.y+40,-20),true,'garage apron is not driveable');
 assert.ok(free.includes('garage:GARAGE_ZONE')&&free.includes('nearGarage()')&&free.includes('y>=525'),'client garage trigger must stay off the public avenue');
 assert.ok(worker.includes('exitY:535')&&worker.includes('insideGarageZone')&&worker.includes('Number(state?.y)>=525'),'server garage geometry not synchronized');
-assert.ok(html.includes('free-city.js?v=20260920-v49')&&html.includes('freeroam.js?v=20260920-v49'),'V48 cache bust missing');
+assert.ok(/free-city\.js\?v=20261016-v77(?:&|\")/.test(html)&&/freeroam\.js\?v=20261016-v77(?:&|\")/.test(html),'V77 cache bust missing');
 console.log('free_garage_side_lot_v47_test: OK');

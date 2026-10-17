@@ -648,7 +648,7 @@
     const safeLaps=[3,5,7,10,15].includes(roundedLaps)?roundedLaps:5;
     const safePlace=Math.max(1,Math.min(safeBots+1,Number.isFinite(rawPlace)?Math.round(rawPlace):safeBots+1));
     const rankFactor=(safeBots+1-safePlace)/safeBots;
-    const difficultyMultiplier={easy:.9,medium:1,hard:1.15,extreme:1.35}[cfg.difficulty]||1;
+    const difficultyMultiplier={easy:.9,medium:1,hard:1.15,extreme:1.12}[cfg.difficulty]||1;
     const lapReward=safeLaps*30;
     const gridReward=safeBots*4;
     const placementReward=safeLaps*30*rankFactor*(.75+safeBots/20);
@@ -661,7 +661,7 @@
     const safePlace=Math.max(1,Math.min(safeBots+1,Number.isFinite(rawPlace)?Math.round(rawPlace):safeBots+1));
     const safeScore=Math.max(0,Number.isFinite(rawScore)?rawScore:0),safeLength=Math.max(8000,Math.min(14000,Number.isFinite(rawLength)?rawLength:10000));
     const rankFactor=(safeBots+1-safePlace)/safeBots,lengthFactor=safeLength/10000;
-    const difficultyMultiplier={easy:.9,medium:1,hard:1.15,extreme:1.35}[cfg.difficulty]||1;
+    const difficultyMultiplier={easy:.9,medium:1,hard:1.15,extreme:1.12}[cfg.difficulty]||1;
     // Kept close to the existing race economy: an average medium drift run lands
     // around a normal event payout, while a clean high-score win earns a premium.
     const completionReward=78+48*lengthFactor,gridReward=safeBots*3;
