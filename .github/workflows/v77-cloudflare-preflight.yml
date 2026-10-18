@@ -47,7 +47,7 @@ jobs:
             if (!token || !accountId) throw new Error("Required repository secret is missing");
             if (!/^[0-9a-f]{32}$/i.test(accountId)) throw new Error("Account ID has an invalid format");
 
-            const verification = requireSuccess(await request("/user/tokens/verify"), "Cloudflare token verification");
+            const verification = requireSuccess(await request(`/accounts/${accountId}/tokens/verify`), "Cloudflare token verification");
             if (verification?.status !== "active") throw new Error("Cloudflare token is not active");
             console.log("Cloudflare API token: active");
 
