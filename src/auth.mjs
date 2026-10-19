@@ -1,4 +1,5 @@
 import {applyAccountTransaction} from './account-transactions.mjs';
+import {handleEmailRecoveryRequest,startEmailVerificationForUser} from './account-recovery.mjs';
 import {validatePreferences} from '../public/js/account-preferences-v77.mjs';
 import {backupAccountState} from './account-authority-backup.mjs';
 import {adminSelfMutation} from './admin-self-economy.mjs';
@@ -54,6 +55,7 @@ const validUsername=v=>/^[a-z0-9_]{3,24}$/.test(v);
 const normalizeDisplayName=v=>String(v||'').trim().replace(/\s+/g,' ');
 const validDisplayName=v=>v.length>=2&&v.length<=24&&/^[\p{L}\p{N}_\- .]+$/u.test(v)&&!/[<>"'`\\/]/.test(v);
 const validPassword=v=>typeof v==='string'&&v.length>=8&&v.length<=128;
+async function canRecover(env,userId){const user=await targetUser(env,userId);return !!user&&!await banResponse(env,user);}
 const isAdminUsername=v=>normalizeUsername(v)===ADMIN_USERNAME;
 const adminUser=user=>({...user,isAdmin:isAdminUsername(user?.username)});
 
@@ -680,6 +682,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{
     await ensureAdminSchema(env);await ensureRewardSchema(env);
+    if(url.pathname==='/api/auth/email/start'||url.pathname==='/api/auth/email/verify'||url.pathname==='/api/auth/password/recovery'||url.pathname==='/api/auth/password/reset')return await handleEmailRecoveryRequest(request,env,url,{currentSession,banResponse,readBody,passwordHash,decodeB64url,randomBytes,validPassword,sameOrigin,canRecover});
     if(url.pathname.startsWith('/api/economy/'))await ensureEconomySchema(env);
     if(url.pathname.startsWith('/api/economy/races/')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
@@ -765,10 +768,11 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
     }
     if(url.pathname==='/api/auth/register'&&request.method==='POST'){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
-      const b=await readBody(request),username=normalizeUsername(b?.username),displayName=normalizeDisplayName(b?.displayName),password=b?.password,inviterUsername=normalizeUsername(String(b?.inviterUsername||'').replace(/^@/,''));
+      const b=await readBody(request),username=normalizeUsername(b?.username),displayName=normalizeDisplayName(b?.displayName),password=b?.password,email=String(b?.email||'').trim().toLowerCase(),inviterUsername=normalizeUsername(String(b?.inviterUsername||'').replace(/^@/,''));
       if(!validUsername(username))return json({error:'INVALID_USERNAME'},400);
       if(!validDisplayName(displayName))return json({error:'INVALID_DISPLAY_NAME'},400);
       if(!validPassword(password))return json({error:'INVALID_PASSWORD'},400);
+      if(email&&!/^[^\\s@<>]+@[^\\s@<>]+\\.[^\\s@<>]+$/.test(email))return json({error:'INVALID_EMAIL'},400);
       if(inviterUsername&&!validUsername(inviterUsername))return json({error:'INVALID_INVITER'},400);
       if(inviterUsername===username&&inviterUsername)return json({error:'CANNOT_INVITE_SELF'},400);
       const exists=await env.DB.prepare('SELECT id FROM users WHERE username=? COLLATE NOCASE LIMIT 1').bind(username).first();
@@ -786,7 +790,8 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       await writeSave(env,id,defaultSave());
       let referral={provided:false,rewarded:false,rewardCredits:0,inviterLevel:0,inviteeReward:{credits:0,cases:{}},reason:''};if(inviter){try{referral=await processReferral(env,{invitedUserId:id,inviter,signals,t});}catch(e){console.error('referral error',e);referral={provided:true,rewarded:false,rewardCredits:0,inviterLevel:0,inviteeReward:{credits:0,cases:{}},reason:'PROCESSING_ERROR'};}}
       const session=await createSession(env,request,id);
-      return json({ok:true,user:adminUser({id,username,displayName,createdAt:t}),referral},201,{'set-cookie':sessionCookie(request,session.raw)});
+      const emailVerification=email?await startEmailVerificationForUser(env,{randomBytes},{userId:id,email,username,request}):false;
+      return json({ok:true,user:adminUser({id,username,displayName,createdAt:t}),referral,emailVerification:email?emailVerification?'sent':'not_sent':'not_provided'},201,{'set-cookie':sessionCookie(request,session.raw)});
     }
     if(url.pathname==='/api/auth/login'&&request.method==='POST'){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
@@ -832,4 +837,4 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
   }
 }
 
-export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse,REFERRAL_LEVELS,readBody,processReferral,settlePendingReferral};
+export {currentSession,requireAdmin,ensureAdminSchema,ensureRewardSchema,ensureSocialSchema,accountDetail,audit,mutateTargetSave,banResponse,REFERRAL_LEVELS,readBody,processReferral,settlePendingReferral,passwordHash,decodeB64url,randomBytes,validPassword,sameOrigin,canRecover};
