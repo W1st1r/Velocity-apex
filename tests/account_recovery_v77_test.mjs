@@ -38,18 +38,19 @@ const oldSalt=randomBytes(16);db.prepare('UPDATE users SET password_hash=?,passw
 assert.equal(await startEmailVerificationForUser(env,{randomBytes},{userId:'u1',email:'Driver@One.Example',username:'driver_one',request:req('/api/auth/email/start',{}, {cookie:'va_session=ok'})}),true);
 assert.equal(sent.length,1);
 assert.match(sent[0].subject,/Подтвердите email/);
-const verifyToken=tokenFromMail(sent[0]);
-let response=await route('/api/auth/email/verify',{token:verifyToken});assert.equal(response.status,200);
+let response=await route('/api/auth/email/start',{email:'Driver@One.Example',password:'old-password'},{cookie:'va_session=ok'});assert.equal(response.status,200,'email binding requires a valid account session and current password');assert.equal(sent.length,2);const verifyToken=tokenFromMail(sent[1]);assert.match(sent[1].text,/account-recovery\.html\?mode=verify#/);
+response=await route('/api/auth/email/verify',{token:verifyToken});assert.equal(response.status,200);
 assert.equal(db.prepare('SELECT email FROM account_emails WHERE user_id=?').get('u1').email,'driver@one.example');
+response=await route('/api/auth/email/status',null,{method:'GET',cookie:'va_session=ok'});assert.deepEqual(await response.json(),{email:'d•••@one.example',verified:true});
 response=await route('/api/auth/email/verify',{token:verifyToken});assert.equal(response.status,400,'verification token is single-use');
 
 const oldRow=db.prepare('SELECT password_hash,password_salt,password_iterations FROM users WHERE id=?').get('u1');assert.equal(await passwordHash('old-password',decodeB64url(oldRow.password_salt),oldRow.password_iterations),oldRow.password_hash,'old password remains valid before reset');
 const saveBefore=db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('u1').save_json;
 const generic=await route('/api/auth/password/recovery',{identifier:'driver_one'});assert.equal(generic.status,200);
-assert.equal(sent.length,2);const usernameResetToken=tokenFromMail(sent[1]);
-const byEmail=await route('/api/auth/password/recovery',{identifier:'driver@one.example'},{ip:'192.0.2.11'});assert.equal(byEmail.status,200);assert.equal(sent.length,3,'confirmed email is a valid recovery identifier');const resetToken=tokenFromMail(sent[2]);
+assert.equal(sent.length,3);const usernameResetToken=tokenFromMail(sent[1]);
+const byEmail=await route('/api/auth/password/recovery',{identifier:'driver@one.example'},{ip:'192.0.2.11'});assert.equal(byEmail.status,200);assert.equal(sent.length,4,'confirmed email is a valid recovery identifier');const resetToken=tokenFromMail(sent[3]);
 response=await route('/api/auth/password/reset',{token:usernameResetToken,password:'other-password'});assert.equal(response.status,400,'a newer request invalidates the previous token');
-const unknown=await route('/api/auth/password/recovery',{identifier:'nobody@example.net'});assert.equal(unknown.status,200);assert.equal(sent.length,3,'unknown account does not receive email');
+const unknown=await route('/api/auth/password/recovery',{identifier:'nobody@example.net'});assert.equal(unknown.status,200);assert.equal(sent.length,4,'unknown account does not receive email');
 response=await route('/api/auth/password/reset',{token:resetToken,password:'new-password-123'});assert.equal(response.status,200);
 assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=?').get('u1').n,0,'password reset revokes every session');
 assert.equal(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('u1').save_json,saveBefore,'game progress is unchanged');
@@ -60,9 +61,9 @@ response=await route('/api/auth/password/reset',{token:resetToken,password:'anot
 
 const expired=await (async()=>{const raw='A'.repeat(43),hash=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw))).toString('base64url');db.prepare("INSERT INTO account_recovery_tokens(token_hash,user_id,token_kind,created_at,expires_at) VALUES(?,?,'password_reset',?,?)").run(hash,'u1',1,2);return route('/api/auth/password/reset',{token:raw,password:'another-password'});})();assert.equal(expired.status,400,'expired token is rejected');
 const noMailEnv={DB};response=await handleEmailRecoveryRequest(req('/api/auth/password/recovery',{identifier:'driver_one'}),noMailEnv,new URL('https://game.test/api/auth/password/recovery'),helpers);assert.equal((await response.json()).deliveryUnavailable,true,'missing mail service is reported honestly');
-assert.equal(sent.length,4);
+assert.equal(sent.length,5);
 db.prepare("INSERT INTO account_bans(id,user_id,reason,created_at,expires_at,revoked_at) VALUES('b1','u1','test',1,9999999999999,NULL)").run();
-response=await route('/api/auth/password/recovery',{identifier:'driver_one'});assert.equal(response.status,200);assert.equal(sent.length,4,'banned account receives no reset link');
+response=await route('/api/auth/password/recovery',{identifier:'driver_one'});assert.equal(response.status,200);assert.equal(sent.length,5,'banned account receives no reset link');
 assert.ok(db.prepare("SELECT COUNT(*) n FROM account_security_events").get().n>=3);
 
 // Old accounts without a verified address never receive reset mail.
