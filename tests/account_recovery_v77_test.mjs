@@ -37,7 +37,7 @@ assert.equal(sent.length,1);
 assert.match(sent[0].subject,/Подтвердите email/);
 const verifyToken=tokenFromMail(sent[0]);
 let response=await route('/api/auth/email/verify',{token:verifyToken});assert.equal(response.status,200);
-assert.equal(db.prepare('SELECT email FROM users WHERE id=?').get('u1').email,'driver@one.example');
+assert.equal(db.prepare('SELECT email FROM account_emails WHERE user_id=?').get('u1').email,'driver@one.example');
 response=await route('/api/auth/email/verify',{token:verifyToken});assert.equal(response.status,400,'verification token is single-use');
 
 const saveBefore=db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('u1').save_json;
@@ -65,7 +65,7 @@ const sentBeforeLegacy=sent.length;response=await route('/api/auth/password/reco
 // A second account cannot claim an email already verified on another account.
 assert.equal(await startEmailVerificationForUser(env,{randomBytes},{userId:'u2',email:'driver@one.example',username:'driver_two'}),true);
 const duplicateToken=tokenFromMail(sent.at(-1));response=await route('/api/auth/email/verify',{token:duplicateToken});assert.equal(response.status,409,'confirmed email remains unique');
-assert.equal(db.prepare('SELECT email_verified_at FROM users WHERE id=?').get('u2').email_verified_at,null);
+assert.equal(db.prepare('SELECT verified_at FROM account_emails WHERE user_id=?').get('u2'),undefined);
 // Per-IP request throttling stays neutral and sends no messages for unknown accounts.
 const countBeforeThrottle=sent.length;let throttledResponse;
 for(let i=0;i<16;i++)throttledResponse=await route('/api/auth/password/recovery',{identifier:'unknown-'+i+'@example.net'},{ip:'192.0.2.99'});
