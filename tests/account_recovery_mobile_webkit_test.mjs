@@ -14,13 +14,13 @@ try{
   browser=await webkit.launch({headless:true});
   const context=await browser.newContext({...devices['iPhone 13']});
   const page=await context.newPage(),requests=[];
-  await page.route('**/api/auth/password/reset',async route=>{requests.push(JSON.parse(route.request().postData()||'{}'));await route.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'});});
+  let offlineOnce=true;await page.route('**/api/auth/password/reset',async route=>{if(offlineOnce){offlineOnce=false;await route.abort('internetdisconnected');return;}requests.push(JSON.parse(route.request().postData()||'{}'));await route.fulfill({status:200,contentType:'application/json',body:'{"ok":true}'});});
   const origin='http://127.0.0.1:'+server.address().port,token='A'.repeat(43);
   await page.goto(origin+'/account-recovery.html?mode=reset#'+token);
   assert.equal(await page.locator('#form').isVisible(),true);
-  assert.equal(await page.evaluate(()=>location.hash),'','reset token is removed from browser history');
+  assert.equal(await page.evaluate(()=>location.hash),'#'+token,'token remains available while the network request is retried');
   assert.ok(await page.locator('#password').evaluate(e=>parseFloat(getComputedStyle(e).fontSize)>=16),'iOS input avoids focus zoom');
-  await page.locator('#password').fill('secure-new-password');await page.locator('#confirm').fill('secure-new-password');await page.locator('#submit').click();
+  await page.locator('#password').fill('secure-new-password');await page.locator('#confirm').fill('secure-new-password');await page.locator('#submit').click();await page.getByText('Нет подключения.',{exact:false}).waitFor();assert.equal(await page.evaluate(()=>location.hash),'#'+token);await page.locator('#submit').click();
   await page.getByText('Пароль изменён.',{exact:false}).waitFor();assert.equal(requests.length,1);assert.equal(requests[0].token,token);
 
   await page.unroute('**/api/auth/password/reset');
