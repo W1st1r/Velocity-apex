@@ -682,7 +682,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{
     await ensureAdminSchema(env);await ensureRewardSchema(env);
-    if(url.pathname==='/api/auth/email/start'||url.pathname==='/api/auth/email/verify'||url.pathname==='/api/auth/password/recovery'||url.pathname==='/api/auth/password/reset')return await handleEmailRecoveryRequest(request,env,url,{currentSession,banResponse,readBody,passwordHash,decodeB64url,randomBytes,validPassword,sameOrigin,canRecover});
+    if(url.pathname==='/api/auth/email/status'||url.pathname==='/api/auth/email/start'||url.pathname==='/api/auth/email/verify'||url.pathname==='/api/auth/password/recovery'||url.pathname==='/api/auth/password/reset')return await handleEmailRecoveryRequest(request,env,url,{currentSession,banResponse,readBody,passwordHash,decodeB64url,randomBytes,validPassword,sameOrigin,canRecover});
     if(url.pathname.startsWith('/api/economy/'))await ensureEconomySchema(env);
     if(url.pathname.startsWith('/api/economy/races/')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
