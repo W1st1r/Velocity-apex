@@ -1,5 +1,5 @@
 import {applyAccountTransaction} from './account-transactions.mjs';
-import {handleEmailRecoveryRequest,startEmailVerificationForUser} from './account-recovery.mjs';
+import {handleEmailRecoveryRequest,startEmailVerificationForUser,validEmail} from './account-recovery.mjs';
 import {validatePreferences} from '../public/js/account-preferences-v77.mjs';
 import {backupAccountState} from './account-authority-backup.mjs';
 import {adminSelfMutation} from './admin-self-economy.mjs';
