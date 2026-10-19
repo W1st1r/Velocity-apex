@@ -25,6 +25,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Install Playwright WebKit and system dependencies
         run: npx playwright install --with-deps webkit
+      - name: Test account recovery in mobile Safari emulation
+        run: node tests/account_recovery_mobile_webkit_test.mjs
       - name: Reuse unchanged successful case visual checks
         id: case-visual-cache
         uses: actions/cache@v4
