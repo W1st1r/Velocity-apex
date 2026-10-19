@@ -17,9 +17,10 @@ async function rateAllowed(env,request,key,limit){const ip=request.headers.get('
 function freshToken(auth){return tokenValue(auth.randomBytes(32));}
 async function createToken(env,auth,{userId,kind,email}){const raw=freshToken(auth),hash=await tokenHash(raw),t=Date.now();await env.DB.batch([env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=? AND consumed_at IS NULL').bind(userId,kind),env.DB.prepare('INSERT INTO account_recovery_tokens(token_hash,user_id,token_kind,pending_email,created_at,expires_at) VALUES(?,?,?,?,?,?)').bind(hash,userId,kind,email||null,t,t+TOKEN_TTL)]);return raw;}
 function link(env,path,token){const origin=appOrigin(env);return origin?origin+path+'?token='+encodeURIComponent(token):'';}
-export async function startEmailVerificationForUser(env,auth,{userId,email,username}){
-  if(!mailConfigured(env)||!validEmail(email))return false;
-  const normalized=normalizeEmail(email);const raw=await createToken(env,auth,{userId,kind:'verify_email',email:normalized});const url=link(env,'/email-verify.html',raw);
+export async function startEmailVerificationForUser(env,auth,{userId,email,username,request}){
+  if(!mailConfigured(env)||!validEmail(email)||!appOrigin(env))return false;
+  if(request&&!await rateAllowed(env,request,'verify:'+userId,3))return false;
+  const normalized=normalizeEmail(email);const raw=await createToken(env,auth,{userId,kind:'verify_email',email:normalized});const url=link(env,'/account-recovery.html?mode=verify',raw);
   if(!url)return false;
   const html=emailMarkup({title:'ПОДТВЕРЖДЕНИЕ EMAIL',name:username,button:'ПОДТВЕРДИТЬ EMAIL',url,notice:'Подтвердите адрес, чтобы использовать его для восстановления доступа.'});
   const sent=await sendMail(env,{to:normalized,subject:'Подтвердите email — Velocity Apex',html,text:`Подтвердите email для аккаунта ${username}: ${url}\nСсылка действует 20 минут.`});
@@ -64,7 +65,7 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
     const allowed=await rateAllowed(env,request,'recovery:'+identifier.toLowerCase(),5);if(!allowed)return json({ok:true,message:'Если для аккаунта есть подтвержденный email, инструкция отправлена.'});
     const user=await env.DB.prepare('SELECT id,username,email FROM users WHERE (username=? COLLATE NOCASE OR (email=? COLLATE NOCASE AND email_verified_at IS NOT NULL)) LIMIT 1').bind(identifier,normalizeEmail(identifier)).first();
     if(user&&user.email&&mailConfigured(env)&&await auth.canRecover(env,user.id)){
-      const raw=await createToken(env,auth,{userId:user.id,kind:'password_reset'}),target=link(env,'/password-reset.html',raw);
+      const raw=await createToken(env,auth,{userId:user.id,kind:'password_reset'}),target=link(env,'/account-recovery.html?mode=reset',raw);
       const html=emailMarkup({title:'ВОССТАНОВЛЕНИЕ ДОСТУПА',name:user.username,button:'СМЕНИТЬ ПАРОЛЬ',url:target,notice:'Получен запрос на смену пароля для вашего аккаунта.'});
       const sent=await sendMail(env,{to:user.email,subject:'Восстановление доступа — Velocity Apex',html,text:`Смена пароля аккаунта ${user.username}: ${target}\nСсылка действует 20 минут.`});
       if(!sent)await env.DB.prepare('DELETE FROM account_recovery_tokens WHERE token_hash=?').bind(await tokenHash(raw)).run();else await audit(env,user.id,'password_recovery_requested');
