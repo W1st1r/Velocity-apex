@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {handleEmailRecoveryRequest,startEmailVerificationForUser} from '../src/account-recovery.mjs';
+import {handleEmailRecoveryRequest,startEmailVerificationForUser,validEmail} from '../src/account-recovery.mjs';
 import {passwordHash,decodeB64url,randomBytes,validPassword} from '../src/auth.mjs';
 
 class TestD1{
@@ -9,6 +9,9 @@ class TestD1{
   prepare(sql){const db=this.db;let args=[];return {bind(...values){args=values;return this;},first(){return db.prepare(sql).get(...args)||null;},all(){return {results:db.prepare(sql).all(...args)};},run(){const r=db.prepare(sql).run(...args);return {meta:{changes:Number(r.changes||0)}};},_run(){const r=db.prepare(sql).run(...args);return {meta:{changes:Number(r.changes||0)}};}};}
   batch(items){this.db.exec('BEGIN IMMEDIATE');try{const out=items.map(x=>x._run());this.db.exec('COMMIT');return out;}catch(e){this.db.exec('ROLLBACK');throw e;}}
 }
+assert.equal(validEmail('driver+v77@example.net'),true);assert.equal(validEmail('missing-at-sign'),false);assert.equal(validEmail('bad@host'),false);
+const ui=readFileSync(new URL('../public/account-recovery.html',import.meta.url),'utf8');assert.match(ui,/name=\"viewport\"/);assert.match(ui,/safe-area-inset/);assert.match(ui,/font-size:16px/);
+const index=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');assert.match(index,/authGateForgot/);assert.match(index,/accountForgot/);assert.match(index,/accountRegisterEmail/);assert.match(index,/accountProfileEmail/);
 const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
 db.exec(readFileSync(new URL('../migrations/0001_accounts.sql',import.meta.url),'utf8'));
 db.exec(readFileSync(new URL('../migrations/0022_account_email_recovery.sql',import.meta.url),'utf8'));
@@ -40,10 +43,13 @@ let response=await route('/api/auth/email/verify',{token:verifyToken});assert.eq
 assert.equal(db.prepare('SELECT email FROM account_emails WHERE user_id=?').get('u1').email,'driver@one.example');
 response=await route('/api/auth/email/verify',{token:verifyToken});assert.equal(response.status,400,'verification token is single-use');
 
+const oldRow=db.prepare('SELECT password_hash,password_salt,password_iterations FROM users WHERE id=?').get('u1');assert.equal(await passwordHash('old-password',decodeB64url(oldRow.password_salt),oldRow.password_iterations),oldRow.password_hash,'old password remains valid before reset');
 const saveBefore=db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('u1').save_json;
 const generic=await route('/api/auth/password/recovery',{identifier:'driver_one'});assert.equal(generic.status,200);
-assert.equal(sent.length,2);const resetToken=tokenFromMail(sent[1]);
-const unknown=await route('/api/auth/password/recovery',{identifier:'nobody@example.net'});assert.equal(unknown.status,200);assert.equal(sent.length,2,'unknown account does not receive email');
+assert.equal(sent.length,2);const usernameResetToken=tokenFromMail(sent[1]);
+const byEmail=await route('/api/auth/password/recovery',{identifier:'driver@one.example'},{ip:'192.0.2.11'});assert.equal(byEmail.status,200);assert.equal(sent.length,3,'confirmed email is a valid recovery identifier');const resetToken=tokenFromMail(sent[2]);
+response=await route('/api/auth/password/reset',{token:usernameResetToken,password:'other-password'});assert.equal(response.status,400,'a newer request invalidates the previous token');
+const unknown=await route('/api/auth/password/recovery',{identifier:'nobody@example.net'});assert.equal(unknown.status,200);assert.equal(sent.length,3,'unknown account does not receive email');
 response=await route('/api/auth/password/reset',{token:resetToken,password:'new-password-123'});assert.equal(response.status,200);
 assert.equal(db.prepare('SELECT COUNT(*) n FROM sessions WHERE user_id=?').get('u1').n,0,'password reset revokes every session');
 assert.equal(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('u1').save_json,saveBefore,'game progress is unchanged');
@@ -54,9 +60,9 @@ response=await route('/api/auth/password/reset',{token:resetToken,password:'anot
 
 const expired=await (async()=>{const raw='A'.repeat(43),hash=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw))).toString('base64url');db.prepare("INSERT INTO account_recovery_tokens(token_hash,user_id,token_kind,created_at,expires_at) VALUES(?,?,'password_reset',?,?)").run(hash,'u1',1,2);return route('/api/auth/password/reset',{token:raw,password:'another-password'});})();assert.equal(expired.status,400,'expired token is rejected');
 const noMailEnv={DB};response=await handleEmailRecoveryRequest(req('/api/auth/password/recovery',{identifier:'driver_one'}),noMailEnv,new URL('https://game.test/api/auth/password/recovery'),helpers);assert.equal((await response.json()).deliveryUnavailable,true,'missing mail service is reported honestly');
-assert.equal(sent.length,3);
+assert.equal(sent.length,4);
 db.prepare("INSERT INTO account_bans(id,user_id,reason,created_at,expires_at,revoked_at) VALUES('b1','u1','test',1,9999999999999,NULL)").run();
-response=await route('/api/auth/password/recovery',{identifier:'driver_one'});assert.equal(response.status,200);assert.equal(sent.length,3,'banned account receives no reset link');
+response=await route('/api/auth/password/recovery',{identifier:'driver_one'});assert.equal(response.status,200);assert.equal(sent.length,4,'banned account receives no reset link');
 assert.ok(db.prepare("SELECT COUNT(*) n FROM account_security_events").get().n>=3);
 
 // Old accounts without a verified address never receive reset mail.
@@ -73,4 +79,5 @@ assert.equal(throttledResponse.status,200);assert.equal(sent.length,countBeforeT
 
 console.log('account_recovery_v77_test: verified email, neutral recovery, token expiry/reuse, session invalidation, ban gate, and save preservation passed');
 db.close();
+
 
