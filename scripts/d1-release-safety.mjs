@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const migrationDir=path.join(root,'migrations');
-const trackedTables=['users','player_saves','player_progress','progression_rewards','payment_orders','payment_receipts','market_buy_orders','market_sell_listings','market_history','economy_operations','race_sessions','race_input_receipts','room_wager_escrows','account_authority_backups'];
+const trackedTables=['users','player_saves','player_progress','progression_rewards','payment_orders','payment_receipts','market_buy_orders','market_sell_listings','market_history','economy_operations','race_sessions','race_input_receipts','room_wager_escrows','account_authority_backups','account_recovery_tokens','account_security_events'];
 
 function integrity(db){
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok','SQLite integrity_check failed');
@@ -64,7 +64,7 @@ function verifySeed(db){
 }
 async function simulate(){
   const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
-  const files=migrationFiles();assert.equal(files.length,21,'expected the checked-in migration set');
+  const files=migrationFiles();assert.equal(files.length,22,'expected the checked-in migration set');
   db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
   for(const file of files.filter(x=>Number(x.slice(0,4))<=14)){applySqlFile(db,file);recordMigration(db,file);}
   seedBeforeV77(db);
