@@ -1,10 +1,11 @@
--- Additive account recovery schema; existing account and game rows are untouched.
-ALTER TABLE users ADD COLUMN email TEXT;
-ALTER TABLE users ADD COLUMN email_verified_at INTEGER;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_verified_email
-  ON users(email COLLATE NOCASE)
-  WHERE email IS NOT NULL AND email_verified_at IS NOT NULL;
+-- Additive and replay-safe recovery schema; existing player rows are untouched.
+CREATE TABLE IF NOT EXISTS account_emails (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  verified_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_account_emails_unique
+  ON account_emails(email COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS account_recovery_tokens (
   token_hash TEXT PRIMARY KEY,
