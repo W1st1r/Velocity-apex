@@ -33,9 +33,9 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
   if(path==='/api/auth/email/status'){
     if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405);
     const session=await auth.currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await auth.banResponse(env,session.user);if(banned)return banned;
-    const row=await env.DB.prepare('SELECT email,email_verified_at FROM users WHERE id=?').bind(session.user.id).first();
+    const row=await env.DB.prepare('SELECT email,verified_at FROM account_emails WHERE user_id=?').bind(session.user.id).first();
     const email=row?.email?String(row.email):'',masked=email?email.replace(/^(.).+(@.+)$/,'$1•••$2'):'';
-    return json({email:masked,verified:!!row?.email_verified_at});
+    return json({email:masked,verified:!!row?.verified_at});
   }
   if(request.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
   if(!auth.sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
@@ -61,8 +61,8 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
     if(!await rateAllowed(env,request,'verification-ip',20)||!await rateAllowed(env,request,'verify-token:'+hash,8))return json({error:'RATE_LIMITED'},429);
     const user=await env.DB.prepare('SELECT id,username FROM users WHERE id=?').bind(token.user_id).first();if(!user)return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
     const results=await env.DB.batch([
-      env.DB.prepare('UPDATE account_recovery_tokens SET consumed_at=? WHERE token_hash=? AND token_kind=? AND consumed_at IS NULL AND expires_at>? AND NOT EXISTS(SELECT 1 FROM users WHERE email=? COLLATE NOCASE AND email_verified_at IS NOT NULL AND id<>?)').bind(t,hash,'verify_email',t,token.pending_email,user.id),
-      env.DB.prepare('UPDATE users SET email=?,email_verified_at=?,updated_at=? WHERE id=? AND EXISTS(SELECT 1 FROM account_recovery_tokens WHERE token_hash=? AND token_kind=? AND consumed_at=?) AND NOT EXISTS(SELECT 1 FROM users WHERE email=? COLLATE NOCASE AND email_verified_at IS NOT NULL AND id<>?)').bind(token.pending_email,t,t,user.id,hash,'verify_email',t,token.pending_email,user.id)
+      env.DB.prepare('UPDATE account_recovery_tokens SET consumed_at=? WHERE token_hash=? AND token_kind=? AND consumed_at IS NULL AND expires_at>? AND NOT EXISTS(SELECT 1 FROM account_emails WHERE email=? COLLATE NOCASE AND user_id<>?)').bind(t,hash,'verify_email',t,token.pending_email,user.id),
+      env.DB.prepare('INSERT INTO account_emails(user_id,email,verified_at) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM account_recovery_tokens WHERE token_hash=? AND token_kind=? AND consumed_at=?) AND NOT EXISTS(SELECT 1 FROM account_emails WHERE email=? COLLATE NOCASE AND user_id<>?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,verified_at=excluded.verified_at').bind(user.id,token.pending_email,t,hash,'verify_email',t,token.pending_email,user.id)
     ]);
     if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1)return json({error:'EMAIL_ALREADY_IN_USE_OR_EXPIRED'},409);
     await env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=? AND token_hash<>?').bind(user.id,'verify_email',hash).run();await audit(env,user.id,'email_verified');return json({ok:true});
@@ -71,7 +71,7 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
     if(!mailConfigured(env)||!appOrigin(env))return json({ok:true,deliveryUnavailable:true});
     const identifier=String(body?.identifier||'').trim().slice(0,254);if(!identifier)return json({ok:true});
     const allowed=await rateAllowed(env,request,'recovery-ip',15)&&await rateAllowed(env,request,'recovery:'+identifier.toLowerCase(),5);if(!allowed)return json({ok:true});
-    const user=await env.DB.prepare('SELECT id,username,email FROM users WHERE (username=? COLLATE NOCASE OR (email=? COLLATE NOCASE AND email_verified_at IS NOT NULL)) LIMIT 1').bind(identifier,normalizeEmail(identifier)).first();
+    const user=await env.DB.prepare('SELECT u.id,u.username,e.email FROM users u LEFT JOIN account_emails e ON e.user_id=u.id WHERE (u.username=? COLLATE NOCASE OR (e.email=? COLLATE NOCASE AND e.verified_at IS NOT NULL)) LIMIT 1').bind(identifier,normalizeEmail(identifier)).first();
     if(user&&user.email&&mailConfigured(env)&&await auth.canRecover(env,user.id)){
       const raw=await createToken(env,auth,{userId:user.id,kind:'password_reset'}),target=link(env,'/account-recovery.html?mode=reset',raw);
       const html=emailMarkup({title:'ВОССТАНОВЛЕНИЕ ДОСТУПА',name:user.username,button:'СМЕНИТЬ ПАРОЛЬ',url:target,notice:'Получен запрос на смену пароля для вашего аккаунта.'});
@@ -95,6 +95,6 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
   if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1)return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
   await env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=?').bind(user.id,'password_reset').run();await audit(env,user.id,'password_reset_completed');
   const changedAt=new Date(t).toISOString();const html=`<!doctype html><html><body style="margin:0;background:#080c12;color:#eef3fa;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px"><tr><td align="center"><table role="presentation" width="600" style="max-width:600px;background:#111923;padding:28px;border:1px solid #263343;border-radius:16px"><tr><td><strong style="color:#b9ff43;letter-spacing:3px">VELOCITY APEX</strong><h1>ПАРОЛЬ ИЗМЕНЁН</h1><p>Пароль аккаунта ${safeText(user.username)} изменён ${safeText(changedAt)} UTC.</p><p>Если это сделали не вы, немедленно обратитесь в поддержку.</p></td></tr></table></td></tr></table></body></html>`;
-  const account=await env.DB.prepare('SELECT email FROM users WHERE id=? AND email_verified_at IS NOT NULL').bind(user.id).first();if(account?.email)await sendMail(env,{to:account.email,subject:'Пароль изменён — Velocity Apex',html,text:`Пароль аккаунта изменён ${changedAt} UTC. Если изменение не ваше, обратитесь в поддержку.`});
+  const account=await env.DB.prepare('SELECT email FROM account_emails WHERE user_id=? AND verified_at IS NOT NULL').bind(user.id).first();if(account?.email)await sendMail(env,{to:account.email,subject:'Пароль изменён — Velocity Apex',html,text:`Пароль аккаунта изменён ${changedAt} UTC. Если изменение не ваше, обратитесь в поддержку.`});
   return json({ok:true});
 }
