@@ -772,7 +772,7 @@ export async function handleAuthRequest(request,env,url=new URL(request.url)){
       if(!validUsername(username))return json({error:'INVALID_USERNAME'},400);
       if(!validDisplayName(displayName))return json({error:'INVALID_DISPLAY_NAME'},400);
       if(!validPassword(password))return json({error:'INVALID_PASSWORD'},400);
-      if(email&&!/^[^\\s@<>]+@[^\\s@<>]+\\.[^\\s@<>]+$/.test(email))return json({error:'INVALID_EMAIL'},400);
+      if(email&&!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email))return json({error:'INVALID_EMAIL'},400);
       if(inviterUsername&&!validUsername(inviterUsername))return json({error:'INVALID_INVITER'},400);
       if(inviterUsername===username&&inviterUsername)return json({error:'CANNOT_INVITE_SELF'},400);
       const exists=await env.DB.prepare('SELECT id FROM users WHERE username=? COLLATE NOCASE LIMIT 1').bind(username).first();
