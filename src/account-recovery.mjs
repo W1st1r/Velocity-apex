@@ -68,7 +68,8 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
     await env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=? AND token_hash<>?').bind(user.id,'verify_email',hash).run();await audit(env,user.id,'email_verified');return json({ok:true});
   }
   if(path==='/api/auth/password/recovery'){
-    const identifier=String(body?.identifier||'').trim().slice(0,254);if(!identifier)return json({ok:true,message:'Если для аккаунта есть подтвержденный email, инструкция отправлена.'});
+    if(!mailConfigured(env)||!appOrigin(env))return json({ok:true,deliveryUnavailable:true});
+    const identifier=String(body?.identifier||'').trim().slice(0,254);if(!identifier)return json({ok:true});
     const allowed=await rateAllowed(env,request,'recovery-ip',15)&&await rateAllowed(env,request,'recovery:'+identifier.toLowerCase(),5);if(!allowed)return json({ok:true,message:'Если для аккаунта есть подтвержденный email, инструкция отправлена.'});
     const user=await env.DB.prepare('SELECT id,username,email FROM users WHERE (username=? COLLATE NOCASE OR (email=? COLLATE NOCASE AND email_verified_at IS NOT NULL)) LIMIT 1').bind(identifier,normalizeEmail(identifier)).first();
     if(user&&user.email&&mailConfigured(env)&&await auth.canRecover(env,user.id)){
