@@ -9,7 +9,7 @@ import {fileURLToPath} from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const migrationDir=path.join(root,'migrations');
-const trackedTables=['users','player_saves','player_progress','progression_rewards','payment_orders','payment_receipts','market_buy_orders','market_sell_listings','market_history','economy_operations','race_sessions','race_input_receipts','room_wager_escrows','account_authority_backups','account_recovery_tokens','account_security_events'];
+const trackedTables=['users','player_saves','player_progress','progression_rewards','payment_orders','payment_receipts','market_buy_orders','market_sell_listings','market_history','economy_operations','race_sessions','race_input_receipts','room_wager_escrows','account_authority_backups','account_emails','account_recovery_tokens','account_recovery_limits','account_security_events'];
 
 function integrity(db){
   assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check,'ok','SQLite integrity_check failed');
@@ -128,7 +128,7 @@ function snapshotSql(input,output,stage='before'){
 function verifySql(beforePath,afterPath){
   const before=JSON.parse(readFileSync(beforePath,'utf8'));const db=dbFromSql(readFileSync(afterPath,'utf8'));checkMigrationState(db,'after');const after=snapshot(db);
   for(const name of trackedTables){if(Object.hasOwn(before.counts,name)&&Object.hasOwn(after.counts,name))assert.ok(after.counts[name]>=before.counts[name],`protected table row count decreased: ${name}`);}
-  for(const name of ['users','player_saves','player_progress','economy_operations','race_sessions','race_input_receipts','room_wager_escrows','account_authority_backups'])assert.ok(Object.hasOwn(after.counts,name),`post-migration table missing: ${name}`);
+  for(const name of ['users','player_saves','player_progress','economy_operations','race_sessions','race_input_receipts','room_wager_escrows','account_authority_backups','account_emails','account_recovery_tokens','account_recovery_limits','account_security_events'])assert.ok(Object.hasOwn(after.counts,name),`post-migration table missing: ${name}`);
   db.close();console.log('d1-release-safety: restored pre/post exports pass SQLite integrity and foreign-key checks; protected record counts did not decrease');
 }
 function key(){const value=process.env.D1_BACKUP_ENCRYPTION_KEY||'';if(!/^[0-9a-fA-F]{64}$/.test(value))throw Error('D1_BACKUP_ENCRYPTION_KEY must be a 32-byte hex secret');return Buffer.from(value,'hex');}
