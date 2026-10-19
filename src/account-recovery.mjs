@@ -15,7 +15,7 @@ async function sendMail(env,{to,subject,html,text}){if(!mailConfigured(env))retu
 async function audit(env,userId,event){try{await env.DB.prepare('INSERT INTO account_security_events(user_id,event_type,created_at) VALUES(?,?,?)').bind(userId||null,event,Date.now()).run();}catch{}}
 async function rateAllowed(env,request,key,limit){const ip=request.headers.get('CF-Connecting-IP')||'unknown';const secret=String(env.ACCOUNT_RECOVERY_RATE_KEY||env.RESEND_API_KEY||'velocity-apex-recovery-rate-v1');const hmacKey=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const bucketHash=tokenValue(new Uint8Array(await crypto.subtle.sign('HMAC',hmacKey,encoder.encode(ip+'|'+key))));const t=Date.now(),windowStart=Math.floor(t/HOUR)*HOUR;const row=await env.DB.prepare('INSERT INTO account_recovery_limits(bucket_hash,window_start,hits) VALUES(?,?,1) ON CONFLICT(bucket_hash,window_start) DO UPDATE SET hits=hits+1 RETURNING hits').bind(bucketHash,windowStart).first();if(Math.random()<0.02)await env.DB.prepare('DELETE FROM account_recovery_limits WHERE window_start<?').bind(windowStart-24*HOUR).run();return Number(row?.hits||0)<=limit;}
 function freshToken(auth){return tokenValue(auth.randomBytes(32));}
-async function createToken(env,auth,{userId,kind,email}){const raw=freshToken(auth),hash=await tokenHash(raw),t=Date.now();await env.DB.batch([env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=? AND consumed_at IS NULL').bind(userId,kind),env.DB.prepare('INSERT INTO account_recovery_tokens(token_hash,user_id,token_kind,pending_email,created_at,expires_at) VALUES(?,?,?,?,?,?)').bind(hash,userId,kind,email||null,t,t+TOKEN_TTL)]);return raw;}
+async function createToken(env,auth,{userId,kind,email}){const raw=freshToken(auth),hash=await tokenHash(raw),t=Date.now();await env.DB.batch([env.DB.prepare('DELETE FROM account_recovery_tokens WHERE expires_at<=? OR consumed_at IS NOT NULL').bind(t),env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=? AND consumed_at IS NULL').bind(userId,kind),env.DB.prepare('INSERT INTO account_recovery_tokens(token_hash,user_id,token_kind,pending_email,created_at,expires_at) VALUES(?,?,?,?,?,?)').bind(hash,userId,kind,email||null,t,t+TOKEN_TTL)]);return raw;}
 function link(env,path,token){const origin=appOrigin(env);return origin?origin+path+'#'+encodeURIComponent(token):'';}
 export async function startEmailVerificationForUser(env,auth,{userId,email,username,request}){
   if(!mailConfigured(env)||!validEmail(email)||!appOrigin(env))return false;
@@ -44,11 +44,11 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
   if(path==='/api/auth/email/start'){
     const session=await auth.currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await auth.banResponse(env,session.user);if(banned)return banned;
     const email=normalizeEmail(body?.email),password=body?.password;if(!validEmail(email)||!auth.validPassword(password))return json({error:'INVALID_EMAIL_OR_PASSWORD'},400);
-    if(!mailConfigured(env))return json({error:'EMAIL_NOT_CONFIGURED'},503);
+    if(!mailConfigured(env)||!appOrigin(env))return json({error:'EMAIL_NOT_CONFIGURED'},503);
     if(!await rateAllowed(env,request,'email-verify-ip',10)||!await rateAllowed(env,request,'verify:'+session.user.id,3))return json({error:'RATE_LIMITED'},429);
     const user=await env.DB.prepare('SELECT password_hash,password_salt,password_iterations FROM users WHERE id=?').bind(session.user.id).first();if(!user)return json({error:'AUTH_REQUIRED'},401);
     const pass=await auth.passwordHash(password,auth.decodeB64url(user.password_salt),Number(user.password_iterations)||100000);if(pass!==user.password_hash)return json({error:'INVALID_EMAIL_OR_PASSWORD'},401);
-    const raw=await createToken(env,auth,{userId:session.user.id,kind:'verify_email',email}),target=link(env,'/email-verify.html',raw);
+    const raw=await createToken(env,auth,{userId:session.user.id,kind:'verify_email',email}),target=link(env,'/account-recovery.html?mode=verify',raw);
     const html=emailMarkup({title:'ПОДТВЕРЖДЕНИЕ EMAIL',name:session.user.displayName||session.user.username,button:'ПОДТВЕРДИТЬ EMAIL',url:target,notice:'Подтвердите новый адрес, чтобы использовать его для восстановления доступа.'});
     const sent=await sendMail(env,{to:email,subject:'Подтвердите email — Velocity Apex',html,text:`Подтвердите адрес аккаунта ${session.user.username}: ${target}\nСсылка действует 20 минут.`});
     if(!sent){await env.DB.prepare('DELETE FROM account_recovery_tokens WHERE token_hash=?').bind(await tokenHash(raw)).run();return json({error:'EMAIL_DELIVERY_FAILED'},502);}
@@ -78,7 +78,7 @@ export async function handleEmailRecoveryRequest(request,env,url,auth){
       const sent=await sendMail(env,{to:user.email,subject:'Восстановление доступа — Velocity Apex',html,text:`Смена пароля аккаунта ${user.username}: ${target}\nСсылка действует 20 минут.`});
       if(!sent)await env.DB.prepare('DELETE FROM account_recovery_tokens WHERE token_hash=?').bind(await tokenHash(raw)).run();else await audit(env,user.id,'password_recovery_requested');
     }
-    return json({ok:true,message:'Если для аккаунта есть подтвержденный email, инструкция отправлена.'});
+    return json({ok:true});
   }
   const raw=String(body?.token||''),password=body?.password;if(!/^[A-Za-z0-9_-]{43}$/.test(raw))return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);if(!auth.validPassword(password))return json({error:'INVALID_PASSWORD'},400);
   const hash=await tokenHash(raw),token=await env.DB.prepare('SELECT user_id,expires_at,consumed_at FROM account_recovery_tokens WHERE token_hash=? AND token_kind=?').bind(hash,'password_reset').first();
