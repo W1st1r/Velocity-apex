@@ -3,7 +3,7 @@ const TOKEN_TTL=20*60*1000;
 const HOUR=60*60*1000;
 const emailPattern=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
-const validEmail=value=>typeof value==='string'&&value.length<=254&&emailPattern.test(value)&&value.split('@')[0].length<=64;
+export const validEmail=value=>typeof value==='string'&&value.length<=254&&emailPattern.test(value)&&value.split('@')[0].length<=64;
 const normalizeEmail=value=>String(value||'').trim().toLowerCase();
 const tokenValue=bytes=>{let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');};
 const tokenHash=async value=>tokenValue(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(value))));
