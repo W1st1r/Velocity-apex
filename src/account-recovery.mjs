@@ -16,7 +16,7 @@ async function audit(env,userId,event){try{await env.DB.prepare('INSERT INTO acc
 async function rateAllowed(env,request,key,limit){const ip=request.headers.get('CF-Connecting-IP')||'unknown';const ua=(request.headers.get('user-agent')||'').slice(0,160);const bucketHash=await tokenHash(ip+'|'+ua+'|'+key);const t=Date.now(),windowStart=Math.floor(t/HOUR)*HOUR;const row=await env.DB.prepare('INSERT INTO account_recovery_limits(bucket_hash,window_start,hits) VALUES(?,?,1) ON CONFLICT(bucket_hash,window_start) DO UPDATE SET hits=hits+1 RETURNING hits').bind(bucketHash,windowStart).first();if(Math.random()<0.02)await env.DB.prepare('DELETE FROM account_recovery_limits WHERE window_start<?').bind(windowStart-24*HOUR).run();return Number(row?.hits||0)<=limit;}
 function freshToken(auth){return tokenValue(auth.randomBytes(32));}
 async function createToken(env,auth,{userId,kind,email}){const raw=freshToken(auth),hash=await tokenHash(raw),t=Date.now();await env.DB.batch([env.DB.prepare('DELETE FROM account_recovery_tokens WHERE user_id=? AND token_kind=? AND consumed_at IS NULL').bind(userId,kind),env.DB.prepare('INSERT INTO account_recovery_tokens(token_hash,user_id,token_kind,pending_email,created_at,expires_at) VALUES(?,?,?,?,?,?)').bind(hash,userId,kind,email||null,t,t+TOKEN_TTL)]);return raw;}
-function link(env,path,token){const origin=appOrigin(env);return origin?origin+path+'?token='+encodeURIComponent(token):'';}
+function link(env,path,token){const origin=appOrigin(env);return origin?origin+path+'#'+encodeURIComponent(token):'';}
 export async function startEmailVerificationForUser(env,auth,{userId,email,username,request}){
   if(!mailConfigured(env)||!validEmail(email)||!appOrigin(env))return false;
   if(request&&!await rateAllowed(env,request,'verify:'+userId,3))return false;
@@ -29,7 +29,14 @@ export async function startEmailVerificationForUser(env,auth,{userId,email,usern
 }
 export async function handleEmailRecoveryRequest(request,env,url,auth){
   const path=url.pathname;
-  if(!['/api/auth/email/start','/api/auth/email/verify','/api/auth/password/recovery','/api/auth/password/reset'].includes(path))return null;
+  if(!['/api/auth/email/status','/api/auth/email/start','/api/auth/email/verify','/api/auth/password/recovery','/api/auth/password/reset'].includes(path))return null;
+  if(path==='/api/auth/email/status'){
+    if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405);
+    const session=await auth.currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await auth.banResponse(env,session.user);if(banned)return banned;
+    const row=await env.DB.prepare('SELECT email,email_verified_at FROM users WHERE id=?').bind(session.user.id).first();
+    const email=row?.email?String(row.email):'',masked=email?email.replace(/^(.).+(@.+)$/,'$1•••$2'):'';
+    return json({email:masked,verified:!!row?.email_verified_at});
+  }
   if(request.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
   if(!auth.sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
   let body;try{body=await auth.readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
