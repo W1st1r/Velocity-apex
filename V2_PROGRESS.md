@@ -46,3 +46,4 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Remaining: broad UI visual review on a physical iPhone; complete new ghost, bug-report, clan treasury/progression and territory systems are still future implementation stages. This checkpoint only closes the current player-physics isolation/chat acknowledgement/navigation reliability slice.
 - Local checkpoint: `0ad6c375e6a9b6ccbfa144d99ed8e3fe18271993` (`fix: isolate 2.0 player physics and harden chat navigation`). This code/progress slice is committed locally; no push, merge, deploy, production D1 access, or PR #17 changes. The branch remains open for the next requested stage.
 - A follow-up guard also blocks settings/menu/modal navigation while an async race start is pending; `game_transition_guard_v2_test.mjs` and syntax/diff checks pass.
+- Latest local checkpoint: `c1ae1689d033c0cb20cc1a77789ed510e58bcfa4` (`fix: lock navigation during async race startup`).
