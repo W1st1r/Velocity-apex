@@ -1,0 +1,27 @@
+/* Velocity Apex 2.0 development: predictable screen entrances and compact chat. */
+.overlay:not(.hidden){animation:va-overlay-in .16s ease-out both}
+@keyframes va-overlay-in{from{opacity:0}to{opacity:1}}
+
+.free-chat-panel{height:min(350px,62dvh);max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);background:linear-gradient(160deg,rgba(10,27,47,.96),rgba(4,14,29,.96));border-color:rgba(95,185,236,.2)}
+.free-chat-log{display:grid;align-content:start;gap:7px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.free-chat-line,.free-chat-preview-line{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;min-width:0;padding:7px 9px;border:1px solid rgba(120,180,220,.09);border-radius:10px;background:rgba(15,40,66,.5)}
+.free-chat-line.mine,.free-chat-preview-line.mine{background:rgba(37,100,143,.19);border-color:rgba(99,193,246,.16)}
+.free-chat-meta{display:flex;align-items:center;flex-wrap:wrap;gap:5px;min-width:0;line-height:1.25}
+.free-chat-line .free-chat-meta>strong,.free-chat-preview-line .free-chat-meta>b{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;min-width:0;max-width:100%;overflow:visible;white-space:normal;color:#a9ddf8;font-size:8px;font-weight:900}
+.free-chat-meta .free-owner-badge,.free-chat-meta .free-admin-badge,.free-chat-meta .free-queen-badge,.free-chat-meta .free-media-badge{flex:0 0 auto}
+.free-chat-id{flex:0 0 auto;color:#76a7c4;font:700 7px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.02em}
+.free-chat-line>span,.free-chat-preview-line>span{display:block;min-width:0;color:#e4edf3;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.42}
+.free-chat-line.system{background:rgba(42,100,139,.13);border-color:rgba(87,192,241,.12)}
+.free-chat-form{padding-bottom:max(8px,var(--safe-b));align-items:center}
+.free-chat-form input{min-width:0;font-size:16px;user-select:text;-webkit-user-select:text}
+.free-chat-form button{min-width:88px;min-height:42px;touch-action:manipulation}
+.free-chat-preview{max-height:30dvh;overflow:hidden;padding:8px 9px;background:linear-gradient(160deg,rgba(8,26,45,.88),rgba(4,14,29,.84));border-color:rgba(95,185,236,.15)}
+.free-chat-preview-line{padding:3px 0;border:0;border-radius:0;background:transparent}
+.free-chat-preview-line .free-chat-meta{gap:4px}
+.free-chat-preview-line .free-chat-meta>b{font-size:7px}
+.free-chat-preview-line .free-chat-id{font-size:6px}
+.friends-card{background:linear-gradient(155deg,rgba(12,35,59,.985),rgba(6,19,37,.975));border-color:rgba(93,186,241,.2)}
+.friends-header{padding:0 0 13px;border-bottom:1px solid rgba(115,190,232,.14)}
+.friends-header .eyebrow{color:#78b9dc}
+
+@media(prefers-reduced-motion:reduce){.overlay:not(.hidden){animation:none!important}}

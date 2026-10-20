@@ -601,11 +601,11 @@
     const sample=track.samples[player.trackIndex]||track.samples[0],forward=player.vx*sample.tx+player.vy*sample.ty;
     let slip=Math.atan2(player.vy,player.vx)-player.angle;while(slip>Math.PI)slip-=Math.PI*2;while(slip<-Math.PI)slip+=Math.PI*2;
     const slipDeg=Math.abs(slip)*180/Math.PI,progressMeters=delta>0&&delta<.035?delta*track.length:0,meters=Math.min(progressMeters,Math.max(0,player.speed*dt*1.38));
-    const valid=!collision&&player.onRoad&&player.speed>78&&forward>42&&slipDeg>=9&&slipDeg<=58&&meters>.025;
+    const valid=!collision&&player.onRoad&&R.kmhFromWorldSpeed(player.speed)>90&&R.kmhFromWorldSpeed(forward)>45&&slipDeg>=9&&slipDeg<=58&&meters>.025;
     if(valid){
       driftIdleTime=0;driftChainDistance+=meters;driftChainTime+=dt;
       driftCombo=driftChainDistance>760?5:driftChainDistance>520?4:driftChainDistance>330?3:driftChainDistance>190?2.5:driftChainDistance>95?2:driftChainDistance>40?1.5:1;driftPeakCombo=Math.max(driftPeakCombo,driftCombo);
-      const angleQuality=clamp(1-Math.abs(slipDeg-32)/29,.30,1),speedQuality=clamp(player.speed/235,.45,1.62),durationQuality=1+Math.min(.48,driftChainTime*.032);
+      const angleQuality=clamp(1-Math.abs(slipDeg-32)/29,.30,1),speedQuality=clamp(R.kmhFromWorldSpeed(player.speed)/230,.45,1.30),durationQuality=1+Math.min(.48,driftChainTime*.032);
       scoreCarry+=meters*(.64+1.58*angleQuality)*speedQuality*driftCombo*durationQuality;
       if(scoreCarry>=1){const add=Math.floor(scoreCarry);score+=add;scoreCarry-=add;}
       if(skidTick<=0){addSkid(player);skidTick=.042;if(Math.random()<.78)spawnParticle(player.x-player.vx*.045,player.y-player.vy*.045,'smoke',playerControl.handbrake?.9:1);}
@@ -694,10 +694,10 @@
 
     if(carImpact>3&&impactCooldown<=0){impactCooldown=.18;shake=Math.max(shake,3+Math.min(6,carImpact*.04));audio.collision(Math.min(1,carImpact/110));spawnParticle(impactX,impactY,'spark',4);}
     if(playerTrackImpact>.05&&impactCooldown<=0){impactCooldown=.16;shake=Math.max(shake,3+playerTrackImpact*10);audio.collision(playerTrackImpact);spawnParticle(player.x,player.y,'spark',7);}
-    if(!player.onRoad&&player.speed>100){if(Math.random()<dt*26)spawnParticle(player.x-player.vx*.035,player.y-player.vy*.035,'grass',2);if(grassSoundCooldown<=0){audio.grass();grassSoundCooldown=.16;}}
+    if(!player.onRoad&&R.kmhFromWorldSpeed(player.speed)>50){if(Math.random()<dt*26)spawnParticle(player.x-player.vx*.035,player.y-player.vy*.035,'grass',2);if(grassSoundCooldown<=0){audio.grass();grassSoundCooldown=.16;}}
     const lateral=Math.abs(-Math.sin(player.angle)*player.vx+Math.cos(player.angle)*player.vy);
-    if(localMode!=='drift'&&skidTick<=0&&player.speed>160&&(lateral>32||playerControl.brake)){addSkid(player);skidTick=.055;if((playerControl.brake||lateral>52)&&Math.random()<.58)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
-    else if(localMode==='drift'&&skidTick<=0&&player.speed>95&&(lateral>24||playerControl.handbrake)){addSkid(player);skidTick=.05;if(Math.random()<.68)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
+    if(localMode!=='drift'&&skidTick<=0&&R.kmhFromWorldSpeed(player.speed)>70&&(lateral>32||playerControl.brake)){addSkid(player);skidTick=.055;if((playerControl.brake||lateral>52)&&Math.random()<.58)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
+    else if(localMode==='drift'&&skidTick<=0&&R.kmhFromWorldSpeed(player.speed)>55&&(lateral>24||playerControl.handbrake)){addSkid(player);skidTick=.05;if(Math.random()<.68)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
     updateEffects(dt);updateRanks();
 
     if(localMode==='drift'){updateDriftScore(dt,playerTrackImpact>.05||carImpact>3);if(player.rank<prevRank)audio.overtake();prevRank=player.rank;save.bestDriftScore=Math.max(save.bestDriftScore||0,Math.floor(score));}
@@ -756,7 +756,7 @@
     const driftHud=localMode==='drift',careerHud=localMode==='career';
     setText(UI.pos,careerHud?'LV '+careerSelectedLevel:player.rank+' / '+cars.length);
     setText(UI.lap,(driftHud||careerHud)?'1 / 1':Math.min(raceSettings.laps,player.laps+1)+' / '+raceSettings.laps);
-    setText(UI.speed,Math.round(player.speed));
+    setText(UI.speed,Math.round(R.kmhFromWorldSpeed(player.speed)));
     if(careerHud){const level=R.getCareerLevel(careerSelectedLevel);setText(UI.score,careerTimeLabel(Math.max(0,level.bronze-raceTime)));setText(UI.scoreLabel,'ДО ЛИМИТА');}
     else {setText(UI.score,Math.floor(score).toLocaleString());setText(UI.scoreLabel,driftHud?'ДРИФТ · x'+driftCombo.toFixed(1):'ОЧКИ');}
     setText(UI.lapTime,fmt(lapTime));
@@ -766,13 +766,13 @@
 
   function updateCamera(dt){
     if(!player)return;
-    const speedT=clamp(player.speed/player.maxSpeed,0,1),targetLook=84+speedT*124;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
+    const speedT=clamp(player.speed/player.maxSpeed,0,1),targetLook=84+speedT*148;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
     const tx=player.x+Math.cos(player.angle)*cam.look,ty=player.y+Math.sin(player.angle)*cam.look;
     const follow=1-Math.pow(.0024,dt);cam.x=lerp(cam.x,tx,follow);cam.y=lerp(cam.y,ty,follow);
     let target=-Math.PI/2-player.angle,d=target-cam.rot;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;cam.rot+=d*Math.min(1,dt*7.2);
-    const base=clamp(Math.min(W/920,H/520)*.80,.52,.94),speedZoom=1-speedT*.145;cam.zoom=lerp(cam.zoom,base*speedZoom,Math.min(1,dt*3.8));
-    cam.screenY=lerp(cam.screenY,.47-speedT*.013,Math.min(1,dt*3.4));
-    shake*=Math.pow(.035,dt);if(player.speed>455)shake=Math.max(shake,.32*clamp((player.speed-455)/55,0,1));
+    const base=clamp(Math.min(W/920,H/520)*.80,.52,.94),speedZoom=1-speedT*.22;cam.zoom=lerp(cam.zoom,base*speedZoom,Math.min(1,dt*3.8));
+    cam.screenY=lerp(cam.screenY,.47-speedT*.018,Math.min(1,dt*3.4));
+    const speedKmh=R.kmhFromWorldSpeed(player.speed);shake*=Math.pow(.035,dt);if(speedKmh>240)shake=Math.max(shake,.20*clamp((speedKmh-240)/60,0,1));
   }
 
   function drawParticles(){
@@ -791,8 +791,8 @@
     for(const c of cars)if(c!==player)c.draw(ctx);if(player)player.draw(ctx);ctx.restore();drawSpeedLines();drawMiniMap();
   }
   function drawSpeedLines(){
-    if(!player||player.speed<275||state!=='racing')return;const t=clamp((player.speed-275)/(PHYS.maxSpeed-275),0,1);ctx.save();ctx.globalAlpha=.105*t;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
-    const cx=W*.5,cy=Math.min(H*.68,H*cam.screenY+cam.look*cam.zoom);for(let i=0;i<16;i++){const a=(i*2.399+raceTime*.7)%6.283,r=90+((i*73+raceTime*330)%Math.max(120,W*.55)),len=16+38*t;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*(r+len),cy+Math.sin(a)*(r+len));ctx.stroke();}ctx.restore();
+    if(!player||state!=='racing')return;const speedKmh=R.kmhFromWorldSpeed(player.speed);if(speedKmh<180)return;const t=clamp((speedKmh-180)/120,0,1);ctx.save();ctx.globalAlpha=.075*t;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
+    const cx=W*.5,cy=Math.min(H*.68,H*cam.screenY+cam.look*cam.zoom);for(let i=0;i<16;i++){const a=(i*2.399+raceTime*.7)%6.283,r=90+((i*73+raceTime*330)%Math.max(120,W*.55)),len=12+34*t;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*(r+len),cy+Math.sin(a)*(r+len));ctx.stroke();}ctx.restore();
   }
   function drawMenu(dt){
     demoT+=dt;ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#123521';ctx.fillRect(0,0,W,H);ctx.save();ctx.translate(W*.5,H*.5);const b=track.bounds,z=Math.min(W/(b.maxX-b.minX),H/(b.maxY-b.minY))*1.18;ctx.scale(z,z);ctx.rotate(-.08);ctx.translate(-(b.minX+b.maxX)/2,-(b.minY+b.maxY)/2);track.draw(ctx);

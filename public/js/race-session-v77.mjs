@@ -74,9 +74,9 @@ export class RaceSession {
     const p=this.player,t=this.track,dt=1/RACE_HZ;let delta=p.progress-this.lastProgress;if(delta<-.5)delta++;else if(delta>.5)delta--;this.lastProgress=p.progress;
     const sample=t.samples[p.trackIndex],forward=p.vx*sample.tx+p.vy*sample.ty,slip=Math.abs(this.R.angleWrap(Math.atan2(p.vy,p.vx)-p.angle))*180/Math.PI;
     const meters=Math.min(delta>0&&delta<.035?delta*t.length:0,Math.max(0,p.speed*dt*1.38));
-    if(!collision&&p.onRoad&&p.speed>78&&forward>42&&slip>=9&&slip<=58&&meters>.025){
+    if(!collision&&p.onRoad&&this.R.kmhFromWorldSpeed(p.speed)>90&&this.R.kmhFromWorldSpeed(forward)>45&&slip>=9&&slip<=58&&meters>.025){
       this.idleTime=0;this.chainDistance+=meters;this.chainTime+=dt;const d=this.chainDistance;this.combo=d>760?5:d>520?4:d>330?3:d>190?2.5:d>95?2:d>40?1.5:1;this.peakCombo=Math.max(this.peakCombo,this.combo);
-      this.scoreCarry+=meters*(.64+1.58*this.R.clamp(1-Math.abs(slip-32)/29,.30,1))*this.R.clamp(p.speed/235,.45,1.62)*this.combo*(1+Math.min(.48,this.chainTime*.032));const n=Math.floor(this.scoreCarry);this.score+=n;this.scoreCarry-=n;
+      this.scoreCarry+=meters*(.64+1.58*this.R.clamp(1-Math.abs(slip-32)/29,.30,1))*this.R.clamp(this.R.kmhFromWorldSpeed(p.speed)/230,.45,1.30)*this.combo*(1+Math.min(.48,this.chainTime*.032));const n=Math.floor(this.scoreCarry);this.score+=n;this.scoreCarry-=n;
     }else{this.idleTime+=dt;if(collision||p.speed<24||forward<5||this.idleTime>.82){this.combo=1;this.chainDistance=0;this.chainTime=0;}}
   }
   step(input){

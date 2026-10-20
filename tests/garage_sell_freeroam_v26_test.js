@@ -23,10 +23,10 @@ assert.equal(save.selectedLivery,'apexLime','selected sold car must fall back to
 assert.equal(R.sellOwnedCar(save,'apexLime').status,'protected','starter car must never be sellable');
 
 const free=fs.readFileSync(path.join(ROOT,'public/js/freeroam.js'),'utf8');
-assert.ok(free.includes('const driftActive=handbrake>.05&&car.speed>28;'),'free roam drift must require active handbrake input');
+assert.ok(free.includes('const driftActive=handbrake>.05&&R.kmhFromWorldSpeed(car.speed)>28;'),'free roam drift must require active handbrake input at a physical speed threshold');
 assert.ok(!free.includes('car.speed>92&&throttle>.5&&Math.abs(steer)>.82'),'hard steering/throttle must not auto-trigger drift');
 assert.ok(!free.includes('state.driftPhysicsTime'),'drift grace timer must be removed so HB release restores grip immediately');
-assert.ok(free.includes('if(inDrift&&car.speed>55&&input.handbrake){'),'local drift record must require handbrake');
+assert.ok(free.includes('if(inDrift&&R.kmhFromWorldSpeed(car.speed)>28&&input.handbrake){'),'local drift record must require handbrake at a physical speed threshold');
 
 const garage=fs.readFileSync(path.join(ROOT,'public/js/garage.js'),'utf8');
 const css=fs.readFileSync(path.join(ROOT,'public/css/style.css'),'utf8');

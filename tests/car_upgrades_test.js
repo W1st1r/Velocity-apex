@@ -17,7 +17,7 @@ for(const id of ids){
   assert.equal(R.buyCarUpgrade(s,id,key,5).status,'max');
  }
  assert.equal(s.credits,1e9-total);assert.deepEqual(R.normalizeSave(JSON.parse(JSON.stringify(s))).carUpgrades,s.carUpgrades);
- const base=run(id,null),tuned=run(id,s);assert(tuned.x>base.x&&tuned.speed>base.speed,id+' acceleration');assert(run(id,s,true).speed<run(id,null,true).speed,id+' brakes');assert(tuned.maxSpeed<650&&tuned.speed<=650,id+' network cap');
+ const base=run(id,null),tuned=run(id,s);assert(tuned.x>base.x&&tuned.speed>base.speed,id+' acceleration');assert(run(id,s,true).speed<run(id,null,true).speed,id+' brakes');assert(tuned.maxSpeed<=R.worldSpeedFromKmh(300)&&tuned.speed<=tuned.maxSpeed,id+' network cap');
  for(const key of Object.keys(R.UPGRADE_TYPES)){const only=R.normalizeSave({ownedLiveries:[id],credits:1e9});for(let n=0;n<5;n++)R.buyCarUpgrade(only,id,key,n);const car=run(id,only);if(key==='speed')assert(car.speed>base.speed,id+' speed-only gain');}
  checked++;
 }

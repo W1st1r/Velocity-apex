@@ -180,17 +180,17 @@
 
     steeringAuthority(speed=this.speed,surfaceOrOnRoad=this.surface){
       const surface=this._surfaceType(surfaceOrOnRoad),speedRatio=clamp(speed/Math.max(1,this.maxSpeed),0,1.12);
-      const rolling=clamp(speed/54,0,1),highSpeed=1-.17*Math.pow(clamp(speedRatio,0,1),1.45);
+      const rolling=clamp(speed/R.worldSpeedFromKmh(54),0,1),highSpeed=1-.17*Math.pow(clamp(speedRatio,0,1),1.45);
       const surfaceFactor=surface==='asphalt'?1:surface==='shoulder'?.94:.58;
       return this.turnRate*(.12+.88*rolling)*highSpeed*surfaceFactor;
     }
 
     lateralAccelerationLimit(speed=this.speed,surfaceOrOnRoad=this.surface,brake=0){
       const surface=this._surfaceType(surfaceOrOnRoad);
-      if(surface==='offroad')return 54/Math.max(1,(this._surfaceDrag||1));
+      if(surface==='offroad')return R.worldAccelerationFromMetersPerSecondSquared(4.5)/Math.max(1,(this._surfaceDrag||1));
       // Mechanical grip + speed-squared aero load. Shoulder/curb keeps most grip,
       // while true off-road remains deliberately costly for player and AI alike.
-      const base=166,downforce=.00205*speed*speed,brakeLoad=1-.20*clamp(brake,0,1);
+      const speedKmh=R.kmhFromWorldSpeed(speed),base=R.worldAccelerationFromMetersPerSecondSquared(10.5),downforce=R.worldAccelerationFromMetersPerSecondSquared(.00010*speedKmh*speedKmh),brakeLoad=1-.20*clamp(brake,0,1);
       const surfaceGrip=surface==='shoulder'?.92:1;
       return (base+downforce)*brakeLoad*surfaceGrip;
     }
@@ -221,7 +221,7 @@
       // Drift steering deliberately has slower yaw response than the race tyre model.
       // Handbrake unlocks additional yaw only while the car is moving, while the
       // slip-angle self-align term prevents effortless 180-degree spins.
-      const rolling=clamp(mag/62,0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55),driftIntent=clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
+      const rolling=clamp(mag/R.worldSpeedFromKmh(62),0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55),driftIntent=clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
       let requestedYaw=steer*this.turnRate*(.23+.50*rolling)*(1+.35*handbrake)*surfaceTurn;
       // Gentle self-alignment keeps a long controllable slide; once the angle gets too
       // large the recovery rises sharply so a small steering input cannot cause a 180°.
@@ -236,15 +236,16 @@
       const hx=Math.cos(this.angle),hy=Math.sin(this.angle),rx=-hy,ry=hx;
       longitudinal=this.vx*hx+this.vy*hy;lateral=this.vx*rx+this.vy*ry;
       const forwardRatio=clamp(Math.max(0,longitudinal)/Math.max(1,this.maxSpeed),0,1),torqueCurve=Math.max(.50,1-.50*Math.pow(forwardRatio,1.35));
-      const traction=this.surface==='asphalt'?.86:(this.surface==='shoulder'?.74:.22/Math.max(.7,track.theme.drag||1));
+      const traction=this.surface==='asphalt'?.86:(this.surface==='shoulder'?.74:.34/Math.max(.7,track.theme.drag||1));
       longitudinal+=this.accel*throttle*torqueCurve*traction*dt;
       if(brake>0){longitudinal=moveToward(longitudinal,0,this.brakePower*.68*brake*dt);lateral=moveToward(lateral,0,this.brakePower*.040*brake*dt);}
       // Handbrake primarily releases rear grip instead of acting like a hidden foot brake.
       // This lets the car initiate a drift at speed without immediately killing momentum.
-      if(handbrake>0&&mag>38)longitudinal=moveToward(longitudinal,0,(15+mag*.018)*handbrake*dt);
+      if(handbrake>0&&mag>R.worldSpeedFromKmh(38))longitudinal=moveToward(longitudinal,0,(15+mag*.018)*handbrake*dt);
 
-      const absLong=Math.abs(longitudinal);let dragDecel=2.1+.00029*absLong*absLong;
-      if(this.surface==='shoulder')dragDecel+=3.5+.00010*mag*mag;else if(this.surface==='offroad')dragDecel+=(20+.00078*mag*mag)*(track.theme.drag||1);
+      const absLong=Math.abs(longitudinal),units=R.WORLD_UNITS_PER_METER,mps=absLong/units;
+      let dragDecel=units*(.35+.00050*mps*mps);
+      if(this.surface==='shoulder')dragDecel+=units*(.8+.00016*mps*mps);else if(this.surface==='offroad')dragDecel+=units*(.8+.00070*mps*mps)*(track.theme.drag||1);
       longitudinal=moveToward(longitudinal,0,dragDecel*dt);
 
       // Lower lateral relaxation creates a controllable slip window. Counter-steer,
@@ -319,7 +320,7 @@
       // without changing steering into a hidden assist.
       const forwardRatio=clamp(Math.max(0,longitudinal)/Math.max(1,this.maxSpeed),0,1);
       const torqueCurve=Math.max(.50,1-.50*Math.pow(forwardRatio,1.35));
-      const traction=this.surface==='asphalt'?.84:(this.surface==='shoulder'?.76:.24/Math.max(.7,track.theme.drag||1));
+      const traction=this.surface==='asphalt'?.84:(this.surface==='shoulder'?.76:.34/Math.max(.7,track.theme.drag||1));
       longitudinal+=this.accel*throttle*torqueCurve*traction*dt;
 
       if(brake>0){
@@ -327,10 +328,10 @@
         lateral=moveToward(lateral,0,this.brakePower*.10*brake*dt);
       }
 
-      const absLong=Math.abs(longitudinal);
-      let dragDecel=2.25+.00031*absLong*absLong;
-      if(this.surface==='shoulder')dragDecel+=3.8+.00010*mag*mag;
-      else if(this.surface==='offroad')dragDecel+=(20+.00078*mag*mag)*(track.theme.drag||1);
+      const absLong=Math.abs(longitudinal),units=R.WORLD_UNITS_PER_METER,mps=absLong/units;
+      let dragDecel=units*(.35+.00050*mps*mps);
+      if(this.surface==='shoulder')dragDecel+=units*(.8+.00016*mps*mps);
+      else if(this.surface==='offroad')dragDecel+=units*(.8+.00070*mps*mps)*(track.theme.drag||1);
       longitudinal=moveToward(longitudinal,0,dragDecel*dt);
 
       // High-grip tyre relaxation. On clean asphalt normal cornering converges to the
@@ -432,7 +433,7 @@
       const speedPulse=Math.max(0,Math.min(1,(this.speed-10)/300));
       const flicker=1+.12*Math.sin(t*53)+.075*Math.sin(t*89)+.035*Math.sin(t*137);
       const intensity=.72+throttle*.46+speedPulse*.20;
-      const length=(14+this.speed*.062)*throttle*flicker*intensity;
+      const length=(14+R.kmhFromWorldSpeed(this.speed)*.062)*throttle*flicker*intensity;
       const preview=this.spriteAssetMode==='thumbnail'||this.spriteAssetMode==='preview';
       const visualScale=this.spriteSpec?(preview?(this.spriteSpec.previewScale||1):(this.spriteSpec.raceScale||1)):1;
       const fallbackLength=this.spriteSpec?(this.spriteSpec.maxVisualLength||this.spriteSpec.visualLength||this.spriteSpec.length||74)*visualScale:0;
@@ -467,7 +468,7 @@
       const livery=this.livery,paint=this.paintOverride||livery;
       const primary=this.customization?.color||(paint?paint.primary:this.color),secondary=paint?paint.secondary:this.accent;
       const stripe=paint?.stripe||secondary,detail=paint?.accent||secondary;
-      const speedLoad=clamp(this.speed/330,0,1),lean=this.steerVisual*speedLoad*1.35,brakeDive=this.brakeVisual*speedLoad*.8;
+      const speedLoad=clamp(R.kmhFromWorldSpeed(this.speed)/330,0,1),lean=this.steerVisual*speedLoad*1.35,brakeDive=this.brakeVisual*speedLoad*.8;
 
       ctx.save();ctx.translate(this.x,this.y);ctx.rotate(this.angle);ctx.scale(scale,scale);
 

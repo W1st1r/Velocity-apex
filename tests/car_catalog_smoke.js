@@ -11,7 +11,7 @@ const expectedPrices={
   'bugatti-veyron':208000,'ferrari-enzo':158000,'mclaren-p1':196000,'lamborghini-sian':184000,'pagani-huayra':172000,'koenigsegg-agera-rs':222000,'mercedes-benz-slr-mclaren':145000,
   'ferrari-laferrari':245000,'bugatti-chiron-super-sport':300000,'bugatti-divo':275000,'koenigsegg-jesko':310000,'pagani-huayra-bc':255000,'lamborghini-veneno':285000,'mercedes-amg-one':265000,'aston-martin-valkyrie-mary':280000,'apollo-evo':318000
 };
-const ids=Object.keys(expectedPrices);assert.equal(ids.length,42);assert.equal(R.REAL_CAR_IDS.length,42);assert.equal(new Set(R.REAL_CAR_IDS).size,42,'IDs must be unique');
+const ids=Object.keys(expectedPrices);assert.equal(ids.length,42);assert.equal(R.REAL_CAR_IDS.length,42);assert.equal(new Set(R.REAL_CAR_IDS).size,42,'IDs must be unique');for(const id of R.REAL_CAR_IDS)assert(R.CAR_PERFORMANCE[id].maxSpeed>=140&&R.CAR_PERFORMANCE[id].maxSpeed<=286,`${id} speed band`);
 assert.deepEqual(new Set(R.REAL_CAR_IDS),new Set(ids),'catalog IDs differ from required list');
 const counts={},prices=[],v39Factor={basic:1.55,sport:1.60,premium:1.70,rare:1.75,legendary:1.85,lux:2.00},v63Factor={basic:1.15,sport:1.30,premium:1.45,rare:1.70,legendary:1.95,lux:2.20};
 const v39Round=v=>{const step=v<100000?250:v<500000?500:1000;return Math.round(v/step)*step;};
@@ -30,7 +30,7 @@ const luxIds=R.REAL_CAR_IDS.filter(id=>R.LIVERIES[id].category==='lux');assert.o
 assert.ok(R.LIVERIES['mercedes-cls-63-amg'].sprite.visualLength/R.LIVERIES['mercedes-cls-63-amg'].sprite.visualWidth>2.1,'CLS should retain its long source silhouette');
 assert.ok(R.LIVERIES['bugatti-chiron-super-sport'].sprite.visualLength/R.LIVERIES['bugatti-chiron-super-sport'].sprite.visualWidth<1.65,'Chiron contain bounds should retain its compact source silhouette');
 const mary=R.LIVERIES['aston-martin-valkyrie-mary'];assert.equal(mary.name,'Mary');assert.equal(mary.category,'lux');assert.equal(mary.price,1540000);assert.equal(mary.bodyColor.toLowerCase(),'#ff3fae');
-const apollo=R.LIVERIES['apollo-evo'];assert.equal(apollo.name,'Apollo EVO');assert.equal(apollo.category,'lux');assert.equal(apollo.price,1749000);assert.equal(apollo.limited,true);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].maxSpeed,558);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].turnRate,2.52);assert.equal(apollo.upgrades.speed.step,.028);
+const apollo=R.LIVERIES['apollo-evo'];assert.equal(apollo.name,'Apollo EVO');assert.equal(apollo.category,'lux');assert.equal(apollo.price,1749000);assert.equal(apollo.limited,true);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].maxSpeed,286);assert.equal(R.CAR_PERFORMANCE['apollo-evo'].turnRate,2.52);assert.equal(R.UPGRADE_TYPES.speed.step,.01);
 const r8=R.LIVERIES['audi-r8'];assert.equal(r8.brownVisual,true);assert.match(r8.bodyColor,/^#5a3527$/i);
 for(const legacy of ['apexLime','crimsonVelocity','iceVector','auroraPulse'])assert.ok(R.LIVERIES[legacy]?.legacy&&R.LIVERIES[legacy]?.shopHidden,`legacy ${legacy} support missing`);
 let old=R.normalizeSave({credits:777,ownedLiveries:['apexLime','crimsonVelocity','porsche-911'],ownedEffects:['standard','redFlame'],selectedLivery:'porsche-911',selectedEffect:'redFlame',bestScore:99,bestLap:1234,maxLaps:8,botCount:13,raceLaps:15,difficulty:'hard',trackId:'neonHarbor',controlMode:'wheel',tiltSensitivity:'high',muted:true});

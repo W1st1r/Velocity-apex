@@ -714,7 +714,7 @@ export class Room {
       this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,media:!!p.media,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),level:p.level||0,text,serverTime:t});return;
     }
     if(m.type==='record'){
-      const kind=m.kind,value=Math.floor(Number(m.value)||0);if(!['speed','drift'].includes(kind)||value<=0||value>(kind==='speed'?(p.speedLimit||650):100000000))return;
+      const kind=m.kind,value=Math.floor(Number(m.value)||0),speedRecordLimit=(p.speedLimit||650)*3.6/12;if(!['speed','drift'].includes(kind)||value<=0||value>(kind==='speed'?speedRecordLimit:100000000))return;
       if(value>(this.room.records?.[kind]||0)){this.room.records[kind]=value;await this.save();this.broadcast({type:'free_record',v:PROTOCOL_VERSION,kind,value,playerId:p.id,name:p.name,serverTime:now()});}return;
     }
     if(m.type==='activity_join'&&['drift_battle','koth','minigame','drag'].includes(m.activity)&&this.room.eventsDisabled&&!p.owner){this.error(ws,'EVENTS_DISABLED','Игровые активности временно отключены ROOT');return;}

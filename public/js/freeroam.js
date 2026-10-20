@@ -535,7 +535,7 @@
       if(!r){r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',level:0,liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};state.remotes.set(m.playerId,r);}
       pushRemoteSnapshot(r,m.state,m.serverTime);return;
     }
-    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0,!!m.media);return;}
+    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0,!!m.media,m.playerId);return;}
     if(m.type==='admin_announcement'){addSystem(`ADMIN ${m.adminLevel||''} @${m.by||'SYSTEM'}: ${m.message||''}`);setBanner(`ОБЪЯВЛЕНИЕ · ${m.message||''}`,5200);return;}
     if(m.type==='admin_events_state'){if(state.room)state.room.eventsDisabled=!!m.disabled;if(m.cleared){state.liveEvent=null;state.minigame=null;state.drag=null;state.dragQueued=false;state.activityPending=false;renderEventHud();renderMinigameHud();updateDragHud(Date.now()+state.serverOffset);}setBanner(m.disabled?'ROOT · ИГРОВЫЕ АКТИВНОСТИ ОТКЛЮЧЕНЫ':'ИГРОВЫЕ АКТИВНОСТИ ВКЛЮЧЕНЫ',4200);return;}
     if(m.type==='admin_kick'){state.lastAdminKickReason=m.reason||'Вы отключены администрацией.';return;}
@@ -746,7 +746,7 @@
       // Drift physics is opt-in only: it exists while the player is actually holding HB.
       // Releasing HB immediately returns the car to normal grip, so a hard steering input
       // or full throttle can no longer trigger an automatic slide.
-      const driftActive=handbrake>.05&&car.speed>28;
+      const driftActive=handbrake>.05&&R.kmhFromWorldSpeed(car.speed)>28;
       car.update(dt,{steer,throttle,brake,handbrake,drift:driftActive},FREE_PHYS_TRACK);
     }else{
       const fx=Math.cos(car.angle),fy=Math.sin(car.angle);let signed=car.vx*fx+car.vy*fy;
@@ -767,7 +767,7 @@
 
     const sendEvery=freeSendInterval();if(!spectating&&performance.now()-state.lastSend>sendEvery)sendFreeState();
 
-    $('freeSpeed').textContent=spectating?'SPECTATOR':Math.round(car.speed);
+    $('freeSpeed').textContent=spectating?'SPECTATOR':Math.round(R.kmhFromWorldSpeed(car.speed));
     $('freeLocation').textContent=state.minigame&&['running','result'].includes(state.minigame.status)?minigameTitle(state.minigame.gameKey):district(car.x,car.y);
     updateActivities(dt,now);updateDragHud(now);updateEventClock(now);updateMinigameClock(now);
   }
@@ -798,12 +798,12 @@
     if(state.mediaEvent){const action=$('freeContextAction');if(action)action.classList.add('hidden');return;}
     if(state.minigame){const action=$('freeContextAction');if(action)action.classList.add('hidden');return;}
 
-    if(dist(car.x,car.y,ZONES.speed.x,ZONES.speed.y)<ZONES.speed.r&&state.speedCooldown<=0&&car.speed>90){
-      state.speedCooldown=4;const v=Math.round(car.speed);setBanner(`SPEED TRAP · ${v} KM/H`,2600);send({type:'record',v:1,kind:'speed',value:v});
+    if(dist(car.x,car.y,ZONES.speed.x,ZONES.speed.y)<ZONES.speed.r&&state.speedCooldown<=0&&R.kmhFromWorldSpeed(car.speed)>70){
+      state.speedCooldown=4;const v=Math.round(R.kmhFromWorldSpeed(car.speed));setBanner(`SPEED TRAP · ${v} KM/H`,2600);send({type:'record',v:1,kind:'speed',value:v});
     }
 
     const inDrift=dist(car.x,car.y,ZONES.drift.x,ZONES.drift.y)<ZONES.drift.r;
-    if(inDrift&&car.speed>55&&input.handbrake){
+    if(inDrift&&R.kmhFromWorldSpeed(car.speed)>28&&input.handbrake){
       state.driftScore+=car.speed*dt*4.9;state.driftInside=true;
     }else if(state.driftInside&&!inDrift){
       const score=Math.floor(state.driftScore);if(score>120){setBanner(`DRIFT ZONE · ${score.toLocaleString('ru-RU')}`,3000);send({type:'record',v:1,kind:'drift',value:score});}state.driftScore=0;state.driftInside=false;
@@ -864,8 +864,8 @@
   });
   const adminPrefix=level=>ADMIN_PREFIXES[Math.max(0,Math.min(8,Math.floor(Number(level)||0)))]||null;
 
-  function appendPlayerName(el,name,owner,level=null,adminLevel=null){
-    const player=state.room?.players?.find(p=>p.name===name),isOwner=owner===true||player?.owner===true,isMedia=player?.media===true,rank=adminPrefix(adminLevel===null?player?.adminLevel:adminLevel);
+  function appendPlayerName(el,name,owner,level=null,adminLevel=null,media=false){
+    const player=state.room?.players?.find(p=>p.name===name),isOwner=owner===true||player?.owner===true,isMedia=media===true||player?.media===true,rank=adminPrefix(adminLevel===null?player?.adminLevel:adminLevel);
     if(isOwner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
     else if(isQueenName(name)){const badge=document.createElement('span');badge.className='free-queen-badge';badge.textContent='QUEEN';el.append(badge);}
     else if(isMedia){const badge=document.createElement('span');badge.className='free-media-badge';badge.textContent='MEDIA';el.append(badge);}
@@ -876,8 +876,8 @@
     if(level!==null&&Number.isFinite(Number(level))){const tag=document.createElement('span');tag.className='free-level-tag';tag.textContent=`[${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`;el.append(document.createTextNode(' '),tag);}
   }
 
-  function addChat(name,text,mine=false,owner=false,level=0,adminLevel=0,media=false){
-    state.chat.push({name,text,mine,owner,level,adminLevel,media,system:false,time:Date.now()});
+  function addChat(name,text,mine=false,owner=false,level=0,adminLevel=0,media=false,playerId=''){
+    state.chat.push({name,text,mine,owner,level,adminLevel,media,playerId,system:false,time:Date.now()});
     if(state.chat.length>80)state.chat.shift();
     if($('freeChatPanel').classList.contains('hidden')&&!mine){state.chatUnread++;updateUnreadBadge();}
     renderChat();
@@ -897,9 +897,10 @@
     for(const m of state.chat.slice(-50)){
       const row=document.createElement('div');
       row.className='free-chat-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,m.system?null:m.level,m.system?0:m.adminLevel);
+      const meta=document.createElement('div');meta.className='free-chat-meta';const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,null,m.system?0:m.adminLevel,m.media);meta.append(n);
+      if(!m.system&&m.playerId){const id=document.createElement('small');id.className='free-chat-id';id.textContent='['+String(m.playerId).slice(0,12).toUpperCase()+']';meta.append(id);}
       const t=document.createElement('span');t.textContent=m.text;
-      row.append(n,t);log.appendChild(row);
+      row.append(meta,t);log.appendChild(row);
     }
     log.scrollTop=log.scrollHeight;
   }
@@ -919,9 +920,10 @@
     for(const m of entries){
       const row=document.createElement('div');
       row.className='free-chat-preview-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,m.system?null:m.level,m.system?0:m.adminLevel);
+      const meta=document.createElement('div');meta.className='free-chat-meta';const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,null,m.system?0:m.adminLevel,m.media);meta.append(name);
+      if(!m.system&&m.playerId){const id=document.createElement('small');id.className='free-chat-id';id.textContent='['+String(m.playerId).slice(0,12).toUpperCase()+']';meta.append(id);}
       const text=document.createElement('span');text.textContent=m.text;
-      row.append(name,text);
+      row.append(meta,text);
       root.appendChild(row);
     }
   }
