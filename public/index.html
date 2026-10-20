@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&theme=v66&v69=1&caseResults=20261016-v7632&build=2.0.0-dev.20261020.3" />
 <link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12&theme=v66&build=2.0.0-dev.20261020.3">
   <link rel="stylesheet" href="css/crews.css?v=20261013-v68&theme=v68&build=2.0.0-dev.20261020.3">
-  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32&theme=v66&build=2.0.0-dev.20261020.3">
+  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32&theme=v66&bugghost=20261020-01&build=2.0.0-dev.20261020.3">
   <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2&theme=v66&build=2.0.0-dev.20261020.3">
   <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32&garageNav=20260920-v56&theme=v66&caseHeader=20261016-v7632&build=2.0.0-dev.20261020.3">
   <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31&theme=v66&build=2.0.0-dev.20261020.3">
@@ -449,7 +449,7 @@
               <div data-tier="bronze"><span>BRONZE</span><b id="careerBronzeTime">≤ 02:18</b><strong id="careerBronzeReward">900 CR</strong></div>
             </div>
             <div class="career-rules"><span>ПЕРВОЕ ПРОХОЖДЕНИЕ · 100%</span><span>ПОВТОР · 50%</span><span>НОВЫЙ РЕКОРД · 100%</span></div>
-            <button id="careerStartBtn" class="primary-btn" type="button">НАЧАТЬ УРОВЕНЬ</button>
+            <div class="ghost-picker"><button class="secondary-btn" type="button" data-open-ghost-picker="career">ПРИЗРАК РЕКОРДСМЕНА</button><div class="ghost-picker-list hidden" data-ghost-list="career"></div><div class="ghost-preferences"><label><input type="checkbox" data-ghost-pref="visible" checked> Показывать</label><label><input type="checkbox" data-ghost-pref="delta" checked> Разница времени</label><label><input type="checkbox" data-ghost-pref="trail" checked> След</label><label>Прозрачность <input type="range" data-ghost-pref="opacity" min="25" max="65" value="48"></label></div></div><button id="careerStartBtn" class="primary-btn" type="button">НАЧАТЬ УРОВЕНЬ</button>
           </aside>
         </div>
         <footer class="career-footer"><button id="careerBackBtn" class="secondary-btn compact-btn" type="button">НАЗАД</button><span>50 УРОВНЕЙ · 5 ГЛАВ · TIME ATTACK</span></footer>
@@ -691,6 +691,7 @@
           <div><span>СЛОЖНОСТЬ</span><strong id="setupDifficultySummary">СРЕДНЕ</strong></div>
         </div>
         <div class="reward-estimate" aria-live="polite"><span>НАГРАДА</span><strong id="setupRewardEstimate">178–343 CR</strong></div>
+        <section class="ghost-picker" id="setupGhostPicker"><button class="secondary-btn" type="button" data-open-ghost-picker="normal">СОРЕВНОВАНИЯ · ПРИЗРАК</button><div class="ghost-picker-list hidden" data-ghost-list="normal"></div><div class="ghost-preferences"><label><input type="checkbox" data-ghost-pref="visible" checked> Показывать</label><label><input type="checkbox" data-ghost-pref="delta" checked> Разница времени</label><label><input type="checkbox" data-ghost-pref="trail" checked> След</label><label>Прозрачность <input type="range" data-ghost-pref="opacity" min="25" max="65" value="48"></label></div></section>
         <div id="driftSetupHint" class="drift-setup-hint hidden">DRIFT SCORE начисляется только при движении вперёд по трассе — вращение на месте не приносит очков.</div>
 
         <div class="setup-actions">
@@ -1205,7 +1206,7 @@
     <div id="supportOverlay" class="overlay admin-system-screen hidden" aria-hidden="true">
       <section class="admin-system-panel glass" aria-labelledby="supportTitle">
         <header class="admin-system-header"><div><div class="eyebrow">VELOCITY APEX / SUPPORT</div><h2 id="supportTitle">ПОДДЕРЖКА</h2><p>Вопросы, жалобы на игроков и жалобы на администрацию.</p></div><button id="supportCloseBtn" class="secondary-btn" type="button" aria-label="Назад">← НАЗАД</button></header>
-        <nav class="admin-system-tabs" id="supportTabs"><button class="active" type="button" data-support-tab="question">ВОПРОС</button><button type="button" data-support-tab="player">ЖАЛОБА НА ИГРОКА</button><button type="button" data-support-tab="admin">ЖАЛОБА НА АДМИНА</button><button type="button" data-support-tab="mine">МОИ ОБРАЩЕНИЯ</button></nav>
+        <nav class="admin-system-tabs" id="supportTabs"><button class="active" type="button" data-support-tab="question">ВОПРОС</button><button type="button" data-support-tab="bug">СООБЩИТЬ О БАГЕ</button><button type="button" data-support-tab="player">ЖАЛОБА НА ИГРОКА</button><button type="button" data-support-tab="account">ПРОБЛЕМА С АККАУНТОМ</button><button type="button" data-support-tab="other">ДРУГАЯ ПРОБЛЕМА</button><button type="button" data-support-tab="admin">ЖАЛОБА НА АДМИНА</button><button type="button" data-support-tab="mine">МОИ ОБРАЩЕНИЯ</button></nav>
         <div id="supportContent" class="admin-system-content"></div>
       </section>
     </div>
@@ -1230,7 +1231,7 @@
         </div>
       </div>
       <div class="hud-center">
-        <div class="lap-times"><span id="lapTime">00:00.000</span><small><span id="bestMetricLabel">BEST</span> <b id="bestLap">--:--.---</b></small></div><div id="raceNetStatus" class="race-net-status hidden" aria-live="polite">ПЕРЕПОДКЛЮЧЕНИЕ…</div>
+        <div class="lap-times"><span id="lapTime">00:00.000</span><small><span id="bestMetricLabel">BEST</span> <b id="bestLap">--:--.---</b></small></div><div id="ghostHud" class="ghost-hud hidden" aria-live="polite"></div><div id="raceNetStatus" class="race-net-status hidden" aria-live="polite">ПЕРЕПОДКЛЮЧЕНИЕ…</div>
       </div>
       <div class="hud-right">
         <div class="speed"><strong id="speedText">0</strong><span>KM/H</span></div>
@@ -1350,7 +1351,7 @@
   <script src="js/controls.js?v=20260915-owner1&build=2.0.0-dev.20261020.3"></script>
   <script src="js/network.js?v=20260920-media-v51&build=2.0.0-dev.20261020.3"></script>
   <script src="js/account.js?v=20261016-v77-authority3&ref=v31&guest=v44&build=2.0.0-dev.20261020.3"></script>
-  <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32&build=2.0.0-dev.20261020.3"></script>
+  <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32&bugghost=20261020-01&build=2.0.0-dev.20261020.3"></script>
   <script src="js/main-menu-ui.js?v=20261015-v73-2&build=2.0.0-dev.20261020.3"></script>
   <script src="js/payments.js?v=20260921-v63&menu=20260918-v20&build=2.0.0-dev.20261020.3"></script>
   <script src="js/market.js?authority=20261016-v77-atomic1&v=20261016-v74&build=2.0.0-dev.20261020.3"></script>
@@ -1363,7 +1364,7 @@
   <script src="js/freeroam.js?v=20261016-v77&authority=20261016-v77-authority2&media=20260920-v50&football=20260920-v61&build=2.0.0-dev.20261020.3"></script>
   <script src="js/owner-panel.js?v=20260917-admin-daily2&media=20260920-v50&upgrade=20260920-v52&build=2.0.0-dev.20261020.3"></script>
   <script src="js/crews.js?v=20260917-economy13&v68=1&build=2.0.0-dev.20261020.3"></script>
-  <script src="js/game.js?v=20261016-v77-authority2&build=2.0.0-dev.20261020.3"></script>
+  <script src="js/game.js?v=20261016-v77-authority2&bugghost=20261020-01&build=2.0.0-dev.20261020.3"></script>
   <script type="module" src="js/app-version.mjs?build=2.0.0-dev.20261020.3"></script>
 </body>
 </html>

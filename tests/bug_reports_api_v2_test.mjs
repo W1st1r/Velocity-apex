@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import fs from 'node:fs';
+import worker from '../src/worker.mjs';
+
+const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
+for(const name of fs.readdirSync(new URL('../migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort())db.exec(fs.readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+const DB={prepare(sql){let args=[];return{bind(...x){args=x;return this},async first(){return db.prepare(sql).get(...args)||null},async all(){return{results:db.prepare(sql).all(...args)}},async run(){const x=db.prepare(sql).run(...args);return{meta:{changes:Number(x.changes),last_row_id:Number(x.lastInsertRowid)||0}}}}},async batch(steps){db.exec('BEGIN');try{const out=[];for(const q of steps)out.push(await q.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
+const owner='11111111-1111-4111-8111-111111111111',player='22222222-2222-4222-8222-222222222222',other='33333333-3333-4333-8333-333333333333',ownerCookie='owner-cookie',playerCookie='player-cookie',otherCookie='other-cookie',t=Date.now();
+for(const [id,username,cookie] of [[owner,'w1st1r',ownerCookie],[player,'racer',playerCookie],[other,'other',otherCookie]]){db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(id,username,username,'x','x',t,t);const hash=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(cookie))).toString('base64url');db.prepare('INSERT INTO sessions VALUES(?,?,?,?,?)').run(hash,id,t,t+86400000,t);if(username==='w1st1r')db.prepare('INSERT INTO admin_unlocks VALUES(?,?,?,?)').run(hash,id,t,t+86400000);}
+const env={DB,BUG_REPORTS_BUCKET:{async get(){return{body:new Uint8Array([1,2,3])}},async put(){},async delete(){}}};
+async function call(path,{cookie=playerCookie,method='GET',form=null,body=null,headers={}}={}){const req=new Request('https://test.apex'+path,{method,headers:{cookie:`va_session=${cookie}`,origin:'https://test.apex',...headers},...(form?{body:form}:body?{headers:{cookie:`va_session=${cookie}`,origin:'https://test.apex','content-type':'application/json',...headers},body:JSON.stringify(body)}:{})});const response=await worker.fetch(req,env);let data={};try{data=await response.json();}catch{}return{status:response.status,...data};}
+function bugForm(id){const f=new FormData();f.set('requestId',id);f.set('title','Blank social menu');f.set('description','Opening friends shows an empty screen.');f.set('steps','Tap social, then friends.');f.set('location','Главное меню');f.set('diagnostics',JSON.stringify({gameVersion:'V77',build:'2.0.0-dev',screen:'menu',device:'iPhone',browser:'Safari',recentErrors:['TypeError']}));return f;}
+
+const first=await call('/api/bugs',{method:'POST',form:bugForm('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')});assert.equal(first.status,201);assert.equal(first.report.status,'new');assert.equal(first.report.diagnostics.device,'iPhone');
+const replay=await call('/api/bugs',{method:'POST',form:bugForm('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')});assert.equal(replay.status,200);assert.equal(replay.report.id,first.report.id);assert.equal(replay.replay,true);
+assert.equal((await call('/api/bugs/mine')).reports.length,1);assert.equal('internalComment' in (await call('/api/bugs/mine')).reports[0],false,'internal owner notes are private');
+db.prepare('INSERT INTO bug_report_attachments(id,report_id,object_key,mime_type,size_bytes,created_at) VALUES(?,?,?,?,?,?)').run('44444444-4444-4444-8444-444444444444',first.report.id,'bug-reports/private/file','image/png',3,t);
+assert.equal((await call('/api/bugs/attachments/44444444-4444-4444-8444-444444444444')).status,200,'the reporter can view own private image');
+assert.equal((await call('/api/bugs/attachments/44444444-4444-4444-8444-444444444444',{cookie:otherCookie})).status,403,'another player cannot view private image');
+const fileForm=bugForm('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');fileForm.append('attachments',new Blob(['MZ-exe'],{type:'application/x-msdownload'}),'payload.exe');const bucket=env.BUG_REPORTS_BUCKET;env.BUG_REPORTS_BUCKET=null;assert.equal((await call('/api/bugs',{method:'POST',form:fileForm})).status,503,'attachments fail closed without the isolated R2 binding');env.BUG_REPORTS_BUCKET=bucket;assert.equal((await call('/api/bugs',{method:'POST',form:fileForm})).status,415,'executable attachment is rejected');
+for(let i=0;i<2;i++)assert.equal((await call('/api/bugs',{method:'POST',form:bugForm(`cccccccc-cccc-4ccc-8ccc-ccccccccccc${i}`)})).status,201);
+assert.equal((await call('/api/bugs',{method:'POST',form:bugForm('dddddddd-dddd-4ddd-8ddd-dddddddddddd')})).status,429,'daily per-user rate limit enforced');
+assert.equal((await call('/api/bugs/owner')).status,403,'owner queue rejects regular player');
+const queue=await call('/api/bugs/owner',{cookie:ownerCookie});assert.equal(queue.status,200);assert.equal(queue.unread,3);
+assert.equal((await call('/api/bugs/owner/'+first.report.id,{cookie:ownerCookie,method:'POST',body:{status:'fixed',internalComment:'Verified fix',response:'This issue is fixed.'}})).status,200);
+const mine=await call('/api/bugs/mine');assert.equal(mine.reports.find(x=>x.id===first.report.id).status,'fixed');assert.equal(mine.reports.find(x=>x.id===first.report.id).internalComment,undefined);assert.equal(mine.reports.find(x=>x.id===first.report.id).replies[0].message,'This issue is fixed.');
+console.log('bug_reports_api_v2_test: authenticated intake, idempotency, privacy, R2 fail-closed, rate limit, OWNER status/reply passed');

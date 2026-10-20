@@ -6,6 +6,7 @@ import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from '.
 import {handleAuthRequest,freeAccountIdentity,mutateTargetSave} from './auth.mjs';
 import {handleMarketRequest} from './market.mjs';
 import {handleAdminSystemRequest,activeMute,staffOnlineLevel} from './admin-system.mjs';
+import {cleanupExpiredBugAttachments} from './bug-reports.mjs';
 import {getProgression,awardProgression,PROGRESSION_REWARDS,levelFromTotalExp} from './progression.mjs';
 import {PROTOCOL_VERSION,generateRoomCode,normalizeRoomCode,validRoomCode,sanitizeNickname,validNickname,validSettings,normalizeSettings,validWager,validPlayerState,parseClientMessage,PLAYER_STATE_RATE_MS,RECONNECT_GRACE_MS,CONNECTION_HEARTBEAT_TIMEOUT_MS,CONNECTION_HEARTBEAT_SWEEP_MS,EMPTY_ROOM_TTL_MS,ROOM_TTL_MS} from './protocol.mjs';
 import {writeGameLog} from './logs.mjs';
@@ -98,11 +99,11 @@ const insideGarageZone=state=>insideRect(state,FREE_GARAGE.apron,34)||(Number(st
 const angleDelta=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return Math.abs(d);};
 
 export default {
-  async scheduled(event,env,ctx){ctx.waitUntil(settleCrews(env));},
+  async scheduled(event,env,ctx){ctx.waitUntil(Promise.all([settleCrews(env),cleanupExpiredBugAttachments(env)]));},
   async fetch(request,env,executionCtx){
     const url=new URL(request.url);
     const owner=await ownerRequest(request,env,url);if(owner)return owner;
-    const adminSystem=await handleAdminSystemRequest(request,env,url);if(adminSystem)return adminSystem;
+    const adminSystem=await handleAdminSystemRequest(request,env,url,executionCtx);if(adminSystem)return adminSystem;
     if(url.pathname==='/api/payments/yoomoney'){const payment=await handlePaymentRequest(request,env,url);if(payment)return payment;}
     if(url.pathname.startsWith('/api/')&&!['/api/auth/login','/api/auth/logout','/api/health','/api/payments/yoomoney'].includes(url.pathname)){const gate=await maintenanceGate(env,request);if(gate)return gate;}
     if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION});

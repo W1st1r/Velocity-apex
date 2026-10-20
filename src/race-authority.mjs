@@ -1,9 +1,10 @@
 import {freezeRaceLoadout} from './race-loadout.mjs';
-import {RaceSession,validateRaceConfig,validateInputs,settleRace,RACE_RUNTIME_VERSION,RACE_HZ} from '../public/js/race-session-v77.mjs';
+import {RaceSession,validateRaceConfig,validateInputs,validateGhostKeyframes,settleRace,RACE_RUNTIME_VERSION,RACE_HZ} from '../public/js/race-session-v77.mjs';
 import {ensureProgressionSchema,getProgression,PROGRESSION_REWARDS} from './progression.mjs';
 const raceSchema=["-- Additive only: existing player_saves, inventories and progress are not rewritten.\nCREATE TABLE IF NOT EXISTS race_sessions (\n id TEXT PRIMARY KEY,\n user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,\n start_request_id TEXT NOT NULL,\n start_hash TEXT NOT NULL,\n runtime_version TEXT NOT NULL,\n config_json TEXT NOT NULL,\n car_save_json TEXT NOT NULL,\n seed INTEGER NOT NULL,\n state_json TEXT NOT NULL,\n sequence INTEGER NOT NULL DEFAULT 0,\n revision INTEGER NOT NULL DEFAULT 1,\n status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','paid','cancelled','expired')),\n created_at INTEGER NOT NULL,\n starts_at INTEGER NOT NULL,\n expires_at INTEGER NOT NULL,\n updated_at INTEGER NOT NULL,\n UNIQUE(user_id,start_request_id)\n)", "CREATE UNIQUE INDEX IF NOT EXISTS idx_race_one_active_user ON race_sessions(user_id) WHERE status='active'", "CREATE TABLE IF NOT EXISTS race_input_receipts (\n race_id TEXT NOT NULL REFERENCES race_sessions(id) ON DELETE CASCADE,\n sequence INTEGER NOT NULL,\n payload_hash TEXT NOT NULL,\n response_json TEXT NOT NULL,\n created_at INTEGER NOT NULL,\n PRIMARY KEY(race_id,sequence)\n)"];
 const initialized=new WeakMap();
-async function ensureRaceSchema(env){let ready=initialized.get(env.DB);if(!ready){ready=env.DB.batch(raceSchema.map(sql=>env.DB.prepare(sql))).catch(e=>{initialized.delete(env.DB);throw e;});initialized.set(env.DB,ready);}await ready;}
+const ghostSchema=["CREATE TABLE IF NOT EXISTS ghost_records(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,track_id TEXT NOT NULL,track_version TEXT NOT NULL,runtime_version TEXT NOT NULL,mode TEXT NOT NULL CHECK(mode IN ('normal','career')),car_id TEXT NOT NULL,time_ms INTEGER NOT NULL CHECK(time_ms>0),keyframes_json TEXT NOT NULL,created_at INTEGER NOT NULL,UNIQUE(user_id,track_id,track_version,runtime_version,mode))","CREATE INDEX IF NOT EXISTS idx_ghost_records_track ON ghost_records(track_id,track_version,runtime_version,mode,time_ms)"];
+async function ensureRaceSchema(env){let ready=initialized.get(env.DB);if(!ready){ready=(async()=>{await env.DB.batch(raceSchema.map(sql=>env.DB.prepare(sql)));try{await env.DB.prepare("ALTER TABLE race_sessions ADD COLUMN ghost_samples_json TEXT NOT NULL DEFAULT '[]'").run();}catch(e){if(!/duplicate column/i.test(String(e?.message||e)))throw e;}await env.DB.batch(ghostSchema.map(sql=>env.DB.prepare(sql)));})().catch(e=>{initialized.delete(env.DB);throw e;});initialized.set(env.DB,ready);}await ready;}
 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json','cache-control':'no-store'}});
 const id=v=>typeof v==='string'&&/^[\w-]{16,80}$/.test(v);
 const hash=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value))))).map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -11,6 +12,17 @@ const publicSession=row=>({raceId:row.id,runtimeVersion:row.runtime_version,conf
 export async function handleRaceAuthority(request,env,url,session,{readBody,saveRow,applyEconomyOperation,settings}){
   await ensureRaceSchema(env);
   const route=url.pathname.slice('/api/economy/races/'.length),userId=session.user.id;
+  if(route==='ghosts'&&request.method==='GET'){
+    const trackId=url.searchParams.get('trackId')||'',mode=url.searchParams.get('mode')||'normal',trackVersion=RACE_RUNTIME_VERSION;
+    if(!/^[a-z0-9_-]{1,64}$/i.test(trackId)||!['normal','career'].includes(mode))return json({error:'INVALID_GHOST_QUERY'},400);
+    const own=await env.DB.prepare('SELECT g.*,u.username FROM ghost_records g JOIN users u ON u.id=g.user_id WHERE g.user_id=? AND g.track_id=? AND g.track_version=? AND g.runtime_version=? AND g.mode=?').bind(userId,trackId,trackVersion,trackVersion,mode).first();
+    const top=(await env.DB.prepare('SELECT g.id,g.user_id,g.car_id,g.time_ms,g.created_at,u.username FROM ghost_records g JOIN users u ON u.id=g.user_id WHERE g.track_id=? AND g.track_version=? AND g.runtime_version=? AND g.mode=? ORDER BY g.time_ms ASC LIMIT 1').bind(trackId,trackVersion,trackVersion,mode).all()).results||[];
+    const friends=(await env.DB.prepare(`SELECT g.id,g.user_id,g.car_id,g.time_ms,g.created_at,u.username FROM ghost_records g JOIN users u ON u.id=g.user_id JOIN friendships f ON (f.user_low=? AND f.user_high=g.user_id) OR (f.user_high=? AND f.user_low=g.user_id) WHERE g.track_id=? AND g.track_version=? AND g.runtime_version=? AND g.mode=? ORDER BY g.time_ms ASC LIMIT 50`).bind(userId,userId,trackId,trackVersion,trackVersion,mode).all()).results||[];
+    let friend=null;const friendId=url.searchParams.get('friendId');if(friendId){const linked=await env.DB.prepare('SELECT 1 ok FROM friendships WHERE (user_low=? AND user_high=?) OR (user_low=? AND user_high=?)').bind(userId,friendId,friendId,userId).first();if(!linked)return json({error:'NOT_A_FRIEND'},403);friend=await env.DB.prepare('SELECT g.*,u.username FROM ghost_records g JOIN users u ON u.id=g.user_id WHERE g.user_id=? AND g.track_id=? AND g.track_version=? AND g.runtime_version=? AND g.mode=?').bind(friendId,trackId,trackVersion,trackVersion,mode).first();}
+    const selected=url.searchParams.get('ghostId');let replay=null;if(selected){replay=await env.DB.prepare('SELECT g.*,u.username FROM ghost_records g JOIN users u ON u.id=g.user_id WHERE g.id=? AND g.track_id=? AND g.track_version=? AND g.runtime_version=? AND g.mode=?').bind(selected,trackId,trackVersion,trackVersion,mode).first();if(!replay)return json({error:'GHOST_NOT_FOUND'},404);if(replay.user_id!==userId){const linked=await env.DB.prepare('SELECT 1 ok FROM friendships WHERE (user_low=? AND user_high=?) OR (user_low=? AND user_high=?)').bind(userId,replay.user_id,replay.user_id,userId).first();if(!linked&&top[0]?.id!==replay.id)return json({error:'GHOST_FORBIDDEN'},403);}}
+    const summary=x=>x?{id:x.id,userId:x.user_id,username:x.username,carId:x.car_id,timeMs:Number(x.time_ms),createdAt:Number(x.created_at)}:null;
+    return json({ok:true,trackVersion,own:summary(own),global:top.map(summary),friends:friends.map(summary),friend:summary(friend),ghost:replay?{...summary(replay),keyframes:JSON.parse(replay.keyframes_json)}:null});
+  }
   if(request.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405);
   let b;try{b=await readBody(request);}catch(e){return json({error:e.message==='REQUEST_TOO_LARGE'?'REQUEST_TOO_LARGE':'INVALID_REQUEST'},e.message==='REQUEST_TOO_LARGE'?413:400);}
   if(!b||typeof b!=='object'||Array.isArray(b))return json({error:'INVALID_REQUEST'},400);
@@ -63,10 +75,13 @@ export async function handleRaceAuthority(request,env,url,session,{readBody,save
     if(state.result)return json({error:'RACE_ALREADY_FINISHED'},409);
     if(t<row.starts_at||state.frame+b.inputs.length>Math.max(0,Math.floor((t-row.starts_at)*RACE_HZ/1000))+30)return json({error:'RACE_CLOCK_AHEAD'},409);
     const engine=new RaceSession(JSON.parse(row.config_json),JSON.parse(row.car_save_json),row.seed,state);
-    const summary=engine.advance(b.inputs),response={ok:true,raceId:row.id,sequence:row.sequence+1,...summary,state:engine.serialize()};
+    const advanced=engine.advanceWithSamples(b.inputs),summary=advanced.summary,response={ok:true,raceId:row.id,sequence:row.sequence+1,...summary,state:engine.serialize()};
+    let ghostFrames=[];try{ghostFrames=JSON.parse(row.ghost_samples_json||'[]');}catch{}if(!Array.isArray(ghostFrames))ghostFrames=[];
+    if(!ghostFrames.length){const p=new RaceSession(JSON.parse(row.config_json),JSON.parse(row.car_save_json),row.seed,JSON.parse(row.state_json)).player;ghostFrames.push([0,+p.x.toFixed(2),+p.y.toFixed(2),+p.angle.toFixed(4),+p.progress.toFixed(6),p.laps|0,p.checkpoint|0]);}
+    ghostFrames.push(...advanced.frames);if(ghostFrames.length>1800)ghostFrames=ghostFrames.slice(-1800);
     try{
       const writes=await env.DB.batch([
-        env.DB.prepare("UPDATE race_sessions SET state_json=?,sequence=sequence+1,revision=revision+1,updated_at=? WHERE id=? AND user_id=? AND revision=? AND status='active'").bind(JSON.stringify(engine.serialize()),t,row.id,userId,row.revision),
+        env.DB.prepare("UPDATE race_sessions SET state_json=?,ghost_samples_json=?,sequence=sequence+1,revision=revision+1,updated_at=? WHERE id=? AND user_id=? AND revision=? AND status='active'").bind(JSON.stringify(engine.serialize()),JSON.stringify(ghostFrames),t,row.id,userId,row.revision),
         env.DB.prepare('INSERT INTO race_input_receipts(race_id,sequence,payload_hash,response_json,created_at) SELECT ?,?,?,?,? WHERE changes()=1').bind(row.id,b.sequence,payloadHash,JSON.stringify(response),t),
         env.DB.prepare('DELETE FROM race_input_receipts WHERE race_id=? AND sequence<?').bind(row.id,row.sequence-1)
       ]);
@@ -81,6 +96,9 @@ export async function handleRaceAuthority(request,env,url,session,{readBody,save
     const config=JSON.parse(row.config_json),result=JSON.parse(row.state_json).result;
     if(!result)return json({error:'RACE_NOT_FINISHED'},409);
     if(!['active','paid'].includes(row.status))return json({error:'RACE_CLOSED'},409);
+    let verifiedGhostFrames=[];if(['normal','career'].includes(config.mode))try{verifiedGhostFrames=JSON.parse(row.ghost_samples_json||'[]');}catch{}
+    if(Array.isArray(verifiedGhostFrames)&&verifiedGhostFrames.length&&verifiedGhostFrames.length<1800){const engine=new RaceSession(config,JSON.parse(row.car_save_json),row.seed,JSON.parse(row.state_json)),p=engine.player,last=verifiedGhostFrames[verifiedGhostFrames.length-1];if(last?.[0]!==engine.frame)verifiedGhostFrames.push([engine.frame,+p.x.toFixed(2),+p.y.toFixed(2),+p.angle.toFixed(4),+p.progress.toFixed(6),p.laps|0,p.checkpoint|0]);}
+    if(!validateGhostKeyframes(verifiedGhostFrames))verifiedGhostFrames=[];
     await ensureProgressionSchema(env);
     const requestId='race-finish:'+row.id,receiptId='race:'+row.id;
     const settled=await applyEconomyOperation(env,userId,requestId,'race_finish',save=>({...settleRace(save,config,result),exp:result.completed?PROGRESSION_REWARDS.ONLINE_FINISH.exp:0}),{
@@ -92,7 +110,8 @@ export async function handleRaceAuthority(request,env,url,session,{readBody,save
           env.DB.prepare(`INSERT INTO progression_rewards(id,user_id,source,event_id,exp,credits,requested_credits,created_at,meta_json) SELECT ?,?,'solo_race',?,?,?,?,?,? WHERE ${exists}`).bind(receiptId,userId,row.id,r.exp,r.credits,r.credits,t,JSON.stringify({mode:config.mode,trackId:config.trackId,place:r.place,timeMs:r.timeMs}),userId,requestId,response.transactionId),
           env.DB.prepare(`DELETE FROM race_input_receipts WHERE race_id=? AND ${exists}`).bind(row.id,userId,requestId,response.transactionId),
           env.DB.prepare(`INSERT OR IGNORE INTO owner_results(race_id,user_id,kind,won,time_ms,created_at) SELECT ?,?,?,?,?,? WHERE ${exists}`).bind(row.id,userId,config.mode==='normal'?'solo':config.mode,r.completed&&(config.mode==='career'?!!r.tier:r.place===1)?1:0,r.timeMs,t,userId,requestId,response.transactionId),
-          env.DB.prepare(`UPDATE race_sessions SET status='paid',revision=revision+1,updated_at=? WHERE id=? AND user_id=? AND ${exists}`).bind(t,row.id,userId,userId,requestId,response.transactionId)
+          env.DB.prepare(`UPDATE race_sessions SET status='paid',revision=revision+1,updated_at=? WHERE id=? AND user_id=? AND ${exists}`).bind(t,row.id,userId,userId,requestId,response.transactionId),
+          env.DB.prepare(`INSERT INTO ghost_records(id,user_id,track_id,track_version,runtime_version,mode,car_id,time_ms,keyframes_json,created_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE ${exists} AND ?=1 AND ?=1 AND json_array_length(?) BETWEEN 2 AND 1800 AND json_extract(?,'$[0][0]')=0 ON CONFLICT(user_id,track_id,track_version,runtime_version,mode) DO UPDATE SET id=excluded.id,car_id=excluded.car_id,time_ms=excluded.time_ms,keyframes_json=excluded.keyframes_json,created_at=excluded.created_at WHERE excluded.time_ms<ghost_records.time_ms`).bind(crypto.randomUUID(),userId,config.trackId,RACE_RUNTIME_VERSION,row.runtime_version,config.mode,config.carId,r.timeMs,JSON.stringify(verifiedGhostFrames),t,userId,requestId,response.transactionId,r.completed?1:0,['normal','career'].includes(config.mode)?1:0,JSON.stringify(verifiedGhostFrames),JSON.stringify(verifiedGhostFrames))
         ];
       }
     });

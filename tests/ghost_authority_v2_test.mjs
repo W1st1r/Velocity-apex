@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import fs from 'node:fs';
+import {handleRaceAuthority} from '../src/race-authority.mjs';
+import {RaceSession,RACE_RUNTIME_VERSION} from '../public/js/race-session-v77.mjs';
+
+const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
+for(const name of fs.readdirSync(new URL('../migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort())db.exec(fs.readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
+const DB={prepare(sql){let args=[];return{bind(...x){args=x;return this},async first(){return db.prepare(sql).get(...args)||null},async all(){return{results:db.prepare(sql).all(...args)}},async run(){const x=db.prepare(sql).run(...args);return{meta:{changes:Number(x.changes),last_row_id:Number(x.lastInsertRowid)||0}}}}},async batch(steps){db.exec('BEGIN');try{const out=[];for(const q of steps)out.push(await q.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}};
+const userId='11111111-1111-4111-8111-111111111111',raceId='22222222-2222-4222-8222-222222222222',t=Date.now();
+db.prepare('INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run(userId,'racer','Racer','x','x',t,t);
+const config={mode:'normal',carId:'apexLime',trackId:'apexCircuit',bots:3,laps:3,difficulty:'easy'},save={ownedLiveries:['apexLime'],credits:100,careerUnlocked:1},engine=new RaceSession(config,save,42);engine.frame=120;engine.result={completed:true,timeMs:2000,place:1,score:1500,bestLapMs:21000,peakCombo:1,tier:null};
+const samples=[[0,engine.player.x,engine.player.y,engine.player.angle,engine.player.progress,0,0],[120,engine.player.x+12,engine.player.y,engine.player.angle,.1,0,1]];
+db.prepare(`INSERT INTO race_sessions(id,user_id,start_request_id,start_hash,runtime_version,config_json,car_save_json,seed,state_json,sequence,revision,status,created_at,starts_at,expires_at,updated_at,ghost_samples_json) VALUES(?,?,?,?,?,?,?,?,?,0,1,'active',?,?,?,?,?)`).run(raceId,userId,'request-ghost-01','hash',RACE_RUNTIME_VERSION,JSON.stringify(config),JSON.stringify(save),42,JSON.stringify(engine.serialize()),t,t,t+1800000,t,JSON.stringify(samples));
+const env={DB};
+const applyEconomyOperation=async(_env,id,requestId,type,mutate,options)=>{const changed=mutate({...save}),transactionId='tx:'+raceId,result=changed,response={ok:true,result,transactionId};await DB.prepare('INSERT INTO economy_operations(user_id,request_id,operation_type,response_json,created_at) VALUES(?,?,?,?,?)').bind(id,requestId,type,JSON.stringify(response),t).run();await DB.batch(options.additionalStatements(response));return response;};
+const dependencies={readBody:r=>r.json(),saveRow:async()=>({save}),applyEconomyOperation,settings:async()=>({})};
+const finish=await handleRaceAuthority(new Request('https://test.apex/api/economy/races/finish',{method:'POST',body:JSON.stringify({raceId})}),env,new URL('https://test.apex/api/economy/races/finish'),{user:{id:userId}},dependencies);
+assert.equal(finish.status,200);const record=db.prepare('SELECT * FROM ghost_records WHERE user_id=?').get(userId);assert.ok(record,'server confirmed finish creates a saved record');assert.equal(record.track_id,'apexCircuit');assert.equal(record.runtime_version,RACE_RUNTIME_VERSION);
+const list=await handleRaceAuthority(new Request('https://test.apex/api/economy/races/ghosts?trackId=apexCircuit&mode=normal'),env,new URL('https://test.apex/api/economy/races/ghosts?trackId=apexCircuit&mode=normal'),{user:{id:userId}},dependencies);const result=await list.json();assert.equal(result.own.id,record.id);assert.equal(result.global[0].id,record.id);
+const replayUrl=new URL(`https://test.apex/api/economy/races/ghosts?trackId=apexCircuit&mode=normal&ghostId=${record.id}`),replay=await handleRaceAuthority(new Request(replayUrl),env,replayUrl,{user:{id:userId}},dependencies),data=await replay.json();assert.ok(data.ghost.keyframes.length>=2);console.log('ghost_authority_v2_test: server-simulated result persisted once and replayed with compatible version');

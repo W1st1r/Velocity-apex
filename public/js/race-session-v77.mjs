@@ -25,6 +25,18 @@ export function validateInputs(inputs){
   if(!Array.isArray(inputs)||inputs.length<1||inputs.length>MAX_BATCH_FRAMES)throw Error('INVALID_INPUT_BATCH');
   for(const frame of inputs)if(!Array.isArray(frame)||frame.length!==4||frame.some((v,i)=>typeof v!=='number'||!Number.isFinite(v)||v<(i===0?-1:0)||v>1))throw Error('INVALID_CONTROLS');
 }
+export function validateGhostKeyframes(frames){
+  if(!Array.isArray(frames)||frames.length<2||frames.length>1800||!Array.isArray(frames[0])||frames[0][0]!==0)return false;
+  let previous=null;
+  for(const f of frames){if(!Array.isArray(f)||f.length!==7||!f.every(Number.isFinite)||!Number.isInteger(f[0])||f[0]<0||Math.abs(f[1])>20000||Math.abs(f[2])>20000||Math.abs(f[3])>Math.PI+0.01||f[4]<(f[0]===0?-.1:0)||f[4]>1||!Number.isInteger(f[5])||f[5]<0||f[5]>20||!Number.isInteger(f[6])||f[6]<0)return false;if(previous){const dt=f[0]-previous[0];if(dt<=0||Math.hypot(f[1]-previous[1],f[2]-previous[2])>dt*100)return false;}previous=f;}
+  return true;
+}
+export function interpolateGhostKeyframes(frames,progress){
+  if(!validateGhostKeyframes(frames)||!Number.isFinite(progress))return null;
+  let lo=0,hi=frames.length-1;while(lo<hi){const m=(lo+hi)>>1;if(frames[m][5]+frames[m][4]<progress)lo=m+1;else hi=m;}
+  const b=frames[lo],a=frames[Math.max(0,lo-1)],pa=a[5]+a[4],pb=b[5]+b[4],t=pb>pa?Math.max(0,Math.min(1,(progress-pa)/(pb-pa))):0;let da=b[3]-a[3];while(da>Math.PI)da-=Math.PI*2;while(da<-Math.PI)da+=Math.PI*2;
+  return {frame:a[0]+(b[0]-a[0])*t,x:a[1]+(b[1]-a[1])*t,y:a[2]+(b[2]-a[2])*t,angle:a[3]+da*t};
+}
 export class RaceSession {
   constructor(config,carSave,seed,state=null){
     this.config=config;this.carSave=carSave;this.seed=seed;this.R=createRaceRuntime(seed);const R=this.R;R.ownerCars=carSave.ownerCars||{};R.ownerTuning=carSave.ownerTuning||{};
@@ -101,6 +113,11 @@ export class RaceSession {
     return true;
   }
   advance(inputs){validateInputs(inputs);for(const input of inputs){if(!this.step(input))break;}return this.summary();}
+  advanceWithSamples(inputs){
+    validateInputs(inputs);const frames=[];
+    for(const input of inputs){if(!this.step(input))break;if(this.frame%12===0){const p=this.player;frames.push([this.frame,+p.x.toFixed(2),+p.y.toFixed(2),+p.angle.toFixed(4),+p.progress.toFixed(6),p.laps|0,p.checkpoint|0]);}}
+    return {summary:this.summary(),frames};
+  }
   summary(){return {frame:this.frame,timeMs:Math.round(this.frame/RACE_HZ*1000),player:{x:this.player.x,y:this.player.y,speed:this.player.speed,laps:this.player.laps,checkpoint:this.player.checkpoint,place:this.player.rank},result:this.result};}
 }
 export function settleRace(save,config,result){

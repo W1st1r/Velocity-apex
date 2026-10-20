@@ -1,5 +1,6 @@
 import {currentSession,requireAdmin,ensureAdminSchema,accountDetail,audit,mutateTargetSave,banResponse} from './auth.mjs';
 import {queryGameLogs,ensureGameLogs} from './logs.mjs';
+import {handleBugReportRequest} from './bug-reports.mjs';
 
 const json=(v,s=200)=>new Response(JSON.stringify(v),{status:s,headers:{'content-type':'application/json;charset=UTF-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const now=()=>Date.now();
@@ -380,7 +381,8 @@ export async function activeMute(env,userId,t=now()){
   if(!env.DB||!userId)return null;await ensureAdminSystem(env);const row=await env.DB.prepare('SELECT id,reason,expires_at FROM player_mutes WHERE user_id=? AND revoked_at IS NULL AND expires_at>? ORDER BY expires_at DESC LIMIT 1').bind(userId,t).first();return row?{id:row.id,reason:row.reason,expiresAt:Number(row.expires_at)||0}:null;
 }
 
-export async function handleAdminSystemRequest(request,env,url=new URL(request.url)){
+export async function handleAdminSystemRequest(request,env,url=new URL(request.url),ctx=null){
+  const bugResponse=await handleBugReportRequest(request,env,url,ctx);if(bugResponse)return bugResponse;
   if(!url.pathname.startsWith('/api/support/')&&!url.pathname.startsWith('/api/staff-admin/')&&!url.pathname.startsWith('/api/admin-system/'))return null;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{await ensureAdminSystem(env);if(url.pathname.startsWith('/api/support/'))return supportRoutes(request,env,url);if(url.pathname.startsWith('/api/staff-admin/'))return staffRoutes(request,env,url);if(url.pathname.startsWith('/api/admin-system/owner/'))return ownerRoutes(request,env,url);return json({error:'NOT_FOUND'},404);}catch(e){console.error('admin-system',e);return json({error:'ADMIN_SYSTEM_ERROR'},500);}
