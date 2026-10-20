@@ -4,6 +4,8 @@ const source=fs.readFileSync(new URL('../public/js/game.js',import.meta.url),'ut
 assert.match(source,/let W=innerWidth[\s\S]{0,200}raceStartInProgress=false/);
 assert.match(source,/if\(raceStartInProgress\)return;[\s\S]{0,180}raceStartInProgress=true/);
 assert.match(source,/finally\{\s*raceStartInProgress=false;[\s\S]*?button\.disabled=wasDisabled/);
+assert.match(source,/panel\.inert=true[\s\S]*?panel\.inert=wasInert/);
+for(const action of ['openModeSelect','openSettings','openSetup','mainMenu'])assert.match(source,new RegExp(`function ${action}\\([^\\n]*\\n?\\s*if\\(raceStartInProgress\\)return;`),`${action} is blocked during asynchronous startup`);
 assert.match(source,/function restartRace\(\)\{if\(raceMode==='online'\|\|raceStartInProgress\)return;[\s\S]*?startRace\(\{fresh:true\}\);\}/);
 assert.match(source,/async function startCareer\(\)\{if\(state!=='career'\|\|raceStartInProgress/);
 assert.doesNotMatch(source,/async function startCareer\(\)[^\n]*UI\.career\.classList\.add\('hidden'\)/);

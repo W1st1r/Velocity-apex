@@ -169,10 +169,10 @@
     const level=R.getCareerLevel(careerSelectedLevel),cfg=R.CAREER_TRACKS[level.trackId],best=Number(save.careerBestTimes?.[level.trackId])||0;
     $('careerUnlockedText').textContent=Math.max(1,save.careerUnlocked||1)+' / '+R.CAREER_LEVELS.length;$('careerDetailLevel').textContent='LEVEL '+String(level.level).padStart(2,'0');$('careerDetailName').textContent=cfg.name;$('careerDetailType').textContent=cfg.type;$('careerDetailDescription').textContent=cfg.description;$('careerDetailDistance').textContent=(cfg.targetLength/1000).toFixed(1)+' KM';$('careerDetailBest').textContent=best?fmt(best):'--:--.---';$('careerGoldTime').textContent='≤ '+careerTimeLabel(level.gold);$('careerSilverTime').textContent='≤ '+careerTimeLabel(level.silver);$('careerBronzeTime').textContent='≤ '+careerTimeLabel(level.bronze);$('careerGoldReward').textContent=level.rewards.gold.toLocaleString('ru-RU')+' CR';$('careerSilverReward').textContent=level.rewards.silver.toLocaleString('ru-RU')+' CR';$('careerBronzeReward').textContent=level.rewards.bronze.toLocaleString('ru-RU')+' CR';UI.careerStart.disabled=!careerLevelUnlocked(level.level);
   }
-  function openCareer(){if(state!=='localMode'||performance.now()<modeSelectReadyAt)return;audio.init();localMode='career';state='career';UI.localMode.classList.add('hidden');UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();last=performance.now();}
-  function closeCareer(){if(state!=='career')return;state='localMode';UI.career.classList.add('hidden');UI.career.setAttribute('aria-hidden','true');UI.localMode.classList.remove('hidden');last=performance.now();}
+  function openCareer(){if(raceStartInProgress||state!=='localMode'||performance.now()<modeSelectReadyAt)return;audio.init();localMode='career';state='career';UI.localMode.classList.add('hidden');UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();last=performance.now();}
+  function closeCareer(){if(raceStartInProgress||state!=='career')return;state='localMode';UI.career.classList.add('hidden');UI.career.setAttribute('aria-hidden','true');UI.localMode.classList.remove('hidden');last=performance.now();}
   async function startCareer(){if(state!=='career'||raceStartInProgress||!careerLevelUnlocked(careerSelectedLevel))return;loadLocalSettings('career');loadTrack();await startRace();}
-  function backToCareerFromFinish(){state='career';UI.finish.classList.add('hidden');showRaceUI(false);UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();updateMenuStats();last=performance.now();}
+  function backToCareerFromFinish(){if(raceStartInProgress)return;state='career';UI.finish.classList.add('hidden');showRaceUI(false);UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();updateMenuStats();last=performance.now();}
 
   const garage=new R.Garage(save,()=>{writeSave();updateMenuStats();syncSetupUI();});
   let deferredAccountSave=null;
@@ -238,6 +238,7 @@
     UI.settingsMessage.classList.toggle('warning',settingsNoticeKind==='bad');
   }
   function openSettings(){
+    if(raceStartInProgress)return;
     const fromOnlinePause=raceMode==='online'&&onlineLocalPaused&&(state==='onlineRacing'||state==='onlineFinished');
     if(state!=='menu'&&state!=='paused'&&!fromOnlinePause)return;
     settingsReturn=fromOnlinePause?'onlinePaused':state;settingsNotice='';settingsNoticeKind='';controlInput.setActive(false);state='settings';
@@ -464,11 +465,13 @@
   function showRaceUI(show){UI.hud.classList.toggle('hidden',!show);UI.controls.classList.toggle('hidden',!show);UI.controls.dataset.raceMode=localMode==='drift'?'drift':'normal';if(show)prepareMiniMap();else{controlInput.setActive(false);setPauseButton(false,false);}}
 
   function openModeSelect(){
+    if(raceStartInProgress)return;
     audio.init();state='localMode';modeSelectReadyAt=performance.now()+420;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');UI.career.classList.add('hidden');UI.localMode.classList.remove('hidden');UI.finish.classList.add('hidden');last=performance.now();
   }
-  function chooseLocalMode(mode){if(state!=='localMode'||performance.now()<modeSelectReadyAt)return;if(mode==='career'){openCareer();return;}openSetup(mode);}
+  function chooseLocalMode(mode){if(raceStartInProgress||state!=='localMode'||performance.now()<modeSelectReadyAt)return;if(mode==='career'){openCareer();return;}openSetup(mode);}
   function backToMenuFromMode(){if(raceStartInProgress)return;state='menu';UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.menu.classList.remove('hidden');loadLocalSettings('normal');loadTrack();updateMenuStats();last=performance.now();}
   function openSetup(mode='normal'){
+    if(raceStartInProgress)return;
     audio.init();loadLocalSettings(mode);loadTrack();renderTrackCards();state='setup';UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.setup.classList.remove('hidden');UI.finish.classList.add('hidden');syncSetupUI();$('trackCards').querySelector('.selected')?.scrollIntoView?.({block:'nearest',inline:'center'});last=performance.now();
   }
   function backToModeFromSetup(){
@@ -477,7 +480,7 @@
   }
   async function startRace(options={}){
     if(raceStartInProgress)return;
-    raceStartInProgress=true;const startButtons=[UI.startRace,UI.careerStart,UI.setupBack,UI.careerBack,UI.localModeBack].filter(Boolean),startButtonStates=startButtons.map(button=>[button,button.disabled]);for(const button of startButtons){button.disabled=true;button.setAttribute('aria-busy','true');}
+    raceStartInProgress=true;const startButtons=[UI.startRace,UI.careerStart,UI.setupBack,UI.careerBack,UI.localModeBack].filter(Boolean),startButtonStates=startButtons.map(button=>[button,button.disabled]),panels=[UI.setup,UI.career,UI.localMode].filter(Boolean),panelStates=panels.map(panel=>[panel,panel.inert]);for(const button of startButtons){button.disabled=true;button.setAttribute('aria-busy','true');}for(const [panel] of panelStates)panel.inert=true;
     try{
       raceMode='offline';
       let nextAuthority=null;
@@ -495,7 +498,7 @@
       UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.setup.classList.add('hidden');UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');$('rootAuth').classList.add('hidden');$('rootConsole').classList.add('hidden');$('rootConfirm').classList.add('hidden');UI.finish.classList.add('hidden');UI.finishCard.classList.remove('winner');
       controlInput.setDriftMode(localMode==='drift');showRaceUI(true);controlInput.setActive(false);setPauseButton(false,false);runCountdown();last=performance.now();
     }finally{
-      raceStartInProgress=false;for(const [button,wasDisabled] of startButtonStates){button.disabled=wasDisabled;button.removeAttribute('aria-busy');}
+      raceStartInProgress=false;for(const [button,wasDisabled] of startButtonStates){button.disabled=wasDisabled;button.removeAttribute('aria-busy');}for(const [panel,wasInert] of panelStates)panel.inert=wasInert;
     }
   }
   function runCountdown(){
@@ -530,6 +533,7 @@
     }catch(_){window.location.href=url;}
   }
   function mainMenu(){
+    if(raceStartInProgress)return;
     countdownToken++;resetInput();persistRecords();if(raceMode==='online'&&window.VelocityOnline){window.VelocityOnline.leave();resetOnlineMode();}state='menu';audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.countdown.classList.add('hidden');UI.menu.classList.remove('hidden');UI.toasts.replaceChildren();showRaceUI(false);loadLocalSettings('normal');loadTrack();controlInput.setDriftMode(false);updateMenuStats();if(deferredAccountSave){const pending=deferredAccountSave;deferredAccountSave=null;applyAccountSave(pending);}last=performance.now();
   }
 
