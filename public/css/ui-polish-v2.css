@@ -2,6 +2,28 @@
 .overlay:not(.hidden){animation:va-overlay-in .16s ease-out both}
 @keyframes va-overlay-in{from{opacity:0}to{opacity:1}}
 
+.runtime-failure{position:fixed;z-index:12000;inset:0;display:grid;place-items:center;padding:max(14px,var(--safe-t)) max(14px,var(--safe-r)) max(14px,var(--safe-b)) max(14px,var(--safe-l));background:rgba(2,9,17,.84);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.runtime-failure.hidden{display:none!important}
+.runtime-failure-card{width:min(430px,100%);padding:clamp(20px,5vw,30px);border:1px solid rgba(93,186,241,.24);border-radius:20px;background:linear-gradient(155deg,rgba(12,35,59,.99),rgba(6,19,37,.99));box-shadow:0 20px 70px rgba(0,0,0,.5)}
+.runtime-failure-card>small{color:#78b9dc;font-size:9px;font-weight:900;letter-spacing:.15em}
+.runtime-failure-card h2{margin:8px 0;color:#e8f5fb;font-size:clamp(18px,5vw,24px)}
+.runtime-failure-card p{margin:0;color:#a9c4d1;font-size:14px;line-height:1.5}
+.runtime-failure-card>div{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}
+.runtime-failure-card button{min-height:46px;touch-action:manipulation}
+.apex-speed-transition{position:fixed;z-index:11000;inset:0;overflow:hidden;display:grid;place-items:center;pointer-events:none;opacity:0}
+.apex-speed-transition.hidden{display:none!important}
+.apex-speed-transition.running{animation:apex-transition-out .3s ease-out both}
+.apex-transition-car{position:absolute;width:min(260px,58vw);height:auto;fill:#78ceff;stroke:#d7f4ff;stroke-width:1.7;filter:drop-shadow(0 0 13px rgba(72,174,255,.7));opacity:0;transform:translateX(30vw) scale(.94);animation:apex-car-enter .3s cubic-bezier(.18,.73,.29,1) both}
+.apex-transition-window{fill:#102e49;stroke:#a2ddff;stroke-width:1}
+.apex-transition-car circle{fill:#071323;stroke:#9cdfff;stroke-width:2}
+.apex-speed-streak{position:absolute;right:0;width:42vw;height:2px;background:linear-gradient(90deg,transparent,rgba(98,193,255,.8));opacity:0;filter:drop-shadow(0 0 6px #429df4);animation:apex-streak .25s ease-out both}
+.streak-one{top:43%;animation-delay:.025s}.streak-two{top:58%;width:58vw;animation-delay:.075s}
+.apex-speed-flash{position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(118,207,255,.12) 50%,transparent 59%);transform:translateX(-100%);animation:apex-flash .3s ease-out both}
+@keyframes apex-transition-out{0%{opacity:0}18%{opacity:1}72%{opacity:.88}100%{opacity:0}}
+@keyframes apex-car-enter{0%{opacity:0;transform:translateX(30vw) scale(.94)}28%{opacity:1}100%{opacity:0;transform:translateX(-32vw) scale(1.02)}}
+@keyframes apex-streak{0%{opacity:0;transform:translateX(30vw)}25%{opacity:.8}100%{opacity:0;transform:translateX(-70vw)}}
+@keyframes apex-flash{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
 .free-chat-panel{height:min(350px,62dvh);bottom:calc(20px + var(--safe-b) + var(--free-chat-keyboard-inset,0px))!important;max-height:calc(var(--free-chat-visible-height,100dvh) - var(--safe-t) - var(--safe-b) - 16px)!important;background:linear-gradient(160deg,rgba(10,27,47,.96),rgba(4,14,29,.96));border-color:rgba(95,185,236,.2)}
 .free-chat-log{display:grid;align-content:start;gap:7px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .free-chat-line,.free-chat-preview-line{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;min-width:0;padding:7px 9px;border:1px solid rgba(120,180,220,.09);border-radius:10px;background:rgba(15,40,66,.5)}
@@ -37,4 +59,4 @@
 body.modal-open{overflow:hidden;overscroll-behavior:none}
 @media(max-width:420px){.password-recovery-screen{padding-left:9px;padding-right:9px}.password-recovery-card{padding:17px;border-radius:16px}.account-email-form{padding:10px}}
 
-@media(prefers-reduced-motion:reduce){.overlay:not(.hidden){animation:none!important}}
+@media(prefers-reduced-motion:reduce){.overlay:not(.hidden){animation:none!important}.runtime-failure:not(.hidden){animation:none!important}.apex-speed-transition.running{display:none!important;animation:none!important}}

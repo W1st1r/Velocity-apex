@@ -48,7 +48,7 @@
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
   const car=R.Car?new R.Car({player:true,maxSpeed:SOLO_PHYS.maxSpeed,accel:SOLO_PHYS.accel,brakePower:SOLO_PHYS.brakePower,turnRate:SOLO_PHYS.turnRate}):{x:2320,y:1590,vx:0,vy:0,angle:-Math.PI/2,speed:0};
-  let W=1,H=1,DPR=1,last=performance.now(),raf=0;
+  let W=1,H=1,DPR=1,last=performance.now(),raf=0,serversRequestId=0,serverJoinInProgress=false;
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
@@ -391,13 +391,17 @@
   }
 
   async function loadServers(){
+    const requestId=++serversRequestId;
     msg('ОБНОВЛЕНИЕ СПИСКА…');
     try{
-      const d=await jsonFetch('/api/free/servers');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+      let d;try{d=await jsonFetch('/api/free/servers',{signal:controller.signal});}finally{clearTimeout(timer);}
+      if(requestId!==serversRequestId||state.active)return;
       state.servers=d.servers||[];
       renderServers();
       msg('');
     }catch{
+      if(requestId!==serversRequestId||state.active)return;
       msg('Не удалось загрузить серверы.',true);
     }
   }
@@ -412,7 +416,7 @@
       const b=document.createElement('button');
       b.type='button';
       b.className='free-server-card';
-      b.disabled=s.players>=s.maxPlayers;
+      b.disabled=serverJoinInProgress||s.players>=s.maxPlayers;
       const load=Math.round((s.players/s.maxPlayers)*100);
       const top=document.createElement('div');
       top.className='free-server-card-top';
@@ -447,26 +451,37 @@
   }
 
   function closeBrowser(){
+    if(serverJoinInProgress)return;
+    serversRequestId++;
     browser.classList.add('hidden');
     browser.setAttribute('aria-hidden','true');
     $('online')?.classList.remove('hidden');
   }
 
   async function joinServer(server){
-    refreshPlayerLoadout();
-    msg('ПОДКЛЮЧЕНИЕ К '+server.name+'…');
+    if(serverJoinInProgress||!server||!state.servers.some(item=>item.id===server.id))return;
+    serverJoinInProgress=true;
+    const back=$('freeServersBackBtn'),refresh=$('freeRefreshBtn'),wasBackDisabled=back?.disabled,wasRefreshDisabled=refresh?.disabled;
+    if(back)back.disabled=true;if(refresh)refresh.disabled=true;
     try{
-      const d=await jsonFetch(`/api/free/${server.id}/join`,{method:'POST',body:JSON.stringify({name:accountName(),loadout:{liveryId:state.loadout.liveryId,effectId:state.loadout.effectId,colorId:state.loadout.colorId,vinylId:state.loadout.vinylId}})});
-      state.server={...server,apiBase:`/api/free/${server.id}`,media:false};
+      renderServers();refreshPlayerLoadout();msg('ПОДКЛЮЧЕНИЕ К '+server.name+'…');
+      const d=await jsonFetch(`/api/free/${encodeURIComponent(server.id)}/join`,{method:'POST',body:JSON.stringify({name:accountName(),loadout:{liveryId:state.loadout.liveryId,effectId:state.loadout.effectId,colorId:state.loadout.colorId,vinylId:state.loadout.vinylId}})});
+      if(!d?.playerId||!d?.sessionToken||!d?.room)throw new Error('INVALID_SESSION_RESPONSE');
+      state.server={...server,apiBase:`/api/free/${encodeURIComponent(server.id)}`,media:false};
       state.playerId=d.playerId;
       state.token=d.sessionToken;
       state.room=d.room;
       connect();
-      browser.classList.add('hidden');
       startRoam();
+      browser.classList.add('hidden');
+      browser.setAttribute('aria-hidden','true');
     }catch(e){
+      if(state.active){try{leave(true);}catch{leave(false);}browser.classList.remove('hidden');browser.setAttribute('aria-hidden','false');$('menu')?.classList.add('hidden');}
       msg(e.code==='SERVER_FULL'?'Сервер заполнен. Выберите другой.':'Не удалось подключиться.',true);
-      loadServers();
+    }finally{
+      serverJoinInProgress=false;
+      if(back)back.disabled=wasBackDisabled||false;if(refresh)refresh.disabled=wasRefreshDisabled||false;
+      if(!browser.classList.contains('hidden'))renderServers();
     }
   }
 
@@ -680,6 +695,7 @@
   }
 
   function startRoam(){
+    window.VelocitySpeedTransition?.play();
     state.active=true;
     toggleChat(false);clearPendingChatMessages();syncChatViewport();
     state.chatUnread=0;
@@ -1115,11 +1131,19 @@
 
   function loop(t){
     if(!state.active)return;
-    const dt=Math.min(.033,Math.max(.001,(t-last)/1000));
-    last=t;
-    update(dt);
-    draw();
-    raf=requestAnimationFrame(loop);
+    try{
+      const dt=Math.min(.033,Math.max(.001,(t-last)/1000));
+      last=t;
+      update(dt);
+      draw();
+      raf=requestAnimationFrame(loop);
+    }catch{
+      clearInputs();state.paused=true;roam.classList.add('paused');cancelAnimationFrame(raf);
+      window.VelocityRuntimeGuard?.show({
+        retry:()=>{state.paused=false;roam.classList.remove('paused');last=performance.now();raf=requestAnimationFrame(loop);},
+        back:()=>leave(true)
+      });
+    }
   }
 
   function clearInputs(){for(const k in input)input[k]=false;}
