@@ -706,12 +706,14 @@ export class Room {
       p.lastSeq=s.seq;p.lastStateAt=t;p.lastSampleTime=sampleTime;p.state={seq:s.seq,x:s.x,y:s.y,vx:s.vx,vy:s.vy,angle:s.angle,speed:s.speed,yawRate:Number.isFinite(s.yawRate)?Math.max(-20,Math.min(20,s.yawRate)):0,sampleTime,serverTime:t};await this.advanceFreeActivities(t);await this.trackOnlineActivity(p,previous,p.state);this.updateDriftMetrics(p,previous,p.state,t);this.updateKothMetrics(p,previous,p.state,t);this.updateMinigameMetrics(p,previous,p.state,t);this.broadcastFreeState(p,t,ws);await this.updateFreeDragFromState(p,previous,p.state,t);return;
     }
     if(m.type==='chat'){
-      const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180);if(!text||t-(p.lastChatAt||0)<700)return;
+      const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180),clientMessageId=typeof m.clientMessageId==='string'&&/^[a-zA-Z0-9_-]{8,80}$/.test(m.clientMessageId)?m.clientMessageId:'';
+      if(!text){if(clientMessageId)this.send(ws,{type:'free_chat_rejected',v:PROTOCOL_VERSION,clientMessageId,reason:'EMPTY',serverTime:t});return;}
+      if(t-(p.lastChatAt||0)<700){if(clientMessageId)this.send(ws,{type:'free_chat_rejected',v:PROTOCOL_VERSION,clientMessageId,reason:'RATE_LIMIT',serverTime:t});return;}
       if(p.userId&&(!p.muteCheckedAt||t-p.muteCheckedAt>10000)){p.muteCheckedAt=t;p.activeMute=await activeMute(this.env,p.userId,t);}
-      if(p.activeMute&&Number(p.activeMute.expiresAt)>t){this.send(ws,{type:'free_chat_blocked',v:PROTOCOL_VERSION,reason:p.activeMute.reason,expiresAt:p.activeMute.expiresAt,serverTime:t});return;}
+      if(p.activeMute&&Number(p.activeMute.expiresAt)>t){this.send(ws,{type:'free_chat_rejected',v:PROTOCOL_VERSION,clientMessageId,reason:'MUTED',expiresAt:p.activeMute.expiresAt,serverTime:t});return;}
       p.activeMute=null;p.lastChatAt=t;const prefix=p.owner?'OWNER':this.logUsername(p).toLowerCase()==='mary'?'QUEEN':p.media?'MEDIA':Number(p.adminLevel)>0?`ADMIN ${Math.max(1,Math.min(8,Math.floor(Number(p.adminLevel))))}`:'';
       try{await writeGameLog(this.env,{category:'chat',eventType:'chat_message',actorUserId:p.userId||null,actorUsername:this.logUsername(p),actorRole:this.logRole(p),targetUserId:p.userId||null,targetUsername:this.logUsername(p),serverId:this.room.serverId||'free',source:'CHAT',subject:'Сообщение чата',message:text,relatedId:p.logSessionId||'',metadata:{prefix,playerId:p.id,level:p.level||0,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),deleted:false},createdAt:t});}catch(e){console.error('chat log',e);}
-      this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,media:!!p.media,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),level:p.level||0,text,serverTime:t});return;
+      this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,media:!!p.media,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),level:p.level||0,text,...(clientMessageId?{clientMessageId}:{}),serverTime:t});return;
     }
     if(m.type==='record'){
       const kind=m.kind,value=Math.floor(Number(m.value)||0),speedRecordLimit=(p.speedLimit||650)*3.6/12;if(!['speed','drift'].includes(kind)||value<=0||value>(kind==='speed'?speedRecordLimit:100000000))return;

@@ -8,7 +8,8 @@ async function join(name,owner=true,cookie=true){const response=await worker.fet
 let r=await join('w1st1r',true,false);assert.equal(r.status,401);assert.equal(r.data.error,'AUTH_REQUIRED');
 identity='other_player';r=await join('w1st1r');assert.equal(r.status,201);assert.equal(r.data.room.players.at(-1).name,'@other_player');assert.equal(r.data.room.players.at(-1).owner,false);
 identity='w1st1r';r=await join('OTHER',false);assert.equal(r.status,201);assert.equal(r.data.room.players.at(-1).name,'@w1st1r');assert.equal(r.data.room.players.at(-1).owner,true);
-const owner=room.room.players.at(-1);const sent=[];sockets.push({send(x){sent.push(JSON.parse(x))}});await room.handleFreeMessage(sockets[0],owner,{type:'chat',text:'hello',owner:false});assert.equal(sent.at(-1).owner,true);
+const owner=room.room.players.at(-1);const sent=[];sockets.push({send(x){sent.push(JSON.parse(x))}});await room.handleFreeMessage(sockets[0],owner,{type:'chat',text:'hello',owner:false,clientMessageId:'chat-accept-01'});assert.equal(sent.at(-1).owner,true);assert.equal(sent.at(-1).clientMessageId,'chat-accept-01');assert.equal(sent.at(-1).text,'hello');
+await room.handleFreeMessage(sockets[0],owner,{type:'chat',text:'too soon',clientMessageId:'chat-reject-02'});assert.equal(sent.at(-1).type,'free_chat_rejected');assert.equal(sent.at(-1).reason,'RATE_LIMIT');assert.equal(sent.at(-1).clientMessageId,'chat-reject-02');
 expired=true;r=await join('w1st1r');assert.equal(r.status,401);assert.equal(r.data.error,'AUTH_REQUIRED');expired=false;
 banned=true;r=await join('w1st1r');assert.equal(r.status,423);
 console.log('free_owner_test: OK — verified account, guest rejection, spoofed role/name, expired session, ban and chat broadcasts');

@@ -33,7 +33,7 @@
   };
   // MOUNTAIN PASS now follows the lakeside spline in free-city.js.
   const CHAT_PREVIEW_LIMIT=4;
-  const SOLO_PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
+  const SOLO_PHYS=R.PLAYER_RACE_PHYSICS||R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
   const FREE_PHYS_TRACK={
     roadWidth:100000,barrierMargin:0,theme:{drag:1},
     nearest(x,y){return{x,y,tx:1,ty:0,nx:0,ny:1,signed:0,index:0,progress:.5};},
@@ -43,7 +43,7 @@
 
   const state={
     active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,reconnectTimer:0,reconnectAttempts:0,intentionalClose:false,
-    room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,dragWager:0,activityPending:false,liveEvent:null,minigame:null,minigameHub:null,minigameReturn:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
+    room:null,remotes:new Map(),chat:[],chatPending:new Map(),drag:null,dragQueued:false,dragWager:0,activityPending:false,liveEvent:null,minigame:null,minigameHub:null,minigameReturn:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
     speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,paused:false,lastFootballTouchAt:0,minigameHudExpanded:false,minigameHudAutoCollapseAt:0,garageOpen:false,garageBusy:false,mediaEvent:null,spectator:false,spectatorTarget:null,mediaHudHidden:false
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
@@ -535,7 +535,15 @@
       if(!r){r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',level:0,liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};state.remotes.set(m.playerId,r);}
       pushRemoteSnapshot(r,m.state,m.serverTime);return;
     }
-    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0,!!m.media,m.playerId);return;}
+    if(m.type==='free_chat'){
+      if(m.playerId===state.playerId&&m.clientMessageId)settleChatMessage(m.clientMessageId,true);
+      addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0,!!m.media,m.playerId);return;
+    }
+    if(m.type==='free_chat_rejected'){
+      if(m.clientMessageId)settleChatMessage(m.clientMessageId,false,m.reason);
+      if(m.reason==='MUTED'){const left=Math.max(0,Number(m.expiresAt||0)-Date.now()),mins=Math.max(1,Math.ceil(left/60000));setBanner(`ЧАТ ЗАБЛОКИРОВАН · ${mins} МИН`,4200);}
+      return;
+    }
     if(m.type==='admin_announcement'){addSystem(`ADMIN ${m.adminLevel||''} @${m.by||'SYSTEM'}: ${m.message||''}`);setBanner(`ОБЪЯВЛЕНИЕ · ${m.message||''}`,5200);return;}
     if(m.type==='admin_events_state'){if(state.room)state.room.eventsDisabled=!!m.disabled;if(m.cleared){state.liveEvent=null;state.minigame=null;state.drag=null;state.dragQueued=false;state.activityPending=false;renderEventHud();renderMinigameHud();updateDragHud(Date.now()+state.serverOffset);}setBanner(m.disabled?'ROOT · ИГРОВЫЕ АКТИВНОСТИ ОТКЛЮЧЕНЫ':'ИГРОВЫЕ АКТИВНОСТИ ВКЛЮЧЕНЫ',4200);return;}
     if(m.type==='admin_kick'){state.lastAdminKickReason=m.reason||'Вы отключены администрацией.';return;}
@@ -673,6 +681,7 @@
 
   function startRoam(){
     state.active=true;
+    toggleChat(false);clearPendingChatMessages();syncChatViewport();
     state.chatUnread=0;
     state.chat.length=0;
     state.driftScore=0;
@@ -699,6 +708,7 @@
   }
   function leave(notify=true){
     state.active=false;state.intentionalClose=true;
+    toggleChat(false);clearPendingChatMessages();syncChatViewport();
     stopClockSync();stopReconnect();if(notify){send({type:'leave',v:1});leaveBeacon();}
     try{state.ws?.close(1000,'leave');}catch{}
     state.ws=null;
@@ -1180,9 +1190,26 @@
     p.classList.toggle('hidden',!show);
     if(show){
       state.chatUnread=0;updateUnreadBadge();
-      setTimeout(()=>$('freeChatInput').focus(),30);
+      setTimeout(()=>{if(p.classList.contains('hidden'))return;$('freeChatInput').focus();syncChatViewport();},30);
     }else $('freeChatInput').blur();
+    syncChatViewport();
   }
+
+  function syncChatViewport(){
+    const panel=$('freeChatPanel'),input=$('freeChatInput'),root=document.documentElement,vv=window.visualViewport;
+    if(!panel||panel.classList.contains('hidden')||document.activeElement!==input){root.style.removeProperty('--free-chat-visible-height');root.style.removeProperty('--free-chat-keyboard-inset');return;}
+    const visibleHeight=Math.max(220,Math.round(vv?.height||innerHeight)),keyboardInset=vv?Math.max(0,Math.round(innerHeight-(vv.height+vv.offsetTop))):0;
+    root.style.setProperty('--free-chat-visible-height',`${visibleHeight}px`);root.style.setProperty('--free-chat-keyboard-inset',`${keyboardInset}px`);
+  }
+  $('freeChatInput').addEventListener('focus',syncChatViewport);$('freeChatInput').addEventListener('blur',syncChatViewport);
+  window.visualViewport?.addEventListener('resize',syncChatViewport);window.visualViewport?.addEventListener('scroll',syncChatViewport);
+
+  function settleChatMessage(id,accepted,reason=''){
+    const pending=state.chatPending.get(id);if(!pending)return;
+    clearTimeout(pending.timer);state.chatPending.delete(id);
+    if(!accepted){const input=$('freeChatInput');if(input&&!input.value.trim())input.value=pending.text;const label=reason==='RATE_LIMIT'?'СЛИШКОМ ЧАСТО · ПОВТОРИТЕ ПОЗЖЕ':'НЕ УДАЛОСЬ ПОДТВЕРДИТЬ ДОСТАВКУ · ПОВТОРИТЕ ОТПРАВКУ';setBanner(label,3200);}
+  }
+  function clearPendingChatMessages(){for(const pending of state.chatPending.values())clearTimeout(pending.timer);state.chatPending.clear();}
 
   function syncMapClear(){const b=$('freeMapClear');if(b)b.disabled=!state.waypoint;}
 
@@ -1204,7 +1231,11 @@
   $('freeChatForm').addEventListener('submit',e=>{
     e.preventDefault();
     const i=$('freeChatInput'),text=i.value.trim();
-    if(text){send({type:'chat',v:1,text});i.value='';}
+    if(text){
+      const clientMessageId=window.crypto?.randomUUID?.()||`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+      if(!send({type:'chat',v:1,text,clientMessageId})){setBanner('НЕТ ПОДКЛЮЧЕНИЯ · СООБЩЕНИЕ НЕ ОТПРАВЛЕНО',3200);return;}
+      i.value='';const timer=setTimeout(()=>settleChatMessage(clientMessageId,false,'TIMEOUT'),7000);state.chatPending.set(clientMessageId,{text,timer});
+    }
   });
   $('freeChatBtn').addEventListener('click',()=>toggleChat());
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));

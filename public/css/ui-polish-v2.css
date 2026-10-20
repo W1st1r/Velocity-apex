@@ -2,7 +2,7 @@
 .overlay:not(.hidden){animation:va-overlay-in .16s ease-out both}
 @keyframes va-overlay-in{from{opacity:0}to{opacity:1}}
 
-.free-chat-panel{height:min(350px,62dvh);max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);background:linear-gradient(160deg,rgba(10,27,47,.96),rgba(4,14,29,.96));border-color:rgba(95,185,236,.2)}
+.free-chat-panel{height:min(350px,62dvh);bottom:calc(20px + var(--safe-b) + var(--free-chat-keyboard-inset,0px))!important;max-height:calc(var(--free-chat-visible-height,100dvh) - var(--safe-t) - var(--safe-b) - 16px)!important;background:linear-gradient(160deg,rgba(10,27,47,.96),rgba(4,14,29,.96));border-color:rgba(95,185,236,.2)}
 .free-chat-log{display:grid;align-content:start;gap:7px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .free-chat-line,.free-chat-preview-line{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;min-width:0;padding:7px 9px;border:1px solid rgba(120,180,220,.09);border-radius:10px;background:rgba(15,40,66,.5)}
 .free-chat-line.mine,.free-chat-preview-line.mine{background:rgba(37,100,143,.19);border-color:rgba(99,193,246,.16)}
