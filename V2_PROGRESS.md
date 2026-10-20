@@ -31,6 +31,8 @@ Known deferred bot issues (not changed in this task):
 - Focus chat input with the iOS keyboard open; verify 16 px text prevents zoom, send button remains tappable, input stays visible above keyboard and safe area.
 - Drive at low speed and near class top speed; compare HUD speed with movement, then verify steering, braking, drift and upgrades in solo/free roam/online.
 - Background and restore the PWA, toggle network/offline state, and confirm saved account/game state and screen state recover.
+- In iPhone Safari and installed PWA, open a verification/reset email link from Mail; confirm the fragment disappears from the address bar, the correct screen opens, a valid link succeeds once, and an expired link offers a new request. Confirm password inputs remain usable with the iOS keyboard and returning to login works.
+- With Resend configured, confirm the verification, reset and password-changed messages arrive in a real mailbox; test unknown email response without revealing account existence. This delivery check has not been performed in the local environment.
 - Check transitions with Reduce Motion enabled and normal animation; record any dropped frames or persistent overlay.
 
 Next development is limited to player physics, UI/chat and versioning. Keep work local until Cloudflare Git integration safety is independently confirmed and the owner authorizes pushing; do not publish 2.0. Bot tuning is explicitly deferred.
