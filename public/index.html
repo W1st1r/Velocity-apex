@@ -16,20 +16,20 @@
   <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png" />
   <link rel="preload" as="image" href="assets/cars/porsche-911.webp" type="image/webp" />
-  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&theme=v66&v69=1&caseResults=20261016-v7632&build=2.0.0-dev" />
-<link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12&theme=v66&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/crews.css?v=20261013-v68&theme=v68&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32&theme=v66&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2&theme=v66&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32&garageNav=20260920-v56&theme=v66&caseHeader=20261016-v7632&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31&theme=v66&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/race-control-v65.css?v=20261016-v741-cars&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/unified-blue-v66.css?v=20261013-v66-1&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/polish-v68.css?v=20261013-v68-1&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/ios-upgrade-v69.css?v=20261015-v73-4&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/v74.css?v=20261016-v74&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/cases-v763.css?v=20261016-v7632&build=2.0.0-dev">
-  <link rel="stylesheet" href="css/ui-polish-v2.css?build=2.0.0-dev">
+  <link rel="stylesheet" href="css/style.css?v=20260920-v49&media=20260920-v51&upgrade=20260920-v52&garageLayout=20260920-v54&pointerLayout=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&theme=v66&v69=1&caseResults=20261016-v7632&build=2.0.0-dev.20261020.2" />
+<link rel="stylesheet" href="css/owner-panel.css?v=ownerlogs12&theme=v66&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/crews.css?v=20261013-v68&theme=v68&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/admin-system.css?v=20260916-admin5&admin=20260918-v32&theme=v66&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/payments.css?v=20260918-yoomoney2&ui=20260918-premium2&theme=v66&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/mobile-ui.css?v=20260917-pause1&donate=20260918-v20&menu=20260918-v25&admin=20260918-v32&garageNav=20260920-v56&theme=v66&caseHeader=20261016-v7632&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/referrals.css?v=20260918-ref-v31&theme=v66&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/race-control-v65.css?v=20261016-v741-cars&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/unified-blue-v66.css?v=20261013-v66-1&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/polish-v68.css?v=20261013-v68-1&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/ios-upgrade-v69.css?v=20261015-v73-4&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/v74.css?v=20261016-v74&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/cases-v763.css?v=20261016-v7632&build=2.0.0-dev.20261020.2">
+  <link rel="stylesheet" href="css/ui-polish-v2.css?build=2.0.0-dev.20261020.2">
 </head>
 <body>
   <div id="app">
@@ -108,6 +108,7 @@
             <div id="authGateMessage" class="account-message" aria-live="polite"></div>
             <button id="authGateSubmit" class="primary-btn" type="submit">ВОЙТИ</button>
           </form>
+          <button id="authGateForgot" class="recovery-link" type="button">ЗАБЫЛИ ПАРОЛЬ?</button>
           <button id="authGateBack" class="auth-gate-back" type="button">← ВЫБОР ПРОФИЛЯ</button>
           <p class="auth-gate-privacy">На устройстве запоминаются только логин и имя профиля. Пароли не сохраняются.</p>
         </div>
@@ -232,6 +233,7 @@
             <div id="accountMessage" class="account-message" aria-live="polite"></div>
             <button id="accountSubmitBtn" class="primary-btn" type="submit">ВОЙТИ</button>
           </form>
+          <button id="accountForgotPassword" class="recovery-link" type="button">ЗАБЫЛИ ПАРОЛЬ?</button>
           <p class="account-note">После регистрации текущий прогресс этого браузера будет привязан к аккаунту. На других устройствах прогресс загрузится из Cloudflare D1.</p>
         </div>
 
@@ -240,9 +242,47 @@
           <div class="account-cloud-state"><span><i></i>СЕССИЯ АКТИВНА</span><strong id="accountSyncStatus">СИНХРОНИЗИРОВАНО</strong></div>
           <div class="account-feature-grid"><div><small>ПРОГРЕСС</small><strong>В ОБЛАКЕ</strong></div><div><small>СЕССИЯ</small><strong>30 ДНЕЙ</strong></div><div><small>УСТРОЙСТВА</small><strong>СИНХРОНИЗАЦИЯ</strong></div></div>
           <p class="account-note">CR, гараж, рекорды и настройки автоматически синхронизируются с аккаунтом. Локальное сохранение остаётся резервной копией для PWA.</p>
+          <form id="accountEmailForm" class="account-email-form" autocomplete="on">
+            <div class="account-email-head"><strong>ВОССТАНОВЛЕНИЕ ДОСТУПА</strong><span id="accountEmailStatus">Почта не подтверждена</span></div>
+            <label class="account-field"><span>EMAIL</span><input id="accountRecoveryEmail" type="email" maxlength="254" autocomplete="email" inputmode="email" placeholder="name@example.com" required /></label>
+            <label class="account-field"><span>ТЕКУЩИЙ ПАРОЛЬ ДЛЯ ПОДТВЕРЖДЕНИЯ</span><input id="accountRecoveryCurrentPassword" type="password" maxlength="128" autocomplete="current-password" required /></label>
+            <div id="accountEmailMessage" class="account-message" aria-live="polite"></div>
+            <button id="accountEmailSubmit" class="secondary-btn" type="submit">ПРИВЯЗАТЬ / ИЗМЕНИТЬ EMAIL</button>
+          </form>
           <div id="accountProfileMessage" class="account-message" aria-live="polite"></div>
           <button id="accountLogoutBtn" class="secondary-btn account-logout" type="button">ВЫЙТИ ИЗ АККАУНТА</button>
         </div>
+      </section>
+    </div>
+
+    <div id="passwordRecovery" class="overlay password-recovery-screen hidden" aria-hidden="true">
+      <section class="password-recovery-card glass" role="dialog" aria-modal="true" aria-labelledby="passwordRecoveryTitle">
+        <header class="account-header"><div><div class="eyebrow">VELOCITY APEX / ACCOUNT SECURITY</div><h2 id="passwordRecoveryTitle">ВОССТАНОВЛЕНИЕ ДОСТУПА</h2></div><button id="passwordRecoveryClose" class="account-close" type="button" aria-label="Закрыть">×</button></header>
+        <div id="passwordRecoveryRequestView">
+          <p class="account-note">Введите подтверждённый email аккаунта. Если адрес привязан, мы отправим одноразовую ссылку.</p>
+          <form id="passwordRecoveryRequestForm" class="account-form recovery-form" autocomplete="on">
+            <label class="account-field"><span>EMAIL АККАУНТА</span><input id="passwordRecoveryEmail" type="email" maxlength="254" autocomplete="email" inputmode="email" required placeholder="name@example.com" /></label>
+            <div id="passwordRecoveryRequestMessage" class="account-message" aria-live="polite"></div>
+            <button id="passwordRecoveryRequestSubmit" class="primary-btn" type="submit">ВОССТАНОВИТЬ ДОСТУП</button>
+          </form>
+        </div>
+        <div id="passwordRecoveryResetView" class="hidden">
+          <p class="account-note">Создайте новый пароль: минимум 10 символов, буквы и цифры. Ссылка действует 20 минут и используется один раз.</p>
+          <form id="passwordRecoveryResetForm" class="account-form recovery-form" autocomplete="on">
+            <label class="account-field"><span>НОВЫЙ ПАРОЛЬ</span><input id="passwordRecoveryNewPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required /></label>
+            <label class="account-field"><span>ПОВТОРИТЕ ПАРОЛЬ</span><input id="passwordRecoveryConfirmPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required /></label>
+            <div id="passwordRecoveryResetMessage" class="account-message" aria-live="polite"></div>
+            <button id="passwordRecoveryResetSubmit" class="primary-btn" type="submit">СОХРАНИТЬ НОВЫЙ ПАРОЛЬ</button>
+            <button id="passwordRecoveryRequestAnother" class="secondary-btn hidden" type="button">ЗАПРОСИТЬ НОВУЮ ССЫЛКУ</button>
+            <button id="passwordRecoveryReturn" class="secondary-btn hidden" type="button">ПЕРЕЙТИ КО ВХОДУ</button>
+          </form>
+        </div>
+        <div id="passwordRecoveryVerifyView" class="hidden">
+          <p id="passwordRecoveryVerifyCopy" class="account-note">Подтвердите email для защиты аккаунта.</p>
+          <div id="passwordRecoveryVerifyMessage" class="account-message" aria-live="polite"></div>
+          <button id="passwordRecoveryVerifySubmit" class="primary-btn" type="button">ПОДТВЕРДИТЬ EMAIL</button>
+        </div>
+        <p class="account-note recovery-support-note">Если доступ к подтверждённой почте потерян, восстановление по одному нику недоступно — обратитесь в поддержку для ручной проверки владения аккаунтом.</p>
       </section>
     </div>
 
@@ -1281,31 +1321,31 @@
     </div>
   </div>
 
-  <script src="js/content.js?v=20261016-v77&career=20260919-v38&build=2.0.0-dev"></script>
-  <script src="js/racing-line.js?v=20260915-owner1&build=2.0.0-dev"></script>
-  <script src="js/track.js?v=20261016-v77-race1&build=2.0.0-dev"></script>
-  <script src="js/audio.js?v=20260915-owner1&build=2.0.0-dev"></script>
-  <script src="js/car.js?v=20261013-v67&build=2.0.0-dev"></script>
-  <script src="js/ai.js?v=20261017-ai-cal-v77&build=2.0.0-dev"></script>
-  <script src="js/garage.js?v=20261016-v77-economy1&authority=20261016-race2&upgrade=20261014-v69&layout=20260920-v54&pointer=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&build=2.0.0-dev"></script>
-  <script src="js/root-console.js?authority=20261016-race2&v=ownerlogs12&build=2.0.0-dev"></script>
-  <script src="js/control-layout.js?v=20260918-v29&build=2.0.0-dev"></script>
-  <script src="js/controls.js?v=20260915-owner1&build=2.0.0-dev"></script>
-  <script src="js/network.js?v=20260920-media-v51&build=2.0.0-dev"></script>
-  <script src="js/account.js?v=20261016-v77-authority3&ref=v31&guest=v44&build=2.0.0-dev"></script>
-  <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32&build=2.0.0-dev"></script>
-  <script src="js/main-menu-ui.js?v=20261015-v73-2&build=2.0.0-dev"></script>
-  <script src="js/payments.js?v=20260921-v63&menu=20260918-v20&build=2.0.0-dev"></script>
-  <script src="js/market.js?authority=20261016-v77-atomic1&v=20261016-v74&build=2.0.0-dev"></script>
-  <script src="js/promo.js?v=20260915-001&build=2.0.0-dev"></script>
-  <script src="js/referrals.js?v=20260918-ref-v31&authority=v77-atomic&build=2.0.0-dev"></script>
-  <script src="js/online.js?v=20260920-media-v51&authority=20261016-v77-online1&build=2.0.0-dev"></script>
-  <script src="js/friends.js?v=20260916-crews1&build=2.0.0-dev"></script>
-  <script src="js/free-city.js?v=20261016-v77&build=2.0.0-dev"></script>
-  <script src="js/freeroam.js?v=20261016-v77&authority=20261016-v77-authority2&media=20260920-v50&football=20260920-v61&build=2.0.0-dev"></script>
-  <script src="js/owner-panel.js?v=20260917-admin-daily2&media=20260920-v50&upgrade=20260920-v52&build=2.0.0-dev"></script>
-  <script src="js/crews.js?v=20260917-economy13&v68=1&build=2.0.0-dev"></script>
-  <script src="js/game.js?v=20261016-v77-authority2&build=2.0.0-dev"></script>
-  <script type="module" src="js/app-version.mjs?build=2.0.0-dev"></script>
+  <script src="js/content.js?v=20261016-v77&career=20260919-v38&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/racing-line.js?v=20260915-owner1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/track.js?v=20261016-v77-race1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/audio.js?v=20260915-owner1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/car.js?v=20261013-v67&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/ai.js?v=20261017-ai-cal-v77&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/garage.js?v=20261016-v77-economy1&authority=20261016-race2&upgrade=20261014-v69&layout=20260920-v54&pointer=20261013-v65&garageNav=20260920-v56&confirm=20260920-v57&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/root-console.js?authority=20261016-race2&v=ownerlogs12&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/control-layout.js?v=20260918-v29&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/controls.js?v=20260915-owner1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/network.js?v=20260920-media-v51&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/account.js?v=20261016-v77-authority3&ref=v31&guest=v44&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/admin-system.js?v=20260917-admin-daily2&admin=20260918-v32&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/main-menu-ui.js?v=20261015-v73-2&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/payments.js?v=20260921-v63&menu=20260918-v20&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/market.js?authority=20261016-v77-atomic1&v=20261016-v74&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/promo.js?v=20260915-001&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/referrals.js?v=20260918-ref-v31&authority=v77-atomic&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/online.js?v=20260920-media-v51&authority=20261016-v77-online1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/friends.js?v=20260916-crews1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/free-city.js?v=20261016-v77&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/freeroam.js?v=20261016-v77&authority=20261016-v77-authority2&media=20260920-v50&football=20260920-v61&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/owner-panel.js?v=20260917-admin-daily2&media=20260920-v50&upgrade=20260920-v52&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/crews.js?v=20260917-economy13&v68=1&build=2.0.0-dev.20261020.2"></script>
+  <script src="js/game.js?v=20261016-v77-authority2&build=2.0.0-dev.20261020.2"></script>
+  <script type="module" src="js/app-version.mjs?build=2.0.0-dev.20261020.2"></script>
 </body>
 </html>

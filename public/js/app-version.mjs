@@ -8,7 +8,10 @@ export async function loadAppVersion(fetcher=fetch,doc=document){
     const manifest=await response.json();
     const selected=manifest.channel==='development'?manifest.developmentVersion:manifest.version;
     const version=typeof selected==='string'&&versionPattern.test(selected)?selected:fallback;
+    const resourceVersion=typeof manifest.resourceVersion==='string'&&versionPattern.test(manifest.resourceVersion)?manifest.resourceVersion:version;
+    const protocolVersion=Number.isInteger(manifest.protocolVersion)&&manifest.protocolVersion>0?manifest.protocolVersion:1;
     const meta=doc.querySelector('meta[name="velocity-apex-version"]');if(meta)meta.content=version;
+    if(doc.documentElement){doc.documentElement.dataset.appVersion=version;doc.documentElement.dataset.resourceVersion=resourceVersion;doc.documentElement.dataset.protocolVersion=String(protocolVersion);}
     doc.title=`Velocity Apex · ${version}`;
     doc.querySelectorAll('[data-app-version]').forEach(node=>{node.textContent=version;});
     return version;

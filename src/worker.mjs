@@ -99,7 +99,7 @@ const angleDelta=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<
 
 export default {
   async scheduled(event,env,ctx){ctx.waitUntil(settleCrews(env));},
-  async fetch(request,env){
+  async fetch(request,env,executionCtx){
     const url=new URL(request.url);
     const owner=await ownerRequest(request,env,url);if(owner)return owner;
     const adminSystem=await handleAdminSystemRequest(request,env,url);if(adminSystem)return adminSystem;
@@ -136,7 +136,7 @@ export default {
       if(fm[2]==='leave'&&request.method==='POST')return stub.fetch(new Request('https://room.internal/free/leave?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{method:'POST'}));
     }
     const crewResponse=await handleCrewRequest(request,env,url);if(crewResponse)return crewResponse;
-    const authResponse=await handleAuthRequest(request,env,url);if(authResponse)return authResponse;
+    const authResponse=await handleAuthRequest(request,env,url,executionCtx);if(authResponse)return authResponse;
     const marketResponse=await handleMarketRequest(request,env,url);if(marketResponse)return marketResponse;
     if(url.pathname==='/api/rooms/create'&&request.method==='POST'){
       let body;try{body=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
