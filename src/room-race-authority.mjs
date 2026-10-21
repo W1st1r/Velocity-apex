@@ -28,6 +28,15 @@ export async function settleRoomWorld(room){
  const a=room.room.raceAuthority,e=roomEngine(room),world=e.world;
  for(const id of world.finishOrder){
   if(a.settledPlayers[id])continue;const identity=a.identities[id],p=room.room.players.find(p=>p.id===id),result=world.results[id];if(!identity?.userId||!result)throw Error('RACE_IDENTITY_MISSING');
+  // Clan orchestration is being introduced without economics/territory settlement.
+  // Preserve the server-confirmed finish in the DO, but do not run online rewards,
+  // wager settlement, profile progression, or ordinary online leaderboard writes.
+  if(room.room.mode==='clan_war'){
+   const confirmed={...result,credits:0,exp:0,clanMatchOnly:true};a.settledPlayers[id]=confirmed;
+   if(p){p.finishPlace=result.place;p.finishTime=result.timeMs;p.serverLaps=a.config.laps;p.state={...world.summary().cars.find(c=>c.id===id),finished:true,serverTime:Date.now()};}
+   room.room.finishOrder=world.finishOrder.filter(playerId=>a.settledPlayers[playerId]);await saveRoomWorld(room);
+   room.broadcast({type:'race_finish',v:PROTOCOL_VERSION,raceId:room.room.raceId,playerId:id,finishPlace:result.place,finishTime:result.timeMs,reward:null,room:room.publicRoom(),serverTime:Date.now()});continue;
+  }
   if(result.place===1&&room.room.settlement?.status==='locked'){
    const paid=await settleRoomWager(room.env.DB,{raceId:room.room.raceId,winnerUserId:identity.userId});if(!paid.ok)throw Error(paid.code);
    Object.assign(room.room.settlement,{status:'awarded',winnerId:id,awardedAt:Date.now()});
