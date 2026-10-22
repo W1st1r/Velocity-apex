@@ -98,9 +98,9 @@ async function exerciseSmoke(){
   const server=createServer(async(req,res)=>{
     const route=new URL(req.url,'http://localhost').pathname,cookie=req.headers.cookie||'';
     const send=(status,body,headers={})=>{res.writeHead(status,{'content-type':'application/json',...headers});res.end(JSON.stringify(body));};
-    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="2.0.1">');return;}
-    if(route==='/version.json')return send(200,{version:'2.0.1',channel:'production'});
-    if(route==='/api/health')return send(200,{ok:true,protocol:77,version:'2.0.1'});
+    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="2.0.2">');return;}
+    if(route==='/version.json')return send(200,{version:'2.0.2',channel:'production'});
+    if(route==='/api/health')return send(200,{ok:true,protocol:77,version:'2.0.2'});
     if(route==='/api/account/save'&&req.method==='GET')return cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/economy/races/start')return send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/auth/login'&&req.method==='POST'){
@@ -140,9 +140,9 @@ function encrypt(input,output){const iv=randomBytes(12),cipher=createCipheriv('a
 function decrypt(input,output){const envelope=JSON.parse(readFileSync(input,'utf8'));assert.equal(envelope.version,1);assert.equal(envelope.algorithm,'aes-256-gcm');const decipher=createDecipheriv('aes-256-gcm',key(),Buffer.from(envelope.iv,'base64'));decipher.setAuthTag(Buffer.from(envelope.tag,'base64'));writeFileSync(output,Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext,'base64')),decipher.final()]),{mode:0o600});}
 async function smoke(base){
   const origin=String(base||'https://velocity-apex.maximmanzha20.workers.dev').replace(/\/$/,'');
-  const home=await fetch(origin+'/');assert.equal(home.status,200,'homepage unavailable');const html=await home.text();assert.ok(html.includes('name="velocity-apex-version" content="2.0.1"'),'deployed HTML does not identify V2.0.1');
-  const versionResponse=await fetch(origin+'/version.json',{cache:'no-store'});assert.equal(versionResponse.status,200);const releaseVersion=await versionResponse.json();assert.equal(releaseVersion.version,'2.0.1');assert.equal(releaseVersion.channel,'production');
-  const health=await fetch(origin+'/api/health');assert.equal(health.status,200,'health endpoint unavailable');const data=await health.json();assert.equal(data.ok,true,'health endpoint did not return ok');assert.equal(data.version,'2.0.1','Worker version mismatch');
+  const home=await fetch(origin+'/');assert.equal(home.status,200,'homepage unavailable');const html=await home.text();assert.ok(html.includes('name="velocity-apex-version" content="2.0.2"'),'deployed HTML does not identify V2.0.2');
+  const versionResponse=await fetch(origin+'/version.json',{cache:'no-store'});assert.equal(versionResponse.status,200);const releaseVersion=await versionResponse.json();assert.equal(releaseVersion.version,'2.0.2');assert.equal(releaseVersion.channel,'production');
+  const health=await fetch(origin+'/api/health');assert.equal(health.status,200,'health endpoint unavailable');const data=await health.json();assert.equal(data.ok,true,'health endpoint did not return ok');assert.equal(data.version,'2.0.2','Worker version mismatch');
   const save=await fetch(origin+'/api/account/save');assert.equal(save.status,401,'account save endpoint did not enforce authentication');
   const race=await fetch(origin+'/api/economy/races/start',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(race.status,401,'authoritative race start endpoint did not enforce authentication');
   const username=process.env.V77_SMOKE_USERNAME,password=process.env.V77_SMOKE_PASSWORD;assert.ok(username&&password,'release smoke test account secrets are required');
@@ -151,7 +151,7 @@ async function smoke(base){
   try{
     const loaded=await fetch(origin+'/api/account/save',{headers:{cookie}});assert.equal(loaded.status,200,'authenticated save load failed');const saveBody=await loaded.json();assert.equal(saveBody.ok,true,'save load response was not successful');assert.ok(saveBody.save&&typeof saveBody.save==='object','save payload missing');assert.ok(Number.isInteger(saveBody.revision)&&saveBody.revision>0,'save revision missing');
   }finally{await fetch(origin+'/api/auth/logout',{method:'POST',headers:{origin,cookie,'content-type':'application/json'},body:'{}'});}
-  console.log(`V2.0.1 smoke passed: ${origin}, health protocol ${data.protocol}, authenticated login/save and unauthenticated access gates`);
+  console.log(`V2.0.2 smoke passed: ${origin}, health protocol ${data.protocol}, authenticated login/save and unauthenticated access gates`);
 }
 const [mode,...args]=process.argv.slice(2);
 if(mode==='simulate')await simulate();

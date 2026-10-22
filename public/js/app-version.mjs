@@ -1,4 +1,4 @@
-const fallback='2.0.1';
+const fallback='2.0.2';
 const versionPattern=/^(?:V\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:-[a-z\d.-]+)?)$/i;
 
 export async function loadAppVersion(fetcher=fetch,doc=document){

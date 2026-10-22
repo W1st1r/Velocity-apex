@@ -568,6 +568,8 @@
       if(Number.isFinite(Number(owner.turnRate)))result.turnRate=Number(owner.turnRate);
       if(Number.isFinite(Number(owner.drift)))result.drift=Number(owner.drift);
     }
+    // Apex Dynamic: metric player stats only; legacy AI catalogue and economy stay unchanged.
+    result.accel*=1.17;result.brakePower*=1.22;result.turnRate*=1.22;
     result.maxSpeed=Math.min(300,result.maxSpeed);
     return result;
   };
