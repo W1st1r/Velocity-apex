@@ -64,7 +64,7 @@ function verifySeed(db){
 }
 async function simulate(){
   const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
-  const files=migrationFiles();assert.equal(files.length,21,'expected the checked-in migration set');
+  const files=migrationFiles();assert.deepEqual(files.map(x=>Number(x.slice(0,4))),Array.from({length:32},(_,i)=>i+1),'expected contiguous checked-in migrations 0001-0032');
   db.exec('CREATE TABLE d1_migrations(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
   for(const file of files.filter(x=>Number(x.slice(0,4))<=14)){applySqlFile(db,file);recordMigration(db,file);}
   seedBeforeV77(db);
@@ -82,13 +82,16 @@ async function simulate(){
     restored.prepare('INSERT INTO race_sessions(id,user_id,start_request_id,start_hash,runtime_version,config_json,car_save_json,seed,state_json,created_at,starts_at,expires_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run('race-pending-a','player-a','start-a','hash','v77','{}','{}',11,'{}',t,t,t+60000,t);
     const preserve=()=>({save:restored.prepare("SELECT save_json,revision FROM player_saves WHERE user_id='player-a'").get(),exp:restored.prepare("SELECT total_exp FROM player_progress WHERE user_id='player-a'").get().total_exp,payment:restored.prepare("SELECT status,credits FROM payment_orders WHERE id='payment-pending-a'").get(),market:restored.prepare("SELECT status,price FROM market_buy_orders WHERE id='market-pending-a'").get(),wager:restored.prepare("SELECT status,stake,lock_token FROM room_wager_escrows WHERE race_id='wager-pending-a'").get(),race:restored.prepare("SELECT status,sequence FROM race_sessions WHERE id='race-pending-a'").get()});
     const before=preserve();
-    for(const file of files.filter(x=>Number(x.slice(0,4))>=18))applySqlFile(restored,file);
+    // The original V77 retry check covers migrations 0018-0021. Later additive
+    // migrations can contain one-time ALTER TABLE statements, so verify their
+    // first application above and reserve replay checks for their own fixtures.
+    for(const file of files.filter(x=>Number(x.slice(0,4))>=18&&Number(x.slice(0,4))<=21))applySqlFile(restored,file);
     assert.deepEqual(preserve(),before,'migration retry changed player or pending transaction state');
     const sql=dump(restored);const copy=dbFromSql(sql);assert.deepEqual(snapshot(copy).counts,snapshot(restored).counts,'SQL backup restore changed table counts');
     assert.deepEqual(copy.prepare("SELECT save_json FROM player_saves WHERE user_id='player-a'").get(),restored.prepare("SELECT save_json FROM player_saves WHERE user_id='player-a'").get());
     assert.equal(copy.prepare("SELECT status FROM room_wager_escrows WHERE race_id='wager-pending-a'").get().status,'locked');
     const sqlPath=path.join(dir,'backup.sql'),afterManifest=path.join(dir,'after.json'),encrypted=path.join(dir,'backup.enc'),decrypted=path.join(dir,'roundtrip.sql');writeFileSync(sqlPath,sql);snapshotSql(sqlPath,afterManifest,'after');verifySql(beforeManifest,sqlPath);process.env.D1_BACKUP_ENCRYPTION_KEY=randomBytes(32).toString('hex');encrypt(sqlPath,encrypted);decrypt(encrypted,decrypted);assert.equal(readFileSync(decrypted,'utf8'),sql,'encrypted backup roundtrip failed');
-    copy.close();restored.close();await exerciseSmoke();console.log('d1-release-safety: fixture backup/restore, migrations 15-21, retry idempotency and account/CR/progress/pending payment-market-race-wager preservation passed');
+    copy.close();restored.close();await exerciseSmoke();console.log('d1-release-safety: fixture backup/restore, migrations 15-32, V77 retry idempotency and account/CR/progress/pending payment-market-race-wager preservation passed');
   }finally{rmSync(dir,{recursive:true,force:true});}
 }
 async function exerciseSmoke(){
