@@ -98,6 +98,7 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Existing local Cron in `wrangler.jsonc` is hourly (`0 * * * *`). The configuration was inspected but not edited. No Cloudflare connection, production D1 operation, push, merge, deployment, PR #17 edit, or bot change was performed.
 - Checks passed: `clan_district_income_v2_test.mjs` (in-memory SQLite, rates/pro-rata, parallel retry, replay, ownership handoff, persisted state, repeated migration); `clan_wars_orchestration_v2_test.mjs`; `online_room_test.mjs` including wager payout/refund/recovery/serialization; `account_auth_smoke.js`; `physics_units_v2_test.mjs`; `npm run test:v2:bug-ghosts`; `presence_timeout_test.mjs`; JS syntax checks and `git diff --check`.
 - Limits: `01a00c26…` original treasury code is absent, and this income stage is a new implementation rather than a recovery. Clan contribution/capacity UI, multi-round war results and finalization, territory capture wiring and map coordinates, clan tasks/seasons, and complete mobile UI remain unfinished. No physical iPhone/Safari QA has been done. Validate map seed coordinates against the actual Apex Bay rendering before shipping.
+- Follow-up district fixture check passed after balancing the eight seeded rows to exactly four standard, three prestige, and one elite income tier. The combined `npm run test:clan-wars:v2` now passes all district, income, orchestration, online room, and wager recovery cases.
 
 ## Clan war orchestration slice — 2026-10-21
 

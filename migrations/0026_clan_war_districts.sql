@@ -32,5 +32,5 @@ INSERT OR IGNORE INTO clan_war_districts(id,name,tier,daily_income,map_x,map_y,u
  ('south-industrial','South Industrial','STANDARD',3000,2560,1510,0),
  ('apex-heights','Apex Heights','PRESTIGE',6000,1110,1740,0),
  ('coastal-ridge','Coastal Ridge','PRESTIGE',6000,1820,2110,0),
- ('grand-avenue','Grand Avenue','PRESTIGE',6000,2530,920,0),
+ ('grand-avenue','Grand Avenue','STANDARD',3000,2530,920,0),
  ('apex-center','Apex Center','ELITE',10000,1910,1290,0);
