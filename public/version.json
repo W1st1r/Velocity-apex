@@ -2,15 +2,22 @@
   "app": "Velocity Apex",
   "version": "V77",
   "developmentVersion": "2.0.0-dev",
-  "resourceVersion": "2.0.0-dev.20261020.3",
+  "resourceVersion": "2.0.0-dev.20261022.1",
   "protocolVersion": 1,
   "channel": "development",
   "theme": "Race Control Blue",
-  "update": "Freeroam minigame activation geometry, Extreme traffic safety, race reward economy",
+  "update": "Server-owned clan treasury, capacity and district income",
   "released": "2026-10-16",
   "release": "Minigame venue and server activation rings aligned; Extreme AI traffic clearances calibrated; race payout/hour kept in balance",
   "history": [
-    {"version":"V77","status":"published"},
-    {"version":"2.0.0-dev","status":"development","summary":"Physics units, handling, chat, account recovery and interface work in progress"}
+    {
+      "version": "V77",
+      "status": "published"
+    },
+    {
+      "version": "2.0.0-dev",
+      "status": "development",
+      "summary": "Physics units, handling, chat, account recovery and interface work in progress"
+    }
   ]
 }

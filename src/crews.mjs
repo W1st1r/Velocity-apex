@@ -42,13 +42,15 @@ const COLORS=['#a9ff5a','#66c7ff','#ff63ba','#ffc85a','#b891ff','#ff6868'];
 const validPrivacy=v=>v==='private'?'private':'public';
 async function overview(env,uid,search=''){
  const w=weekStart(),mine=await crewIdentity(env,uid);
- const ranking=await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,(SELECT COUNT(*) FROM crew_members m WHERE m.crew_id=c.id) members,(SELECT u.username FROM users u WHERE u.id=c.leader_id) leaderUsername,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE (?='' OR instr(lower(c.name),lower(?))>0 OR instr(lower(c.tag),lower(?))>0) ORDER BY rep DESC,c.id LIMIT 100`).bind(w,search,search,search).all();
+ const ranking=await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,COALESCE((SELECT capacity FROM crew_capacities WHERE crew_id=c.id),20) capacity,(SELECT COUNT(*) FROM crew_members m WHERE m.crew_id=c.id) members,(SELECT u.username FROM users u WHERE u.id=c.leader_id) leaderUsername,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE (?='' OR instr(lower(c.name),lower(?))>0 OR instr(lower(c.tag),lower(?))>0) ORDER BY rep DESC,c.id LIMIT 100`).bind(w,search,search,search).all();
  const members=mine?await env.DB.prepare(`SELECT u.id,u.username,m.joined_at,COALESCE((SELECT SUM(points) FROM street_rep WHERE user_id=u.id AND crew_id=m.crew_id AND week=? AND created_at>=m.joined_at),0) rep FROM crew_members m JOIN users u ON u.id=m.user_id WHERE m.crew_id=? ORDER BY m.joined_at,u.username`).bind(w,mine.id).all():{results:[]};
- const crew=mine?await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE id=?`).bind(w,mine.id).first():null;
+ const crew=mine?await env.DB.prepare(`SELECT c.*,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,COALESCE((SELECT capacity FROM crew_capacities WHERE crew_id=c.id),20) capacity,COALESCE((SELECT balance FROM crew_treasuries WHERE crew_id=c.id),0) treasuryBalance,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id AND week=?),0) rep,COALESCE((SELECT SUM(points) FROM street_rep WHERE crew_id=c.id),0) totalRep FROM crews c WHERE id=?`).bind(w,mine.id).first():null;
+ const treasury=mine?await env.DB.prepare('SELECT id,kind,amount,idempotency_key,metadata_json,created_at FROM crew_treasury_ledger WHERE crew_id=? ORDER BY created_at DESC LIMIT 20').bind(mine.id).all():{results:[]};
+ const districtIncome=mine?await getClanDistrictIncome(env,mine.id):null;
  const requests=crew&&crew.leader_id===uid?await env.DB.prepare(`SELECT r.user_id id,u.username,r.created_at FROM crew_join_requests r JOIN users u ON u.id=r.user_id WHERE r.crew_id=? AND NOT EXISTS(SELECT 1 FROM crew_members m WHERE m.user_id=r.user_id) ORDER BY r.created_at`).bind(crew.id).all():{results:[]};
  const pending=await env.DB.prepare('SELECT crew_id FROM crew_join_requests WHERE user_id=? ORDER BY created_at DESC LIMIT 100').bind(uid).all();
  const history=await env.DB.prepare('SELECT * FROM crew_payouts WHERE user_id=? AND paid=1 ORDER BY week DESC LIMIT 8').bind(uid).all();
- return {ok:true,crew,members:members.results,requests:requests.results,pendingCrewIds:pending.results.map(x=>x.crew_id),ranking:ranking.results,history:history.results,search,weekEnd:w+WEEK,cost:COST,emblems:EMBLEMS,colors:COLORS,userId:uid};
+ return {ok:true,crew,members:members.results,requests:requests.results,pendingCrewIds:pending.results.map(x=>x.crew_id),ranking:ranking.results,history:history.results,treasury:treasury.results,districtIncome,search,weekEnd:w+WEEK,cost:COST,emblems:EMBLEMS,colors:COLORS,userId:uid};
 }
 export async function handleCrewRequest(request,env,url){
  const path=url.pathname;if(!/^\/api\/(crews|player-profile|reports)(\/|$)/.test(path))return null;
@@ -86,12 +88,41 @@ export async function handleCrewRequest(request,env,url){
    const mine=await crewIdentity(env,uid);if(!mine)return json({error:'NO_CREW'},400);
    return json({ok:true,...await getClanDistrictIncome(env,mine.id,t)});
   }
+  if(path==='/api/crews/treasury/contribute'&&request.method==='POST'){
+   const b=await request.json(),amount=Math.floor(Number(b.amount)),key=String(b.idempotencyKey||'').slice(0,100);
+   if(!Number.isSafeInteger(amount)||amount<1||amount>1_000_000_000||!/^[A-Za-z0-9._:-]{8,100}$/.test(key))return json({error:'INVALID_CONTRIBUTION'},400);
+   const mine=await crewIdentity(env,uid);if(!mine)return json({error:'NO_CREW'},400);
+   const id=crypto.randomUUID(),meta=JSON.stringify({source:'member_contribution'});
+   const result=await env.DB.batch([
+    env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',json_extract(save_json,'$.credits')-?),revision=revision+1,updated_at=? WHERE user_id=? AND CAST(json_extract(save_json,'$.credits') AS INTEGER)>=? AND EXISTS(SELECT 1 FROM crew_members WHERE user_id=? AND crew_id=?) AND NOT EXISTS(SELECT 1 FROM crew_treasury_ledger WHERE idempotency_key=?)`).bind(amount,t,uid,amount,uid,mine.id,`contribution:${uid}:${key}`),
+    env.DB.prepare('INSERT OR IGNORE INTO crew_treasuries(crew_id,balance,updated_at) SELECT ?,0,? WHERE (SELECT changes())>0').bind(mine.id,t),
+    env.DB.prepare(`INSERT OR IGNORE INTO crew_treasury_ledger(id,crew_id,actor_user_id,kind,amount,idempotency_key,metadata_json,created_at) SELECT ?,?,?, 'CONTRIBUTION',?,?,?,? WHERE (SELECT changes())>0`).bind(id,mine.id,uid,amount,`contribution:${uid}:${key}`,meta,t),
+    env.DB.prepare('UPDATE crew_treasuries SET balance=balance+?,updated_at=? WHERE crew_id=? AND (SELECT changes())>0').bind(amount,t,mine.id)
+   ]);
+   if(!result?.[2]?.meta?.changes){const prior=await env.DB.prepare('SELECT amount FROM crew_treasury_ledger WHERE idempotency_key=?').bind(`contribution:${uid}:${key}`).first();if(prior)return json({ok:true,replay:true,amount:prior.amount,treasuryBalance:(await env.DB.prepare('SELECT balance FROM crew_treasuries WHERE crew_id=?').bind(mine.id).first())?.balance||0});return json({error:'INSUFFICIENT_CR'},409);}
+   const balance=await env.DB.prepare('SELECT balance FROM crew_treasuries WHERE crew_id=?').bind(mine.id).first();return json({ok:true,amount,treasuryBalance:balance?.balance||0});
+  }
+  if(path==='/api/crews/treasury/expand'&&request.method==='POST'){
+   const b=await request.json(),key=String(b.idempotencyKey||'').slice(0,100);if(!/^[A-Za-z0-9._:-]{8,100}$/.test(key))return json({error:'INVALID_IDEMPOTENCY_KEY'},400);
+   const mine=await crewIdentity(env,uid);if(!mine)return json({error:'NO_CREW'},400);
+   const c=await env.DB.prepare('SELECT c.leader_id,COALESCE((SELECT capacity FROM crew_capacities WHERE crew_id=c.id),20) capacity FROM crews c WHERE c.id=?').bind(mine.id).first();if(c?.leader_id!==uid)return json({error:'LEADER_REQUIRED'},403);
+   const prices={15:20000,20:40000,25:60000,30:80000,35:100000,40:120000,45:140000},cost=prices[Number(c.capacity)];if(!cost)return json({error:'CAPACITY_MAX'},409);
+   const ledgerKey=`capacity:${mine.id}:${key}`,id=crypto.randomUUID();
+   const result=await env.DB.batch([
+    env.DB.prepare('UPDATE crew_treasuries SET balance=balance-?,updated_at=? WHERE crew_id=? AND balance>=? AND EXISTS(SELECT 1 FROM crew_capacities WHERE crew_id=? AND capacity=?) AND NOT EXISTS(SELECT 1 FROM crew_treasury_ledger WHERE idempotency_key=?)').bind(cost,t,mine.id,cost,mine.id,c.capacity,ledgerKey),
+    env.DB.prepare(`INSERT OR IGNORE INTO crew_treasury_ledger(id,crew_id,actor_user_id,kind,amount,idempotency_key,metadata_json,created_at) SELECT ?,?,?, 'SEAT_PURCHASE',?,?,?,? WHERE (SELECT changes())>0`).bind(id,mine.id,uid,-cost,ledgerKey,JSON.stringify({from:Number(c.capacity),to:Number(c.capacity)+5}),t),
+    env.DB.prepare('UPDATE crew_capacities SET capacity=capacity+5,updated_at=? WHERE crew_id=? AND capacity=? AND (SELECT changes())>0').bind(t,mine.id,c.capacity)
+   ]);
+   if(!result?.[1]?.meta?.changes){const prior=await env.DB.prepare('SELECT amount FROM crew_treasury_ledger WHERE idempotency_key=?').bind(ledgerKey).first();if(prior)return json({ok:true,replay:true,cost:-prior.amount,capacity:Number(c.capacity)});const treasury=await env.DB.prepare('SELECT balance FROM crew_treasuries WHERE crew_id=?').bind(mine.id).first();return treasury?.balance<cost?json({error:'TREASURY_INSUFFICIENT',cost},409):json({error:'CAPACITY_CHANGED'},409);}
+   return json({ok:true,cost,capacity:Number(c.capacity)+5});
+  }
   if(request.method!=='POST')return json({error:'NOT_FOUND'},404);
   await settleCrews(env,t);const b=await request.json();
   if(path==='/api/crews/create'){
    const name=String(b.name||'').trim(),tag=String(b.tag||'').trim().toUpperCase(),privacy=validPrivacy(b.privacy);if(!/^[\p{L}\p{N} _-]{3,24}$/u.test(name)||!/^[A-Z0-9]{3,5}$/.test(tag)||!EMBLEMS.includes(b.emblem)||!COLORS.includes(b.color))return json({error:'INVALID_CREW'},400);
    const id=crypto.randomUUID();await env.DB.batch([
     env.DB.prepare(`INSERT INTO crews(id,name,tag,emblem,color,leader_id,created_at) SELECT ?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=?) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=? AND until_at>?) AND EXISTS(SELECT 1 FROM player_saves WHERE user_id=? AND json_extract(save_json,'$.credits')>=?)`).bind(id,name,tag,b.emblem,b.color,uid,t,uid,uid,t,uid,COST),
+    env.DB.prepare('INSERT INTO crew_capacities(crew_id,capacity,updated_at) SELECT id,15,? FROM crews WHERE id=?').bind(t,id),
     env.DB.prepare('INSERT INTO crew_settings(crew_id,privacy,updated_at) SELECT id,?,? FROM crews WHERE id=?').bind(privacy,t,id),
     env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',json_extract(save_json,'$.credits')-?),revision=revision+1,updated_at=? WHERE user_id=? AND EXISTS(SELECT 1 FROM crews WHERE id=?)`).bind(COST,t,uid,id),
     env.DB.prepare('INSERT INTO crew_members(user_id,crew_id,joined_at) SELECT ?,id,? FROM crews WHERE id=?').bind(uid,t,id)
@@ -103,15 +134,15 @@ export async function handleCrewRequest(request,env,url){
    await env.DB.prepare(`INSERT INTO crew_settings(crew_id,privacy,updated_at) SELECT id,?,? FROM crews WHERE leader_id=? ON CONFLICT(crew_id) DO UPDATE SET privacy=excluded.privacy,updated_at=excluded.updated_at`).bind(privacy,t,uid).run();return json(await overview(env,uid));
   }
   if(path==='/api/crews/join'){
-   const crewId=String(b.crewId||'');const target=await env.DB.prepare(`SELECT c.id,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,(SELECT COUNT(*) FROM crew_members m WHERE m.crew_id=c.id) members FROM crews c WHERE c.id=?`).bind(crewId).first();if(!target||target.members>=20)return json({error:'JOIN_UNAVAILABLE'},409);
+   const crewId=String(b.crewId||'');const target=await env.DB.prepare(`SELECT c.id,COALESCE((SELECT privacy FROM crew_settings s WHERE s.crew_id=c.id),'public') privacy,(SELECT COUNT(*) FROM crew_members m WHERE m.crew_id=c.id) members,COALESCE((SELECT capacity FROM crew_capacities WHERE crew_id=c.id),20) capacity FROM crews c WHERE c.id=?`).bind(crewId).first();if(!target||target.members>=target.capacity)return json({error:'JOIN_UNAVAILABLE'},409);
    if(target.privacy==='private'){
     const r=await env.DB.prepare(`INSERT OR IGNORE INTO crew_join_requests(crew_id,user_id,created_at) SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=?) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=? AND until_at>?)`).bind(crewId,uid,t,uid,uid,t).run();
     const out=await overview(env,uid);return json({...out,requestPending:true,requestCreated:!!r.meta.changes});
    }
-   const r=await env.DB.prepare(`INSERT INTO crew_members(user_id,crew_id,joined_at) SELECT ?,id,? FROM crews WHERE id=? AND (SELECT COUNT(*) FROM crew_members WHERE crew_id=crews.id)<20 AND NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=?) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=? AND until_at>?)`).bind(uid,t,crewId,uid,uid,t).run();if(!r.meta.changes)return json({error:'JOIN_UNAVAILABLE'},409);await env.DB.prepare('DELETE FROM crew_join_requests WHERE user_id=?').bind(uid).run();return json(await overview(env,uid));
+   const r=await env.DB.prepare(`INSERT INTO crew_members(user_id,crew_id,joined_at) SELECT ?,id,? FROM crews WHERE id=? AND (SELECT COUNT(*) FROM crew_members WHERE crew_id=crews.id)<COALESCE((SELECT capacity FROM crew_capacities WHERE crew_id=crews.id),20) AND NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=?) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=? AND until_at>?)`).bind(uid,t,crewId,uid,uid,t).run();if(!r.meta.changes)return json({error:'JOIN_UNAVAILABLE'},409);await env.DB.prepare('DELETE FROM crew_join_requests WHERE user_id=?').bind(uid).run();return json(await overview(env,uid));
   }
   if(path==='/api/crews/requests/approve'){
-   const applicant=String(b.userId||'');const r=await env.DB.prepare(`INSERT INTO crew_members(user_id,crew_id,joined_at) SELECT r.user_id,r.crew_id,? FROM crew_join_requests r JOIN crews c ON c.id=r.crew_id WHERE r.user_id=? AND c.leader_id=? AND (SELECT COUNT(*) FROM crew_members WHERE crew_id=r.crew_id)<20 AND NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=r.user_id) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=r.user_id AND until_at>?)`).bind(t,applicant,uid,t).run();if(!r.meta.changes)return json({error:'JOIN_APPROVAL_UNAVAILABLE'},409);await env.DB.prepare('DELETE FROM crew_join_requests WHERE user_id=?').bind(applicant).run();return json(await overview(env,uid));
+   const applicant=String(b.userId||'');const r=await env.DB.prepare(`INSERT INTO crew_members(user_id,crew_id,joined_at) SELECT r.user_id,r.crew_id,? FROM crew_join_requests r JOIN crews c ON c.id=r.crew_id WHERE r.user_id=? AND c.leader_id=? AND (SELECT COUNT(*) FROM crew_members WHERE crew_id=r.crew_id)<COALESCE((SELECT capacity FROM crew_capacities WHERE crew_id=r.crew_id),20) AND NOT EXISTS(SELECT 1 FROM crew_members WHERE user_id=r.user_id) AND NOT EXISTS(SELECT 1 FROM crew_cooldowns WHERE user_id=r.user_id AND until_at>?)`).bind(t,applicant,uid,t).run();if(!r.meta.changes)return json({error:'JOIN_APPROVAL_UNAVAILABLE'},409);await env.DB.prepare('DELETE FROM crew_join_requests WHERE user_id=?').bind(applicant).run();return json(await overview(env,uid));
   }
   if(path==='/api/crews/requests/reject'){
    const r=await env.DB.prepare('DELETE FROM crew_join_requests WHERE user_id=? AND crew_id IN(SELECT id FROM crews WHERE leader_id=?)').bind(String(b.userId||''),uid).run();if(!r.meta.changes)return json({error:'JOIN_REQUEST_NOT_FOUND'},404);return json(await overview(env,uid));

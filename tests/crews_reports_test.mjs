@@ -12,6 +12,7 @@ async function call(path,body,who='leader'){const r=await worker.fetch(new Reque
 const form={name:'Night Crew',tag:'NIT',emblem:'⚡',color:'#a9ff5a'};
 assert.equal((await call('/api/crews/create',form,'poor')).status,409);
 let result=await call('/api/crews/create',form);assert.equal(result.status,200);const crew=result.crew.id;
+assert.equal(result.crew.capacity,15,'new clans start at 15 places');assert.equal(result.crew.treasuryBalance,0);
 assert.equal((await call('/api/crews/create',{...form,tag:'AB'})).status,400,'new two-character tags must be rejected');
 assert.equal((await call('/api/crews/create',{...form,tag:'SIXLET'})).status,400,'six-character tags must be rejected');
 assert.equal((await call('/api/crews/settings',{...form,tag:'FOUR'})).status,200,'four-character tags must be accepted');
@@ -30,6 +31,16 @@ pending=await call('/api/crews/join',{crewId:crew},'outsider');assert.equal(pend
 result=await call('/api/crews/settings',{...form,privacy:'public'});assert.equal(result.crew.privacy,'public');
 assert.equal((await call('/api/crews/join',{crewId:crew},'member')).status,200);
 assert.equal((await call('/api/crews/join',{crewId:crew},'member')).status,409);
+const memberCredits=balance('member');
+let deposit=await call('/api/crews/treasury/contribute',{amount:25000,idempotencyKey:'member-gift-0001'},'member');assert.equal(deposit.status,200);assert.equal(deposit.treasuryBalance,25000);assert.equal(balance('member'),memberCredits-25000);
+deposit=await call('/api/crews/treasury/contribute',{amount:25000,idempotencyKey:'member-gift-0001'},'member');assert.equal(deposit.replay,true);assert.equal(balance('member'),memberCredits-25000,'replayed contribution does not debit twice');
+let expansion=await call('/api/crews/treasury/expand',{idempotencyKey:'slot-buy-0001'});assert.equal(expansion.status,200);assert.equal(expansion.capacity,20);assert.equal(expansion.cost,20000);
+expansion=await call('/api/crews/treasury/expand',{idempotencyKey:'slot-buy-0002'});assert.equal(expansion.status,409,'next tier is rejected when the treasury cannot afford it');
+db.prepare('UPDATE crew_treasuries SET balance=560000 WHERE crew_id=?').run(crew);
+for(const [capacity,cost] of [[20,40000],[25,60000],[30,80000],[35,100000],[40,120000],[45,140000]]){expansion=await call('/api/crews/treasury/expand',{idempotencyKey:`slot-buy-${capacity}`});assert.equal(expansion.status,200);assert.equal(expansion.capacity,capacity+5);assert.equal(expansion.cost,cost);}
+assert.equal((await call('/api/crews/treasury/expand',{idempotencyKey:'slot-buy-max-0001'})).error,'CAPACITY_MAX');
+db.prepare('UPDATE crew_capacities SET capacity=20 WHERE crew_id=?').run(crew);
+assert.equal((await call('/api/crews',undefined,'leader')).crew.capacity,20,'legacy 20-slot clans retain their capacity');
 assert.equal((await call('/api/crews/transfer',{userId:'outsider'},'member')).status,400);
 await awardCrewRep(env,'member','drag','same',60);await awardCrewRep(env,'member','drag','same',60);
 assert.equal(db.prepare('SELECT SUM(points) n FROM street_rep WHERE user_id=?').get('member').n,20);
@@ -49,8 +60,8 @@ assert.equal((await call('/api/reports/owner',{id:report.id,status:'reviewed'},'
 const w=weekStart(t)-7*DAY;db.prepare('UPDATE crew_members SET joined_at=?').run(w);
 for(const user of ['leader','member'])db.prepare('INSERT INTO street_rep VALUES(?,?,?,?,?,?,?)').run(user,'drift','lastweek',crew,w,500,w+DAY);
 failPayout=true;await assert.rejects(()=>settleCrews(env,t));assert.equal(balance('leader'),7500);assert.equal(db.prepare('SELECT COUNT(*) n FROM crew_payouts').get().n,0);
-await settleCrews(env,t);assert.equal(balance('leader'),19500);assert.equal(balance('member'),34000);
-await settleCrews(env,t);assert.equal(balance('leader'),19500);assert.equal(balance('member'),34000);
+await settleCrews(env,t);assert.equal(balance('leader'),19500);assert.equal(balance('member'),9000);
+await settleCrews(env,t);assert.equal(balance('leader'),19500);assert.equal(balance('member'),9000);
 assert.equal(db.prepare('SELECT COUNT(*) n FROM crew_payouts').get().n,2);
 assert.equal((await call('/api/crews/disband',{})).status,400);
 assert.equal((await call('/api/crews/leave',{})).status,400);
