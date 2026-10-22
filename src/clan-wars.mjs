@@ -34,7 +34,82 @@ async function ensurePrivateRoom(env,b){
 async function details(env,b,userId){
   if(!await hasAccess(env,b,userId))return null;
   const members=await roster(env,b.id);
-  return {id:b.id,state:b.state,attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,createdAt:b.created_at,expiresAt:b.expires_at,roomAvailable:['READY','RUNNING'].includes(b.state),rosters:[b.attacker_crew_id,b.defender_crew_id].map(crewId=>({crewId,players:members.filter(x=>x.crew_id===crewId).map(x=>({userId:x.user_id,username:x.username,ready:!!x.ready_at}))}))};
+  const score=await env.DB.prepare('SELECT * FROM clan_war_battle_state WHERE battle_id=?').bind(b.id).first();
+  const history=await env.DB.prepare('SELECT round_number,attacker_points,defender_points,results_json,created_at FROM clan_war_rounds WHERE battle_id=? ORDER BY round_number').bind(b.id).all();
+  return {id:b.id,state:b.state,attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,createdAt:b.created_at,expiresAt:b.expires_at,roomAvailable:['READY','RUNNING'].includes(b.state),roundNumber:Number(score?.round_number)||1,score:{attacker:Number(score?.attacker_score)||0,defender:Number(score?.defender_score)||0},winnerCrewId:score?.winner_crew_id||null,tiebreak:score?.tiebreak||null,rounds:(history.results||[]).map(x=>({...x,results:JSON.parse(x.results_json||'[]')})),rosters:[b.attacker_crew_id,b.defender_crew_id].map(crewId=>({crewId,players:members.filter(x=>x.crew_id===crewId).map(x=>({userId:x.user_id,username:x.username,ready:!!x.ready_at}))}))};
+}
+
+const ROUND_POINTS=[0,10,7,5,3,2,1];
+export async function abortClanWar(env,battleId,reason='PARTICIPANT_DISCONNECTED',at=Date.now()){
+  const before=await env.DB.prepare('SELECT status FROM clan_war_battle_state WHERE battle_id=?').bind(battleId).first();
+  if(before&&before.status!=='ACTIVE')return{ok:true,aborted:before.status==='ABORTED',finished:before.status==='FINISHED',battleId};
+  const result={reason:String(reason).slice(0,48),abortedAt:at};
+  await env.DB.batch([
+    env.DB.prepare("UPDATE clan_war_battle_state SET status='ABORTED',result_json=?,updated_at=?,completed_at=COALESCE(completed_at,?) WHERE battle_id=? AND status='ACTIVE'").bind(JSON.stringify(result),at,at,battleId),
+    env.DB.prepare("UPDATE clan_war_challenges SET state='ABORTED',updated_at=? WHERE id=? AND state IN('READY','RUNNING')").bind(at,battleId),
+    env.DB.prepare('DELETE FROM clan_war_active_users WHERE battle_id=?').bind(battleId),
+    env.DB.prepare('DELETE FROM clan_war_active_crews WHERE battle_id=?').bind(battleId)
+  ]);
+  return {ok:true,aborted:true,battleId,result};
+}
+
+export async function recordClanWarRound(env,battleId,roundNumber,rawResults,at=Date.now()){
+  const b=await challenge(env,battleId);if(!b)throw Error('CLAN_MATCH_NOT_FOUND');
+  const state=await env.DB.prepare('SELECT * FROM clan_war_battle_state WHERE battle_id=?').bind(battleId).first();
+  const prior=await env.DB.prepare('SELECT * FROM clan_war_rounds WHERE battle_id=? AND round_number=?').bind(battleId,roundNumber).first();
+  if(prior?.applied){
+    const latest=state,finished=latest.status==='FINISHED';
+    if(finished){const summary=JSON.stringify({attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,score:{attacker:Number(latest.attacker_score),defender:Number(latest.defender_score)},winnerCrewId:latest.winner_crew_id||null,tiebreak:latest.tiebreak||null,roundNumber:Number(roundNumber)});await env.DB.batch([env.DB.prepare("UPDATE clan_war_challenges SET state='FINISHED',updated_at=? WHERE id=? AND state IN('RUNNING','READY')").bind(at,battleId),env.DB.prepare('UPDATE clan_war_battle_state SET result_json=?,completed_at=COALESCE(completed_at,?),updated_at=? WHERE battle_id=? AND status=\'FINISHED\'').bind(summary,at,at,battleId),env.DB.prepare('DELETE FROM clan_war_active_users WHERE battle_id=?').bind(battleId),env.DB.prepare('DELETE FROM clan_war_active_crews WHERE battle_id=?').bind(battleId)]);}
+    else await env.DB.prepare("UPDATE clan_war_challenges SET state='READY',updated_at=? WHERE id=? AND state='RUNNING'").bind(at,battleId).run();
+    return{ok:true,replay:true,roundNumber:Number(roundNumber),roundPoints:{attacker:Number(prior.attacker_points),defender:Number(prior.defender_points)},score:{attacker:Number(latest.attacker_score),defender:Number(latest.defender_score)},nextRound:Number(latest.round_number),finished,winnerCrewId:latest.winner_crew_id||null,tiebreak:latest.tiebreak||null};
+  }
+  if(!state||state.status!=='ACTIVE'||Number(state.round_number)!==Number(roundNumber))throw Error('CLAN_ROUND_STATE_CHANGED');
+  if(b.state!=='RUNNING')throw Error('CLAN_MATCH_NOT_RUNNING');
+  const rosterRows=await env.DB.prepare('SELECT crew_id,user_id FROM clan_war_rosters WHERE battle_id=?').bind(battleId).all(),rosterMap=new Map((rosterRows.results||[]).map(x=>[x.user_id,x.crew_id]));
+  if(rosterMap.size!==6||!Array.isArray(rawResults)||rawResults.length!==6)throw Error('CLAN_ROUND_ROSTER_INVALID');
+  const results=rawResults.map(x=>({userId:String(x.userId||''),crewId:String(x.crewId||''),place:Number(x.place),timeMs:Math.floor(Number(x.timeMs))}));
+  if(new Set(results.map(x=>x.userId)).size!==6||new Set(results.map(x=>x.place)).size!==6||results.some(x=>rosterMap.get(x.userId)!==x.crewId||!Number.isInteger(x.place)||x.place<1||x.place>6||!Number.isSafeInteger(x.timeMs)||x.timeMs<0))throw Error('CLAN_ROUND_RESULTS_INVALID');
+  const pointsByCrew=new Map([[b.attacker_crew_id,0],[b.defender_crew_id,0]]);
+  for(const r of results)pointsByCrew.set(r.crewId,(pointsByCrew.get(r.crewId)||0)+ROUND_POINTS[r.place]);
+  const decisiveCrewId=roundNumber===4?results.slice().sort((x,y)=>x.place-y.place)[0].crewId:null;
+  const packed=results.sort((x,y)=>x.place-y.place).map(x=>({...x,points:ROUND_POINTS[x.place]}));
+  const created=await env.DB.prepare(`INSERT OR IGNORE INTO clan_war_rounds(battle_id,round_number,attacker_points,defender_points,decisive_crew_id,results_json,applied,created_at) VALUES(?,?,?,?,?,?,0,?)`).bind(battleId,roundNumber,pointsByCrew.get(b.attacker_crew_id),pointsByCrew.get(b.defender_crew_id),decisiveCrewId,JSON.stringify(packed),at).run();
+  const roundRow=await env.DB.prepare('SELECT * FROM clan_war_rounds WHERE battle_id=? AND round_number=?').bind(battleId,roundNumber).first();
+  if(!roundRow?.applied){
+    await env.DB.batch([
+      ...packed.map(r=>env.DB.prepare('INSERT OR IGNORE INTO clan_war_round_results(battle_id,round_number,user_id,crew_id,place,points,time_ms,created_at) VALUES(?,?,?,?,?,?,?,?)').bind(battleId,roundNumber,r.userId,r.crewId,r.place,r.points,r.timeMs,at)),
+      env.DB.prepare(`UPDATE clan_war_battle_state SET
+        attacker_score=attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?),
+        defender_score=defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?),
+        round_number=CASE WHEN round_number<3 THEN round_number+1 WHEN round_number=3 AND attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)=defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?) THEN 4 ELSE round_number END,
+        status=CASE WHEN round_number>=4 OR (round_number=3 AND attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)<>defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)) THEN 'FINISHED' ELSE status END,
+        winner_crew_id=CASE WHEN round_number>=4 THEN CASE WHEN attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)>defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?) THEN ? WHEN attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)<defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?) THEN ? ELSE ? END WHEN round_number=3 AND attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)<>defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?) THEN CASE WHEN attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)>defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?) THEN ? ELSE ? END ELSE NULL END,
+        tiebreak=CASE WHEN round_number>=4 AND attacker_score+(SELECT attacker_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?)=defender_score+(SELECT defender_points FROM clan_war_rounds WHERE battle_id=? AND round_number=?) THEN 'DECISIVE_RACE_BEST_PLACE' ELSE NULL END,
+        updated_at=? WHERE battle_id=? AND round_number=? AND status='ACTIVE'`).bind(
+          battleId,roundNumber,battleId,roundNumber,
+          battleId,roundNumber,battleId,roundNumber,
+          battleId,roundNumber,battleId,roundNumber,
+          battleId,roundNumber,battleId,roundNumber,b.attacker_crew_id,battleId,roundNumber,battleId,roundNumber,b.defender_crew_id,decisiveCrewId,
+          battleId,roundNumber,battleId,roundNumber,
+          battleId,roundNumber,battleId,roundNumber,b.attacker_crew_id,b.defender_crew_id,
+          battleId,roundNumber,battleId,roundNumber,at,battleId,roundNumber),
+      env.DB.prepare('UPDATE clan_war_rounds SET applied=1 WHERE battle_id=? AND round_number=? AND applied=0').bind(battleId,roundNumber)
+    ]);
+  }
+  const latest=await env.DB.prepare('SELECT * FROM clan_war_battle_state WHERE battle_id=?').bind(battleId).first();
+  const finished=latest?.status==='FINISHED';
+  if(finished){
+    const result={attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,score:{attacker:Number(latest.attacker_score),defender:Number(latest.defender_score)},winnerCrewId:latest.winner_crew_id||null,tiebreak:latest.tiebreak||null,roundNumber:Number(roundNumber)};
+    await env.DB.batch([
+      env.DB.prepare("UPDATE clan_war_challenges SET state='FINISHED',updated_at=? WHERE id=? AND state IN('RUNNING','READY')").bind(at,battleId),
+      env.DB.prepare('UPDATE clan_war_battle_state SET result_json=?,completed_at=COALESCE(completed_at,?),updated_at=? WHERE battle_id=? AND status=\'FINISHED\'').bind(JSON.stringify(result),at,at,battleId),
+      env.DB.prepare('DELETE FROM clan_war_active_users WHERE battle_id=?').bind(battleId),
+      env.DB.prepare('DELETE FROM clan_war_active_crews WHERE battle_id=?').bind(battleId)
+    ]);
+  }else{
+    await env.DB.prepare("UPDATE clan_war_challenges SET state='READY',updated_at=? WHERE id=? AND state='RUNNING'").bind(at,battleId).run();
+  }
+  return {ok:true,replay:!created.meta?.changes,roundNumber:Number(roundNumber),roundPoints:{attacker:Number(roundRow?.attacker_points)||0,defender:Number(roundRow?.defender_points)||0},score:{attacker:Number(latest.attacker_score),defender:Number(latest.defender_score)},nextRound:Number(latest.round_number),finished,winnerCrewId:latest.winner_crew_id||null,tiebreak:latest.tiebreak||null};
 }
 async function handler(request,env,url){
   if(!/^\/api\/clan-wars(?:\/|$)/.test(url.pathname))return null;
@@ -56,6 +131,7 @@ async function handler(request,env,url){
       const battleId=id(),expires=now+CHALLENGE_TTL;
       try{await env.DB.batch([
         env.DB.prepare("INSERT INTO clan_war_challenges(id,idempotency_key,attacker_crew_id,defender_crew_id,created_by,state,expires_at,room_name,created_at,updated_at) VALUES(?,?,?,?,?,'INVITED',?,NULL,?,?)").bind(battleId,scopedKey,own.id,defender,userId,expires,now,now),
+        env.DB.prepare("INSERT INTO clan_war_battle_state(battle_id,round_number,attacker_score,defender_score,status,updated_at) VALUES(?,1,0,0,'ACTIVE',?)").bind(battleId,now),
         env.DB.prepare('INSERT INTO clan_war_active_crews(crew_id,battle_id) VALUES(?,?)').bind(own.id,battleId),
         env.DB.prepare('INSERT INTO clan_war_active_crews(crew_id,battle_id) VALUES(?,?)').bind(defender,battleId)
       ]);}catch(e){if(String(e).includes('UNIQUE')||String(e).includes('constraint')){const replay=await env.DB.prepare('SELECT * FROM clan_war_challenges WHERE idempotency_key=?').bind(scopedKey).first();if(replay&&replay.attacker_crew_id===own.id&&replay.defender_crew_id===defender)return json({ok:true,replay:true,challenge:await details(env,replay,userId)});return json({error:'CLAN_HAS_ACTIVE_MATCH'},409);}throw e;}

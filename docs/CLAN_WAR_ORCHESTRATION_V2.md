@@ -1,6 +1,6 @@
 # Clan war orchestration (local V2 slice)
 
-This additive slice is backed by `0024_clan_war_orchestration.sql`. It adds challenge lifecycle, locked 3+3 rosters, per-account reservations, readiness, and private `CLAN_WAR:<uuid>` Durable Object rooms. It does not transfer territories, award influence, or settle CR/EXP.
+This additive slice is backed by `0024_clan_war_orchestration.sql` and `0027_clan_war_rounds.sql`. It adds challenge lifecycle, locked 3+3 rosters, per-account reservations, readiness, private `CLAN_WAR:<uuid>` Durable Object rooms, and server-confirmed multi-round results. It does not yet transfer territories, award influence, or settle CR/EXP.
 
 ## API
 
@@ -18,16 +18,16 @@ All routes require a current authenticated game session. Mutating routes reject 
 | `POST /api/clan-wars/:id/connect` | Returns the caller's room credentials after server-side roster verification. |
 | `GET /api/clan-wars/:id/ws` | Authenticates the cookie and roster, then proxies the WebSocket upgrade to the private Room. |
 
-Invitations and accepted/roster-ready matches expire after 24 hours unless racing has started. Unique clan and user reservation rows prevent overlapping matches. The same idempotency key replays the original call; roster and ready retries are also idempotent.
+Invitations and accepted/roster-ready matches expire after 24 hours unless racing has started. Unique clan and user reservation rows prevent overlapping matches. The same idempotency key replays the original call; roster and ready retries are also idempotent. Match reads include each saved round and the aggregate score.
 
 ## Room trust boundary
 
 The Worker alone provisions a room with a private namespace name and the exact six account IDs. The Room rejects ordinary `/join`; its internal session endpoint only returns the DO-generated player ID and secret token for a roster account. The public `api/rooms/:six-character-code` mapping cannot derive the private namespace name. Starting this room requires six connected, ready, unique accounts and then calls the existing `prepareRoomAuthority`/`RoomRaceInputs` path. Clan finish persistence is isolated from ordinary online rewards and leaderboards while the larger clan settlement policy remains unapproved.
 
-The room keeps the same participant identity and server state across DO reconstruction and gives a disconnected participant 60 seconds to reconnect. This slice does not yet implement rounds, battle score aggregation, an end-of-match callback, territory transfer, or automated notification delivery.
+The room keeps the same participant identity and server state across DO reconstruction and gives a disconnected participant 60 seconds to reconnect. A voluntary leave keeps the roster slot during that window; if the participant does not return, the match aborts safely without rewards and releases both clan/player reservations. Confirmed finishes are scored by place (10/7/5/3/2/1) for three rounds. A tied aggregate starts round four; if that remains tied, round-four best place breaks the tie. Results are unique per battle/round, replay safely after DO recovery, and persist in D1. No CR/EXP or district claim is issued yet.
 
 ## Local verification
 
-Run `npm run test:clan-wars:v2`. Its first test uses an in-memory SQLite database with all local migrations and six account sessions; Durable Object calls are in-process using the real `Room` class and virtual sockets. It checks create/accept/reject/cancel/expiry, idempotency, clan and leader permissions, roster validation, six ready/connect accounts, outsider rejection, DO-storage reconstruction, and one server-authority race start. The second test is the existing public Room and wager regression suite. This is not a Cloudflare deployment or six physical clients.
+Run `npm run test:clan-wars:v2`. Tests use in-memory SQLite with local migrations. They check district seeds and income; score six participants through three tied rounds and the tie-breaker with replay and reservation release; run the real `Room` class with virtual sockets for challenge lifecycle, permissions, rosters, six authorized connect sessions, outsider rejection, storage reconstruction, and a server-authority race start; and run ordinary room/wager regressions. This is not a Cloudflare deployment or six physical clients.
 
 Before any future release, deploy/apply this migration only to an isolated D1, verify that the production Worker and migrations are not targeted, and run authenticated browser WebSocket testing with two actual clans. No production migration or deployment is part of this slice.

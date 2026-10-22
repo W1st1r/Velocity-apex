@@ -2,11 +2,11 @@
   "app": "Velocity Apex",
   "version": "V77",
   "developmentVersion": "2.0.0-dev",
-  "resourceVersion": "2.0.0-dev.20261022.1",
+  "resourceVersion": "2.0.0-dev.20261022.2",
   "protocolVersion": 1,
   "channel": "development",
   "theme": "Race Control Blue",
-  "update": "Server-owned clan treasury, capacity and district income",
+  "update": "Clan wars round results and reconnect completion flow",
   "released": "2026-10-16",
   "release": "Minigame venue and server activation rings aligned; Extreme AI traffic clearances calibrated; race payout/hour kept in balance",
   "history": [

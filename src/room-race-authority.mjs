@@ -6,6 +6,7 @@ import {recordResult} from './owner.mjs';
 import {settleRoomWager} from './room-wager-escrow.mjs';
 import {settleMediaEvent} from './media.mjs';
 import {PROTOCOL_VERSION} from './protocol.mjs';
+import {recordClanWarRound} from './clan-wars.mjs';
 export {RACE_RUNTIME_VERSION};
 export async function prepareRoomAuthority(room,live){
  if(live.some(p=>!p.userId)||new Set(live.map(p=>p.userId)).size!==live.length)throw Error('DUPLICATE_RACE_ACCOUNT');
@@ -55,6 +56,13 @@ export async function settleRoomWorld(room){
   room.room.finishOrder=world.finishOrder.filter(id=>a.settledPlayers[id]);await saveRoomWorld(room);
   room.broadcast({type:'race_finish',v:PROTOCOL_VERSION,raceId:room.room.raceId,playerId:id,finishPlace:result.place,finishTime:result.timeMs,reward:confirmed,room:room.publicRoom(),serverTime:Date.now()});
  }
+  if(room.room.mode==='clan_war'&&!room.room.clanMatch.roundSettled&&Object.keys(a.settledPlayers).length===6){
+   const roundNumber=Number(room.room.clanMatch.roundNumber)||1;
+   const results=room.room.players.map(p=>{const r=a.settledPlayers[p.id];return{userId:p.userId,crewId:p.crew,place:Number(r?.place),timeMs:Number(r?.timeMs)};});
+   const result=await recordClanWarRound(room.env,room.room.clanMatch.battleId,roundNumber,results,Date.now());
+   room.room.clanMatch.roundSettled=true;room.room.clanMatch.roundResult=result;room.room.clanMatch.roundNumber=result.nextRound;room.room.clanMatch.complete=result.finished;
+   await room.save();room.broadcast({type:'clan_round_result',v:PROTOCOL_VERSION,raceId:room.room.raceId,result,room:room.publicRoom(),serverTime:Date.now()});
+  }
 }
 export async function tickRoomAuthority(room,serverNow,{force=false}={}){
  const e=roomEngine(room);if(!e)return;
