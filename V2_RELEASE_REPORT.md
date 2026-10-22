@@ -92,3 +92,20 @@ GitHub connector доступен (репозиторий читается, main
 Первое необходимое действие — предоставить этой работе авторизованный доступ к нужному Cloudflare account/защищённому GitHub Actions запуску. Затем: metadata-only production inventory → isolated staging → проверенная копия/миграции/smoke → визуальный gate по всем сохранённым экранам → PWA/update/rollback → release gate → только затем защищённая production публикация и smoke.
 
 Тестового URL сейчас нет. После появления staging ручной чек-лист: landscape iPhone 13–17; меню/гараж/гонки/кейсы; кланы/казна/составы/войны/районы; Coastal Ridge (4580,1390), береговой marker и правильное название; сезоны/рейтинг/задания; чат/друзья/баг-репорты; overflow, прокрутка, возвраты и ошибки консоли. Ни один из этих пунктов не заявляется выполненным сейчас.
+
+## 9. Уточнение диагностики GitHub Actions — 2026-10-22
+
+Cloudflare доступ через GitHub Actions **не признан недоступным** на основании локального Wrangler. Найден предусмотренный путь через существующие repository secrets и read-only workflow; выполнение пока не подтверждено.
+
+- Remote main по-прежнему `fe9bbb0f23939892b99cece49f1fea9255f17f42`. Оба workflow прочитаны из GitHub main. W1st1r имеет repository permission admin. Чтение `actions/runs` работает (111 runs в общем ответе, 5 последних получены); запрос `event=workflow_dispatch` вернул 0. Нельзя на этом основании утверждать, что все прежние ручные запуски отсутствовали.
+- Доступный GitHub connector не предоставляет нового workflow dispatch, secret-name inventory или environment protection API. Repository admin владельца не доказывает Actions:write scope connector. Без известного failed/cancelled preflight job безопасного адресного rerun здесь нет; чужой CI/release job не перезапускался.
+- Read-only preflight на main требует CLOUDFLARE_ACCOUNT_ID и CLOUDFLARE_API_TOKEN как secrets, не указывает environment. Поэтому secrets, сохранённые только в production environment, этому job недоступны. Наличие самих имён и D1_BACKUP_ENCRYPTION_KEY не подтверждено: значения не запрашиваются. Production workflow указывает environment production, но это не доказывает configured required reviewer.
+- У существующего preflight есть ограничения: Worker metadata HTTP 403 допускается без падения; DO/R2/bindings, D1_BACKUP_ENCRYPTION_KEY и staging write scopes не проверяются. Даже зелёный run не равен полному release gate. Защиты не изменены, новый механизм деплоя и новые токены не создавались.
+
+### Точные действия владельца
+
+1. https://github.com/W1st1r/Velocity-apex/settings/secrets/actions — проверить наличие **имён**, не раскрывая значения: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN; для production также D1_BACKUP_ENCRYPTION_KEY (может быть в production environment). Существующие корректные secrets не заменять.
+2. https://github.com/W1st1r/Velocity-apex/settings/environments — открыть production, проверить и сохранить Required reviewers: W1st1r; защиту не отключать.
+3. https://github.com/W1st1r/Velocity-apex/actions/workflows/v77-cloudflare-preflight.yml — Run workflow → branch main → Run workflow. Это metadata GET-only без SQL/deploy. Передать ссылку нового run для проверки steps/summary. При отсутствии кнопки проверить, что вход выполнен владельцем W1st1r и Actions разрешены в Settings → Actions → General; это не повод отключать production protection.
+
+Staging не создан, production не изменён, официальная 2.0.0 не выпущена. Четыре существующие release-карточки Todoist обновлены без завершения задач. Старые тесты/локальный login не повторялись. Runtime и архивы исходников остались прежними; новый полный bundle ради документационного уточнения не создавался.

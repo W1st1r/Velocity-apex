@@ -202,3 +202,9 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Release **BLOCKED** before staging: Wrangler reports not authenticated; no Cloudflare credentials/OAuth config available. GitHub main confirmed at `fe9bbb0f23939892b99cece49f1fea9255f17f42`; manual workflow YAML read, environment required-reviewer settings and live deployment identity unverified. Production version read returned HTTP 403 (origin/proxy attribution unknown).
 - No staging URL, production backup, real migration/history checks, staging smoke, PWA update or visual gate. No version promotion/tag/push/merge/deploy/production mutation. Runtime code and prior tests unchanged; no redundant full regression.
 - Updated 7 existing Velocity Apex Todoist cards with actual blocked state; no duplicates/completions or unrelated project changes. Detailed gates, conditional historical-data evidence and rollback plan: `V2_RELEASE_REPORT.md`.
+
+## GitHub Actions access diagnosis — 2026-10-22
+
+- Continued at `d1ebedaac022a24d6690ffa46a5eca0992b41672`; no local Wrangler retry or game changes. Confirmed remote main workflows, W1st1r admin permission and Actions run reads. Current workflow_dispatch query returned zero; new dispatch, secret inventory and environment protections are not exposed by this connector.
+- Existing GET-only preflight is the preferred Cloudflare auth path; local absence of OAuth does not rule it out. Owner instructions and limits (no production environment on preflight, accepted Worker 403, no DO/R2/backup-key check) appended to V2_RELEASE_REPORT.md. Need owner to run existing preflight on main and provide run URL.
+- Four existing Todoist cards updated, none completed. Staging absent; production/reviewer controls untouched; 2.0.0 not released. Existing runtime backup remains valid; no repeated suites or bulk archives.
