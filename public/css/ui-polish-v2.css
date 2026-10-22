@@ -63,7 +63,7 @@ body.modal-open{overflow:hidden;overscroll-behavior:none}
 
 /* 2.0.2: panel headers must not paint a different opaque rectangle over the panel.
    Remove the old mobile sticky gradient/backdrop on these self-scrolling cards. */
-:is(.account-header,.promo-header,.friends-header,.free-servers-header,.admin-system-header){
+:is(.account-header,.promo-header,.friends-header,.free-servers-header,.admin-system-header,.root-console-header){
   position:relative!important;top:auto!important;
   background:transparent!important;background-image:none!important;
   backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
@@ -79,6 +79,14 @@ body.modal-open{overflow:hidden;overscroll-behavior:none}
   background:transparent!important;background-image:none!important;
   border:0!important;box-shadow:none!important;border-radius:0!important;
   width:100%;min-width:0;font-size:16px;min-height:44px;
+  appearance:none;-webkit-appearance:none;outline:none!important;
+}
+.market-price-input input::-webkit-inner-spin-button,.market-price-input input::-webkit-outer-spin-button{appearance:none;-webkit-appearance:none;margin:0}
+.market-trade-form select{
+  appearance:none;-webkit-appearance:none;background-color:#0a1b31!important;
+  background-image:linear-gradient(45deg,transparent 50%,#a8d4f2 50%),linear-gradient(135deg,#a8d4f2 50%,transparent 50%);
+  background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;
+  background-size:5px 5px;background-repeat:no-repeat;padding-right:34px;
 }
 .market-price-input b{
   display:flex;align-items:center;justify-content:center;align-self:stretch;

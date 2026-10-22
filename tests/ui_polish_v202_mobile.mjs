@@ -16,7 +16,8 @@ const server=createServer((req,res)=>{
  res.writeHead(200,{'content-type':mime[path.extname(file)]||'application/octet-stream'});res.end(body);
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin=`http://127.0.0.1:${server.address().port}`;
-const examples=[['friends','.friends-card','.friends-header'],['account','.account-card','.account-header'],['promo','.promo-card','.promo-header'],['staffAdminOverlay','.admin-system-panel','.admin-system-header'],['marketDialog','.market-dialog-card',null]];
+const filter=process.env.UI_SCREENS?.split(',');
+const examples=[['friends','.friends-card','.friends-header'],['account','.account-card','.account-header'],['promo','.promo-card','.promo-header'],['staffAdminOverlay','.admin-system-panel','.admin-system-header'],['marketDialog','.market-dialog-card',null],['rootConsole','.root-console-panel','.root-console-header']].filter(([id])=>!filter||filter.includes(id));
 const results=[];
 try{
  for(const engine of [webkit,chromium]){
@@ -50,7 +51,7 @@ try{
     }
    }
    // Broad static layout inventory: real markup/CSS, without pretending API flows ran.
-   if(number===17){
+   if(number===17&&!filter){
     for(const id of ['authGate','menu','garage','shop','career','online','freeServers','settings','supportOverlay','caseModal','rootConsole']){
      await page.evaluate(id=>{document.querySelectorAll('.overlay,.market-dialog').forEach(el=>el.classList.add('hidden'));const el=document.getElementById(id);el.classList.remove('hidden');el.setAttribute('aria-hidden','false');},id);
      const box=await page.locator('#'+id).boundingBox();assert(box&&box.width>100&&box.height>50,id+' absent');

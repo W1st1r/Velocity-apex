@@ -60,6 +60,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Before and after panel layouts in eight mobile browser profiles
         run: node tests/ui_polish_v202_mobile.mjs
+        env:
+          UI_SCREENS: marketDialog,rootConsole
       - uses: actions/upload-artifact@v4
         if: always()
         with:
