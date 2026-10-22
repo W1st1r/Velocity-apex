@@ -25,6 +25,8 @@ for(const [crew,ids] of Object.entries(userIds)){
   sql.prepare('INSERT INTO crews(id,name,tag,emblem,color,leader_id,created_at) VALUES(?,?,?,?,?,?,?)').run(crew,crew.toUpperCase(),crew.toUpperCase(),'*','#00aaff',ids[0],t);
   for(const uid of ids)sql.prepare('INSERT INTO crew_members(user_id,crew_id,joined_at) VALUES(?,?,?)').run(uid,crew,t);
 }
+for(const [district,crew] of [['north-loop','blue'],['south-industrial','blue'],['harbor-crossing','gold'],['grand-avenue','gold'],['apex-heights','green'],['coastal-ridge','green']])sql.prepare('UPDATE clan_war_districts SET owner_crew_id=?,captured_at=? WHERE id=?').run(crew,t,district);
+for(const crew of ['red','blue','green','gold'])sql.prepare(`INSERT INTO clan_war_influence_ledger(id,crew_id,user_id,source,event_id,points,created_at,day_start) VALUES(?, ?,?,'ONLINE_WIN',?,?,?,?)`).run(`seed-${crew}`,crew,userIds[crew][0],`seed-${crew}`,3000,t,Math.floor(t/86400000)*86400000);
 const call=async(uid,path,method='POST',body={})=>{
   const raw=`session-${uid}`,request=new Request(`https://game.test${path}`,{method,headers:{cookie:`va_session=${raw}`,'content-type':'application/json',origin:'https://game.test'},...(method==='GET'?{}:{body:JSON.stringify(body)})});
   const response=await handleClanWarRequest(request,env,new URL(request.url));return{status:response.status,data:await response.json()};
@@ -33,13 +35,21 @@ const req=(path,body)=>new Request(`https://room.internal${path}`,{method:'POST'
 
 try{
   // Idempotent calls, state permissions, conflict handling.
-  const denied=await call('red-two','/api/clan-wars','POST',{defenderCrewId:'blue',idempotencyKey:'member-call'});assert.equal(denied.status,403);
-  const made=await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',idempotencyKey:'attack-1'});assert.equal(made.status,201);const battleId=made.data.challenge.id;
-  const replay=await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',idempotencyKey:'attack-1'});assert.equal(replay.data.replay,true);assert.equal(replay.data.challenge.id,battleId);
-  assert.equal((await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'green',idempotencyKey:'attack-conflict'})).status,409);
+  const denied=await call('red-two','/api/clan-wars','POST',{defenderCrewId:'blue',districtId:'north-loop',idempotencyKey:'member-call'});assert.equal(denied.status,403);
+  sql.prepare("UPDATE clan_war_influence_ledger SET points=999 WHERE crew_id='red'").run();
+  assert.equal((await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',districtId:'north-loop',idempotencyKey:'below-threshold'})).data.error,'INFLUENCE_REQUIRED');
+  sql.prepare("UPDATE clan_war_influence_ledger SET points=1000 WHERE crew_id='red'").run();
+  sql.prepare("UPDATE clan_war_districts SET protected_until=? WHERE id='south-industrial'").run(t+86400000);
+  assert.equal((await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',districtId:'south-industrial',idempotencyKey:'protected-area'})).data.error,'DISTRICT_PROTECTED');
+  sql.prepare("UPDATE clan_war_districts SET protected_until=NULL,owner_crew_id='red' WHERE id IN('old-town','coastal-ridge','apex-center')").run();
+  assert.equal((await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',districtId:'north-loop',idempotencyKey:'too-many-areas'})).data.error,'DISTRICT_LIMIT');
+  sql.prepare("UPDATE clan_war_districts SET owner_crew_id=CASE id WHEN 'coastal-ridge' THEN 'green' ELSE NULL END WHERE id IN('old-town','coastal-ridge','apex-center')").run();
+  const made=await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',districtId:'north-loop',idempotencyKey:'attack-1'});assert.equal(made.status,201);const battleId=made.data.challenge.id;
+  const replay=await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'blue',districtId:'north-loop',idempotencyKey:'attack-1'});assert.equal(replay.data.replay,true);assert.equal(replay.data.challenge.id,battleId);
+  assert.equal((await call('red-lead','/api/clan-wars','POST',{defenderCrewId:'green',districtId:'apex-heights',idempotencyKey:'attack-conflict'})).status,409);
   assert.equal((await call('blue-lead',`/api/clan-wars/${battleId}/decision`,'POST',{decision:'accept'})).data.challenge.state,'ACCEPTED');
   assert.equal((await call('blue-lead',`/api/clan-wars/${battleId}/decision`,'POST',{decision:'accept'})).data.replay,true);
-  const rejected=await call('green-lead','/api/clan-wars','POST',{defenderCrewId:'gold',idempotencyKey:'attack-reject'});assert.equal(rejected.status,201);
+  const rejected=await call('green-lead','/api/clan-wars','POST',{defenderCrewId:'gold',districtId:'harbor-crossing',idempotencyKey:'attack-reject'});assert.equal(rejected.status,201);
   assert.equal((await call('gold-lead',`/api/clan-wars/${rejected.data.challenge.id}/decision`,'POST',{decision:'reject'})).data.challenge.state,'REJECTED');
   // Three-member server validation and roster lock.
   const rosterPath=`/api/clan-wars/${battleId}/roster`;
@@ -69,12 +79,13 @@ try{
   // Re-instantiating the DO preserves the same roster-bound player/session identity.
   const recovered=new Room(new Ctx(roomCtx.storage),{DB});const restored=await(await recovered.fetch(req('/clan/session',{userId:'red-two'}))).json();assert.equal(restored.playerId,credentials.data.playerId);assert.equal(restored.sessionToken,credentials.data.sessionToken);
   const recoveredRace=new Room(new Ctx(roomCtx.storage),{DB});await recoveredRace.load();assert.equal(recoveredRace.room.status,'countdown');assert.deepEqual(roomEngine(recoveredRace).serialize(),roomEngine(room).serialize(),'authority state survives DO reconstruction');
-  const cancellable=await call('gold-lead','/api/clan-wars','POST',{defenderCrewId:'green',idempotencyKey:'cancel-test'});assert.equal(cancellable.status,201);
+  const cancellable=await call('gold-lead','/api/clan-wars','POST',{defenderCrewId:'green',districtId:'apex-heights',idempotencyKey:'cancel-test'});assert.equal(cancellable.status,201);
   assert.equal((await call('gold-lead',`/api/clan-wars/${cancellable.data.challenge.id}/cancel`)).data.state,'CANCELLED');
   assert.equal((await call('gold-lead',`/api/clan-wars/${cancellable.data.challenge.id}/cancel`)).data.replay,true);
-  const expiring=await call('green-lead','/api/clan-wars','POST',{defenderCrewId:'gold',idempotencyKey:'expires'});assert.equal(expiring.status,201);
+  const expiring=await call('green-lead','/api/clan-wars','POST',{defenderCrewId:'gold',districtId:'grand-avenue',idempotencyKey:'expires'});assert.equal(expiring.status,201);
+  assert.equal((await call('green-lead','/api/clan-wars','POST',{defenderCrewId:'gold',districtId:'grand-avenue',idempotencyKey:'third-attack'})).status,429,'only two attacks may be declared per clan per UTC day');
   clock=t+25*60*60*1000;const expired=await call('green-lead',`/api/clan-wars/${expiring.data.challenge.id}`,'GET');assert.equal(expired.data.challenge.state,'EXPIRED');
-  assert.equal((await call('green-lead','/api/clan-wars','POST',{defenderCrewId:'gold',idempotencyKey:'after-expiry'})).status,201,'expired invitations release both clan reservations');
+  assert.equal((await call('gold-lead','/api/clan-wars','POST',{defenderCrewId:'green',districtId:'coastal-ridge',idempotencyKey:'after-expiry'})).status,201,'expired invitations release both clan reservations');
   // Migration is repeatable on the isolated database.
   sql.exec(fs.readFileSync(new URL('0024_clan_war_orchestration.sql',migrations),'utf8'));
   console.log('clan_wars_orchestration_v2_test: PASS (challenge, idempotency, permissions, rosters, readiness, private room, reconnect persistence, migration replay)');

@@ -1,6 +1,6 @@
 # Clan war orchestration (local V2 slice)
 
-This additive slice is backed by `0024_clan_war_orchestration.sql` and `0027_clan_war_rounds.sql`. It adds challenge lifecycle, locked 3+3 rosters, per-account reservations, readiness, private `CLAN_WAR:<uuid>` Durable Object rooms, and server-confirmed multi-round results. It does not yet transfer territories, award influence, or settle CR/EXP.
+This additive slice is backed by `0024_clan_war_orchestration.sql` and `0027_clan_war_rounds.sql`. It adds challenge lifecycle, locked 3+3 rosters, per-account reservations, readiness, private `CLAN_WAR:<uuid>` Durable Object rooms, and server-confirmed multi-round results. Territory capture and server-confirmed influence are also implemented in this local slice; no war CR/EXP rewards are issued.
 
 ## API
 
@@ -18,13 +18,13 @@ All routes require a current authenticated game session. Mutating routes reject 
 | `POST /api/clan-wars/:id/connect` | Returns the caller's room credentials after server-side roster verification. |
 | `GET /api/clan-wars/:id/ws` | Authenticates the cookie and roster, then proxies the WebSocket upgrade to the private Room. |
 
-Invitations and accepted/roster-ready matches expire after 24 hours unless racing has started. Unique clan and user reservation rows prevent overlapping matches. The same idempotency key replays the original call; roster and ready retries are also idempotent. Match reads include each saved round and the aggregate score.
+Invitations and accepted/roster-ready matches expire after 24 hours unless racing has started. Unique clan and user reservation rows prevent overlapping matches. The same idempotency key replays the original call; roster and ready retries are also idempotent. Match reads include the attacked district, each saved round and the aggregate score.
 
 ## Room trust boundary
 
 The Worker alone provisions a room with a private namespace name and the exact six account IDs. The Room rejects ordinary `/join`; its internal session endpoint only returns the DO-generated player ID and secret token for a roster account. The public `api/rooms/:six-character-code` mapping cannot derive the private namespace name. Starting this room requires six connected, ready, unique accounts and then calls the existing `prepareRoomAuthority`/`RoomRaceInputs` path. Clan finish persistence is isolated from ordinary online rewards and leaderboards while the larger clan settlement policy remains unapproved.
 
-The room keeps the same participant identity and server state across DO reconstruction and gives a disconnected participant 60 seconds to reconnect. A voluntary leave keeps the roster slot during that window; if the participant does not return, the match aborts safely without rewards and releases both clan/player reservations. Confirmed finishes are scored by place (10/7/5/3/2/1) for three rounds. A tied aggregate starts round four; if that remains tied, round-four best place breaks the tie. Results are unique per battle/round, replay safely after DO recovery, and persist in D1. No CR/EXP or district claim is issued yet.
+The room keeps the same participant identity and server state across DO reconstruction and gives a disconnected participant 60 seconds to reconnect. A voluntary leave keeps the roster slot during that window; if the participant does not return, the match aborts safely without rewards and releases both clan/player reservations. Confirmed finishes are scored by place (10/7/5/3/2/1) for three rounds. A tied aggregate starts round four; if that remains tied, lower combined team time in round four wins; equal total time leaves the district with the defender. Results are unique per battle/round, replay safely after DO recovery, and persist in D1. War matches do not award CR/EXP. A confirmed attacker victory settles accrued district income, transfers district ownership exactly once, writes ownership history, and protects the district for 12 hours. Confirmed normal online finishes award influence (20 points, or 30 for first place) with a 200-point per-player daily cap; clan war and media event finishes do not add influence.
 
 ## Local verification
 

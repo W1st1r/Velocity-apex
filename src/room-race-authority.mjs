@@ -6,7 +6,7 @@ import {recordResult} from './owner.mjs';
 import {settleRoomWager} from './room-wager-escrow.mjs';
 import {settleMediaEvent} from './media.mjs';
 import {PROTOCOL_VERSION} from './protocol.mjs';
-import {recordClanWarRound} from './clan-wars.mjs';
+import {awardClanInfluence,recordClanWarRound} from './clan-wars.mjs';
 export {RACE_RUNTIME_VERSION};
 export async function prepareRoomAuthority(room,live){
  if(live.some(p=>!p.userId)||new Set(live.map(p=>p.userId)).size!==live.length)throw Error('DUPLICATE_RACE_ACCOUNT');
@@ -45,6 +45,7 @@ export async function settleRoomWorld(room){
   const driftCredits=a.config.mode==='drift'&&room.room.mode!=='media_race'?world.R.driftReward({bots:a.entrants.length-1,difficulty:'medium',laps:1,trackId:a.config.trackId},result.place,result.score,world.track.length):0;
   const reward=await awardProgression(room.env,identity.userId,{source:'online',eventId:room.room.raceId,exp:PROGRESSION_REWARDS.ONLINE_FINISH.exp,credits:driftCredits,meta:{place:result.place,timeMs:result.timeMs,score:result.score,authority:RACE_RUNTIME_VERSION}});
   if(!reward.ok)throw Error(reward.error||'REWARD_PENDING');
+  if(room.room.mode!=='media_race')await awardClanInfluence(room.env,identity.userId,result.place===1,room.room.raceId,Date.now());
   const recorded=await room.env.DB.prepare("SELECT exp,credits FROM progression_rewards WHERE user_id=? AND source='online' AND event_id=?").bind(identity.userId,room.room.raceId).first();
   await recordResult(room.env,room.room.raceId,identity.userId,'online',result.place===1,result.timeMs);
   if(result.place===1&&room.room.mode==='media_race'&&room.room.mediaEvent){

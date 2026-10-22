@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {recordClanWarRound} from '../src/clan-wars.mjs';
+import {awardClanInfluence,recordClanWarRound} from '../src/clan-wars.mjs';
 
 const sql=new DatabaseSync(':memory:');sql.exec('PRAGMA foreign_keys=ON');
 for(const name of fs.readdirSync(new URL('../migrations/',import.meta.url)).filter(x=>x.endsWith('.sql')).sort())sql.exec(fs.readFileSync(new URL(`../migrations/${name}`,import.meta.url),'utf8'));
@@ -13,6 +13,8 @@ for(const [crew,ids] of [['red',red],['blue',blue]]){
   for(const uid of ids)sql.prepare('INSERT INTO crew_members(user_id,crew_id,joined_at) VALUES(?,?,?)').run(uid,crew,now);
 }
 sql.prepare("INSERT INTO clan_war_challenges(id,idempotency_key,attacker_crew_id,defender_crew_id,created_by,state,expires_at,created_at,updated_at) VALUES(?,?,? ,? ,?,'ACCEPTED',?,?,?)").run(battle,'test-war','red','blue','red-a',now+86400000,now,now);
+sql.prepare("UPDATE clan_war_challenges SET district_id='north-loop' WHERE id=?").run(battle);
+sql.prepare("UPDATE clan_war_districts SET owner_crew_id='blue',captured_at=? WHERE id='north-loop'").run(now);
 sql.prepare('INSERT INTO clan_war_battle_state(battle_id,round_number,attacker_score,defender_score,status,updated_at) VALUES(?,1,0,0,\'ACTIVE\',?)').run(battle,now);
 for(const uid of red)sql.prepare("INSERT INTO clan_war_rosters(battle_id,crew_id,user_id) VALUES(?,'red',?)").run(battle,uid);
 for(const uid of blue)sql.prepare("INSERT INTO clan_war_rosters(battle_id,crew_id,user_id) VALUES(?,'blue',?)").run(battle,uid);
@@ -29,10 +31,18 @@ for(const round of [2,3,4]){
   sql.prepare("UPDATE clan_war_challenges SET state='RUNNING' WHERE id=?").run(battle);
   result=await recordClanWarRound(env,battle,round,placeTied,now+round);
 }
-assert.equal(result.finished,true);assert.equal(result.winnerCrewId,'red');assert.equal(result.tiebreak,'DECISIVE_RACE_BEST_PLACE');
+assert.equal(result.finished,true);assert.equal(result.winnerCrewId,'red');assert.equal(result.tiebreak,'DECISIVE_RACE_TOTAL_TIME');
 assert.equal(result.score.attacker,result.score.defender,'decisive race winner is used only after aggregate tie');
 assert.equal(sql.prepare('SELECT COUNT(*) n FROM clan_war_rounds WHERE battle_id=?').get(battle).n,4);
 assert.equal(sql.prepare('SELECT state FROM clan_war_challenges WHERE id=?').get(battle).state,'FINISHED');
 assert.equal(sql.prepare('SELECT COUNT(*) n FROM clan_war_active_crews WHERE battle_id=?').get(battle).n,0);
+assert.equal(sql.prepare("SELECT owner_crew_id FROM clan_war_districts WHERE id='north-loop'").get().owner_crew_id,'red');
+assert.equal(sql.prepare("SELECT protected_until FROM clan_war_districts WHERE id='north-loop'").get().protected_until,now+4+12*60*60*1000);
+assert.equal(sql.prepare('SELECT COUNT(*) n FROM clan_war_district_history WHERE battle_id=?').get(battle).n,1);
+await recordClanWarRound(env,battle,4,placeTied,now+5);
+assert.equal(sql.prepare('SELECT COUNT(*) n FROM clan_war_district_history WHERE battle_id=?').get(battle).n,1,'finalization replay does not repeat the capture');
+for(let i=0;i<9;i++)await awardClanInfluence(env,'red-a',true,`online-${i}`,now+i);
+assert.equal(sql.prepare("SELECT SUM(points) points FROM clan_war_influence_ledger WHERE user_id='red-a'").get().points,200,'daily influence cap applies even to repeated wins');
+assert.equal((await awardClanInfluence(env,'red-a',true,'online-0',now+100)).credited,false,'an already counted race cannot award influence twice');
 console.log('clan_war_rounds_v2_test: PASS (10/7/5/3/2/1 scoring, three rounds, tie-breaker, replay, final release)');
 sql.close();
