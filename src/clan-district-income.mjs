@@ -1,55 +1,63 @@
 const DAY_MS=86_400_000;
 const jsonRows=result=>result?.results||[];
+const STATE_GUARD='id=? AND income_cursor_ms IS ? AND income_owner_crew_id IS ? AND owner_crew_id IS ? AND captured_at IS ?';
+const stateArgs=d=>[d.id,d.income_cursor_ms,d.income_owner_crew_id,d.owner_crew_id,d.captured_at];
 
 function prorated(amount,from,to){
-  const elapsed=Math.max(0,to-from);
-  return Math.round(amount*elapsed/DAY_MS);
+  // Difference of cumulative integral values retains sub-CR time across calls.
+  const rate=BigInt(amount),day=BigInt(DAY_MS);
+  return Number(rate*BigInt(to)/day-rate*BigInt(from)/day);
 }
-
 async function getDistricts(env){
-  const result=await env.DB.prepare('SELECT * FROM clan_war_districts ORDER BY id').all();
-  return jsonRows(result);
+  return jsonRows(await env.DB.prepare('SELECT * FROM clan_war_districts ORDER BY id').all());
 }
-
 async function postInterval(env,district,crewId,from,to,now){
-  if(!crewId||!Number.isFinite(from)||!Number.isFinite(to)||to<=from)return 0;
   const amount=prorated(Number(district.daily_income),from,to);
   const key=`district-income:${district.id}:${from}:${to}`;
-  // D1 batch is transactional. The cursor compare is the concurrency guard;
-  // a retry either sees the advanced cursor or the unique ledger key.
-  const statements=[
+  // Compare-and-swap the cursor in the SAME D1 transaction as both journals and
+  // the balance. Different cutoffs cannot claim overlapping intervals, and a
+  // lost response cannot leave an already-paid interval behind the cursor.
+  const results=await env.DB.batch([
     env.DB.prepare('INSERT OR IGNORE INTO crew_treasuries(crew_id,balance,updated_at) VALUES(?,0,?)').bind(crewId,now),
-    env.DB.prepare("INSERT OR IGNORE INTO clan_war_district_income_ledger(district_id,crew_id,from_ms,to_ms,amount,created_at) VALUES(?,?,?,?,?,?)").bind(district.id,crewId,from,to,amount,now),
-    env.DB.prepare("INSERT OR IGNORE INTO crew_treasury_ledger(id,crew_id,actor_user_id,kind,amount,idempotency_key,metadata_json,created_at) VALUES(?, ?,NULL,'DISTRICT_INCOME',?,?,?,?)").bind(crypto.randomUUID(),crewId,amount,key,JSON.stringify({districtId:district.id,from,to}),now),
-    env.DB.prepare('UPDATE crew_treasuries SET balance=balance+?,updated_at=? WHERE crew_id=? AND EXISTS(SELECT 1 FROM clan_war_district_income_ledger WHERE district_id=? AND crew_id=? AND from_ms=? AND to_ms=?) AND (SELECT changes())>0').bind(amount,now,crewId,district.id,crewId,from,to)
-  ];
-  // The final update only credits when the unique treasury ledger insert above
-  // actually inserted a row. D1 executes the batch as one transaction.
-  const results=await env.DB.batch(statements);
-  return results?.[2]?.meta?.changes?amount:0;
+    env.DB.prepare(`UPDATE clan_war_districts SET income_cursor_ms=?,updated_at=MAX(updated_at,?) WHERE ${STATE_GUARD}`).bind(to,now,...stateArgs(district)),
+    env.DB.prepare('INSERT OR IGNORE INTO clan_war_district_income_ledger(district_id,crew_id,from_ms,to_ms,amount,created_at) SELECT ?,?,?,?,?,? WHERE (SELECT changes())>0').bind(district.id,crewId,from,to,amount,now),
+    env.DB.prepare("INSERT OR IGNORE INTO crew_treasury_ledger(id,crew_id,actor_user_id,kind,amount,idempotency_key,metadata_json,created_at) SELECT ?,?,NULL,'DISTRICT_INCOME',?,?,?,? WHERE (SELECT changes())>0").bind(crypto.randomUUID(),crewId,amount,key,JSON.stringify({districtId:district.id,from,to}),now),
+    env.DB.prepare('UPDATE crew_treasuries SET balance=balance+?,updated_at=MAX(updated_at,?) WHERE crew_id=? AND (SELECT changes())>0').bind(amount,now,crewId)
+  ]);
+  return{applied:!!results?.[1]?.meta?.changes,creditedCr:results?.[3]?.meta?.changes?amount:0};
 }
 
 export async function settleClanDistrictIncome(env,now=Date.now()){
   const settledAt=Math.max(0,Math.floor(now));
   const rows=await getDistricts(env);let creditedCr=0,intervals=0;
-  for(const d of rows){
-    let cursor=Number(d.income_cursor_ms);
-    let incomeOwner=d.income_owner_crew_id;
-    const owner=d.owner_crew_id;
-    const captured=Number(d.captured_at);
-    if(owner&&!Number.isFinite(cursor)){
-      cursor=Number.isFinite(captured)&&captured>0?captured:settledAt;
-      incomeOwner=owner;
-      await env.DB.prepare('UPDATE clan_war_districts SET income_owner_crew_id=?,income_cursor_ms=?,updated_at=? WHERE id=? AND income_cursor_ms IS NULL').bind(owner,cursor,settledAt,d.id).run();
+  for(const initial of rows){
+    // Bounded contention retry; later Cron runs safely finish any remainder.
+    for(let attempt=0;attempt<6;attempt++){
+      const d=attempt?await env.DB.prepare('SELECT * FROM clan_war_districts WHERE id=?').bind(initial.id).first():initial;
+      if(!d)break;
+      const owner=d.owner_crew_id,incomeOwner=d.income_owner_crew_id;
+      if(!owner&&!incomeOwner)break;
+      const cursor=d.income_cursor_ms==null?NaN:Number(d.income_cursor_ms),captured=d.captured_at==null?NaN:Number(d.captured_at);
+      if(!Number.isFinite(cursor)){
+        const start=Number.isFinite(captured)&&captured>0?captured:settledAt;
+        await env.DB.prepare(`UPDATE clan_war_districts SET income_owner_crew_id=?,income_cursor_ms=?,updated_at=MAX(updated_at,?) WHERE ${STATE_GUARD}`).bind(owner,start,settledAt,...stateArgs(d)).run();
+        continue;
+      }
+      if(owner!==incomeOwner){
+        const transferAt=Math.max(cursor,Number.isFinite(captured)?captured:settledAt);
+        if(transferAt>settledAt)break;
+        if(incomeOwner&&transferAt>cursor){
+          const result=await postInterval(env,d,incomeOwner,cursor,transferAt,settledAt);
+          creditedCr+=result.creditedCr;if(result.applied)intervals++;
+        }else{
+          await env.DB.prepare(`UPDATE clan_war_districts SET income_owner_crew_id=?,income_cursor_ms=?,updated_at=MAX(updated_at,?) WHERE ${STATE_GUARD}`).bind(owner,transferAt,settledAt,...stateArgs(d)).run();
+        }
+        continue;
+      }
+      if(!incomeOwner||settledAt<=cursor)break;
+      const result=await postInterval(env,d,incomeOwner,cursor,settledAt,settledAt);
+      creditedCr+=result.creditedCr;if(result.applied){intervals++;break;}
     }
-    if(!Number.isFinite(cursor))continue;
-    if(owner!==incomeOwner){
-      const transferAt=Math.max(cursor,Number.isFinite(captured)?captured:settledAt);
-      if(incomeOwner&&transferAt>cursor){creditedCr+=await postInterval(env,d,incomeOwner,cursor,transferAt,settledAt);intervals++;}
-      cursor=transferAt;incomeOwner=owner;
-    }
-    if(incomeOwner&&settledAt>cursor){creditedCr+=await postInterval(env,d,incomeOwner,cursor,settledAt,settledAt);intervals++;cursor=settledAt;}
-    await env.DB.prepare('UPDATE clan_war_districts SET income_owner_crew_id=?,income_cursor_ms=?,updated_at=? WHERE id=?').bind(incomeOwner,cursor,settledAt,d.id).run();
   }
   return {ok:true,creditedCr,intervals,settledAt};
 }

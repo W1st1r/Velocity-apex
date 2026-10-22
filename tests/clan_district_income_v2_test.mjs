@@ -47,4 +47,26 @@ assert.equal(afterTransfer.owned.find(row=>row.id==='north-loop').accrued_throug
 sql.exec(fs.readFileSync(new URL('../migrations/0029_clan_district_income.sql',import.meta.url),'utf8'));
 assert.equal(sql.prepare('SELECT balance FROM crew_treasuries WHERE crew_id=?').get('beta').balance,1500);
 assert.equal(sql.prepare('SELECT COUNT(*) n FROM clan_war_district_income_ledger').get().n,6);
-console.log('clan_district_income_v2_test: PASS (pro-rata rates, concurrency/replay, ownership handoff, restart, repeat migration)');
+// Different Cron timestamps must not credit overlapping ownership intervals.
+sql.exec("DELETE FROM crew_treasury_ledger; DELETE FROM clan_war_district_income_ledger; UPDATE crew_treasuries SET balance=0; UPDATE clan_war_districts SET owner_crew_id=NULL,income_owner_crew_id=NULL,income_cursor_ms=NULL");
+const start=t+10*DAY;
+sql.prepare('UPDATE clan_war_districts SET owner_crew_id=?,income_owner_crew_id=?,income_cursor_ms=?,captured_at=? WHERE id=?').run('alpha','alpha',start,start,'north-loop');
+await Promise.all([settleClanDistrictIncome(env,start+DAY),settleClanDistrictIncome(env,start+2*DAY)]);
+assert.equal(sql.prepare("SELECT balance FROM crew_treasuries WHERE crew_id='alpha'").get().balance,6000,'different concurrent cutoffs do not double-credit overlapping intervals');
+assert.equal(sql.prepare("SELECT income_cursor_ms FROM clan_war_districts WHERE id='north-loop'").get().income_cursor_ms,start+2*DAY,'stale writers never rewind the income cursor');
+// Splitting an interval into sub-CR requests must preserve its cumulative value.
+const before=sql.prepare("SELECT balance FROM crew_treasuries WHERE crew_id='alpha'").get().balance;
+for(let i=1;i<=12;i++)await settleClanDistrictIncome(env,start+2*DAY+i*10000);
+assert.equal(sql.prepare("SELECT balance FROM crew_treasuries WHERE crew_id='alpha'").get().balance-before,Math.floor(3000*(start+2*DAY+120000)/DAY)-Math.floor(3000*(start+2*DAY)/DAY),'frequent settlement preserves fractional accrual');
+// Lost acknowledgement after commit is safe to retry: cursor and credit commit together.
+const faultEnv={DB:{...DB,async batch(statements){return DB.batch([...statements.slice(0,-1),{query:'INSERT INTO nonexistent_income_failure VALUES(1)',args:[]}]);}}};
+const beforeFailure=sql.prepare("SELECT income_cursor_ms FROM clan_war_districts WHERE id='north-loop'").get().income_cursor_ms;
+await assert.rejects(()=>settleClanDistrictIncome(faultEnv,start+3*DAY),/no such table/);
+assert.equal(sql.prepare("SELECT income_cursor_ms FROM clan_war_districts WHERE id='north-loop'").get().income_cursor_ms,beforeFailure,'write failure rolls back the cursor with the journals');
+let lostAck=true;
+const ackEnv={DB:{...DB,async batch(statements){const out=await DB.batch(statements);if(lostAck&&statements.some(s=>s.query.startsWith('UPDATE clan_war_districts'))){lostAck=false;throw Error('SIMULATED_LOST_ACK');}return out;}}};
+await assert.rejects(()=>settleClanDistrictIncome(ackEnv,start+3*DAY),/SIMULATED_LOST_ACK/);
+assert.equal(sql.prepare("SELECT income_cursor_ms FROM clan_war_districts WHERE id='north-loop'").get().income_cursor_ms,start+3*DAY,'lost ACK leaves the paid cursor committed, not stale');
+await settleClanDistrictIncome(env,start+3*DAY);
+assert.equal(sql.prepare("SELECT balance FROM crew_treasuries WHERE crew_id='alpha'").get().balance,9000,'committed settlement retry pays exactly once');
+console.log('clan_district_income_v2_test: PASS (pro-rata, distinct-cutoff concurrency, cursor atomicity, fractional accrual, lost ACK, handoff/replay)');

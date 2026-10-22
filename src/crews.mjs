@@ -95,8 +95,8 @@ export async function handleCrewRequest(request,env,url){
    const mine=await crewIdentity(env,uid);if(!mine)return json({error:'NO_CREW'},400);
    const id=crypto.randomUUID(),meta=JSON.stringify({source:'member_contribution'});
    const result=await env.DB.batch([
+    env.DB.prepare('INSERT OR IGNORE INTO crew_treasuries(crew_id,balance,updated_at) VALUES(?,0,?)').bind(mine.id,t),
     env.DB.prepare(`UPDATE player_saves SET save_json=json_set(save_json,'$.credits',json_extract(save_json,'$.credits')-?),revision=revision+1,updated_at=? WHERE user_id=? AND CAST(json_extract(save_json,'$.credits') AS INTEGER)>=? AND EXISTS(SELECT 1 FROM crew_members WHERE user_id=? AND crew_id=?) AND NOT EXISTS(SELECT 1 FROM crew_treasury_ledger WHERE idempotency_key=?)`).bind(amount,t,uid,amount,uid,mine.id,`contribution:${uid}:${key}`),
-    env.DB.prepare('INSERT OR IGNORE INTO crew_treasuries(crew_id,balance,updated_at) SELECT ?,0,? WHERE (SELECT changes())>0').bind(mine.id,t),
     env.DB.prepare(`INSERT OR IGNORE INTO crew_treasury_ledger(id,crew_id,actor_user_id,kind,amount,idempotency_key,metadata_json,created_at) SELECT ?,?,?, 'CONTRIBUTION',?,?,?,? WHERE (SELECT changes())>0`).bind(id,mine.id,uid,amount,`contribution:${uid}:${key}`,meta,t),
     env.DB.prepare('UPDATE crew_treasuries SET balance=balance+?,updated_at=? WHERE crew_id=? AND (SELECT changes())>0').bind(amount,t,mine.id)
    ]);

@@ -106,6 +106,10 @@ async function seasonRoster(env,seasonId,at){
 }
 function moveDivision(div,delta){const n=CLAN_DIVISIONS.indexOf(div);return CLAN_DIVISIONS[Math.max(0,Math.min(CLAN_DIVISIONS.length-1,n+delta))]||'BRONZE';}
 async function finalizeSeason(env,season,at){
+  // A bounded outbox pass may leave confirmed events behind after delayed Cron.
+  // Keep this season resumable until every event before its boundary is applied.
+  const pending=await env.DB.prepare('SELECT 1 AS pending FROM clan_competition_outbox WHERE processed_at IS NULL AND created_at<? LIMIT 1').bind(season.ends_at).first();
+  if(pending)return null;
   await env.DB.prepare("UPDATE clan_seasons SET status='FINALIZING' WHERE id=? AND status='OPEN' AND ends_at<=?").bind(season.id,at).run();
   const all=await seasonRoster(env,season.id,at),rankedByDivision=new Map();
   for(const division of CLAN_DIVISIONS){const ranked=rankClanSeasonRows(all.filter(x=>x.division===division));rankedByDivision.set(division,ranked);}
@@ -142,13 +146,13 @@ async function ensureSeasonWindows(env,at){
 async function finalizeSeasonsThrough(env,at){
   await ensureSeasonWindows(env,at);
   const expired=await env.DB.prepare("SELECT * FROM clan_seasons WHERE ends_at<=? AND status IN('OPEN','FINALIZING') ORDER BY starts_at").bind(at).all(),done=[];
-  for(const season of expired.results||[])done.push(await finalizeSeason(env,season,at));return done.map(x=>x.seasonId);
+  for(const season of expired.results||[]){const result=await finalizeSeason(env,season,at);if(result)done.push(result);}return done.map(x=>x.seasonId);
 }
 export async function settleClanCompetition(env,at=Date.now()){
   if(!env?.DB)return{ok:false,processed:0,finalized:[]};
   const holds=await settleClanDistrictHolds(env,at),first=await processClanCompetitionOutbox(env);
   await ensureSeasonWindows(env,at);const expired=await env.DB.prepare("SELECT * FROM clan_seasons WHERE ends_at<=? AND status IN('OPEN','FINALIZING') ORDER BY starts_at").bind(at).all(),finalized=[];
-  for(const season of expired.results||[])finalized.push(await finalizeSeason(env,season,at));
+  for(const season of expired.results||[]){const result=await finalizeSeason(env,season,at);if(result)finalized.push(result);}
   await ensureSeason(env,at,true);await ensureTaskPeriod(env,'DAILY',at);await ensureTaskPeriod(env,'WEEKLY',at);
   return{ok:true,holds:settledHold(holds),processed:first.processed,finalized:[...first.finalized,...finalized.map(x=>x.seasonId)]};
 }

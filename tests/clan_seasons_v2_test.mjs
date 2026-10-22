@@ -80,6 +80,20 @@ try{
   await settleClanCompetition(env,tierStart+7*DAY+1);
   const tierRewards=sql.prepare(`SELECT crew_id,division_from,reward FROM clan_season_results WHERE season_id=? ORDER BY crew_id`).all(tierSeason);
   assert.deepEqual(tierRewards.map(x=>[x.crew_id,x.division_from,x.reward]),[['c0','BRONZE',12000],['c1','SILVER',22000],['c2','GOLD',32000],['c3','PLATINUM',42000],['c4','DIAMOND',52000]],'season payout uses the starting division plus the fixed participation reward');
+  // A delayed Cron can exhaust its 20 x 200 event budget before the season queue drains.
+  const backlogStart=tierStart+7*DAY,backlogId=utcClanSeason(backlogStart).id;
+  sql.exec('UPDATE clan_war_districts SET owner_crew_id=NULL');
+  const queued=sql.prepare('INSERT INTO clan_competition_outbox(id,event_type,crew_id,source_id,amount,created_at) VALUES(?,?,?,?,?,?)');
+  sql.exec('BEGIN');for(let i=0;i<4000;i++)queued.run(`backlog:${i}`,'ONLINE_FINISH','c0',`backlog:${i}`,0,backlogStart+i);queued.run('backlog:win','MATCH_WIN','c0','backlog:win',1,backlogStart+4001);sql.exec('COMMIT');
+  await settleClanCompetition(env,backlogStart+7*DAY+1);
+  assert.equal(sql.prepare('SELECT status FROM clan_seasons WHERE id=?').get(backlogId).status,'OPEN','pending confirmed events prevent premature season finalization');
+  assert.equal(sql.prepare('SELECT COUNT(*) n FROM clan_season_results WHERE season_id=?').get(backlogId).n,0);
+  await settleClanCompetition(env,backlogStart+7*DAY+1);
+  const backlogResult=sql.prepare("SELECT matches,reward FROM clan_season_results WHERE season_id=? AND crew_id='c0'").get(backlogId);
+  assert.equal(backlogResult.matches,1);assert.ok(backlogResult.reward>0,'last queued confirmed match still qualifies for the season reward');
+  const backlogPaid=sql.prepare("SELECT balance FROM crew_treasuries WHERE crew_id='c0'").get().balance;
+  await settleClanCompetition(env,backlogStart+7*DAY+2);
+  assert.equal(sql.prepare("SELECT balance FROM crew_treasuries WHERE crew_id='c0'").get().balance,backlogPaid,'resumed season settles once');
   assert.equal(sql.prepare('PRAGMA foreign_key_check').all().length,0);
   console.log('clan_seasons_v2_test: PASS (UTC windows, authoritative outbox, daily tasks/rewards, match/capture points, ranking/promotion, season rewards, crash recovery, replay)');
 }finally{sql.close();}

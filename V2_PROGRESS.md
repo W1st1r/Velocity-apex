@@ -187,3 +187,11 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Tests after the changes: `npm test` (101 executions), `npm run test:race:authority` (7 programs plus runtime check), `npm run test:ai`, `npm run test:map` (5), `npm run test:clan-wars:v2` (9), and `npm run test:d1-release` all passed. The D1 safety guard was updated from migration ceiling 0032 to contiguous 0033; its final run passed.
 - Acceptance remains **BLOCKED** only by the mandatory local visual run not being possible in this environment. Physical iPhone Safari checks remain deferred until after a test build. No production, push, merge, deploy, PR #17, bot or ZIP changes were made.
 - Implementation/test checkpoint: `b56709eec5006906e622f1f0d09b6af26081f638` (`test: validate Career 01 and Coastal Ridge anchor`). QA documentation checkpoint: `7d0787a55b279cc6860e7dccb666baedb31181c1` (`docs: update local QA readiness for V2 blockers`). No push or deployment.
+
+## Final code audit — 2026-10-22
+
+- Verified exact base `0e987a54718101e0dec3f44eea747d9556e54d84`, correct branch, clean tracked tree; preserved existing ZIPs and safety ref `safety/final-audit-0e987a5`.
+- Reproduced/fixed four defects: subsequent contribution losing its ledger/credit after debit (P0), overlapping district income and non-atomic cursor (P0), fractional interval income loss (P1), premature season finalization with pending outbox backlog (P1). Details/evidence: `V2_FINAL_CODE_AUDIT.md`.
+- Final deduplicated regression: 123/123 unique processes PASS, plus one strengthened income atomicity run PASS; no unresolved failures. Three pre-fix reproductions failed as expected. All npm-test leaf commands retained; four duplicates removed, unchanged 20-match batch skipped. Runtime build/syntax and diff checks PASS.
+- Technical audit CONDITIONAL; global local acceptance remains BLOCKED by outstanding visual checks. Coastal Ridge uses its D1 name in clan UI, not the broad city resolver; no additional map modification justified. Browser/Safari/iPhone not checked by instruction.
+- Changes and report saved in one local checkpoint; full final SHA and verified new backup paths are supplied in completion output and backup CHECKPOINT.txt. No push, merge, deploy, production access, bot changes or ZIP modification.
