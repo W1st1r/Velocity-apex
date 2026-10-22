@@ -1,6 +1,6 @@
 # Velocity Apex 2.0 — локальный QA-отчёт
 
-Дата: 2026-10-22. Ветка: `velocity-apex-2.0-dev`. Базовый HEAD: `378651b11f3d60c93ca0ea1f2c1d1a2e75407c59`. Работа выполнялась локально. Доступа к production Worker/D1/DO не использовали.
+Дата: 2026-10-22. Ветка: `velocity-apex-2.0-dev`. Базовый HEAD: `378651b11f3d60c93ca0ea1f2c1d1a2e75407c59`. QA implementation checkpoint: `d142cc4978f25f1836dd9c59c61c3d568ff7a3fb`; этот файл и progress note после него зафиксированы documentation follow-up checkpoint. Работа выполнялась локально. Доступа к production Worker/D1/DO не использовали.
 
 ## Сводка прогонов
 
