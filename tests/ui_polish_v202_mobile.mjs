@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import {DatabaseSync} from 'node:sqlite';
 import {chromium,webkit,devices} from 'playwright';
 const current=path.resolve('public'),baseline=process.env.BASELINE_DIR?path.resolve(process.env.BASELINE_DIR,'public'):null;
 const output='artifacts/v202/ui';fs.mkdirSync(output,{recursive:true});
@@ -19,13 +20,16 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin=`http://127.0.
 const filter=process.env.UI_SCREENS?.split(',');
 const examples=[['friends','.friends-card','.friends-header'],['account','.account-card','.account-header'],['promo','.promo-card','.promo-header'],['staffAdminOverlay','.admin-system-panel','.admin-system-header'],['marketDialog','.market-dialog-card',null],['rootConsole','.root-console-panel','.root-console-header']].filter(([id])=>!filter||filter.includes(id));
 const results=[];
+const fixtureDb=new DatabaseSync(':memory:');
+for(const name of fs.readdirSync('migrations').filter(n=>n.endsWith('.sql')).sort())fixtureDb.exec(fs.readFileSync(path.join('migrations',name),'utf8'));
+const districts=fixtureDb.prepare('SELECT * FROM clan_war_districts').all();fixtureDb.close();
 try{
  for(const engine of [webkit,chromium]){
   const browser=await engine.launch();
   try{for(const number of [13,14,15,17]){
    const {defaultBrowserType,...device}=devices[`iPhone ${number} landscape`];
    const context=await browser.newContext({...device,reducedMotion:'reduce'}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e)));
-   try{for(const variant of baseline&&number===13?['before','after']:['after']){
+   try{for(const variant of baseline&&number===13&&!filter?.includes('clans')?['before','after']:['after']){
     await page.goto(origin+'/'+variant+'/index.html',{waitUntil:'load'});
     for(const [id,panel,header] of examples){
      await page.evaluate(id=>{
@@ -49,6 +53,26 @@ try{
      await page.screenshot({path:`${output}/${engine.name()}-iphone${number}-${variant}-${id}.png`});
      results.push({engine:engine.name(),iphone:number,variant,screen:id,status:'PASS'});
     }
+   }
+   if(filter?.includes('clans')){
+    const crew={id:'qa-crew',leader_id:'qa1',tag:'QA',name:'Layout QA Crew',emblem:'⚡',color:'#58c7ff',capacity:15,treasuryBalance:50000,rep:100,totalRep:500};
+    const members=[1,2,3,4].map(n=>({id:'qa'+n,username:'layout'+n,rep:100,warReserved:n===4}));
+    const task=n=>({id:'task'+n,title:'Тестовое задание '+n,description:'Серверная цель для проверки вёрстки',target:100,progress:50,reward:1000,completed:false});
+    const competition={daily:{tasks:[1,2,3].map(task),resetInMs:86400000},weekly:{tasks:[4,5,6].map(task),resetInMs:604800000},season:{id:'qa-season',endsAt:Date.now()+604800000,standings:[{crewId:crew.id,tag:'QA',name:crew.name,division:'BRONZE',rank:1,points:150,wins:1,captures:1,influence:100}]},config:{divisions:{BRONZE:'Bronze'},divisionRewards:{BRONZE:10000,SILVER:20000,GOLD:30000,PLATINUM:40000,DIAMOND:50000},participationReward:2000},history:[]};
+    await page.route('**/api/**',route=>{const pathname=new URL(route.request().url()).pathname;const body=pathname==='/api/clan-wars'?{challenges:[{id:'qa-war',state:'ACCEPTED',attackerCrewId:crew.id,defenderCrewId:'other',districtId:districts[0].id,rosters:[]}]}:pathname==='/api/clan-seasons'?competition:{userId:'qa1',crew,members,districts,ranking:[],history:[],treasury:[],requests:[],weekEnd:Date.now()+604800000};return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});});
+    await page.addScriptTag({content:'window.VelocityAccount={user:{id:"qa1",username:"layout1"},authenticated:true};'});
+    await page.addScriptTag({path:path.join(current,'js/free-city.js')});
+    await page.addScriptTag({path:path.join(current,'js/crews.js')});
+    await page.evaluate(()=>window.VelocityCrews.open());
+    await page.locator('.crew-task').first().waitFor();
+    assert.equal(await page.locator('.crew-task').count(),6);assert.equal(await page.locator('.crew-district-pin').count(),8);
+    for(const [name,selector] of [['map','.crew-district-map'],['treasury','.crew-treasury'],['tasks','.crew-task-grid'],['season','.crew-season-title'],['roster','.crew-roster-form']]){
+     const target=page.locator(selector).first();await target.scrollIntoViewIfNeeded();const box=await target.boundingBox();assert(box&&box.width>100);
+     const overflow=await page.locator('#crewDialog').evaluate(el=>el.scrollWidth>el.clientWidth+2);assert.equal(overflow,false,'clan dialog horizontal overflow');
+     if(name==='roster'){const checks=page.locator('.crew-roster-form input:not(:disabled)');for(let i=0;i<3;i++)await checks.nth(i).check();assert(await page.locator('.crew-roster-form button[type=submit]').isEnabled());assert.equal(await page.locator('.crew-roster-form input:disabled').count(),1);}
+     await page.screenshot({path:`${output}/${engine.name()}-iphone${number}-clans-${name}.png`});results.push({engine:engine.name(),iphone:number,screen:'clans-'+name,kind:'real renderer with isolated API fixtures',status:'PASS'});
+    }
+    await page.locator('#crewClose').click();assert.equal(await page.locator('#crewDialog').isVisible(),false);
    }
    // Broad static layout inventory: real markup/CSS, without pretending API flows ran.
    if(number===17&&!filter){

@@ -9,7 +9,7 @@
       if(!Array.isArray(frames)||frames.length<2||frames.length>1800)throw Error('GHOST_INVALID');
       let previous=-1,progress=-Infinity;
       this.frames=frames.map(f=>{
-        if(!Array.isArray(f)||f.length!==7||!f.every(Number.isFinite)||f[0]<0||f[0]<=previous)throw Error('GHOST_INVALID');
+        if(!Array.isArray(f)||f.length!==7||!f.every(Number.isFinite)||!Number.isSafeInteger(f[0])||f[0]<0||f[0]<=previous||Math.abs(f[1])>20000||Math.abs(f[2])>20000||Math.abs(f[3])>Math.PI+.01||f[4]<(f[0]===0?-.1:0)||f[4]>1||!Number.isSafeInteger(f[5])||f[5]<0||f[5]>20||!Number.isSafeInteger(f[6])||f[6]<0)throw Error('GHOST_INVALID');
         previous=f[0];progress=Math.max(progress,f[5]+f[4]);
         return {frame:f[0],x:f[1],y:f[2],angle:f[3],progress};
       });

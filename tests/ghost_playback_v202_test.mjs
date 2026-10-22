@@ -15,6 +15,7 @@ for(const hz of [30,60,120]){let previous=g.atTime(0);for(let n=1;n<=hz*3;n++){c
 const paused=g.atTime(1);for(let n=0;n<20;n++)assert.deepEqual(g.atTime(1),paused,'unchanged simulation clock freezes pause/background replay');
 assert(g.atTime(1.1).x>paused.x,'resume uses simulation time');
 for(const bad of [[],[[0,0,0,0,0,0,0]],[[0,0,0,0,0,0,0],[0,1,1,0,0,0,0]],[[0,0,0,0,0,0,0],[1,Infinity,0,0,0,0,0]]])assert.throws(()=>new Ghost(bad));
+for(const index of [0,1,2,3,4,5,6]){const bad=frames.map(f=>f.slice());bad[1][index]=index===0?.5:index===4?2:1e100;assert.throws(()=>new Ghost(bad),'reject corrupt keyframe field '+index);}
 const game=fs.readFileSync('public/js/game.js','utf8');
 assert(game.includes('ghostReplay.atTime(playbackTime)'));assert(!game.includes('const p=ghostAtProgress(player.laps+player.progress)'));
 const draw=game.slice(game.indexOf('  function drawGhost()'),game.indexOf('\n\n  const save'));

@@ -29,7 +29,7 @@ jobs:
       - name: Check generated client/server simulation
         run: node scripts/build-race-runtime.mjs --check
       - name: Gameplay metrics, drift and independent replay
-        run: node tests/apex_dynamic_v202_test.mjs && node tests/ghost_playback_v202_test.mjs
+        run: npm run test:v202
       - name: Startup and reload in WebKit and Chromium
         run: node tests/frontend_startup_v201.mjs
       - name: Upload diagnostics
@@ -61,7 +61,7 @@ jobs:
       - name: Before and after panel layouts in eight mobile browser profiles
         run: node tests/ui_polish_v202_mobile.mjs
         env:
-          UI_SCREENS: marketDialog,rootConsole
+          UI_SCREENS: clans
       - uses: actions/upload-artifact@v4
         if: always()
         with:
