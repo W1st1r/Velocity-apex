@@ -1,23 +1,22 @@
 {
   "app": "Velocity Apex",
-  "version": "V77",
+  "version": "2.0.0",
   "developmentVersion": "2.0.0-dev",
-  "resourceVersion": "2.0.0-dev.20261022.4",
+  "resourceVersion": "2.0.0",
   "protocolVersion": 1,
-  "channel": "development",
+  "channel": "production",
   "theme": "Race Control Blue",
-  "update": "Clan wars round results and reconnect completion flow",
-  "released": "2026-10-16",
-  "release": "Minigame venue and server activation rings aligned; Extreme AI traffic clearances calibrated; race payout/hour kept in balance",
+  "update": "Clans, wars, districts, seasons, tasks, ghosts and server economy protection",
+  "released": "2026-10-22",
+  "release": "Velocity Apex 2.0.0",
   "history": [
     {
       "version": "V77",
-      "status": "published"
+      "status": "previous"
     },
     {
-      "version": "2.0.0-dev",
-      "status": "development",
-      "summary": "Physics units, handling, chat, account recovery and interface work in progress"
+      "version": "2.0.0",
+      "status": "release-candidate"
     }
   ]
 }

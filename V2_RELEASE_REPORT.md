@@ -138,3 +138,20 @@ Staging не создан, production не изменён, официальна�
 ### Текущий факт
 
 Staging **не развёрнут**, URL пока отсутствует. Production не изменён, версия 2.0.0 не выпущена. Подготовленные infra-файлы не меняют поведение игры и не возвращают старые P0/P1 исправления. Изменения Todoist отражают снятый read-only blocker и ожидание remote staging публикации; релиз/visual задачи не завершаются.
+
+
+## Direct production release preparation (2026-10-22)
+
+Status: BLOCKED pending protected backup/migration-copy execution and production approval.
+
+Exact audited checkpoint 4deab4d47aefbe636e97855b99d1f2ef42283226 imported by Actions run 39821448911. PR #18 preserves V77 history. Production is not yet claimed released.
+
+Release changes: version metadata and common asset build keys identify 2.0.0; health reports 2.0.0; smoke verifies HTML, version.json and Worker identity. Existing authenticated smoke and auth rejection checks retained. No bot or economy changes.
+
+Targeted verification: UI version test PASS; D1 backup/restore/migrations and updated smoke fixture PASS; diff check PASS. Previous game suites not rerun locally.
+
+Production release workflow retains exact-main CI requirement and production environment required reviewer. Before migrations it archives V77 source, exports/encrypts/restores D1, runs all pending migrations on a private SQLite copy and compares every pre-existing record, retains encrypted export and previous Worker deployment metadata.
+
+Rollback: use the recorded pre-release Worker version from worker-before-v2.json with Wrangler rollback only after checking compatibility with the additive schema. Preserve current D1/new user writes; never blindly replace live D1 with the old export. For data repair, decrypt the retained export using D1_BACKUP_ENCRYPTION_KEY into a private environment, verify and restore to an isolated D1, reconcile post-backup user operations before any approved live restoration. V77 source base fe9bbb0f23939892b99cece49f1fea9255f17f42 remains in history.
+
+Staging and visual/iPhone gates waived by owner. Cloudflare Workers Builds is also configured: its deployment behavior must be confirmed before merging game code into main. No production publication may precede verified D1 backup.
