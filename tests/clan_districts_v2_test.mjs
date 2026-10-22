@@ -9,6 +9,7 @@ try{
   const rows=sql.prepare('SELECT tier,daily_income,COUNT(*) count FROM clan_war_districts GROUP BY tier,daily_income ORDER BY daily_income').all();
   assert.deepEqual(rows.map(row=>[row.tier,row.daily_income,row.count]),[['STANDARD',3000,4],['PRESTIGE',6000,3],['ELITE',10000,1]]);
   assert.equal(sql.prepare('SELECT COUNT(*) count FROM clan_war_districts').get().count,8);
+  assert.deepEqual({...sql.prepare(`SELECT map_x,map_y FROM clan_war_districts WHERE id='coastal-ridge'`).get()},{map_x:4580,map_y:1390},'Coastal Ridge map anchor follows the authored Coastal Ring while territory state remains server keyed');
   assert.equal(sql.prepare('PRAGMA foreign_key_check').all().length,0);
   sql.exec(fs.readFileSync(new URL('../migrations/0026_clan_war_districts.sql',import.meta.url),'utf8'));
   assert.equal(sql.prepare('SELECT COUNT(*) count FROM clan_war_districts').get().count,8,'district seed migration is replay-safe');
