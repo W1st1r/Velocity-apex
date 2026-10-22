@@ -67,7 +67,9 @@ try{
     await page.locator('.crew-task').first().waitFor();
     assert.equal(await page.locator('.crew-task').count(),6);assert.equal(await page.locator('.crew-district-pin').count(),8);
     for(const [name,selector] of [['map','.crew-district-map'],['treasury','.crew-treasury'],['tasks','.crew-task-grid'],['season','.crew-season-title'],['roster','.crew-roster-form']]){
-     const target=page.locator(selector).first();await target.scrollIntoViewIfNeeded();const box=await target.boundingBox();assert(box&&box.width>100);
+     const target=page.locator(selector).first();await target.scrollIntoViewIfNeeded();const box=await target.boundingBox();
+     await page.screenshot({path:`${output}/${engine.name()}-iphone${number}-clans-${name}.png`});
+     assert(box&&box.width>100,`${name} section compressed: ${JSON.stringify(box)}`);
      const overflow=await page.locator('#crewDialog').evaluate(el=>el.scrollWidth>el.clientWidth+2);assert.equal(overflow,false,'clan dialog horizontal overflow');
      if(name==='roster'){const checks=page.locator('.crew-roster-form input:not(:disabled)');for(let i=0;i<3;i++)await checks.nth(i).check();assert(await page.locator('.crew-roster-form button[type=submit]').isEnabled());assert.equal(await page.locator('.crew-roster-form input:disabled').count(),1);}
      await page.screenshot({path:`${output}/${engine.name()}-iphone${number}-clans-${name}.png`});results.push({engine:engine.name(),iphone:number,screen:'clans-'+name,kind:'real renderer with isolated API fixtures',status:'PASS'});

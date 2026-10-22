@@ -93,6 +93,10 @@ body.modal-open{overflow:hidden;overscroll-behavior:none}
   padding:0 12px;background:transparent;line-height:1;
 }
 .market-price-input:focus-within{outline:2px solid #76d7ff;outline-offset:2px}
+/* The hero contains the clan summary AND full sections; a single flex row
+   used to shrink the map, treasury and tasks beside the emblem. */
+#crewDialog .crew-hero{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
+#crewDialog .crew-hero>.crew-card{grid-column:1/-1;min-width:0;width:100%}
 @media(orientation:landscape) and (max-height:500px){
   .market-dialog-card{max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);overscroll-behavior:contain}
 }
