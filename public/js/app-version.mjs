@@ -1,4 +1,4 @@
-const fallback='2.0.0';
+const fallback='2.0.1';
 const versionPattern=/^(?:V\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:-[a-z\d.-]+)?)$/i;
 
 export async function loadAppVersion(fetcher=fetch,doc=document){
@@ -13,7 +13,7 @@ export async function loadAppVersion(fetcher=fetch,doc=document){
     const meta=doc.querySelector('meta[name="velocity-apex-version"]');if(meta)meta.content=version;
     if(doc.documentElement){doc.documentElement.dataset.appVersion=version;doc.documentElement.dataset.resourceVersion=resourceVersion;doc.documentElement.dataset.protocolVersion=String(protocolVersion);}
     doc.title=`Velocity Apex · ${version}`;
-    doc.querySelectorAll('[data-app-version]').forEach(node=>{node.textContent=version;});
+    doc.querySelectorAll('[data-app-version]').forEach(node=>{if(node!==doc.documentElement)node.textContent=version;});
     return version;
   }catch{return fallback;}
 }

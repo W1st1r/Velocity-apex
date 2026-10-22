@@ -1,14 +1,14 @@
 {
   "app": "Velocity Apex",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "developmentVersion": "2.0.0-dev",
-  "resourceVersion": "2.0.0",
+  "resourceVersion": "2.0.1",
   "protocolVersion": 1,
   "channel": "production",
   "theme": "Race Control Blue",
-  "update": "Clans, wars, districts, seasons, tasks, ghosts and server economy protection",
+  "update": "Fix startup DOM deletion caused by version rendering",
   "released": "2026-10-22",
-  "release": "Velocity Apex 2.0.0",
+  "release": "Restore login and main menu after loading version metadata",
   "history": [
     {
       "version": "V77",
@@ -17,6 +17,11 @@
     {
       "version": "2.0.0",
       "status": "release-candidate"
+    },
+    {
+      "version": "2.0.1",
+      "status": "hotfix-candidate",
+      "summary": "Preserve root application DOM during version rendering"
     }
   ]
 }
