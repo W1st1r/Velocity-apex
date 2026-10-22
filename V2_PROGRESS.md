@@ -195,3 +195,10 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Final deduplicated regression: 123/123 unique processes PASS, plus one strengthened income atomicity run PASS; no unresolved failures. Three pre-fix reproductions failed as expected. All npm-test leaf commands retained; four duplicates removed, unchanged 20-match batch skipped. Runtime build/syntax and diff checks PASS.
 - Technical audit CONDITIONAL; global local acceptance remains BLOCKED by outstanding visual checks. Coastal Ridge uses its D1 name in clan UI, not the broad city resolver; no additional map modification justified. Browser/Safari/iPhone not checked by instruction.
 - Changes and report saved in one local checkpoint; full final SHA and verified new backup paths are supplied in completion output and backup CHECKPOINT.txt. No push, merge, deploy, production access, bot changes or ZIP modification.
+
+## Official release preflight — 2026-10-22
+
+- Exact candidate base `f5ebbdace037b8eaaaeeca962aac351cc789cdbd`, clean tracked tree; existing ZIPs retained. Created safety ref `safety/pre-release-f5ebbdac`; existing source backup SHA-256 checks passed.
+- Release **BLOCKED** before staging: Wrangler reports not authenticated; no Cloudflare credentials/OAuth config available. GitHub main confirmed at `fe9bbb0f23939892b99cece49f1fea9255f17f42`; manual workflow YAML read, environment required-reviewer settings and live deployment identity unverified. Production version read returned HTTP 403 (origin/proxy attribution unknown).
+- No staging URL, production backup, real migration/history checks, staging smoke, PWA update or visual gate. No version promotion/tag/push/merge/deploy/production mutation. Runtime code and prior tests unchanged; no redundant full regression.
+- Updated 7 existing Velocity Apex Todoist cards with actual blocked state; no duplicates/completions or unrelated project changes. Detailed gates, conditional historical-data evidence and rollback plan: `V2_RELEASE_REPORT.md`.
