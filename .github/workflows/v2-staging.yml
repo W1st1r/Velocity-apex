@@ -1,0 +1,79 @@
+name: V2 isolated staging (no production writes)
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Full reviewed V2 staging commit SHA (never main V77)
+        required: true
+        type: string
+      confirmation:
+        description: Provision staging and read-only production export; never deploy production
+        required: true
+        type: choice
+        options:
+          - NO
+          - I_CONFIRM_ISOLATED_STAGING_ONLY
+        default: NO
+permissions:
+  contents: read
+concurrency:
+  group: velocity-apex-v2-staging
+  cancel-in-progress: false
+jobs:
+  staging:
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'I_CONFIRM_ISOLATED_STAGING_ONLY'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_BACKUP_ENCRYPTION_KEY: ${{ secrets.D1_BACKUP_ENCRYPTION_KEY }}
+      STAGING_QA_PASSWORD: ${{ secrets.STAGING_QA_PASSWORD }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Validate explicit source and credentials without displaying them
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          node -e 'if(!/^[0-9a-f]{64}$/i.test(process.env.D1_BACKUP_ENCRYPTION_KEY||"") || (process.env.STAGING_QA_PASSWORD||"").length<12)process.exit(1)'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require audited V2 ancestry
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git merge-base --is-ancestor f5ebbdace037b8eaaaeeca962aac351cc789cdbd HEAD
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Prepare isolated resources and verify private V77 migration copy
+        run: node scripts/v2-staging.mjs prepare
+      - name: Deploy staging config only
+        run: ./node_modules/.bin/wrangler deploy --config .v2-staging-wrangler.json
+      - name: Verify D1/R2/DO separation
+        run: node scripts/v2-staging.mjs verify
+      - name: Initial real HTTP/API and isolated D1 smoke
+        run: node scripts/v2-staging-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v2-staging-receipts-${{ github.run_id }}
+          path: |
+            artifacts/v2-staging/*.enc.json
+            artifacts/v2-staging/SHA256SUMS
+            artifacts/v2-staging/smoke.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove private exports and ephemeral configuration
+        if: always()
+        run: rm -rf .v2-staging-private .v2-staging-wrangler.json
