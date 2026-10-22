@@ -3,6 +3,7 @@ import {prepareRoomAuthority,roomEngine,publicRoomAuthority,handleRoomAuthorityM
 import {lockRoomWager,settleRoomWager,readRoomWager} from './room-wager-escrow.mjs';
 import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.mjs';
 import {handleClanWarRequest} from './clan-wars.mjs';
+import {settleClanDistrictIncome} from './clan-district-income.mjs';
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
 import {handleAuthRequest,freeAccountIdentity,mutateTargetSave} from './auth.mjs';
 import {handleMarketRequest} from './market.mjs';
@@ -100,7 +101,7 @@ const insideGarageZone=state=>insideRect(state,FREE_GARAGE.apron,34)||(Number(st
 const angleDelta=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return Math.abs(d);};
 
 export default {
-  async scheduled(event,env,ctx){ctx.waitUntil(Promise.all([settleCrews(env),cleanupExpiredBugAttachments(env)]));},
+  async scheduled(event,env,ctx){ctx.waitUntil(Promise.all([settleCrews(env),settleClanDistrictIncome(env),cleanupExpiredBugAttachments(env)]));},
   async fetch(request,env,executionCtx){
     const url=new URL(request.url);
     const owner=await ownerRequest(request,env,url);if(owner)return owner;

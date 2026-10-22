@@ -24,7 +24,7 @@
     "test:race:mobile": "node tests/race_authority_mobile_v77.mjs && node tests/online_authority_mobile_v77.mjs",
     "test:owner:economy": "node tests/admin_self_economy_v77_test.mjs",
     "test:room:escrow": "node tests/room_wager_escrow_v77_test.mjs",
-    "test:clan-wars:v2": "node tests/clan_wars_orchestration_v2_test.mjs && node tests/online_room_test.mjs",
+    "test:clan-wars:v2": "node tests/clan_districts_v2_test.mjs && node tests/clan_district_income_v2_test.mjs && node tests/clan_wars_orchestration_v2_test.mjs && node tests/online_room_test.mjs",
     "test:v2:bug-ghosts": "node tests/v2_bug_ghost_unit_test.mjs && node tests/bug_reports_api_v2_test.mjs && node tests/ghost_authority_v2_test.mjs && node tests/v2_bug_ghost_ui_test.mjs && python3 tests/v2_bug_ghost_migration_test.py",
     "test:d1-release": "node scripts/d1-release-safety.mjs simulate",
     "version:stamp": "node scripts/stamp-app-version.mjs"
