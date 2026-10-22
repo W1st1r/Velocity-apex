@@ -1,6 +1,7 @@
 import {freeAccountIdentity} from './auth.mjs';
 import {crewIdentity} from './crews.mjs';
 import {settleClanDistrictIncome} from './clan-district-income.mjs';
+import {settleClanDistrictHolds} from './clan-seasons.mjs';
 
 const DAY=86400000,CHALLENGE_TTL=24*60*60*1000;
 const DISTRICT_MIN_INFLUENCE={STANDARD:1000,PRESTIGE:2000,ELITE:3000};
@@ -38,7 +39,9 @@ async function details(env,b,userId){
   const members=await roster(env,b.id);
   const score=await env.DB.prepare('SELECT * FROM clan_war_battle_state WHERE battle_id=?').bind(b.id).first();
   const history=await env.DB.prepare('SELECT round_number,attacker_points,defender_points,results_json,created_at FROM clan_war_rounds WHERE battle_id=? ORDER BY round_number').bind(b.id).all();
-  return {id:b.id,state:b.state,attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,districtId:b.district_id||null,createdAt:b.created_at,expiresAt:b.expires_at,roomAvailable:['READY','RUNNING'].includes(b.state),roundNumber:Number(score?.round_number)||1,score:{attacker:Number(score?.attacker_score)||0,defender:Number(score?.defender_score)||0},winnerCrewId:score?.winner_crew_id||null,tiebreak:score?.tiebreak||null,rounds:(history.results||[]).map(x=>({...x,results:JSON.parse(x.results_json||'[]')})),rosters:[b.attacker_crew_id,b.defender_crew_id].map(crewId=>({crewId,players:members.filter(x=>x.crew_id===crewId).map(x=>({userId:x.user_id,username:x.username,ready:!!x.ready_at}))}))};
+  let connections=[];
+  if(env.ROOMS&&b.room_name&&['READY','RUNNING'].includes(b.state))try{const stub=env.ROOMS.get(env.ROOMS.idFromName(b.room_name)),response=await stub.fetch(new Request(`https://room.internal/clan/status?battleId=${encodeURIComponent(b.id)}`));if(response.ok){const live=await response.json();connections=Array.isArray(live.connections)?live.connections:[];}}catch{}
+  return {id:b.id,state:b.state,attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,districtId:b.district_id||null,createdAt:b.created_at,expiresAt:b.expires_at,roomAvailable:['READY','RUNNING'].includes(b.state),roundNumber:Number(score?.round_number)||1,score:{attacker:Number(score?.attacker_score)||0,defender:Number(score?.defender_score)||0},winnerCrewId:score?.winner_crew_id||null,tiebreak:score?.tiebreak||null,rounds:(history.results||[]).map(x=>({...x,results:JSON.parse(x.results_json||'[]')})),connections,rosters:[b.attacker_crew_id,b.defender_crew_id].map(crewId=>({crewId,players:members.filter(x=>x.crew_id===crewId).map(x=>({userId:x.user_id,username:x.username,ready:!!x.ready_at}))}))};
 }
 
 export async function awardClanInfluence(env,userId,won,eventId,at=Date.now()){
@@ -53,7 +56,7 @@ export async function awardClanInfluence(env,userId,won,eventId,at=Date.now()){
 
 async function completeClanWar(env,b,latest,at){
   const result={attackerCrewId:b.attacker_crew_id,defenderCrewId:b.defender_crew_id,score:{attacker:Number(latest.attacker_score),defender:Number(latest.defender_score)},winnerCrewId:latest.winner_crew_id||null,tiebreak:latest.tiebreak||null,roundNumber:Number(latest.round_number)};
-  if(latest.winner_crew_id===b.attacker_crew_id&&b.district_id)await settleClanDistrictIncome(env,at);
+  if(latest.winner_crew_id===b.attacker_crew_id&&b.district_id){await settleClanDistrictHolds(env,at,b.district_id);await settleClanDistrictIncome(env,at);}
   const statements=[
     env.DB.prepare("UPDATE clan_war_challenges SET state='FINISHED',updated_at=? WHERE id=? AND state IN('RUNNING','READY')").bind(at,b.id),
     env.DB.prepare("UPDATE clan_war_battle_state SET result_json=?,completed_at=COALESCE(completed_at,?),updated_at=? WHERE battle_id=? AND status='FINISHED'").bind(JSON.stringify(result),at,at,b.id)

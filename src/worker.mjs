@@ -5,6 +5,7 @@ import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.m
 import {handleClanWarRequest} from './clan-wars.mjs';
 import {abortClanWar} from './clan-wars.mjs';
 import {settleClanDistrictIncome} from './clan-district-income.mjs';
+import {handleClanSeasonRequest,settleClanCompetition} from './clan-seasons.mjs';
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
 import {handleAuthRequest,freeAccountIdentity,mutateTargetSave} from './auth.mjs';
 import {handleMarketRequest} from './market.mjs';
@@ -102,7 +103,7 @@ const insideGarageZone=state=>insideRect(state,FREE_GARAGE.apron,34)||(Number(st
 const angleDelta=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return Math.abs(d);};
 
 export default {
-  async scheduled(event,env,ctx){ctx.waitUntil(Promise.all([settleCrews(env),settleClanDistrictIncome(env),cleanupExpiredBugAttachments(env)]));},
+  async scheduled(event,env,ctx){ctx.waitUntil(Promise.all([settleCrews(env),settleClanDistrictIncome(env),settleClanCompetition(env),cleanupExpiredBugAttachments(env)]));},
   async fetch(request,env,executionCtx){
     const url=new URL(request.url);
     const owner=await ownerRequest(request,env,url);if(owner)return owner;
@@ -139,6 +140,7 @@ export default {
       if(fm[2]==='ws')return stub.fetch(new Request('https://room.internal/free/ws?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{headers:request.headers}));
       if(fm[2]==='leave'&&request.method==='POST')return stub.fetch(new Request('https://room.internal/free/leave?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{method:'POST'}));
     }
+    const clanSeasonResponse=await handleClanSeasonRequest(request,env,url);if(clanSeasonResponse)return clanSeasonResponse;
     const clanWarResponse=await handleClanWarRequest(request,env,url);if(clanWarResponse)return clanWarResponse;
     const crewResponse=await handleCrewRequest(request,env,url);if(crewResponse)return crewResponse;
     const authResponse=await handleAuthRequest(request,env,url,executionCtx);if(authResponse)return authResponse;
@@ -906,6 +908,12 @@ export class Room {
       const id=url.searchParams.get('playerId')||'',sessionToken=url.searchParams.get('token')||'',p=this.room.players.find(x=>x.id===id&&x.token===sessionToken);if(!p)return json({error:'SESSION_INVALID'},401);
       const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.ctx.acceptWebSocket(server,['free']);server.serializeAttachment({playerId:p.id,lastSeenAt:now()});for(const old of this.ctx.getWebSockets()){if(old===server)continue;const a=old.deserializeAttachment?.();if(a?.playerId===p.id)try{old.close(4001,'replaced');}catch{}}
       p.connected=true;p.disconnectedUntil=0;this.room.emptySince=0;await this.startSessionLog(p);await this.save();this.send(server,{type:'free_hello',v:PROTOCOL_VERSION,playerId:p.id,serverTime:now(),room:this.publicFreeRoom()});this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicFreeRoom()},server);return new Response(null,{status:101,webSocket:client});
+    }
+
+    if(url.pathname==='/clan/status'&&request.method==='GET'){
+      const battleId=url.searchParams.get('battleId')||'';
+      if(this.room?.mode!=='clan_war'||this.room.clanMatch?.battleId!==battleId)return json({error:'CLAN_ROOM_NOT_FOUND'},404);
+      return json({ok:true,connections:this.room.players.map(p=>({userId:p.userId,connected:!!p.connected,disconnectedUntil:Number(p.disconnectedUntil)||0})),roundNumber:Number(this.room.clanMatch.roundNumber)||1,roundSettled:!!this.room.clanMatch.roundSettled,complete:!!this.room.clanMatch.complete});
     }
 
     if(url.pathname==='/clan/create'&&request.method==='POST'){
