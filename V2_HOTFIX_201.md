@@ -1,6 +1,12 @@
 # 2.0.1 — P0 frontend startup recovery
 
-Status: prepared; browser gate and protected publication pending.
+Status: RELEASED 2.0.1; production browser startup gate PASS.
+
+Published 2026-10-22 18:32:38 UTC, source bc133a41a539cd7b595d0affa7096c4fe3931be9. Worker version 361ab350-a0eb-4fd9-afd1-19c551233fdb. Protected workflow 39831409271 SUCCESS.
+
+Live production smoke: five profiles PASS (WebKit iPhone 13/14/15/17 landscape and Chromium), 41 linked CSS/JS assets loaded, login/menu visible, reload successful, no application page errors. Independent cloud browser displayed the main menu with build 2.0.1 after reload. Authentication persistence was not independently validated against an authenticated server response; visible profile restoration alone is insufficient proof. Physical iPhone/PWA remains unverified. No D1 migrations, repeat release or rollback performed.
+
+Workflow: https://github.com/W1st1r/Velocity-apex/actions/runs/39831409271
 
 Production 2.0.0 was reproduced in the cloud browser: the complete document became `<html ...>2.0.0</html>`, with no body, login or menu. Console subsequently reported `renderTrackCards` accessing a deleted element. This is a startup defect, not an assumed PWA cache problem.
 
