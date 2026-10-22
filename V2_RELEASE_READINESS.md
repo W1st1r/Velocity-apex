@@ -2,7 +2,7 @@
 
 **Статус: BLOCKED.** Career 01 теперь проходит локальную physics/server integration проверку, но обязательный визуальный browser run недоступен в текущем окружении.
 
-Проверенная ветка: `velocity-apex-2.0-dev`. Начальный HEAD этой сессии: `7885c60c01ce0b2905c315fd4a5467b59408c6f8`. Implementation checkpoint: `b56709eec5006906e622f1f0d09b6af26081f638`; документационный checkpoint будет записан отдельно после итоговой QA-сводки. Все тесты использовали in-memory или изолированные локальные базы.
+Проверенная ветка: `velocity-apex-2.0-dev`. Начальный HEAD этой сессии: `7885c60c01ce0b2905c315fd4a5467b59408c6f8`. Implementation checkpoint: `b56709eec5006906e622f1f0d09b6af26081f638`; checkpoint с итоговой QA-сводкой: `7d0787a55b279cc6860e7dccb666baedb31181c1`. Все тесты использовали in-memory или изолированные локальные базы.
 
 ## PASS: проверено в этой сессии
 
