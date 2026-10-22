@@ -61,17 +61,26 @@ jobs:
             console.log("Account ID and production D1 metadata: confirmed by read-only API");
 
             let workerStatus = "unavailable";
+            let workerTag;
             const workerResult = await request(`/accounts/${accountId}/workers/scripts?per_page=100`);
             if (workerResult.response.status === 403) {
               console.log("Worker metadata: not readable with this token (read scope unavailable)");
             } else {
               const scripts = requireSuccess(workerResult, "Worker metadata read");
-              const found = Array.isArray(scripts) && scripts.some(script => script?.id === workerName);
+              const found = Array.isArray(scripts) && scripts.find(script => script?.id === workerName);
               if (!found) throw new Error("Expected Worker metadata was not found in this account");
               workerStatus = "readable";
+              workerTag = found.tag;
               console.log("Worker metadata: velocity-apex found");
             }
 
+            if (!workerTag) throw new Error("Worker tag unavailable; cannot verify automatic deploy isolation");
+            const triggers = requireSuccess(await request(`/accounts/${accountId}/builds/workers/${workerTag}/triggers`), "Workers Builds trigger metadata");
+            if (!Array.isArray(triggers)) throw new Error("Unexpected build triggers response");
+            for (const t of triggers) {
+              console.log("BUILD_TRIGGER_CHECK " + JSON.stringify({id:t.trigger_uuid,name:t.trigger_name,includes:t.branch_includes,excludes:t.branch_excludes,deploysProduction:/\\bwrangler\\s+deploy\\b/.test(t.deploy_command||""),deploysPreview:/\\b(?:versions\\s+upload|preview)\\b/.test(t.deploy_command||"")}));
+            }
+            console.log("BUILD_TRIGGER_CHECK_COMPLETE");
             const lines = [
               "## V77 Cloudflare read-only preflight",
               "",
