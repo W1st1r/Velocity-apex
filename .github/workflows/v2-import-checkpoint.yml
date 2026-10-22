@@ -1,0 +1,42 @@
+name: Import exact V2 checkpoint (Git only)
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_import:
+        description: Import checkpoint into velocity-apex-2.0-staging only
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: write
+concurrency:
+  group: velocity-apex-v2-checkpoint-import
+  cancel-in-progress: false
+jobs:
+  import:
+    if: github.repository == 'W1st1r/Velocity-apex' && github.ref == 'refs/heads/main' && inputs.confirm_import
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Retrieve immutable bundle and verify checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/W1st1r/Velocity-apex/git/blobs/2962d99cd1519dd4b7aba894131056c5ff1570a7 --jq .content | base64 --decode > "$RUNNER_TEMP/v2.bundle"
+          echo "893a15690abf390abe518c20973a045731aca5c7eec5f91e518ce409a693abac  $RUNNER_TEMP/v2.bundle" | sha256sum -c -
+          git cat-file -e fe9bbb0f23939892b99cece49f1fea9255f17f42^{commit}
+          git bundle verify "$RUNNER_TEMP/v2.bundle"
+      - name: Import exact history and publish only candidate branch
+        run: |
+          set -euo pipefail
+          git fetch "$RUNNER_TEMP/v2.bundle" refs/heads/velocity-apex-2.0-dev:refs/heads/import-v2-verified
+          test "$(git rev-parse refs/heads/import-v2-verified)" = "4deab4d47aefbe636e97855b99d1f2ef42283226"
+          git merge-base --is-ancestor fe9bbb0f23939892b99cece49f1fea9255f17f42 refs/heads/import-v2-verified
+          git fsck --connectivity-only
+          git push origin refs/heads/import-v2-verified:refs/heads/velocity-apex-2.0-staging
+          test "$(git ls-remote origin refs/heads/velocity-apex-2.0-staging | cut -f1)" = "4deab4d47aefbe636e97855b99d1f2ef42283226"
+          echo 'Checkpoint 4deab4d47aefbe636e97855b99d1f2ef42283226 published to velocity-apex-2.0-staging. No deployment or D1 operations.' >> "$GITHUB_STEP_SUMMARY"
