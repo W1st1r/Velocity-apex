@@ -1,3 +1,31 @@
+# Velocity Apex 2.0.0 — RELEASED
+
+Published: 2026-10-22 18:07:59 UTC / 21:07:59 MSK.
+Production: https://velocity-apex.maximmanzha20.workers.dev
+Published source SHA: 77a46566cbdcd29d17ceae1cfeba1761be2ddbc4
+Worker version ID: 2247bf80-00e3-477c-8e0b-f07a841d81c2
+Release run: https://github.com/W1st1r/Velocity-apex/actions/runs/39827949155 — SUCCESS, completed at 18:08:07 UTC.
+
+All release steps succeeded: exact-main CI; V77 source archive; encrypted D1 export with decrypt/restore comparison; migrations on private production copy; recovery bookmark; previous Worker deployments; production migrations; integrity/foreign-key/protected-record verification; deployment; production smoke.
+
+Production-copy result: 12 applied migrations, 58 pre-existing tables preserved, 33 total migrations, repeatPending=0. Production smoke at 18:08:04 UTC verified HTTP 200 homepage, HTML/version.json/health version 2.0.0, production channel, authenticated login/save and rejection of unauthorized save/race-start requests.
+
+Recovery artifacts in this release run:
+- 12448131156: velocity-apex-v77-source-39827949155, retained 90 days.
+- 12447926856: velocity-apex-d1-pre-v77-39827949155, encrypted D1 backup, retained 30 days.
+- 12448076477: velocity-apex-worker-before-v2-39827949155, previous Worker version metadata, retained 30 days.
+- Earlier full recovery/migration-copy run 39822560652 SUCCESS, retained 90 days.
+
+Rollback only after checking V77 compatibility with the additive schema: use retained previous Worker version metadata. Never blindly restore the old D1 export over post-release user operations. Decrypt and restore into an isolated environment, verify and reconcile newer writes before any approved production recovery. No rollback or duplicate release was executed.
+
+Production required reviewer remains in place and approved this run. Cloudflare automatic GitHub integration was removed for Velocity-apex while access to the three other existing repositories was preserved; future repositories now require explicit selection. The token lacks Builds metadata access (401); dashboard login returned 403. Protected Actions deployment and D1 access succeeded.
+
+Staging, iPhone/visual acceptance and repeated full suites were waived by owner. Full regression remains available manually; targeted release checks passed. No new comprehensive gameplay/Safari acceptance is claimed. No bot/economic balance changes during release preparation. Direct availability verification succeeded from the release runner; local HTTP check returned 403 and the search fetcher could not open the site.
+
+---
+
+## Earlier preparation history
+
 # Velocity Apex 2.0.0 — release preflight
 
 Дата: 2026-10-22. **Итог: BLOCKED перед публикацией staging. Read-only Cloudflare preflight #3 подтверждён; ожидается явное разрешение remote Git-публикации staging. Официальный релиз не выполнен.**

@@ -215,3 +215,8 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Prepared separate manual staging Actions workflow and isolated D1/DO/R2 provisioning, private production-copy migration/preservation/decrypt check, and initial real HTTP/API/D1 smoke. Fresh synthetic public staging only; no production sessions copied. New targeted safety test and syntax/YAML/diff checks passed; actual Cloudflare staging execution remains pending.
 - Auto-review rejected push of new staging branch due retained push prohibition. No workaround or further remote mutation attempted. Need explicit approval for push only to velocity-apex-2.0-staging and addition only of v2-staging.yml to main to register its manual workflow. Production release protection unchanged.
 - Runtime unchanged from f5ebbdac; local starting HEAD 86654b4 is a docs continuation of requested d1ebeda checkpoint. Staging not deployed/URL absent; 2.0.0 not released. Details and owner run instructions: V2_RELEASE_REPORT.md section 10.
+
+
+## V2.0.0 production release — 2026-10-22
+
+RELEASED at 21:07:59 MSK. Published source 77a46566cbdcd29d17ceae1cfeba1761be2ddbc4; Worker 2247bf80-00e3-477c-8e0b-f07a841d81c2; protected release 39827949155 SUCCESS. Encrypted backup/restore, migration-copy preservation, production migrations/integrity and live version/auth smoke PASS. See V2_RELEASE_REPORT.md for artifacts and remaining verification limits.
