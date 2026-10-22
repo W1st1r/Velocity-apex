@@ -208,3 +208,10 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 - Continued at `d1ebedaac022a24d6690ffa46a5eca0992b41672`; no local Wrangler retry or game changes. Confirmed remote main workflows, W1st1r admin permission and Actions run reads. Current workflow_dispatch query returned zero; new dispatch, secret inventory and environment protections are not exposed by this connector.
 - Existing GET-only preflight is the preferred Cloudflare auth path; local absence of OAuth does not rule it out. Owner instructions and limits (no production environment on preflight, accepted Worker 403, no DO/R2/backup-key check) appended to V2_RELEASE_REPORT.md. Need owner to run existing preflight on main and provide run URL.
 - Four existing Todoist cards updated, none completed. Staging absent; production/reviewer controls untouched; 2.0.0 not released. Existing runtime backup remains valid; no repeated suites or bulk archives.
+
+## Verified Actions preflight and staging preparation — 2026-10-22
+
+- Confirmed read-only preflight #3 run 39812057864/job 119940674287 SUCCESS on main fe9bbb0: token active, expected D1 and Worker metadata. No repeated local auth, game audit or old regression.
+- Prepared separate manual staging Actions workflow and isolated D1/DO/R2 provisioning, private production-copy migration/preservation/decrypt check, and initial real HTTP/API/D1 smoke. Fresh synthetic public staging only; no production sessions copied. New targeted safety test and syntax/YAML/diff checks passed; actual Cloudflare staging execution remains pending.
+- Auto-review rejected push of new staging branch due retained push prohibition. No workaround or further remote mutation attempted. Need explicit approval for push only to velocity-apex-2.0-staging and addition only of v2-staging.yml to main to register its manual workflow. Production release protection unchanged.
+- Runtime unchanged from f5ebbdac; local starting HEAD 86654b4 is a docs continuation of requested d1ebeda checkpoint. Staging not deployed/URL absent; 2.0.0 not released. Details and owner run instructions: V2_RELEASE_REPORT.md section 10.

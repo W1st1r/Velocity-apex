@@ -1,6 +1,6 @@
 # Velocity Apex 2.0.0 — release preflight
 
-Дата: 2026-10-22. **Итог: BLOCKED. Официальный релиз не выполнен.**
+Дата: 2026-10-22. **Итог: BLOCKED перед публикацией staging. Read-only Cloudflare preflight #3 подтверждён; ожидается явное разрешение remote Git-публикации staging. Официальный релиз не выполнен.**
 
 ## Идентификаторы
 
@@ -12,7 +12,7 @@
 - Production URL: https://velocity-apex.maximmanzha20.workers.dev . V77 — последняя подтверждённая пользователем официальная версия; фактическая версия сайта в этой попытке не подтверждена.
 - Документационный checkpoint создаётся после этого отчёта; его полный SHA записывается в `CHECKPOINT.txt` новой копии и итоговом сообщении. Runtime-код остаётся кодом кандидата выше.
 
-## 1. Причина остановки
+## 1. Причина предыдущей остановки (read-only доступ теперь подтверждён)
 
 `node_modules/.bin/wrangler whoami` вернул: **You are not authenticated. Please run wrangler login.** Локальные переменные Cloudflare credentials отсутствуют; проверенные стандартные OAuth config paths также отсутствуют. Значения секретов не запрашивались и не выводились.
 
@@ -109,3 +109,32 @@ Cloudflare доступ через GitHub Actions **не признан недо
 3. https://github.com/W1st1r/Velocity-apex/actions/workflows/v77-cloudflare-preflight.yml — Run workflow → branch main → Run workflow. Это metadata GET-only без SQL/deploy. Передать ссылку нового run для проверки steps/summary. При отсутствии кнопки проверить, что вход выполнен владельцем W1st1r и Actions разрешены в Settings → Actions → General; это не повод отключать production protection.
 
 Staging не создан, production не изменён, официальная 2.0.0 не выпущена. Четыре существующие release-карточки Todoist обновлены без завершения задач. Старые тесты/локальный login не повторялись. Runtime и архивы исходников остались прежними; новый полный bundle ради документационного уточнения не создавался.
+
+## 10. Preflight #3 подтверждён; staging подготовлен локально
+
+- Проверен run https://github.com/W1st1r/Velocity-apex/actions/runs/39812057864 (номер 3, main SHA fe9bbb0f23939892b99cece49f1fea9255f17f42), job 119940674287: completed/success. В реально исполненной части лога подтверждены active token, ожидаемая production D1 и `Worker metadata: velocity-apex found`. Предыдущий read-only auth blocker снят. Локальный Wrangler не использовался повторно.
+- Фактический локальный HEAD на входе 86654b44527c77e81a23f0c634b0b7f3f77cc069 содержит только документационные продолжения после заданного checkpoint d1ebedaac022a24d6690ffa46a5eca0992b41672. Runtime остаётся прошедшим аудит кодом f5ebbdac. Отката не делалось.
+- Попытка push только новой ветки `velocity-apex-2.0-staging` отклонена автоматической проверкой действий: сохранённый запрет push признан не снятым достаточно явно для этой remote mutation. Не делалось повторной попытки/обхода через GitHub API. Для продолжения требуется точечное подтверждение публикации staging-ветки и bootstrap workflow. Production mutation не запрашивается.
+
+### Подготовленные файлы
+
+- `.github/workflows/v2-staging.yml`: ручной Actions workflow, environment staging, contents read, serial staging concurrency. Запуск только с main и explicit staging-only confirmation. Checkout полного candidate SHA с проверкой ancestry от аудированного f5ebbdac. Существующий production workflow и его reviewer не меняются. Отдельный workflow необходим: имеющиеся workflow — read-only metadata и production V77 release; ни один не предоставляет изолированный staging.
+- `scripts/v2-staging.mjs`: проверка account/D1/Worker settings/DO/R2 metadata; создание строго отдельных DB/bucket, защита от production UUID и binding overlaps; создание staging config; read-only production SQL export; шифрование/проверка decrypt; миграции только staging DB, повтор migration mechanism; post-deploy сверка отдельного DO namespace. Платёжные/Telegram/email production secrets в игровой staging Worker не копируются.
+- `scripts/v2-staging-data.mjs`: восстановление экспорта только внутри памяти закрытого Actions runner, применение недостающих 0022–0033 и точная сверка прежних строк/колонок, включая users/passwords/sessions/save JSON и старые транзакции. Допускаются только намеренные display-coordinate/name изменения районов; ownership/balance/cursors сохраняются. Никакие реальные аккаунты или сессии не импортируются в публичный staging.
+- `scripts/v2-staging-smoke.mjs`: реальные HTTP/API checks после deploy: старт/повтор входа/выход/unauth gates и отказ от клиентского balance snapshot; синтетическая казна с повтором и вторым новым взносом, вместимость, 8 районов/Coastal Ridge, 3+3 задания, season API, authoritative career start/cancel, сверка treasury с изолированной remote D1. Только тестовые аккаунты. Сценарий НЕ объявляет проверенными физический staging finish, live 6-client войны/захват, season close/Cron, все social/ghost/attachment flows или PWA/visual gate.
+- `tests/v2_staging_safety_test.mjs`: новый локальный тест блокировки production write/URL, изоляции config, fixture V77 rows/migration replay plan, обнаружения потери сохранения, границ workflow. Прошёл; после изменений изоляции повторялась только новая целевая проверка, PASS. YAML parsed, syntax checks PASS, diff check PASS. Старые suites/массовые симуляции не повторялись.
+
+Права D1 create/query, R2 create, Worker deploy и production export/decrypt фактически ещё не проверены: это сделает новый staging job и остановится при отказе. Его успех не заменяет final production backup непосредственно перед релизом. При отсутствии R2 permission следует корректировать существующий token scope по конкретной ошибке, а не создавать токены заранее.
+
+### Точное продолжение после разрешения Git-публикации
+
+1. Опубликовать подготовленный commit только в новую ветку `velocity-apex-2.0-staging` (без force/merge в main, без изменения PR #17).
+2. Добавить **только** `.github/workflows/v2-staging.yml` в default branch main: GitHub требует наличия manual workflow там для запуска. Игровой код V2 в main на этом шаге не переносится; production workflow/защита сохраняются.
+3. Settings → Secrets and variables → Actions: существующие CLOUDFLARE_ACCOUNT_ID/CLOUDFLARE_API_TOKEN/D1_BACKUP_ENCRYPTION_KEY должны быть доступны repository или staging environment. Добавить отдельный `STAGING_QA_PASSWORD` длиной 12+ для тестового входа; значения в чат не присылать. Для production-only secrets предоставить эквивалентный доступ staging job через нормальную конфигурацию GitHub, не отключая production reviewer.
+4. https://github.com/W1st1r/Velocity-apex/actions/workflows/v2-staging.yml — Run workflow на main, candidate_sha = полный SHA подготовленного commit; confirmation = I_CONFIRM_ISOLATED_STAGING_ONLY. При настроенном staging reviewer пройти его. Work нового dispatch не имеет, владелец запускает UI и присылает run URL.
+5. После успешного deploy фактический URL вычисляется из Cloudflare account subdomain и выводится в Actions summary. Тестовый вход: w1st1r + отдельный STAGING_QA_PASSWORD. До получения успешного run никакой предполагаемый URL не выдаётся за работающий.
+6. Затем выполнить оставшиеся smoke/визуальные gates. Только после полной приёмки, нового проверенного production backup, metadata/PWA/rollback/reviewer gates возможен production release.
+
+### Текущий факт
+
+Staging **не развёрнут**, URL пока отсутствует. Production не изменён, версия 2.0.0 не выпущена. Подготовленные infra-файлы не меняют поведение игры и не возвращают старые P0/P1 исправления. Изменения Todoist отражают снятый read-only blocker и ожидание remote staging публикации; релиз/visual задачи не завершаются.

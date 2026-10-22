@@ -1,0 +1,33 @@
+import assert from 'node:assert/strict';
+import {mkdtempSync,readFileSync,writeFileSync,readdirSync,rmSync,mkdirSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {verifyMigrationCopy} from '../scripts/v2-staging-data.mjs';
+import {assertStageDb,assertStagingUrl,createCfClient,makeStageConfig,PROD_DB,STAGE_WORKER} from '../scripts/v2-staging.mjs';
+const tmp=mkdtempSync(join(tmpdir(),'v2-staging-safety-'));
+try{
+  let calls=0;const cf=createCfClient('a'.repeat(32),'test-placeholder',async()=>{calls++;return{ok:true,status:200,json:async()=>({success:true,result:[]})};});
+  for(const path of [`/d1/database/${PROD_DB}/query`,'/workers/scripts/velocity-apex','/workers/scripts/velocity-apex/settings'])await assert.rejects(()=>cf(path,{method:'POST',stageDbId:PROD_DB}),/production|unapproved/);
+  assert.equal(calls,0,'unsafe mutations fail before network access');
+  assert.throws(()=>assertStageDb(PROD_DB),/production/);assert.throws(()=>makeStageConfig(PROD_DB),/production/);
+  const id='12345678-1234-1234-1234-123456789abc',config=makeStageConfig(id);
+  assert.notEqual(config.name,'velocity-apex');assert.equal(config.name,STAGE_WORKER);assert.equal(config.d1_databases[0].database_id,id);assert.equal(config.r2_buckets[0].bucket_name,'velocity-apex-v2-staging-bugs');assert.deepEqual(config.triggers,{crons:['0 * * * *']},'Cron belongs to the separate staging Worker');assert.equal(config.vars,undefined,'no production app secrets/vars inherited');
+  assert.equal(assertStagingUrl(`https://${STAGE_WORKER}.example.workers.dev`,'example'),`https://${STAGE_WORKER}.example.workers.dev`);
+  assert.throws(()=>assertStagingUrl('https://velocity-apex.example.workers.dev','example'));assert.throws(()=>assertStagingUrl(`https://${STAGE_WORKER}.example.workers.dev.evil.test`,'example'));
+  const migrations=new URL('../migrations/',import.meta.url),files=readdirSync(migrations).filter(x=>x.endsWith('.sql')).sort();
+  let dump=files.filter(f=>Number(f.slice(0,4))<=21).map(f=>readFileSync(new URL(f,migrations),'utf8')).join('\n');
+  dump+="\nCREATE TABLE d1_migrations(id INTEGER PRIMARY KEY,name TEXT UNIQUE,applied_at INTEGER);\n";
+  for(const f of files.filter(f=>Number(f.slice(0,4))<=21))dump+=`INSERT INTO d1_migrations(name,applied_at) VALUES('${f}',1);\n`;
+  dump+="INSERT INTO users(id,username,display_name,password_hash,password_salt,created_at,updated_at) VALUES('old','oldplayer','Old Player','preserved-hash','preserved-salt',1,1);\n";
+  dump+="INSERT INTO player_saves(user_id,save_json,revision,created_at,updated_at) VALUES('old','{\"credits\":98765,\"ownedLiveries\":[\"apexLime\"],\"careerUnlocked\":19}',7,1,1);\n";
+  dump+="INSERT INTO sessions(token_hash,user_id,created_at,expires_at,last_seen_at) VALUES('old-session','old',1,9999999999999,1);\n";
+  const source=join(tmp,'source.sql');writeFileSync(source,dump);
+  const result=verifyMigrationCopy(source);assert.deepEqual(result,{ok:true,applied:12,protectedTables:result.protectedTables,totalMigrations:33,repeatPending:0});assert.ok(result.protectedTables>10);
+  const bad=join(tmp,'bad');mkdirSync(bad);for(const f of files)writeFileSync(join(bad,f),readFileSync(new URL(f,migrations)));
+  const final=join(bad,files.at(-1));writeFileSync(final,readFileSync(final,'utf8')+"\nUPDATE player_saves SET save_json='{}';\n");
+  assert.throws(()=>verifyMigrationCopy(source,bad),/existing records changed: player_saves/,'migration copy check detects lost CR/garage/progress');
+  const workflow=readFileSync(new URL('../.github/workflows/v2-staging.yml',import.meta.url),'utf8');
+  assert.match(workflow,/workflow_dispatch/);assert.match(workflow,/environment: staging/);assert.doesNotMatch(workflow,/environment: production/);assert.match(workflow,/deploy --config .v2-staging-wrangler.json/);assert.doesNotMatch(workflow,/d1 migrations apply.*velocity-apex-db/);
+  assert.match(workflow,/artifacts\/v2-staging\/\*\.enc\.json/);assert.doesNotMatch(workflow,/path:.*\.sql/);
+  console.log('v2_staging_safety_test: PASS (production mutation/URL guards, config isolation, V77 preserved rows/migration replay plan, corruption detection, staging-only workflow)');
+}finally{rmSync(tmp,{recursive:true,force:true});}
