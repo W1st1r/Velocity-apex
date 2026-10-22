@@ -1,6 +1,6 @@
 # Clan war orchestration (local V2 slice)
 
-This additive slice is backed by `0024_clan_war_orchestration.sql` and `0027_clan_war_rounds.sql`. It adds challenge lifecycle, locked 3+3 rosters, per-account reservations, readiness, private `CLAN_WAR:<uuid>` Durable Object rooms, and server-confirmed multi-round results. Territory capture and server-confirmed influence are also implemented in this local slice; no war CR/EXP rewards are issued.
+This additive slice is backed by `0024_clan_war_orchestration.sql`, `0027_clan_war_rounds.sql`, `0028_clan_district_control.sql`, and metadata refresh `0030_clan_district_labels.sql`. It adds challenge lifecycle, locked 3+3 rosters, per-account reservations, readiness, private `CLAN_WAR:<uuid>` Durable Object rooms, and server-confirmed multi-round results. Territory capture and server-confirmed influence are also implemented in this local slice; no war CR/EXP rewards are issued.
 
 ## API
 
