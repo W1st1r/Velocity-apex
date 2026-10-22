@@ -220,3 +220,8 @@ Next development is limited to player physics, UI/chat and versioning. Keep work
 ## V2.0.0 production release — 2026-10-22
 
 RELEASED at 21:07:59 MSK. Published source 77a46566cbdcd29d17ceae1cfeba1761be2ddbc4; Worker 2247bf80-00e3-477c-8e0b-f07a841d81c2; protected release 39827949155 SUCCESS. Encrypted backup/restore, migration-copy preservation, production migrations/integrity and live version/auth smoke PASS. See V2_RELEASE_REPORT.md for artifacts and remaining verification limits.
+
+
+## V2.0.2 candidate — 2026-10-23 MSK
+
+Base main 62ef30e3edfacce6a612035e1bc87e1fcf4544b0; checkpoint/pre-v2.0.2-62ef30e3 retained. Branch feature/v2.0.2-apex-dynamic, draft PR #19. Shared metric player handling and smooth drift recovery, independent timed ghost renderer, mobile panel/market fixes and full-width clan sections implemented. Legacy AI trajectories/catalogue, economy, account/D1 state unchanged. Deduplicated regression 123 commands: 121 initially passed; two obsolete release/tier expectations corrected and both rechecks passed. Additional physics/ghost/multitouch/restore checks pass. Browser startup passes; 132 layout captures from WebKit/Chromium fixtures including clan map/tasks/roster. Physical iPhone and real authenticated UI flows remain outside these fixture checks. No merge, deploy or D1 migration. See V2_0_2_GAMEPLAY_REPORT.md for metrics, exact scope and evidence.
