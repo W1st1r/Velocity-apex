@@ -11,7 +11,7 @@
     career:$('career'),careerBack:$('careerBackBtn'),careerStart:$('careerStartBtn'),careerLevelList:$('careerLevelList'),
     setup:$('setup'),setupBack:$('setupBackBtn'),startRace:$('startRaceBtn'),startRaceText:$('startRaceText'),setupEyebrow:$('setupEyebrow'),setupTitle:$('setupTitle'),setupEventBadge:$('setupEventBadge'),setupLapsBlock:$('setupLapsBlock'),setupLapsSummaryBlock:$('setupLapsSummaryBlock'),setupLapsSummaryLabel:$('setupLapsSummaryLabel'),driftSetupHint:$('driftSetupHint'),botsMinus:$('botsMinus'),botsPlus:$('botsPlus'),botCount:$('botCountValue'),botsInline:$('botsSummaryInline'),
     setupBots:$('setupBotsSummary'),setupLaps:$('setupLapsSummary'),setupDifficulty:$('setupDifficultySummary'),setupReward:$('setupRewardEstimate'),lapsSelector:$('lapsSelector'),difficultySelector:$('difficultySelector'),
-    countdown:$('countdown'),hud:$('hud'),miniMap:$('miniMap'),pos:$('posText'),lap:$('lapText'),speed:$('speedText'),score:$('scoreText'),scoreLabel:$('scoreLabel'),lapTime:$('lapTime'),bestLap:$('bestLap'),bestMetricLabel:$('bestMetricLabel'),
+    countdown:$('countdown'),hud:$('hud'),miniMap:$('miniMap'),pos:$('posText'),lap:$('lapText'),speed:$('speedText'),score:$('scoreText'),scoreLabel:$('scoreLabel'),lapTime:$('lapTime'),bestLap:$('bestLap'),bestMetricLabel:$('bestMetricLabel'),ghostHud:$('ghostHud'),
     controls:$('controls'),pauseBtn:$('pauseBtn'),pause:$('pause'),continueBtn:$('continueBtn'),pauseSettingsBtn:$('pauseSettingsBtn'),pauseControlsBtn:$('pauseControlsBtn'),restartBtn:$('restartBtn'),mainMenuBtn:$('mainMenuBtn'),pauseMute:$('pauseMute'),toasts:$('toastLayer'),
     settings:$('settings'),settingsBtn:$('settingsBtn'),settingsBack:$('settingsBackBtn'),settingsSelected:$('settingsSelectedMode'),settingsMessage:$('settingsMessage'),controlModeSelector:$('controlModeSelector'),tiltSettings:$('tiltSettings'),tiltSensitivitySelector:$('tiltSensitivitySelector'),rootOpen:$('rootOpenBtn'),
     finish:$('finish'),finishCard:document.querySelector('#finish .finish-card'),finishEyebrow:$('finishEyebrow'),finishTitle:$('finishTitle'),finishPlace:$('finishPlace'),finishPosition:$('finishPosition'),finishLaps:$('finishLaps'),finishLapsLabel:$('finishLapsLabel'),finishTime:$('finishTime'),finishBestLap:$('finishBestLap'),finishBestLabel:$('finishBestLabel'),finishScore:$('finishScore'),finishScoreLabel:$('finishScoreLabel'),finishRewardLabel:$('finishRewardLabel'),finishDifficulty:$('finishDifficultyBadge'),again:$('againBtn'),finishMenu:$('finishMenuBtn'),
@@ -57,6 +57,15 @@
     return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(x).padStart(3,'0');
   }
   function ordinal(n){return n+' МЕСТО';}
+  let selectedGhost=null,activeGhost=null,ghostCar=null,ghostStatusAt=0,ghostPrefs={visible:true,opacity:.48,showDelta:true,showTrail:true};
+  try{ghostPrefs={...ghostPrefs,...JSON.parse(localStorage.getItem('va-ghost-preferences')||'{}')};}catch{}
+  document.querySelectorAll('[data-ghost-pref]').forEach(input=>{const key=input.dataset.ghostPref;if(input.type==='checkbox')input.checked=key==='delta'?ghostPrefs.showDelta:!!ghostPrefs[key];else input.value=Math.round(ghostPrefs.opacity*100);input.addEventListener('change',()=>{if(input.type==='checkbox'){if(key==='delta')ghostPrefs.showDelta=input.checked;else if(key==='visible')ghostPrefs.visible=input.checked;else ghostPrefs.showTrail=input.checked;}else ghostPrefs.opacity=Number(input.value)/100;try{localStorage.setItem('va-ghost-preferences',JSON.stringify(ghostPrefs));}catch{}document.querySelectorAll(`[data-ghost-pref="${key}"]`).forEach(other=>{if(other===input)return;if(other.type==='checkbox')other.checked=input.checked;else other.value=input.value;});});});
+  function ghostTrack(mode){return mode==='career'?R.getCareerLevel(careerSelectedLevel).trackId:raceSettings.trackId;}
+  async function ghostRequest(query){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);try{const response=await fetch('/api/economy/races/ghosts?'+query,{credentials:'same-origin',headers:{accept:'application/json'},signal:controller.signal});let data={};try{data=await response.json();}catch{}if(!response.ok){const e=Error(data.error||'GHOST_UNAVAILABLE');e.code=data.error;throw e;}return data;}finally{clearTimeout(timer);}}
+  async function openGhostPicker(mode){const host=document.querySelector(`[data-ghost-list="${mode}"]`);if(!host)return;host.classList.remove('hidden');host.replaceChildren();if(!window.VelocityAccount?.authenticated){host.textContent='Войдите в аккаунт, чтобы соревноваться с сохранёнными призраками.';return;}host.textContent='ЗАГРУЗКА РЕКОРДОВ…';try{const query=new URLSearchParams({trackId:ghostTrack(mode),mode}),data=await ghostRequest(query.toString()),entries=[];if(data.own)entries.push({...data.own,label:'МОЙ РЕКОРД'});for(const item of data.global||[])if(!entries.some(x=>x.id===item.id))entries.push({...item,label:'ЛИДЕР ТРАССЫ'});for(const item of data.friends||[])if(!entries.some(x=>x.id===item.id))entries.push({...item,label:'ДРУГ'});host.replaceChildren();const off=document.createElement('button');off.type='button';off.className='ghost-picker-choice';off.textContent='БЕЗ ПРИЗРАКА';off.onclick=()=>{selectedGhost=null;host.classList.add('hidden');toast('ПРИЗРАК ОТКЛЮЧЁН','warn');};host.append(off);if(!entries.length){const empty=document.createElement('div');empty.className='admin-empty';empty.textContent='Для этой трассы пока нет совместимых рекордов.';host.append(empty);}for(const entry of entries){const b=document.createElement('button');b.type='button';b.className='ghost-picker-choice';const name=document.createElement('span');name.textContent=`${entry.label} · @${entry.username}`;const small=document.createElement('small');small.textContent=fmt(entry.timeMs);b.append(name,small);b.onclick=()=>chooseGhost(entry,mode,host);host.append(b);}}catch(e){host.textContent=e.code==='AUTH_REQUIRED'?'Войдите в аккаунт, чтобы загрузить рекорды.':'Не удалось загрузить призраков; обычный заезд доступен.';}}
+  async function chooseGhost(entry,mode,host){try{const data=await ghostRequest(new URLSearchParams({trackId:ghostTrack(mode),mode,ghostId:entry.id}).toString());if(!Array.isArray(data.ghost?.keyframes)||data.ghost.keyframes.length<2)throw Error('GHOST_INVALID');selectedGhost={id:entry.id,mode,trackId:ghostTrack(mode),data:data.ghost};host.classList.add('hidden');toast(`СОПЕРНИК: @${entry.username}`,'good');}catch(_){selectedGhost=null;host.textContent='Запись недоступна или несовместима. Выберите другого соперника или отключите призрака.';}}
+  function ghostAtProgress(progress){const frames=activeGhost?.keyframes;if(!frames?.length)return null;let lo=0,hi=frames.length-1;while(lo<hi){const m=(lo+hi)>>1;if(frames[m][5]+frames[m][4]<progress)lo=m+1;else hi=m;}const b=frames[lo],a=frames[Math.max(0,lo-1)],pa=a[5]+a[4],pb=b[5]+b[4],t=pb>pa?clamp((progress-pa)/(pb-pa),0,1):0;return{frame:lerp(a[0],b[0],t),x:lerp(a[1],b[1],t),y:lerp(a[2],b[2],t),angle:a[3]+R.angleWrap(b[3]-a[3])*t};}
+  function drawGhost(){if(!activeGhost||!ghostCar||!player||!ghostPrefs.visible){UI.ghostHud?.classList.add('hidden');return;}const p=ghostAtProgress(player.laps+player.progress);if(!p)return;ghostCar.x=p.x;ghostCar.y=p.y;ghostCar.angle=p.angle;ctx.save();if(ghostPrefs.showTrail){const frames=activeGhost.keyframes;let i=0;while(i<frames.length&&frames[i][0]<p.frame)i++;const from=Math.max(0,i-7);if(i-from>1){ctx.beginPath();for(let n=from;n<=i;n++)n===from?ctx.moveTo(frames[n][1],frames[n][2]):ctx.lineTo(frames[n][1],frames[n][2]);ctx.strokeStyle='#70ddff';ctx.lineWidth=6;ctx.globalAlpha=.17;ctx.stroke();}}ctx.globalAlpha=clamp(Number(ghostPrefs.opacity)||.48,.25,.65);ghostCar.draw(ctx);ctx.restore();if(UI.ghostHud&&performance.now()-ghostStatusAt>250){ghostStatusAt=performance.now();UI.ghostHud.classList.toggle('hidden',!ghostPrefs.showDelta);if(ghostPrefs.showDelta){const delta=raceTime-p.frame/60,sign=delta>=0?'+':'−';UI.ghostHud.textContent=`@${activeGhost.username} · ${sign}${Math.abs(delta).toFixed(2)} с`;}}}
 
   const save=loadSave();
   const raceSettings={bots:save.botCount,laps:save.raceLaps,difficulty:save.difficulty,trackId:save.trackId};
@@ -68,7 +77,7 @@
   let sharedTapHandledAt=-Infinity;
   let raceMode='offline',onlineRace=null,onlineLocalPaused=false,onlineFinishSent=false,onlineLocalFinished=false,raceSpectatorMode='overview',raceSpectatorIndex=0,raceSpectatorHudVisible=true;
 
-  let W=innerWidth,H=innerHeight,DPR=1,last=performance.now(),state='menu',raceTime=0,lapTime=0,raceBestLap=0,score=0,scoreCarry=0;
+  let W=innerWidth,H=innerHeight,DPR=1,last=performance.now(),state='menu',raceTime=0,lapTime=0,raceBestLap=0,score=0,scoreCarry=0,raceStartInProgress=false;
   let cars=[],rankBuffer=[],finishOrder=[],finishCandidates=[],player=null,demoCars=[],demoT=0,prevRank=1,shake=0,impactCooldown=0,grassSoundCooldown=0,countdownToken=0;
   let cam={x:0,y:0,rot:0,zoom:.65,screenY:.47,look:90};
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
@@ -169,10 +178,10 @@
     const level=R.getCareerLevel(careerSelectedLevel),cfg=R.CAREER_TRACKS[level.trackId],best=Number(save.careerBestTimes?.[level.trackId])||0;
     $('careerUnlockedText').textContent=Math.max(1,save.careerUnlocked||1)+' / '+R.CAREER_LEVELS.length;$('careerDetailLevel').textContent='LEVEL '+String(level.level).padStart(2,'0');$('careerDetailName').textContent=cfg.name;$('careerDetailType').textContent=cfg.type;$('careerDetailDescription').textContent=cfg.description;$('careerDetailDistance').textContent=(cfg.targetLength/1000).toFixed(1)+' KM';$('careerDetailBest').textContent=best?fmt(best):'--:--.---';$('careerGoldTime').textContent='≤ '+careerTimeLabel(level.gold);$('careerSilverTime').textContent='≤ '+careerTimeLabel(level.silver);$('careerBronzeTime').textContent='≤ '+careerTimeLabel(level.bronze);$('careerGoldReward').textContent=level.rewards.gold.toLocaleString('ru-RU')+' CR';$('careerSilverReward').textContent=level.rewards.silver.toLocaleString('ru-RU')+' CR';$('careerBronzeReward').textContent=level.rewards.bronze.toLocaleString('ru-RU')+' CR';UI.careerStart.disabled=!careerLevelUnlocked(level.level);
   }
-  function openCareer(){if(state!=='localMode'||performance.now()<modeSelectReadyAt)return;audio.init();localMode='career';state='career';UI.localMode.classList.add('hidden');UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();last=performance.now();}
-  function closeCareer(){if(state!=='career')return;state='localMode';UI.career.classList.add('hidden');UI.career.setAttribute('aria-hidden','true');UI.localMode.classList.remove('hidden');last=performance.now();}
-  async function startCareer(){if(state!=='career'||!careerLevelUnlocked(careerSelectedLevel))return;loadLocalSettings('career');loadTrack();UI.career.classList.add('hidden');UI.career.setAttribute('aria-hidden','true');await startRace();}
-  function backToCareerFromFinish(){state='career';UI.finish.classList.add('hidden');showRaceUI(false);UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();updateMenuStats();last=performance.now();}
+  function openCareer(){if(raceStartInProgress||state!=='localMode'||performance.now()<modeSelectReadyAt)return;window.VelocitySpeedTransition?.play();audio.init();localMode='career';state='career';UI.localMode.classList.add('hidden');UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();last=performance.now();}
+  function closeCareer(){if(raceStartInProgress||state!=='career')return;state='localMode';UI.career.classList.add('hidden');UI.career.setAttribute('aria-hidden','true');UI.localMode.classList.remove('hidden');last=performance.now();}
+  async function startCareer(){if(state!=='career'||raceStartInProgress||!careerLevelUnlocked(careerSelectedLevel))return;loadLocalSettings('career');loadTrack();await startRace();}
+  function backToCareerFromFinish(){if(raceStartInProgress)return;state='career';UI.finish.classList.add('hidden');showRaceUI(false);UI.career.classList.remove('hidden');UI.career.setAttribute('aria-hidden','false');renderCareer();updateMenuStats();last=performance.now();}
 
   const garage=new R.Garage(save,()=>{writeSave();updateMenuStats();syncSetupUI();});
   let deferredAccountSave=null;
@@ -199,6 +208,7 @@
   function openRoot(){if(state!=='settings'||!window.VelocityAccount?.isAdmin)return;state='root';UI.settings.classList.add('hidden');rootConsole.open();last=performance.now();}
   function openCatalog(mode){
     if(!['menu','setup'].includes(state)||!$(mode))return;
+    window.VelocitySpeedTransition?.play();
     catalogReturn=state==='setup'?'setup':'menu';state=mode;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');$(mode).classList.remove('hidden');garage.open(mode);
   }
   function closeCatalog(mode){
@@ -238,6 +248,7 @@
     UI.settingsMessage.classList.toggle('warning',settingsNoticeKind==='bad');
   }
   function openSettings(){
+    if(raceStartInProgress)return;
     const fromOnlinePause=raceMode==='online'&&onlineLocalPaused&&(state==='onlineRacing'||state==='onlineFinished');
     if(state!=='menu'&&state!=='paused'&&!fromOnlinePause)return;
     settingsReturn=fromOnlinePause?'onlinePaused':state;settingsNotice='';settingsNoticeKind='';controlInput.setActive(false);state='settings';
@@ -464,32 +475,45 @@
   function showRaceUI(show){UI.hud.classList.toggle('hidden',!show);UI.controls.classList.toggle('hidden',!show);UI.controls.dataset.raceMode=localMode==='drift'?'drift':'normal';if(show)prepareMiniMap();else{controlInput.setActive(false);setPauseButton(false,false);}}
 
   function openModeSelect(){
+    if(raceStartInProgress)return;
+    window.VelocitySpeedTransition?.play();
     audio.init();state='localMode';modeSelectReadyAt=performance.now()+420;UI.menu.classList.add('hidden');UI.setup.classList.add('hidden');UI.career.classList.add('hidden');UI.localMode.classList.remove('hidden');UI.finish.classList.add('hidden');last=performance.now();
   }
-  function chooseLocalMode(mode){if(state!=='localMode'||performance.now()<modeSelectReadyAt)return;if(mode==='career'){openCareer();return;}openSetup(mode);}
-  function backToMenuFromMode(){state='menu';UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.menu.classList.remove('hidden');loadLocalSettings('normal');loadTrack();updateMenuStats();last=performance.now();}
+  function chooseLocalMode(mode){if(raceStartInProgress||state!=='localMode'||performance.now()<modeSelectReadyAt)return;if(mode==='career'){openCareer();return;}openSetup(mode);}
+  function backToMenuFromMode(){if(raceStartInProgress)return;state='menu';UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.menu.classList.remove('hidden');loadLocalSettings('normal');loadTrack();updateMenuStats();last=performance.now();}
   function openSetup(mode='normal'){
+    if(raceStartInProgress)return;
+    window.VelocitySpeedTransition?.play();
     audio.init();loadLocalSettings(mode);loadTrack();renderTrackCards();state='setup';UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.setup.classList.remove('hidden');UI.finish.classList.add('hidden');syncSetupUI();$('trackCards').querySelector('.selected')?.scrollIntoView?.({block:'nearest',inline:'center'});last=performance.now();
   }
   function backToModeFromSetup(){
+    if(raceStartInProgress)return;
     state='localMode';UI.setup.classList.add('hidden');UI.localMode.classList.remove('hidden');last=performance.now();
   }
   async function startRace(options={}){
-    raceMode='offline';
-    let nextAuthority=null;
-    if(window.VelocityAccount?.authenticated){
-      try{
-        if(!await window.VelocityAccount.flushSave())throw Error('SAVE_SYNC_FAILED');
-        const {startAuthoritativeRace}=await import('./race-client-v77.mjs');
-        const config=localMode==='career'?{mode:'career',carId:save.selectedLivery,level:careerSelectedLevel}:{mode:localMode,carId:save.selectedLivery,trackId:raceSettings.trackId,bots:raceSettings.bots,laps:localMode==='drift'?1:raceSettings.laps,difficulty:raceSettings.difficulty};
-        nextAuthority=await startAuthoritativeRace(config,window.VelocityAccount.raceRequest,{fresh:options.fresh===true});
-      }catch(e){toast('НЕ УДАЛОСЬ НАЧАТЬ ЗАЕЗД · '+(e.code||e.message),'bad');return;}
+    if(raceStartInProgress)return;
+    raceStartInProgress=true;const startButtons=[UI.startRace,UI.careerStart,UI.setupBack,UI.careerBack,UI.localModeBack].filter(Boolean),startButtonStates=startButtons.map(button=>[button,button.disabled]),panels=[UI.setup,UI.career,UI.localMode].filter(Boolean),panelStates=panels.map(panel=>[panel,panel.inert]);for(const button of startButtons){button.disabled=true;button.setAttribute('aria-busy','true');}for(const [panel] of panelStates)panel.inert=true;
+    try{
+      activeGhost=null;ghostCar=null;UI.ghostHud?.classList.add('hidden');const ghostMode=localMode==='career'?'career':'normal',ghostTrackId=ghostTrack(ghostMode);if(selectedGhost&&(selectedGhost.mode!==ghostMode||selectedGhost.trackId!==ghostTrackId)){selectedGhost=null;toast('ПРИЗРАК НЕ СООТВЕТСТВУЕТ ВЫБРАННОЙ ТРАССЕ','warn');}
+      if(selectedGhost&&selectedGhost.mode===ghostMode&&selectedGhost.trackId===ghostTrackId&&window.VelocityAccount?.authenticated){try{const data=await ghostRequest(new URLSearchParams({trackId:ghostTrackId,mode:ghostMode,ghostId:selectedGhost.id}).toString());activeGhost=data.ghost;if(!Array.isArray(activeGhost?.keyframes)||activeGhost.keyframes.length<2)activeGhost=null;if(activeGhost){ghostCar=new R.Car({id:999,name:'GHOST',player:false,color:'#66dcff',accent:'#e4fbff'});ghostCar.setLoadout(activeGhost.carId,'standard');}}catch(_){selectedGhost=null;toast('ПРИЗРАК НЕДОСТУПЕН · ЗАЕЗД ПРОДОЛЖИТСЯ БЕЗ НЕГО','warn');}}
+      raceMode='offline';
+      let nextAuthority=null;
+      if(window.VelocityAccount?.authenticated){
+        try{
+          if(!await window.VelocityAccount.flushSave())throw Error('SAVE_SYNC_FAILED');
+          const {startAuthoritativeRace}=await import('./race-client-v77.mjs');
+          const config=localMode==='career'?{mode:'career',carId:save.selectedLivery,level:careerSelectedLevel}:{mode:localMode,carId:save.selectedLivery,trackId:raceSettings.trackId,bots:raceSettings.bots,laps:localMode==='drift'?1:raceSettings.laps,difficulty:raceSettings.difficulty};
+          nextAuthority=await startAuthoritativeRace(config,window.VelocityAccount.raceRequest,{fresh:options.fresh===true});
+        }catch(e){toast('НЕ УДАЛОСЬ НАЧАТЬ ЗАЕЗД · '+(e.code||e.message),'bad');return;}
+      }
+      authoritativeRace=nextAuthority;authorityAccumulator=0;authorityFinishing=false;
+      let tiltFallback=false;if(save.controlMode==='tilt')tiltFallback=!(await controlInput.prepareForRace());
+      countdownToken++;audio.init();persistSettings();loadTrack();raceRewardClaimed=false;currentRaceRewardKey='offline:'+Date.now().toString(36)+':'+Math.random().toString(36).slice(2,9);resetInput();createCars();if(authoritativeRace)syncAuthorityFrame();if(tiltFallback)toast('НАКЛОН недоступен · включены СТРЕЛКИ','warn');state='countdown';
+      UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.setup.classList.add('hidden');UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');$('rootAuth').classList.add('hidden');$('rootConsole').classList.add('hidden');$('rootConfirm').classList.add('hidden');UI.finish.classList.add('hidden');UI.finishCard.classList.remove('winner');
+      window.VelocitySpeedTransition?.play();controlInput.setDriftMode(localMode==='drift');showRaceUI(true);controlInput.setActive(false);setPauseButton(false,false);runCountdown();last=performance.now();
+    }finally{
+      raceStartInProgress=false;for(const [button,wasDisabled] of startButtonStates){button.disabled=wasDisabled;button.removeAttribute('aria-busy');}for(const [panel,wasInert] of panelStates)panel.inert=wasInert;
     }
-    authoritativeRace=nextAuthority;authorityAccumulator=0;authorityFinishing=false;
-    let tiltFallback=false;if(save.controlMode==='tilt')tiltFallback=!(await controlInput.prepareForRace());
-    countdownToken++;audio.init();persistSettings();loadTrack();raceRewardClaimed=false;currentRaceRewardKey='offline:'+Date.now().toString(36)+':'+Math.random().toString(36).slice(2,9);resetInput();createCars();if(authoritativeRace)syncAuthorityFrame();if(tiltFallback)toast('НАКЛОН недоступен · включены СТРЕЛКИ','warn');state='countdown';
-    UI.menu.classList.add('hidden');UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.setup.classList.add('hidden');UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');$('rootAuth').classList.add('hidden');$('rootConsole').classList.add('hidden');$('rootConfirm').classList.add('hidden');UI.finish.classList.add('hidden');UI.finishCard.classList.remove('winner');
-    controlInput.setDriftMode(localMode==='drift');showRaceUI(true);controlInput.setActive(false);setPauseButton(false,false);runCountdown();last=performance.now();
   }
   function runCountdown(){
     const token=++countdownToken,seq=['3','2','1','GO!'];let i=0;UI.countdown.classList.remove('hidden');
@@ -513,7 +537,7 @@
     if(raceMode==='online'&&onlineLocalPaused){resetInput();audio.init();onlineLocalPaused=false;UI.pause.classList.add('hidden');UI.controls.classList.remove('hidden');controlInput.setActive(true);setPauseButton(true,true);last=performance.now();return;}
     if(state!=='paused')return;resetInput();audio.init();state='racing';UI.pause.classList.add('hidden');UI.controls.classList.remove('hidden');controlInput.setActive(true);setPauseButton(true,true);last=performance.now();if(player)audio.updateEngine(player.speed,0,true);
   }
-  function restartRace(){if(raceMode==='online')return;countdownToken++;resetInput();audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.finish.classList.add('hidden');startRace({fresh:true});}
+  function restartRace(){if(raceMode==='online'||raceStartInProgress)return;countdownToken++;resetInput();audio.updateEngine(0,0,false);startRace({fresh:true});}
 
   function openTelegramChannel(){
     const url='https://t.me/wistirapex';
@@ -523,10 +547,11 @@
     }catch(_){window.location.href=url;}
   }
   function mainMenu(){
+    if(raceStartInProgress)return;
     countdownToken++;resetInput();persistRecords();if(raceMode==='online'&&window.VelocityOnline){window.VelocityOnline.leave();resetOnlineMode();}state='menu';audio.updateEngine(0,0,false);UI.pause.classList.add('hidden');UI.settings.classList.add('hidden');UI.finish.classList.add('hidden');UI.setup.classList.add('hidden');UI.localMode.classList.add('hidden');UI.career.classList.add('hidden');UI.countdown.classList.add('hidden');UI.menu.classList.remove('hidden');UI.toasts.replaceChildren();showRaceUI(false);loadLocalSettings('normal');loadTrack();controlInput.setDriftMode(false);updateMenuStats();if(deferredAccountSave){const pending=deferredAccountSave;deferredAccountSave=null;applyAccountSave(pending);}last=performance.now();
   }
 
-  bindTap(UI.play,openModeSelect);bindTap($('telegramBanner'),openTelegramChannel);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>chooseLocalMode('normal'));bindTap(UI.driftMode,()=>chooseLocalMode('drift'));bindTap(UI.careerMode,()=>chooseLocalMode('career'));bindTap(UI.careerBack,closeCareer);bindTap(UI.careerStart,startCareer);bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.pauseControlsBtn,openControlLayoutFromPause);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,()=>localMode==='career'?backToCareerFromFinish():mainMenu());bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);
+  bindTap(UI.play,openModeSelect);bindTap($('telegramBanner'),openTelegramChannel);bindTap(UI.localModeBack,backToMenuFromMode);bindTap(UI.normalMode,()=>chooseLocalMode('normal'));bindTap(UI.driftMode,()=>chooseLocalMode('drift'));bindTap(UI.careerMode,()=>chooseLocalMode('career'));bindTap(UI.careerBack,closeCareer);bindTap(UI.careerStart,startCareer);bindTap(UI.setupBack,backToModeFromSetup);bindTap(UI.startRace,startRace);bindTap(UI.pauseBtn,pauseRace);bindTap(UI.continueBtn,continueRace);bindTap(UI.pauseSettingsBtn,openSettings);bindTap(UI.pauseControlsBtn,openControlLayoutFromPause);bindTap(UI.restartBtn,restartRace);bindTap(UI.mainMenuBtn,mainMenu);bindTap(UI.again,restartRace);bindTap(UI.finishMenu,()=>localMode==='career'?backToCareerFromFinish():mainMenu());bindTap(UI.settingsBtn,openSettings);bindTap(UI.settingsBack,closeSettings);bindTap(UI.rootOpen,openRoot);document.querySelectorAll('[data-open-ghost-picker]').forEach(button=>button.addEventListener('click',()=>openGhostPicker(button.dataset.openGhostPicker)));
   UI.controlModeSelector.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>selectControlMode(btn.dataset.controlMode)));
   UI.tiltSensitivitySelector.querySelectorAll('button').forEach(btn=>bindTap(btn,()=>{controlInput.setSensitivity(btn.dataset.tiltSensitivity);settingsNotice='';settingsNoticeKind='';syncSettingsUI();}));
   const keyMap={ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'gas',KeyW:'gas',ArrowDown:'brake',KeyS:'brake',Space:'handbrake'};
@@ -601,11 +626,11 @@
     const sample=track.samples[player.trackIndex]||track.samples[0],forward=player.vx*sample.tx+player.vy*sample.ty;
     let slip=Math.atan2(player.vy,player.vx)-player.angle;while(slip>Math.PI)slip-=Math.PI*2;while(slip<-Math.PI)slip+=Math.PI*2;
     const slipDeg=Math.abs(slip)*180/Math.PI,progressMeters=delta>0&&delta<.035?delta*track.length:0,meters=Math.min(progressMeters,Math.max(0,player.speed*dt*1.38));
-    const valid=!collision&&player.onRoad&&player.speed>78&&forward>42&&slipDeg>=9&&slipDeg<=58&&meters>.025;
+    const valid=!collision&&player.onRoad&&R.kmhFromWorldSpeed(player.speed)>90&&R.kmhFromWorldSpeed(forward)>45&&slipDeg>=9&&slipDeg<=58&&meters>.025;
     if(valid){
       driftIdleTime=0;driftChainDistance+=meters;driftChainTime+=dt;
       driftCombo=driftChainDistance>760?5:driftChainDistance>520?4:driftChainDistance>330?3:driftChainDistance>190?2.5:driftChainDistance>95?2:driftChainDistance>40?1.5:1;driftPeakCombo=Math.max(driftPeakCombo,driftCombo);
-      const angleQuality=clamp(1-Math.abs(slipDeg-32)/29,.30,1),speedQuality=clamp(player.speed/235,.45,1.62),durationQuality=1+Math.min(.48,driftChainTime*.032);
+      const angleQuality=clamp(1-Math.abs(slipDeg-32)/29,.30,1),speedQuality=clamp(R.kmhFromWorldSpeed(player.speed)/230,.45,1.30),durationQuality=1+Math.min(.48,driftChainTime*.032);
       scoreCarry+=meters*(.64+1.58*angleQuality)*speedQuality*driftCombo*durationQuality;
       if(scoreCarry>=1){const add=Math.floor(scoreCarry);score+=add;scoreCarry-=add;}
       if(skidTick<=0){addSkid(player);skidTick=.042;if(Math.random()<.78)spawnParticle(player.x-player.vx*.045,player.y-player.vy*.045,'smoke',playerControl.handbrake?.9:1);}
@@ -694,10 +719,10 @@
 
     if(carImpact>3&&impactCooldown<=0){impactCooldown=.18;shake=Math.max(shake,3+Math.min(6,carImpact*.04));audio.collision(Math.min(1,carImpact/110));spawnParticle(impactX,impactY,'spark',4);}
     if(playerTrackImpact>.05&&impactCooldown<=0){impactCooldown=.16;shake=Math.max(shake,3+playerTrackImpact*10);audio.collision(playerTrackImpact);spawnParticle(player.x,player.y,'spark',7);}
-    if(!player.onRoad&&player.speed>100){if(Math.random()<dt*26)spawnParticle(player.x-player.vx*.035,player.y-player.vy*.035,'grass',2);if(grassSoundCooldown<=0){audio.grass();grassSoundCooldown=.16;}}
+    if(!player.onRoad&&R.kmhFromWorldSpeed(player.speed)>50){if(Math.random()<dt*26)spawnParticle(player.x-player.vx*.035,player.y-player.vy*.035,'grass',2);if(grassSoundCooldown<=0){audio.grass();grassSoundCooldown=.16;}}
     const lateral=Math.abs(-Math.sin(player.angle)*player.vx+Math.cos(player.angle)*player.vy);
-    if(localMode!=='drift'&&skidTick<=0&&player.speed>160&&(lateral>32||playerControl.brake)){addSkid(player);skidTick=.055;if((playerControl.brake||lateral>52)&&Math.random()<.58)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
-    else if(localMode==='drift'&&skidTick<=0&&player.speed>95&&(lateral>24||playerControl.handbrake)){addSkid(player);skidTick=.05;if(Math.random()<.68)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
+    if(localMode!=='drift'&&skidTick<=0&&R.kmhFromWorldSpeed(player.speed)>70&&(lateral>32||playerControl.brake)){addSkid(player);skidTick=.055;if((playerControl.brake||lateral>52)&&Math.random()<.58)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
+    else if(localMode==='drift'&&skidTick<=0&&R.kmhFromWorldSpeed(player.speed)>55&&(lateral>24||playerControl.handbrake)){addSkid(player);skidTick=.05;if(Math.random()<.68)spawnParticle(player.x-player.vx*.05,player.y-player.vy*.05,'smoke',1);}
     updateEffects(dt);updateRanks();
 
     if(localMode==='drift'){updateDriftScore(dt,playerTrackImpact>.05||carImpact>3);if(player.rank<prevRank)audio.overtake();prevRank=player.rank;save.bestDriftScore=Math.max(save.bestDriftScore||0,Math.floor(score));}
@@ -756,7 +781,7 @@
     const driftHud=localMode==='drift',careerHud=localMode==='career';
     setText(UI.pos,careerHud?'LV '+careerSelectedLevel:player.rank+' / '+cars.length);
     setText(UI.lap,(driftHud||careerHud)?'1 / 1':Math.min(raceSettings.laps,player.laps+1)+' / '+raceSettings.laps);
-    setText(UI.speed,Math.round(player.speed));
+    setText(UI.speed,Math.round(R.kmhFromWorldSpeed(player.speed)));
     if(careerHud){const level=R.getCareerLevel(careerSelectedLevel);setText(UI.score,careerTimeLabel(Math.max(0,level.bronze-raceTime)));setText(UI.scoreLabel,'ДО ЛИМИТА');}
     else {setText(UI.score,Math.floor(score).toLocaleString());setText(UI.scoreLabel,driftHud?'ДРИФТ · x'+driftCombo.toFixed(1):'ОЧКИ');}
     setText(UI.lapTime,fmt(lapTime));
@@ -766,13 +791,13 @@
 
   function updateCamera(dt){
     if(!player)return;
-    const speedT=clamp(player.speed/player.maxSpeed,0,1),targetLook=84+speedT*124;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
+    const speedT=clamp(player.speed/player.maxSpeed,0,1),targetLook=84+speedT*148;cam.look=lerp(cam.look,targetLook,Math.min(1,dt*4.35));
     const tx=player.x+Math.cos(player.angle)*cam.look,ty=player.y+Math.sin(player.angle)*cam.look;
     const follow=1-Math.pow(.0024,dt);cam.x=lerp(cam.x,tx,follow);cam.y=lerp(cam.y,ty,follow);
     let target=-Math.PI/2-player.angle,d=target-cam.rot;while(d>Math.PI)d-=Math.PI*2;while(d<-Math.PI)d+=Math.PI*2;cam.rot+=d*Math.min(1,dt*7.2);
-    const base=clamp(Math.min(W/920,H/520)*.80,.52,.94),speedZoom=1-speedT*.145;cam.zoom=lerp(cam.zoom,base*speedZoom,Math.min(1,dt*3.8));
-    cam.screenY=lerp(cam.screenY,.47-speedT*.013,Math.min(1,dt*3.4));
-    shake*=Math.pow(.035,dt);if(player.speed>455)shake=Math.max(shake,.32*clamp((player.speed-455)/55,0,1));
+    const base=clamp(Math.min(W/920,H/520)*.80,.52,.94),speedZoom=1-speedT*.22;cam.zoom=lerp(cam.zoom,base*speedZoom,Math.min(1,dt*3.8));
+    cam.screenY=lerp(cam.screenY,.47-speedT*.018,Math.min(1,dt*3.4));
+    const speedKmh=R.kmhFromWorldSpeed(player.speed);shake*=Math.pow(.035,dt);if(speedKmh>240)shake=Math.max(shake,.20*clamp((speedKmh-240)/60,0,1));
   }
 
   function drawParticles(){
@@ -788,11 +813,11 @@
     ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#102e20';ctx.fillRect(0,0,W,H);
     const sx=shake?(Math.random()-.5)*shake:0,sy=shake?(Math.random()-.5)*shake:0;
     ctx.save();ctx.translate(W*.5+sx,H*cam.screenY+sy);ctx.scale(cam.zoom,cam.zoom);ctx.rotate(cam.rot);ctx.translate(-cam.x,-cam.y);track.draw(ctx);drawParticles();
-    for(const c of cars)if(c!==player)c.draw(ctx);if(player)player.draw(ctx);ctx.restore();drawSpeedLines();drawMiniMap();
+    for(const c of cars)if(c!==player)c.draw(ctx);drawGhost();if(player)player.draw(ctx);ctx.restore();drawSpeedLines();drawMiniMap();
   }
   function drawSpeedLines(){
-    if(!player||player.speed<275||state!=='racing')return;const t=clamp((player.speed-275)/(PHYS.maxSpeed-275),0,1);ctx.save();ctx.globalAlpha=.105*t;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
-    const cx=W*.5,cy=Math.min(H*.68,H*cam.screenY+cam.look*cam.zoom);for(let i=0;i<16;i++){const a=(i*2.399+raceTime*.7)%6.283,r=90+((i*73+raceTime*330)%Math.max(120,W*.55)),len=16+38*t;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*(r+len),cy+Math.sin(a)*(r+len));ctx.stroke();}ctx.restore();
+    if(!player||state!=='racing')return;const speedKmh=R.kmhFromWorldSpeed(player.speed);if(speedKmh<180)return;const t=clamp((speedKmh-180)/120,0,1);ctx.save();ctx.globalAlpha=.075*t;ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
+    const cx=W*.5,cy=Math.min(H*.68,H*cam.screenY+cam.look*cam.zoom);for(let i=0;i<16;i++){const a=(i*2.399+raceTime*.7)%6.283,r=90+((i*73+raceTime*330)%Math.max(120,W*.55)),len=12+34*t;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.lineTo(cx+Math.cos(a)*(r+len),cy+Math.sin(a)*(r+len));ctx.stroke();}ctx.restore();
   }
   function drawMenu(dt){
     demoT+=dt;ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#123521';ctx.fillRect(0,0,W,H);ctx.save();ctx.translate(W*.5,H*.5);const b=track.bounds,z=Math.min(W/(b.maxX-b.minX),H/(b.maxY-b.minY))*1.18;ctx.scale(z,z);ctx.rotate(-.08);ctx.translate(-(b.minX+b.maxX)/2,-(b.minY+b.maxY)/2);track.draw(ctx);
@@ -801,10 +826,18 @@
   }
 
   function frame(now){
-    let dt=(now-last)/1000;last=now;dt=Math.min(.033,Math.max(0,dt));
-    if(state==='menu'||state==='localMode'||state==='career'||state==='setup'||state==='shop'||state==='garage'||(state==='settings'&&settingsReturn!=='paused')){drawMenu(dt);if(state==='shop'||state==='garage')garage.draw(dt);}
-    else{if(state==='racing')updateRace(dt);else if(state==='countdown')updateCamera(dt);else if(state==='onlineCountdown')updateOnlineCountdown(dt);else if(state==='onlineRacing')updateOnlineRace(dt);else if(state==='onlineFinished'){updateRemoteCars();updateCamera(dt);}drawRace();}
-    requestAnimationFrame(frame);
+    try{
+      let dt=(now-last)/1000;last=now;dt=Math.min(.033,Math.max(0,dt));
+      if(state==='menu'||state==='localMode'||state==='career'||state==='setup'||state==='shop'||state==='garage'||(state==='settings'&&settingsReturn!=='paused')){drawMenu(dt);if(state==='shop'||state==='garage')garage.draw(dt);}
+      else{if(state==='racing')updateRace(dt);else if(state==='countdown')updateCamera(dt);else if(state==='onlineCountdown')updateOnlineCountdown(dt);else if(state==='onlineRacing')updateOnlineRace(dt);else if(state==='onlineFinished'){updateRemoteCars();updateCamera(dt);}drawRace();}
+      requestAnimationFrame(frame);
+    }catch{
+      const previousState=state;resetInput();controlInput.setActive(false);
+      window.VelocityRuntimeGuard?.show({
+        retry:()=>{last=performance.now();if(previousState==='racing'){controlInput.setActive(true);setPauseButton(true,true);}else if(previousState==='onlineRacing'&&!onlineLocalPaused&&!onlineLocalFinished){controlInput.setActive(true);setPauseButton(true,true);}requestAnimationFrame(frame);},
+        back:()=>{mainMenu();requestAnimationFrame(frame);}
+      });
+    }
   }
   requestAnimationFrame(frame);
 })();

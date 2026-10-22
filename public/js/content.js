@@ -2,8 +2,21 @@
   'use strict';
   const R=window.Racing=window.Racing||{};
   const points=a=>a.map(([x,y])=>({x,y}));
-  // Shared world-space race physics. Keep player and AI on the same baseline.
+  // Physics uses world units for positions and km/h for authored vehicle stats.
+  // The 71-unit collision length represents a 5.9 m car, so the map scale is
+  // approximately 12 world units per metre. Never label world-units/second as km/h.
+  R.WORLD_UNITS_PER_METER=12;
+  R.KMH_PER_METER_PER_SECOND=3.6;
+  R.worldSpeedFromKmh=kmh=>Number(kmh)*R.WORLD_UNITS_PER_METER/R.KMH_PER_METER_PER_SECOND;
+  R.kmhFromWorldSpeed=speed=>Number(speed)*R.KMH_PER_METER_PER_SECOND/R.WORLD_UNITS_PER_METER;
+  R.worldAccelerationFromKmhPerSecond=value=>Number(value)*R.WORLD_UNITS_PER_METER/R.KMH_PER_METER_PER_SECOND;
+  R.kmhPerSecondFromWorldAcceleration=value=>Number(value)*R.KMH_PER_METER_PER_SECOND/R.WORLD_UNITS_PER_METER;
+  R.worldAccelerationFromMetersPerSecondSquared=value=>Number(value)*R.WORLD_UNITS_PER_METER;
+  // Keep the legacy profile for bot planners and AI cars. Player cars opt into the
+  // metric profile through applyCarPerformance; this prevents shared Car formulas
+  // from silently changing bot pace or line-planner assumptions.
   R.RACE_PHYSICS=Object.freeze({maxSpeed:510,accel:268,brakePower:368,turnRate:2.40});
+  R.PLAYER_RACE_PHYSICS=Object.freeze({maxSpeed:R.worldSpeedFromKmh(240),accel:R.worldAccelerationFromKmhPerSecond(42),brakePower:R.worldAccelerationFromKmhPerSecond(58),turnRate:2.40});
   R.TRACKS={
     apexCircuit:{id:'apexCircuit',name:'APEX CIRCUIT',type:'TECHNICAL',description:'Классический автодром · точность и темп',roadWidth:214,
       points:points([[-1240,55],[-1110,-575],[-585,-850],[55,-815],[670,-890],[1210,-555],[1370,-25],[1155,490],[625,775],[45,705],[-445,790],[-925,565],[-1305,300]]),
@@ -495,14 +508,41 @@
   const safeNumber=(v,fallback=0)=>typeof v==='number'&&Number.isFinite(v)?Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,v)):fallback;
   // Per-car tuning: deterministic category/price balance, shared by every mode.
   R.UPGRADE_TYPES=Object.freeze({
-    speed:{name:'Трансмиссия',description:'Повышает максимальную скорость',stat:'maxSpeed',step:.03,priceFactor:1},
+    speed:{name:'Трансмиссия',description:'Повышает максимальную скорость',stat:'maxSpeed',step:.01,priceFactor:1},
     acceleration:{name:'Двигатель',description:'Ускоряет набор скорости',stat:'accel',step:.06,priceFactor:1.15},
     brakes:{name:'Тормоза',description:'Сокращает тормозной путь',stat:'brakePower',step:.07,priceFactor:.8}
   });
   R.UPGRADE_MAX_LEVEL=5;
-  const tuningBands={basic:[300,335,190,220,310,340],sport:[350,385,230,265,350,380],premium:[400,430,275,310,390,420],rare:[445,475,320,350,430,465],legendary:[490,520,360,390,475,510],lux:[535,555,400,420,520,550]};
+  const tuningBands={basic:[140,175,28,34,38,46],sport:[180,210,32,40,42,52],premium:[200,230,36,44,46,56],rare:[220,255,39,48,49,60],legendary:[245,280,42,52,52,64],lux:[265,286,45,56,55,68]};
+  const legacyBands={basic:[300,335,190,220,310,340],sport:[350,385,230,265,350,380],premium:[400,430,275,310,390,420],rare:[445,475,320,350,430,465],legendary:[490,520,360,390,475,510],lux:[535,555,400,420,520,550]};
+  const remapLegacy=(category,key,value)=>{
+    const index=key==='maxSpeed'?0:key==='accel'?2:key==='brakePower'?4:-1;
+    if(index<0||!Number.isFinite(Number(value)))return value;
+    const old=legacyBands[category]||legacyBands.basic,next=tuningBands[category]||tuningBands.basic;
+    const oldMin=old[index],oldMax=old[index+1],newMin=next[index],newMax=next[index+1];
+    const t=Math.max(0,Math.min(1,(Number(value)-oldMin)/Math.max(1,oldMax-oldMin)));
+    return Math.round(newMin+(newMax-newMin)*t);
+  };
+  const restoreLegacy=(category,key,value)=>{
+    const index=key==='maxSpeed'?0:key==='accel'?2:key==='brakePower'?4:-1;
+    if(index<0||!Number.isFinite(Number(value)))return value;
+    const old=legacyBands[category]||legacyBands.basic,next=tuningBands[category]||tuningBands.basic;
+    const t=Math.max(0,Math.min(1,(Number(value)-next[index])/Math.max(1,next[index+1]-next[index])));
+    return Math.round(old[index]+(old[index+1]-old[index])*t);
+  };
   R.CAR_PERFORMANCE=Object.freeze(Object.fromEntries(Object.entries(R.LIVERIES).map(([id,item])=>{
     const category=R.normalizeCarCategory(item.category),band=tuningBands[category]||tuningBands.basic;
+    const prices=Object.values(R.LIVERIES).filter(c=>R.normalizeCarCategory(c.category)===category).map(c=>c.price||0);
+    const low=Math.min(...prices),high=Math.max(...prices),t=high===low?.5:Math.max(0,Math.min(1,((item.price||0)-low)/(high-low)));
+    const mix=(a,b)=>Math.round(a+(b-a)*t),generated={maxSpeed:mix(band[0],band[1]),accel:mix(band[2],band[3]),brakePower:mix(band[4],band[5]),turnRate:2.40,drift:1};
+    const legacy=item.performance||{},overrides={...legacy};
+    for(const key of ['maxSpeed','accel','brakePower'])if(has(overrides,key))overrides[key]=remapLegacy(category,key,overrides[key]);
+    return [id,Object.freeze({...generated,...overrides})];
+  })));
+  // Exact pre-2.0 catalogue units for AI opponents. Keep this parallel catalogue
+  // stable while player stats are authored in km/h.
+  R.LEGACY_CAR_PERFORMANCE=Object.freeze(Object.fromEntries(Object.entries(R.LIVERIES).map(([id,item])=>{
+    const category=R.normalizeCarCategory(item.category),band=legacyBands[category]||legacyBands.basic;
     const prices=Object.values(R.LIVERIES).filter(c=>R.normalizeCarCategory(c.category)===category).map(c=>c.price||0);
     const low=Math.min(...prices),high=Math.max(...prices),t=high===low?.5:Math.max(0,Math.min(1,((item.price||0)-low)/(high-low)));
     const mix=(a,b)=>Math.round(a+(b-a)*t),generated={maxSpeed:mix(band[0],band[1]),accel:mix(band[2],band[3]),brakePower:mix(band[4],band[5]),turnRate:2.40,drift:1};
@@ -514,11 +554,45 @@
   };
   R.carAvailable=id=>window.VelocityAccount?.isAdmin||!(R.ownerCars?.[id]?.enabled===false||R.ownerCars?.[id]?.unavailable);
   R.getCarPerformance=function(id,save,personal=true){
-    const base={...(R.CAR_PERFORMANCE[id]||R.CAR_PERFORMANCE.apexLime),...(R.ownerCars?.[id]||{})},result={maxSpeed:base.maxSpeed,accel:base.accel,brakePower:base.brakePower,turnRate:base.turnRate,drift:base.drift||1},levels=R.getUpgradeLevels(save,id);
-    for(const [key,type] of Object.entries(R.UPGRADE_TYPES)){const tune=R.ownerCars?.[id]?.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||type;result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*(tune.step??type.step)));}
-    if(personal)Object.assign(result,R.ownerTuning?.[id]||{});return result;
+    const category=R.normalizeCarCategory(R.LIVERIES[id]?.category),owner=R.ownerCars?.[id]||{},base={...(R.CAR_PERFORMANCE[id]||R.CAR_PERFORMANCE.apexLime),...owner};
+    for(const key of ['maxSpeed','accel','brakePower'])if(Number.isFinite(Number(owner[key])))base[key]=owner.physicsVersion>=2?Number(owner[key]):remapLegacy(category,key,owner[key]);
+    const result={maxSpeed:base.maxSpeed,accel:base.accel,brakePower:base.brakePower,turnRate:base.turnRate,drift:base.drift||1},levels=R.getUpgradeLevels(save,id);
+    for(const [key,type] of Object.entries(R.UPGRADE_TYPES)){
+      const tune=owner.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||type;
+      const step=key==='speed'?Math.min(type.step,Number(tune.step)||type.step):(tune.step??type.step);
+      result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*step));
+    }
+    if(personal){
+      const owner=R.ownerTuning?.[id]||{};
+      for(const key of ['maxSpeed','accel','brakePower'])if(Number.isFinite(Number(owner[key])))result[key]=owner.physicsVersion>=2?Number(owner[key]):remapLegacy(R.normalizeCarCategory(R.LIVERIES[id]?.category),key,owner[key]);
+      if(Number.isFinite(Number(owner.turnRate)))result.turnRate=Number(owner.turnRate);
+      if(Number.isFinite(Number(owner.drift)))result.drift=Number(owner.drift);
+    }
+    result.maxSpeed=Math.min(300,result.maxSpeed);
+    return result;
   };
-  R.applyCarPerformance=function(car,id,save){if(!R.carAvailable(id))id='apexLime';const stats=R.getCarPerformance(id,save,car.player!==false);Object.assign(car,stats);car.baseMaxSpeed=stats.maxSpeed;return stats;};
+  R.getLegacyCarPerformance=function(id,save){
+    if(!has(R.LIVERIES,id))id='apexLime';
+    const category=R.normalizeCarCategory(R.LIVERIES[id]?.category),owner=R.ownerCars?.[id]||{},base={...(R.LEGACY_CAR_PERFORMANCE[id]||R.LEGACY_CAR_PERFORMANCE.apexLime)};
+    for(const key of ['maxSpeed','accel','brakePower'])if(Number.isFinite(Number(owner[key])))base[key]=owner.physicsVersion>=2?restoreLegacy(category,key,owner[key]):Number(owner[key]);
+    const result={maxSpeed:base.maxSpeed,accel:base.accel,brakePower:base.brakePower,turnRate:base.turnRate,drift:base.drift||1},levels=R.getUpgradeLevels(save,id);
+    const oldSteps={speed:.03,acceleration:.06,brakes:.07};
+    for(const [key,type] of Object.entries(R.UPGRADE_TYPES)){
+      const tune=owner.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||{step:oldSteps[key]},step=Number.isFinite(Number(tune.step))?Number(tune.step):oldSteps[key];
+      result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*step));
+    }
+    return result;
+  };
+  R.applyCarPerformance=function(car,id,save){
+    if(!R.carAvailable(id))id='apexLime';
+    const player=car.player!==false,stats=player?R.getCarPerformance(id,save,true):R.getLegacyCarPerformance(id,save);
+    car.physicsVersion=player?2:1;
+    car.maxSpeedKmh=stats.maxSpeed;car.accelKmhPerSecond=stats.accel;car.brakePowerKmhPerSecond=stats.brakePower;
+    car.maxSpeed=player?R.worldSpeedFromKmh(stats.maxSpeed):stats.maxSpeed;car.baseMaxSpeed=car.maxSpeed;
+    car.accel=player?R.worldAccelerationFromKmhPerSecond(stats.accel):stats.accel;car.brakePower=player?R.worldAccelerationFromKmhPerSecond(stats.brakePower):stats.brakePower;
+    car.turnRate=stats.turnRate;car.drift=stats.drift||1;
+    return stats;
+  };
   R.getUpgradeCost=function(id,key,level){
     if(!has(R.LIVERIES,id)||!has(R.UPGRADE_TYPES,key)||!Number.isInteger(level)||level<0||level>=5)return null;
     const tune=R.ownerCars?.[id]?.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||R.UPGRADE_TYPES[key];

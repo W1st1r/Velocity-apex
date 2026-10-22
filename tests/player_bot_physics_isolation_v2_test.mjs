@@ -1,0 +1,22 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+
+globalThis.window=globalThis;window.Racing={clamp:(value,min,max)=>Math.min(max,Math.max(min,value))};
+for(const file of ['content.js','car.js'])vm.runInThisContext(fs.readFileSync(new URL('../public/js/'+file,import.meta.url),'utf8'),{filename:file});
+const R=window.Racing;
+assert.deepEqual({...R.RACE_PHYSICS},{maxSpeed:510,accel:268,brakePower:368,turnRate:2.4},'legacy baseline used by bots and racing-line planner remains unchanged');
+const save=R.normalizeSave({ownedLiveries:['apexLime'],carUpgrades:{apexLime:{speed:2,acceleration:1,brakes:1}}});
+const player=new R.Car({player:true,...R.PLAYER_RACE_PHYSICS}),bot=new R.Car({player:false,...R.RACE_PHYSICS});
+R.applyCarPerformance(player,'apexLime',save);R.applyCarPerformance(bot,'apexLime',save);
+assert.equal(player.physicsVersion,2);assert.equal(bot.physicsVersion,1);
+assert.equal(player.maxSpeed,R.worldSpeedFromKmh(R.getCarPerformance('apexLime',save).maxSpeed));
+assert.equal(bot.maxSpeed,R.getLegacyCarPerformance('apexLime',save).maxSpeed);
+assert.equal(bot.accel,R.getLegacyCarPerformance('apexLime',save).accel);
+assert.equal(bot.brakePower,R.getLegacyCarPerformance('apexLime',save).brakePower);
+const authorityAtLegacyRollingSpeed=bot.steeringAuthority(54,'asphalt');
+assert(authorityAtLegacyRollingSpeed>player.steeringAuthority(54,'asphalt'),'bot steering retains the original world-unit rolling threshold');
+const botOffroadGrip=bot.lateralAccelerationLimit(200,'offroad'),playerOffroadGrip=player.lateralAccelerationLimit(200,'offroad');
+assert.equal(botOffroadGrip,54,'bot off-road grip retains legacy world acceleration');
+assert.equal(playerOffroadGrip,R.worldAccelerationFromMetersPerSecondSquared(4.5),'player uses converted physical acceleration');
+console.log('player_bot_physics_isolation_v2_test OK: legacy bot baseline, stats, steering and grip are isolated from player metric physics');

@@ -33,7 +33,7 @@
   };
   // MOUNTAIN PASS now follows the lakeside spline in free-city.js.
   const CHAT_PREVIEW_LIMIT=4;
-  const SOLO_PHYS=R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
+  const SOLO_PHYS=R.PLAYER_RACE_PHYSICS||R.RACE_PHYSICS||{maxSpeed:510,accel:268,brakePower:368,turnRate:2.40};
   const FREE_PHYS_TRACK={
     roadWidth:100000,barrierMargin:0,theme:{drag:1},
     nearest(x,y){return{x,y,tx:1,ty:0,nx:0,ny:1,signed:0,index:0,progress:.5};},
@@ -43,12 +43,12 @@
 
   const state={
     active:false,servers:[],server:null,playerId:null,token:null,ws:null,seq:0,lastSend:0,serverOffset:0,serverOffsetReady:false,rtt:0,pingTimer:0,reconnectTimer:0,reconnectAttempts:0,intentionalClose:false,
-    room:null,remotes:new Map(),chat:[],drag:null,dragQueued:false,dragWager:0,activityPending:false,liveEvent:null,minigame:null,minigameHub:null,minigameReturn:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
+    room:null,remotes:new Map(),chat:[],chatPending:new Map(),drag:null,dragQueued:false,dragWager:0,activityPending:false,liveEvent:null,minigame:null,minigameHub:null,minigameReturn:null,progress:{totalExp:0,level:0,levelExp:0,requiredExp:100,toNext:100},driftScore:0,driftInside:false,
     speedCooldown:0,waypoint:null,chatUnread:0,loadout:null,playerVisual:null,paused:false,lastFootballTouchAt:0,minigameHudExpanded:false,minigameHudAutoCollapseAt:0,garageOpen:false,garageBusy:false,mediaEvent:null,spectator:false,spectatorTarget:null,mediaHudHidden:false
   };
   const input={left:false,right:false,gas:false,brake:false,handbrake:false};
   const car=R.Car?new R.Car({player:true,maxSpeed:SOLO_PHYS.maxSpeed,accel:SOLO_PHYS.accel,brakePower:SOLO_PHYS.brakePower,turnRate:SOLO_PHYS.turnRate}):{x:2320,y:1590,vx:0,vy:0,angle:-Math.PI/2,speed:0};
-  let W=1,H=1,DPR=1,last=performance.now(),raf=0;
+  let W=1,H=1,DPR=1,last=performance.now(),raf=0,serversRequestId=0,serverJoinInProgress=false;
 
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
@@ -391,13 +391,17 @@
   }
 
   async function loadServers(){
+    const requestId=++serversRequestId;
     msg('ОБНОВЛЕНИЕ СПИСКА…');
     try{
-      const d=await jsonFetch('/api/free/servers');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+      let d;try{d=await jsonFetch('/api/free/servers',{signal:controller.signal});}finally{clearTimeout(timer);}
+      if(requestId!==serversRequestId||state.active)return;
       state.servers=d.servers||[];
       renderServers();
       msg('');
     }catch{
+      if(requestId!==serversRequestId||state.active)return;
       msg('Не удалось загрузить серверы.',true);
     }
   }
@@ -412,7 +416,7 @@
       const b=document.createElement('button');
       b.type='button';
       b.className='free-server-card';
-      b.disabled=s.players>=s.maxPlayers;
+      b.disabled=serverJoinInProgress||s.players>=s.maxPlayers;
       const load=Math.round((s.players/s.maxPlayers)*100);
       const top=document.createElement('div');
       top.className='free-server-card-top';
@@ -447,26 +451,37 @@
   }
 
   function closeBrowser(){
+    if(serverJoinInProgress)return;
+    serversRequestId++;
     browser.classList.add('hidden');
     browser.setAttribute('aria-hidden','true');
     $('online')?.classList.remove('hidden');
   }
 
   async function joinServer(server){
-    refreshPlayerLoadout();
-    msg('ПОДКЛЮЧЕНИЕ К '+server.name+'…');
+    if(serverJoinInProgress||!server||!state.servers.some(item=>item.id===server.id))return;
+    serverJoinInProgress=true;
+    const back=$('freeServersBackBtn'),refresh=$('freeRefreshBtn'),wasBackDisabled=back?.disabled,wasRefreshDisabled=refresh?.disabled;
+    if(back)back.disabled=true;if(refresh)refresh.disabled=true;
     try{
-      const d=await jsonFetch(`/api/free/${server.id}/join`,{method:'POST',body:JSON.stringify({name:accountName(),loadout:{liveryId:state.loadout.liveryId,effectId:state.loadout.effectId,colorId:state.loadout.colorId,vinylId:state.loadout.vinylId}})});
-      state.server={...server,apiBase:`/api/free/${server.id}`,media:false};
+      renderServers();refreshPlayerLoadout();msg('ПОДКЛЮЧЕНИЕ К '+server.name+'…');
+      const d=await jsonFetch(`/api/free/${encodeURIComponent(server.id)}/join`,{method:'POST',body:JSON.stringify({name:accountName(),loadout:{liveryId:state.loadout.liveryId,effectId:state.loadout.effectId,colorId:state.loadout.colorId,vinylId:state.loadout.vinylId}})});
+      if(!d?.playerId||!d?.sessionToken||!d?.room)throw new Error('INVALID_SESSION_RESPONSE');
+      state.server={...server,apiBase:`/api/free/${encodeURIComponent(server.id)}`,media:false};
       state.playerId=d.playerId;
       state.token=d.sessionToken;
       state.room=d.room;
       connect();
-      browser.classList.add('hidden');
       startRoam();
+      browser.classList.add('hidden');
+      browser.setAttribute('aria-hidden','true');
     }catch(e){
+      if(state.active){try{leave(true);}catch{leave(false);}browser.classList.remove('hidden');browser.setAttribute('aria-hidden','false');$('menu')?.classList.add('hidden');}
       msg(e.code==='SERVER_FULL'?'Сервер заполнен. Выберите другой.':'Не удалось подключиться.',true);
-      loadServers();
+    }finally{
+      serverJoinInProgress=false;
+      if(back)back.disabled=wasBackDisabled||false;if(refresh)refresh.disabled=wasRefreshDisabled||false;
+      if(!browser.classList.contains('hidden'))renderServers();
     }
   }
 
@@ -535,7 +550,15 @@
       if(!r){r={x:m.state.x,y:m.state.y,angle:m.state.angle,target:m.state,snapshots:[],name:'RACER',level:0,liveryId:'apexLime',effectId:'standard',visual:createVisual('apexLime','standard')};state.remotes.set(m.playerId,r);}
       pushRemoteSnapshot(r,m.state,m.serverTime);return;
     }
-    if(m.type==='free_chat'){addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0,!!m.media);return;}
+    if(m.type==='free_chat'){
+      if(m.playerId===state.playerId&&m.clientMessageId)settleChatMessage(m.clientMessageId,true);
+      addChat(m.name,m.text,m.playerId===state.playerId,m.owner===true,Number(m.level)||0,Number(m.adminLevel)||0,!!m.media,m.playerId);return;
+    }
+    if(m.type==='free_chat_rejected'){
+      if(m.clientMessageId)settleChatMessage(m.clientMessageId,false,m.reason);
+      if(m.reason==='MUTED'){const left=Math.max(0,Number(m.expiresAt||0)-Date.now()),mins=Math.max(1,Math.ceil(left/60000));setBanner(`ЧАТ ЗАБЛОКИРОВАН · ${mins} МИН`,4200);}
+      return;
+    }
     if(m.type==='admin_announcement'){addSystem(`ADMIN ${m.adminLevel||''} @${m.by||'SYSTEM'}: ${m.message||''}`);setBanner(`ОБЪЯВЛЕНИЕ · ${m.message||''}`,5200);return;}
     if(m.type==='admin_events_state'){if(state.room)state.room.eventsDisabled=!!m.disabled;if(m.cleared){state.liveEvent=null;state.minigame=null;state.drag=null;state.dragQueued=false;state.activityPending=false;renderEventHud();renderMinigameHud();updateDragHud(Date.now()+state.serverOffset);}setBanner(m.disabled?'ROOT · ИГРОВЫЕ АКТИВНОСТИ ОТКЛЮЧЕНЫ':'ИГРОВЫЕ АКТИВНОСТИ ВКЛЮЧЕНЫ',4200);return;}
     if(m.type==='admin_kick'){state.lastAdminKickReason=m.reason||'Вы отключены администрацией.';return;}
@@ -672,7 +695,9 @@
   }
 
   function startRoam(){
+    window.VelocitySpeedTransition?.play();
     state.active=true;
+    toggleChat(false);clearPendingChatMessages();syncChatViewport();
     state.chatUnread=0;
     state.chat.length=0;
     state.driftScore=0;
@@ -699,6 +724,7 @@
   }
   function leave(notify=true){
     state.active=false;state.intentionalClose=true;
+    toggleChat(false);clearPendingChatMessages();syncChatViewport();
     stopClockSync();stopReconnect();if(notify){send({type:'leave',v:1});leaveBeacon();}
     try{state.ws?.close(1000,'leave');}catch{}
     state.ws=null;
@@ -746,7 +772,7 @@
       // Drift physics is opt-in only: it exists while the player is actually holding HB.
       // Releasing HB immediately returns the car to normal grip, so a hard steering input
       // or full throttle can no longer trigger an automatic slide.
-      const driftActive=handbrake>.05&&car.speed>28;
+      const driftActive=handbrake>.05&&R.kmhFromWorldSpeed(car.speed)>28;
       car.update(dt,{steer,throttle,brake,handbrake,drift:driftActive},FREE_PHYS_TRACK);
     }else{
       const fx=Math.cos(car.angle),fy=Math.sin(car.angle);let signed=car.vx*fx+car.vy*fy;
@@ -767,7 +793,7 @@
 
     const sendEvery=freeSendInterval();if(!spectating&&performance.now()-state.lastSend>sendEvery)sendFreeState();
 
-    $('freeSpeed').textContent=spectating?'SPECTATOR':Math.round(car.speed);
+    $('freeSpeed').textContent=spectating?'SPECTATOR':Math.round(R.kmhFromWorldSpeed(car.speed));
     $('freeLocation').textContent=state.minigame&&['running','result'].includes(state.minigame.status)?minigameTitle(state.minigame.gameKey):district(car.x,car.y);
     updateActivities(dt,now);updateDragHud(now);updateEventClock(now);updateMinigameClock(now);
   }
@@ -798,12 +824,12 @@
     if(state.mediaEvent){const action=$('freeContextAction');if(action)action.classList.add('hidden');return;}
     if(state.minigame){const action=$('freeContextAction');if(action)action.classList.add('hidden');return;}
 
-    if(dist(car.x,car.y,ZONES.speed.x,ZONES.speed.y)<ZONES.speed.r&&state.speedCooldown<=0&&car.speed>90){
-      state.speedCooldown=4;const v=Math.round(car.speed);setBanner(`SPEED TRAP · ${v} KM/H`,2600);send({type:'record',v:1,kind:'speed',value:v});
+    if(dist(car.x,car.y,ZONES.speed.x,ZONES.speed.y)<ZONES.speed.r&&state.speedCooldown<=0&&R.kmhFromWorldSpeed(car.speed)>70){
+      state.speedCooldown=4;const v=Math.round(R.kmhFromWorldSpeed(car.speed));setBanner(`SPEED TRAP · ${v} KM/H`,2600);send({type:'record',v:1,kind:'speed',value:v});
     }
 
     const inDrift=dist(car.x,car.y,ZONES.drift.x,ZONES.drift.y)<ZONES.drift.r;
-    if(inDrift&&car.speed>55&&input.handbrake){
+    if(inDrift&&R.kmhFromWorldSpeed(car.speed)>28&&input.handbrake){
       state.driftScore+=car.speed*dt*4.9;state.driftInside=true;
     }else if(state.driftInside&&!inDrift){
       const score=Math.floor(state.driftScore);if(score>120){setBanner(`DRIFT ZONE · ${score.toLocaleString('ru-RU')}`,3000);send({type:'record',v:1,kind:'drift',value:score});}state.driftScore=0;state.driftInside=false;
@@ -864,8 +890,8 @@
   });
   const adminPrefix=level=>ADMIN_PREFIXES[Math.max(0,Math.min(8,Math.floor(Number(level)||0)))]||null;
 
-  function appendPlayerName(el,name,owner,level=null,adminLevel=null){
-    const player=state.room?.players?.find(p=>p.name===name),isOwner=owner===true||player?.owner===true,isMedia=player?.media===true,rank=adminPrefix(adminLevel===null?player?.adminLevel:adminLevel);
+  function appendPlayerName(el,name,owner,level=null,adminLevel=null,media=false){
+    const player=state.room?.players?.find(p=>p.name===name),isOwner=owner===true||player?.owner===true,isMedia=media===true||player?.media===true,rank=adminPrefix(adminLevel===null?player?.adminLevel:adminLevel);
     if(isOwner){const badge=document.createElement('span');badge.className='free-owner-badge';badge.textContent='OWNER';el.append(badge);}
     else if(isQueenName(name)){const badge=document.createElement('span');badge.className='free-queen-badge';badge.textContent='QUEEN';el.append(badge);}
     else if(isMedia){const badge=document.createElement('span');badge.className='free-media-badge';badge.textContent='MEDIA';el.append(badge);}
@@ -876,8 +902,8 @@
     if(level!==null&&Number.isFinite(Number(level))){const tag=document.createElement('span');tag.className='free-level-tag';tag.textContent=`[${Math.max(0,Math.min(100,Math.floor(Number(level)||0)))}]`;el.append(document.createTextNode(' '),tag);}
   }
 
-  function addChat(name,text,mine=false,owner=false,level=0,adminLevel=0,media=false){
-    state.chat.push({name,text,mine,owner,level,adminLevel,media,system:false,time:Date.now()});
+  function addChat(name,text,mine=false,owner=false,level=0,adminLevel=0,media=false,playerId=''){
+    state.chat.push({name,text,mine,owner,level,adminLevel,media,playerId,system:false,time:Date.now()});
     if(state.chat.length>80)state.chat.shift();
     if($('freeChatPanel').classList.contains('hidden')&&!mine){state.chatUnread++;updateUnreadBadge();}
     renderChat();
@@ -897,9 +923,10 @@
     for(const m of state.chat.slice(-50)){
       const row=document.createElement('div');
       row.className='free-chat-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,m.system?null:m.level,m.system?0:m.adminLevel);
+      const meta=document.createElement('div');meta.className='free-chat-meta';const n=document.createElement('strong');appendPlayerName(n,m.name,m.owner,null,m.system?0:m.adminLevel,m.media);meta.append(n);
+      if(!m.system&&m.playerId){const id=document.createElement('small');id.className='free-chat-id';id.textContent='['+String(m.playerId).slice(0,12).toUpperCase()+']';meta.append(id);}
       const t=document.createElement('span');t.textContent=m.text;
-      row.append(n,t);log.appendChild(row);
+      row.append(meta,t);log.appendChild(row);
     }
     log.scrollTop=log.scrollHeight;
   }
@@ -919,9 +946,10 @@
     for(const m of entries){
       const row=document.createElement('div');
       row.className='free-chat-preview-line'+(m.system?' system':'')+(m.mine?' mine':'')+(m.owner?' has-owner':'');
-      const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,m.system?null:m.level,m.system?0:m.adminLevel);
+      const meta=document.createElement('div');meta.className='free-chat-meta';const name=document.createElement('b');appendPlayerName(name,m.name,m.owner,null,m.system?0:m.adminLevel,m.media);meta.append(name);
+      if(!m.system&&m.playerId){const id=document.createElement('small');id.className='free-chat-id';id.textContent='['+String(m.playerId).slice(0,12).toUpperCase()+']';meta.append(id);}
       const text=document.createElement('span');text.textContent=m.text;
-      row.append(name,text);
+      row.append(meta,text);
       root.appendChild(row);
     }
   }
@@ -1103,11 +1131,19 @@
 
   function loop(t){
     if(!state.active)return;
-    const dt=Math.min(.033,Math.max(.001,(t-last)/1000));
-    last=t;
-    update(dt);
-    draw();
-    raf=requestAnimationFrame(loop);
+    try{
+      const dt=Math.min(.033,Math.max(.001,(t-last)/1000));
+      last=t;
+      update(dt);
+      draw();
+      raf=requestAnimationFrame(loop);
+    }catch{
+      clearInputs();state.paused=true;roam.classList.add('paused');cancelAnimationFrame(raf);
+      window.VelocityRuntimeGuard?.show({
+        retry:()=>{state.paused=false;roam.classList.remove('paused');last=performance.now();raf=requestAnimationFrame(loop);},
+        back:()=>leave(true)
+      });
+    }
   }
 
   function clearInputs(){for(const k in input)input[k]=false;}
@@ -1178,9 +1214,26 @@
     p.classList.toggle('hidden',!show);
     if(show){
       state.chatUnread=0;updateUnreadBadge();
-      setTimeout(()=>$('freeChatInput').focus(),30);
+      setTimeout(()=>{if(p.classList.contains('hidden'))return;$('freeChatInput').focus();syncChatViewport();},30);
     }else $('freeChatInput').blur();
+    syncChatViewport();
   }
+
+  function syncChatViewport(){
+    const panel=$('freeChatPanel'),input=$('freeChatInput'),root=document.documentElement,vv=window.visualViewport;
+    if(!panel||panel.classList.contains('hidden')||document.activeElement!==input){root.style.removeProperty('--free-chat-visible-height');root.style.removeProperty('--free-chat-keyboard-inset');return;}
+    const visibleHeight=Math.max(220,Math.round(vv?.height||innerHeight)),keyboardInset=vv?Math.max(0,Math.round(innerHeight-(vv.height+vv.offsetTop))):0;
+    root.style.setProperty('--free-chat-visible-height',`${visibleHeight}px`);root.style.setProperty('--free-chat-keyboard-inset',`${keyboardInset}px`);
+  }
+  $('freeChatInput').addEventListener('focus',syncChatViewport);$('freeChatInput').addEventListener('blur',syncChatViewport);
+  window.visualViewport?.addEventListener('resize',syncChatViewport);window.visualViewport?.addEventListener('scroll',syncChatViewport);
+
+  function settleChatMessage(id,accepted,reason=''){
+    const pending=state.chatPending.get(id);if(!pending)return;
+    clearTimeout(pending.timer);state.chatPending.delete(id);
+    if(!accepted){const input=$('freeChatInput');if(input&&!input.value.trim())input.value=pending.text;const label=reason==='RATE_LIMIT'?'СЛИШКОМ ЧАСТО · ПОВТОРИТЕ ПОЗЖЕ':'НЕ УДАЛОСЬ ПОДТВЕРДИТЬ ДОСТАВКУ · ПОВТОРИТЕ ОТПРАВКУ';setBanner(label,3200);}
+  }
+  function clearPendingChatMessages(){for(const pending of state.chatPending.values())clearTimeout(pending.timer);state.chatPending.clear();}
 
   function syncMapClear(){const b=$('freeMapClear');if(b)b.disabled=!state.waypoint;}
 
@@ -1202,7 +1255,11 @@
   $('freeChatForm').addEventListener('submit',e=>{
     e.preventDefault();
     const i=$('freeChatInput'),text=i.value.trim();
-    if(text){send({type:'chat',v:1,text});i.value='';}
+    if(text){
+      const clientMessageId=window.crypto?.randomUUID?.()||`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+      if(!send({type:'chat',v:1,text,clientMessageId})){setBanner('НЕТ ПОДКЛЮЧЕНИЯ · СООБЩЕНИЕ НЕ ОТПРАВЛЕНО',3200);return;}
+      i.value='';const timer=setTimeout(()=>settleChatMessage(clientMessageId,false,'TIMEOUT'),7000);state.chatPending.set(clientMessageId,{text,timer});
+    }
   });
   $('freeChatBtn').addEventListener('click',()=>toggleChat());
   $('freeChatClose').addEventListener('click',()=>toggleChat(false));

@@ -14,9 +14,9 @@ async function fetch(path,options={}){
  }return Response.json({ok:true});
 }
 const source=fs.readFileSync(new URL('../public/js/account.js',import.meta.url),'utf8').replace("'./account-preferences-v77.mjs'",JSON.stringify(new URL('../public/js/account-preferences-v77.mjs',import.meta.url).href));
-const run=new Function('window','document','fetch','localStorage','sessionStorage','addEventListener','setInterval','clearInterval','setTimeout','clearTimeout',source);
+const run=new Function('window','document','fetch','localStorage','sessionStorage','addEventListener','setInterval','clearInterval','setTimeout','clearTimeout','location',source);
 try{
- run(window,document,fetch,storage,storage,window.addEventListener.bind(window),interval,clearInterval,timeout,clearTimeout);
+ run(window,document,fetch,storage,storage,window.addEventListener.bind(window),interval,clearInterval,timeout,clearTimeout,{hash:'',pathname:'/',search:''});
  const waitFor=async condition=>{const end=Date.now()+2000;while(!condition()){if(Date.now()>end)throw Error('client flush fixture timed out');await new Promise(r=>setTimeout(r,1));}};
  await waitFor(()=>window.VelocityAccount?.ready);const account=window.VelocityAccount;
  window.addEventListener('velocity-account-save',e=>{account.queueSave({...e.detail.save});account.queueSave({...e.detail.save});});

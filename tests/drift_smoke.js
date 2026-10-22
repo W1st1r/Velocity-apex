@@ -52,7 +52,7 @@ assert.equal(save.credits,1234);assert.equal(save.driftBotCount,11);assert.equal
 const html=fs.readFileSync(path.join(ROOT,'public/index.html'),'utf8'),game=fs.readFileSync(path.join(ROOT,'public/js/game.js'),'utf8'),controls=fs.readFileSync(path.join(ROOT,'public/js/controls.js'),'utf8');
 for(const id of ['localMode','normalModeBtn','driftModeBtn','handbrakeBtn'])assert.ok(html.includes(`id="${id}"`),`missing drift UI ${id}`);
 assert.ok(controls.includes("this._bindHold(this.handbrakeBtn,'handbrake',()=>this.driftMode)"),'handbrake must use independent hold/multitouch control');
-assert.ok(game.includes("forward>42")&&game.includes("meters>.025")&&game.includes("progressMeters"),'drift scoring must require forward track progress');
+assert.ok(game.includes('R.kmhFromWorldSpeed(forward)>45')&&game.includes("meters>.025")&&game.includes("progressMeters"),'drift scoring must require forward track progress at a physical speed threshold');
 assert.ok(game.includes("playerControl.drift=localMode==='drift'"),'normal and drift physics must remain mode-separated');
 assert.ok(game.includes('modeSelectReadyAt=performance.now()+420'),'play must guard against iOS ghost taps skipping mode selection');
 assert.ok(game.includes('claimDriftCreditsOnce'),'drift rewards must have persistent duplicate-claim protection');

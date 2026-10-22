@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {handleAuthRequest} from '../src/auth.mjs';
 import {RaceSession,validateRaceConfig,validateInputs,RACE_RUNTIME_VERSION} from '../public/js/race-session-v77.mjs';
-import {createRaceRuntime} from '../public/js/race-runtime-v77.mjs';
+import {createCareerPlayerInputDriver} from './career_player_input_driver_v77.mjs';
 const db=new DatabaseSync(':memory:');db.exec('PRAGMA foreign_keys=ON');
 for(const name of fs.readdirSync(new URL('../migrations/',import.meta.url)).sort())db.exec(fs.readFileSync(new URL('../migrations/'+name,import.meta.url),'utf8'));
 let tail=Promise.resolve(),failProgressOnce=false;
@@ -37,10 +37,10 @@ try{
  assert.equal((await call('input',{...base,x:99999,checkpoint:3})).data.error,'UNTRUSTED_RACE_FIELDS');
  assert.equal((await call('input',base)).data.error,'RACE_CLOCK_AHEAD');
  const local=new RaceSession(begun.data.config,begun.data.carSave,begun.data.seed,begun.data.state);
- const driverR=createRaceRuntime(173),driver=new driverR.AIController(local.player,100,'extreme');
+ const playerControls=createCareerPlayerInputDriver(local);
  clock=begun.data.startsAt+3000;let sequence=0,frames=0;
  while(!local.result&&frames<9000){
-   const inputs=[];for(let i=0;i<120&&!local.result;i++){const o=driver.think(1/60,local.track,local.cars);const frame=[o.steer,o.throttle,o.brake,0];inputs.push(frame);local.step(frame);frames++;}
+   const inputs=[];for(let i=0;i<120&&!local.result;i++){const frame=playerControls();inputs.push(frame);local.step(frame);frames++;}
    clock+=2100;
    const packet={raceId,runtimeVersion:RACE_RUNTIME_VERSION,sequence,inputs};
    const replies=sequence===0?await Promise.all([call('input',packet),call('input',packet)]):[await call('input',packet)];
@@ -50,7 +50,7 @@ try{
    // Restoring a saved session produces exactly the same deterministic next state.
    const restored=new RaceSession(begun.data.config,begun.data.carSave,begun.data.seed,local.serialize());assert.deepEqual(restored.serialize(),local.serialize());
  }
- assert.ok(local.result?.completed,'honest physics-driven career must finish before timeout');assert.ok(local.result.tier,'honest driver must earn a medal');
+ assert.ok(local.result?.completed,`physics-driven player controls must finish Career 01 before timeout; final=${JSON.stringify({frame:local.frame,timeMs:local.result?.timeMs,progress:local.player.progress,checkpoint:local.player.checkpoint,x:local.player.x,y:local.player.y,speed:local.player.speed,reason:local.result?.completed?'finished':local.result?'career_timeout':'still_running'})}`);assert.equal(local.result.tier,'bronze','Career 01 result must award the time tier earned by the physical finish');
  const resume=await call('resume',{raceId});assert.equal(resume.data.state.frame,local.frame);
  const saveBeforeFailure=db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('r1').save_json;
  failProgressOnce=true;const originalError=console.error;console.error=()=>{};let failed;try{failed=await call('finish',{raceId});}finally{console.error=originalError;}assert.equal(failed.status,500);assert.equal(db.prepare('SELECT save_json FROM player_saves WHERE user_id=?').get('r1').save_json,saveBeforeFailure);assert.equal(db.prepare('SELECT status FROM race_sessions WHERE id=?').get(raceId).status,'active');assert.equal(db.prepare('SELECT COUNT(*) AS n FROM economy_operations').get().n,0);

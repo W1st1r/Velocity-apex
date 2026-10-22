@@ -13,6 +13,8 @@ import {GARAGE_ECONOMY} from './tuning-catalog.mjs';
 const SESSION_COOKIE='va_session';
 const SESSION_TTL_MS=30*24*60*60*1000;
 const PASSWORD_ITERATIONS=100000;
+const RECOVERY_TOKEN_TTL_MS=20*60*1000;
+const RECOVERY_RATE_WINDOW_MS=60*60*1000;
 const SAVE_LIMIT_BYTES=64*1024;
 const ADMIN_USERNAME='w1st1r';
 const ADMIN_PASSWORD_SHA256='dxEnsDF2QSbEDOepP2HFM_okaUwBB-fBg8fC90XrmIA';
@@ -51,6 +53,9 @@ const randomBytes=n=>{const a=new Uint8Array(n);crypto.getRandomValues(a);return
 const sha256=async value=>b64url(new Uint8Array(await crypto.subtle.digest('SHA-256',typeof value==='string'?enc.encode(value):value)));
 const normalizeUsername=v=>String(v||'').trim().toLowerCase();
 const validUsername=v=>/^[a-z0-9_]{3,24}$/.test(v);
+const normalizeEmail=v=>String(v||'').trim().toLowerCase();
+const validEmail=v=>typeof v==='string'&&v.length<=254&&/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(v);
+const validRecoveryPassword=v=>typeof v==='string'&&v.length>=10&&v.length<=128&&/\p{L}/u.test(v)&&/\d/.test(v);
 const normalizeDisplayName=v=>String(v||'').trim().replace(/\s+/g,' ');
 const validDisplayName=v=>v.length>=2&&v.length<=24&&/^[\p{L}\p{N}_\- .]+$/u.test(v)&&!/[<>"'`\\/]/.test(v);
 const validPassword=v=>typeof v==='string'&&v.length>=8&&v.length<=128;
@@ -675,11 +680,163 @@ export async function freeAccountIdentity(env,request){
   return {user:session.user,owner:isAdminUsername(session.user.username)};
 }
 
-export async function handleAuthRequest(request,env,url=new URL(request.url)){
+function strictSameOrigin(request){
+  const origin=request.headers.get('origin');return !!origin&&origin===new URL(request.url).origin;
+}
+function recoveryResponse(){return json({ok:true,message:'Если этот адрес подтверждён в аккаунте, инструкция придёт на почту.'},202);}
+function maskEmail(email){const [local,domain]=String(email||'').split('@');return local&&domain?`${local.slice(0,1)}***@${domain}`:'';}
+function htmlEscape(value){return String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
+async function recoveryRateAllowed(env,scope,limit,t=now()){
+  const rateKey=await sha256(`velocity-apex-recovery:${scope}`),windowStart=Math.floor(t/RECOVERY_RATE_WINDOW_MS)*RECOVERY_RATE_WINDOW_MS;
+  await env.DB.prepare('DELETE FROM recovery_rate_limits WHERE window_start<?').bind(windowStart-RECOVERY_RATE_WINDOW_MS).run();
+  await env.DB.prepare(`INSERT INTO recovery_rate_limits (rate_key,window_start,request_count) VALUES (?,?,1)
+    ON CONFLICT(rate_key) DO UPDATE SET
+      request_count=CASE WHEN recovery_rate_limits.window_start=excluded.window_start THEN recovery_rate_limits.request_count+1 ELSE 1 END,
+      window_start=excluded.window_start`).bind(rateKey,windowStart).run();
+  const row=await env.DB.prepare('SELECT request_count FROM recovery_rate_limits WHERE rate_key=? LIMIT 1').bind(rateKey).first();
+  return Number(row?.request_count||0)<=limit;
+}
+async function recoveryRateAllowedForRequest(env,request,scopeKey,accountLimit,t=now()){
+  const ip=request.headers.get('CF-Connecting-IP')||'unknown';
+  const [ipAllowed,accountAllowed]=await Promise.all([
+    recoveryRateAllowed(env,`${scopeKey}:ip:${ip}`,12,t),
+    recoveryRateAllowed(env,`${scopeKey}:subject:${accountLimit.key}`,accountLimit.limit,t)
+  ]);
+  return ipAllowed&&accountAllowed;
+}
+async function sendAccountEmail(env,kind,{email,displayName,token=''}){
+  const apiKey=String(env.RESEND_API_KEY||''),from=String(env.EMAIL_FROM||''),configuredOrigin=String(env.PUBLIC_APP_ORIGIN||'');
+  let origin;
+  try{const parsed=new URL(configuredOrigin);if(parsed.protocol!=='https:'||parsed.username||parsed.password)return false;origin=parsed.origin;}catch{return false;}
+  if(!apiKey||!from||!validEmail(normalizeEmail(email)))return false;
+  const name=htmlEscape(displayName||'гонщик'),date=new Date().toLocaleString('ru-RU',{timeZone:'UTC',timeZoneName:'short'});
+  let subject='',title='',copy='',label='',url='',warning='Если вы не запрашивали это действие, проигнорируйте письмо. Ваш пароль и игровой прогресс останутся без изменений.';
+  if(kind==='verify'){
+    subject='Подтверждение email · Velocity Apex';title='ПОДТВЕРДИТЕ EMAIL';copy=`Здравствуйте, ${name}. Подтвердите адрес, чтобы защитить аккаунт и использовать восстановление пароля.`;label='ПОДТВЕРДИТЬ EMAIL';url=`${origin}/#verify-email=${encodeURIComponent(token)}`;
+  }else if(kind==='reset'){
+    subject='Восстановление доступа · Velocity Apex';title='ВОССТАНОВЛЕНИЕ ДОСТУПА';copy=`Здравствуйте, ${name}. Мы получили запрос на смену пароля вашего аккаунта.`;label='СМЕНИТЬ ПАРОЛЬ';url=`${origin}/#password-reset=${encodeURIComponent(token)}`;warning='Ссылка действует 20 минут и используется один раз. Если запрос сделали не вы, проигнорируйте письмо: пароль не изменится.';
+  }else{
+    subject='Пароль изменён · Velocity Apex';title='ПАРОЛЬ ИЗМЕНЁН';copy=`Пароль аккаунта Velocity Apex изменён ${htmlEscape(date)}.`;warning='Если вы не меняли пароль, обратитесь в поддержку игры и защитите почту. Старые игровые сессии уже завершены.';
+  }
+  const action=url?`<a href="${htmlEscape(url)}" style="display:inline-block;padding:15px 24px;border-radius:12px;background:#31b9ef;color:#04111e;text-decoration:none;font:800 14px Arial,sans-serif;letter-spacing:1px">${label}</a>`:'';
+  const html=`<!doctype html><html lang="ru"><body style="margin:0;padding:24px;background:#071426;color:#eaf6ff;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;margin:auto;background:#0d2037;border:1px solid #1c4667;border-radius:18px"><tr><td style="padding:30px 28px"><div style="color:#55cfff;font-size:12px;font-weight:bold;letter-spacing:3px">VELOCITY APEX</div><h1 style="margin:24px 0 12px;font-size:24px;line-height:1.2">${title}</h1><p style="color:#c2d6e5;font-size:15px;line-height:1.6">${copy}</p>${action?`<p style="margin:26px 0">${action}</p>`:''}<p style="color:#8eaac0;font-size:13px;line-height:1.55">${warning}</p><div style="margin-top:26px;padding-top:18px;border-top:1px solid #1c4667;color:#7694ab;font-size:11px">VELOCITY APEX · ACCOUNT SECURITY</div></td></tr></table></body></html>`;
+  const text=[title,copy,url?`${label}: ${url}`:'',warning].filter(Boolean).join('\n\n');
+  try{
+    const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{authorization:`Bearer ${apiKey}`,'content-type':'application/json'},body:JSON.stringify({from,to:[email],subject,html,text})});
+    return response.ok;
+  }catch{return false;}
+}
+async function handleRecoveryRequest(request,env,url,executionCtx){
+  const path=url.pathname,t=now();
+  if(path==='/api/auth/email'&&request.method==='GET'){
+    const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
+    const verified=await env.DB.prepare('SELECT email,verified_at FROM account_emails WHERE user_id=? LIMIT 1').bind(session.user.id).first();
+    const pending=await env.DB.prepare('SELECT expires_at FROM pending_account_emails WHERE user_id=? AND expires_at>? LIMIT 1').bind(session.user.id,t).first();
+    return json({verified:!!verified,maskedEmail:verified?maskEmail(verified.email):'',verificationPending:!!pending});
+  }
+  if(path==='/api/auth/email/attach'&&request.method==='POST'){
+    if(!strictSameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+    const session=await currentSession(env,request);if(!session)return json({error:'AUTH_REQUIRED'},401);const banned=await banResponse(env,session.user);if(banned)return banned;
+    let b;try{b=await readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
+    const email=normalizeEmail(b?.email),password=b?.currentPassword;if(!validEmail(email))return json({error:'INVALID_EMAIL'},400);
+    const allowed=await recoveryRateAllowedForRequest(env,request,'email-bind',{key:session.user.id,limit:6},t);if(!allowed)return json({error:'RATE_LIMITED'},429);
+    const credentials=await env.DB.prepare('SELECT password_hash,password_salt,password_iterations,username,display_name FROM users WHERE id=? LIMIT 1').bind(session.user.id).first();if(!credentials||typeof password!=='string'||password.length>128)return json({error:'INVALID_CREDENTIALS'},401);
+    const passwordCheck=await passwordHash(password,decodeB64url(credentials.password_salt),Number(credentials.password_iterations)||PASSWORD_ITERATIONS);if(passwordCheck!==credentials.password_hash)return json({error:'INVALID_CREDENTIALS'},401);
+    const existing=await env.DB.prepare('SELECT user_id FROM account_emails WHERE email_normalized=? LIMIT 1').bind(email).first();if(existing&&existing.user_id!==session.user.id)return json({error:'EMAIL_UNAVAILABLE'},409);
+    const pendingOwner=await env.DB.prepare('SELECT user_id FROM pending_account_emails WHERE email_normalized=? AND expires_at>? LIMIT 1').bind(email,t).first();if(pendingOwner&&pendingOwner.user_id!==session.user.id)return json({error:'EMAIL_UNAVAILABLE'},409);
+    if(existing?.user_id===session.user.id)return json({ok:true,verified:true,maskedEmail:maskEmail(email)});
+    const rawToken=b64url(randomBytes(32)),tokenHash=await sha256(rawToken),expires=t+RECOVERY_TOKEN_TTL_MS;
+    try{
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM pending_account_emails WHERE expires_at<=?').bind(t),
+        env.DB.prepare('DELETE FROM email_verification_tokens WHERE expires_at<=?').bind(t),
+        env.DB.prepare('DELETE FROM email_verification_tokens WHERE user_id=?').bind(session.user.id),
+        env.DB.prepare(`INSERT INTO pending_account_emails (user_id,email,email_normalized,expires_at,updated_at) VALUES (?,?,?,?,?)
+          ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,email_normalized=excluded.email_normalized,expires_at=excluded.expires_at,updated_at=excluded.updated_at`).bind(session.user.id,email,email,expires,t),
+        env.DB.prepare('INSERT INTO email_verification_tokens (token_hash,user_id,email_normalized,created_at,expires_at) VALUES (?,?,?,?,?)').bind(tokenHash,session.user.id,email,t,expires)
+      ]);
+    }catch(e){if(String(e?.message||e).toLowerCase().includes('unique'))return json({error:'EMAIL_UNAVAILABLE'},409);throw e;}
+    const delivered=await sendAccountEmail(env,'verify',{email,displayName:credentials.display_name,token:rawToken});
+    if(!delivered)return json({error:'EMAIL_DELIVERY_UNAVAILABLE'},503);
+    return json({ok:true,verificationPending:true},202);
+  }
+  if(path==='/api/auth/email/verify'&&request.method==='POST'){
+    if(!strictSameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+    const verifyIp=request.headers.get('CF-Connecting-IP')||'unknown';if(!await recoveryRateAllowed(env,`email-verify:ip:${verifyIp}`,20,t))return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
+    let b;try{b=await readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
+    const raw=typeof b?.token==='string'?b.token:'';if(!/^[A-Za-z0-9_-]{40,64}$/.test(raw))return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
+    const tokenHash=await sha256(raw),row=await env.DB.prepare(`SELECT v.user_id,v.email_normalized,p.email,u.display_name,u.username
+      FROM email_verification_tokens v JOIN pending_account_emails p ON p.user_id=v.user_id AND p.email_normalized=v.email_normalized
+      JOIN users u ON u.id=v.user_id WHERE v.token_hash=? AND v.used_at IS NULL AND v.expires_at>? AND p.expires_at>? LIMIT 1`).bind(tokenHash,t,t).first();
+    if(!row)return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
+    const user=adminUser({id:row.user_id,username:row.username,displayName:row.display_name}),banned=await banResponse(env,user);if(banned)return banned;
+    const claimHash=await sha256(`email-verify-claim:${b64url(randomBytes(32))}`);
+    try{
+      const results=await env.DB.batch([
+        env.DB.prepare('UPDATE email_verification_tokens SET token_hash=?,used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').bind(claimHash,t,tokenHash,t),
+        env.DB.prepare(`INSERT INTO account_emails (user_id,email,email_normalized,verified_at,updated_at)
+          SELECT p.user_id,p.email,p.email_normalized,?,? FROM pending_account_emails p
+          WHERE p.user_id=? AND p.email_normalized=? AND p.expires_at>? AND EXISTS(SELECT 1 FROM email_verification_tokens v WHERE v.token_hash=? AND v.used_at=?)
+          ON CONFLICT(user_id) DO UPDATE SET email=excluded.email,email_normalized=excluded.email_normalized,verified_at=excluded.verified_at,updated_at=excluded.updated_at`).bind(t,t,row.user_id,row.email_normalized,t,claimHash,t),
+        env.DB.prepare('DELETE FROM pending_account_emails WHERE user_id=? AND email_normalized=? AND EXISTS(SELECT 1 FROM account_emails a WHERE a.user_id=? AND a.email_normalized=?)').bind(row.user_id,row.email_normalized,row.user_id,row.email_normalized),
+        env.DB.prepare('DELETE FROM email_verification_tokens WHERE token_hash=?').bind(claimHash)
+      ]);
+      if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1)return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
+    }catch(e){if(String(e?.message||e).toLowerCase().includes('unique'))return json({error:'EMAIL_UNAVAILABLE'},409);throw e;}
+    return json({ok:true,verified:true,maskedEmail:maskEmail(row.email)});
+  }
+  if(path==='/api/auth/password/reset/request'&&request.method==='POST'){
+    if(!strictSameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+    let b;try{b=await readBody(request);}catch{return recoveryResponse();}
+    const email=normalizeEmail(b?.email);if(!validEmail(email))return recoveryResponse();
+    const allowed=await recoveryRateAllowedForRequest(env,request,'password-reset',{key:email,limit:3},t);if(!allowed)return recoveryResponse();
+    const row=await env.DB.prepare(`SELECT a.user_id,a.email,u.username,u.display_name FROM account_emails a JOIN users u ON u.id=a.user_id
+      WHERE a.email_normalized=? AND a.verified_at>0 LIMIT 1`).bind(email).first();
+    if(!row||await activeBan(env,row.user_id,t))return recoveryResponse();
+    const rawToken=b64url(randomBytes(32)),tokenHash=await sha256(rawToken),expires=t+RECOVERY_TOKEN_TTL_MS;
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM password_reset_tokens WHERE expires_at<=?').bind(t),
+      env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=?').bind(row.user_id),
+      env.DB.prepare('INSERT INTO password_reset_tokens (token_hash,user_id,email_normalized,created_at,expires_at) VALUES (?,?,?,?,?)').bind(tokenHash,row.user_id,email,t,expires)
+    ]);
+    const delivery=sendAccountEmail(env,'reset',{email:row.email,displayName:row.display_name,token:rawToken});if(executionCtx?.waitUntil)executionCtx.waitUntil(delivery.then(()=>undefined));else await delivery;
+    return recoveryResponse();
+  }
+  if(path==='/api/auth/password/reset/complete'&&request.method==='POST'){
+    if(!strictSameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);
+    let b;try{b=await readBody(request);}catch{return json({error:'INVALID_REQUEST'},400);}
+    const raw=typeof b?.token==='string'?b.token:'',password=b?.password,confirm=b?.passwordConfirm;
+    if(password!==confirm)return json({error:'PASSWORD_MISMATCH'},400);
+    if(!validRecoveryPassword(password))return json({error:'WEAK_PASSWORD'},400);
+    const tokenHash=await sha256(raw),rateOk=await recoveryRateAllowedForRequest(env,request,'password-reset-complete',{key:tokenHash,limit:8},t);if(!rateOk)return json({error:'RATE_LIMITED'},429);
+    const row=await env.DB.prepare(`SELECT r.user_id,r.email_normalized,u.username,u.display_name,u.password_hash
+      FROM password_reset_tokens r JOIN account_emails a ON a.user_id=r.user_id AND a.email_normalized=r.email_normalized AND a.verified_at>0
+      JOIN users u ON u.id=r.user_id WHERE r.token_hash=? AND r.used_at IS NULL AND r.expires_at>? LIMIT 1`).bind(tokenHash,t).first();
+    if(!row)return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
+    const banned=await banResponse(env,adminUser({id:row.user_id,username:row.username,displayName:row.display_name}));if(banned)return banned;
+    if(password.toLowerCase()===String(row.username||'').toLowerCase())return json({error:'WEAK_PASSWORD'},400);
+    const salt=randomBytes(16),hash=await passwordHash(password,salt),saltText=b64url(salt),claimHash=await sha256(`password-reset-claim:${b64url(randomBytes(32))}`);
+    const results=await env.DB.batch([
+      env.DB.prepare('UPDATE password_reset_tokens SET token_hash=?,used_at=? WHERE token_hash=? AND used_at IS NULL AND expires_at>?').bind(claimHash,t,tokenHash,t),
+      env.DB.prepare(`UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,updated_at=? WHERE id=?
+        AND EXISTS(SELECT 1 FROM password_reset_tokens r WHERE r.token_hash=? AND r.used_at=?)`).bind(hash,saltText,PASSWORD_ITERATIONS,t,row.user_id,claimHash,t),
+      env.DB.prepare(`DELETE FROM sessions WHERE user_id=? AND EXISTS(SELECT 1 FROM password_reset_tokens r JOIN users u ON u.id=r.user_id
+        WHERE r.token_hash=? AND r.used_at=? AND u.password_hash=? AND u.password_salt=?)`).bind(row.user_id,claimHash,t,hash,saltText),
+      env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id=? AND EXISTS(SELECT 1 FROM password_reset_tokens r WHERE r.user_id=? AND r.token_hash=? AND r.used_at=?)').bind(row.user_id,row.user_id,claimHash,t)
+    ]);
+    if(Number(results?.[0]?.meta?.changes||0)!==1||Number(results?.[1]?.meta?.changes||0)!==1)return json({error:'INVALID_OR_EXPIRED_TOKEN'},400);
+    await sendAccountEmail(env,'changed',{email:(await env.DB.prepare('SELECT email FROM account_emails WHERE user_id=? LIMIT 1').bind(row.user_id).first())?.email,displayName:row.display_name});
+    return json({ok:true,passwordChanged:true},200,{'set-cookie':sessionCookie(request,'',0)});
+  }
+  return null;
+}
+
+export async function handleAuthRequest(request,env,url=new URL(request.url),executionCtx){
   if(!url.pathname.startsWith('/api/auth/')&&!url.pathname.startsWith('/api/account/')&&!url.pathname.startsWith('/api/economy/')&&!url.pathname.startsWith('/api/admin/')&&!url.pathname.startsWith('/api/friends')&&!url.pathname.startsWith('/api/promocodes/')&&!url.pathname.startsWith('/api/referrals/'))return null;
   if(!env.DB)return json({error:'DATABASE_UNAVAILABLE'},503);
   try{
     await ensureAdminSchema(env);await ensureRewardSchema(env);
+    const recoveryResponseValue=await handleRecoveryRequest(request,env,url,executionCtx);if(recoveryResponseValue)return recoveryResponseValue;
     if(url.pathname.startsWith('/api/economy/'))await ensureEconomySchema(env);
     if(url.pathname.startsWith('/api/economy/races/')){
       if(!sameOrigin(request))return json({error:'ORIGIN_REJECTED'},403);

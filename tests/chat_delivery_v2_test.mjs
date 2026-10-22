@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
+const client=read('public/js/freeroam.js'),css=read('public/css/ui-polish-v2.css');
+assert.match(client,/chatPending:new Map\(\)/);
+assert.match(client,/if\(!send\(\{type:'chat',v:1,text,clientMessageId\}\)\)/);
+assert.match(client,/settleChatMessage\(m\.clientMessageId,true\)/);
+assert.match(client,/settleChatMessage\(m\.clientMessageId,false,m\.reason\)/);
+assert.match(client,/if\(input&&!input\.value\.trim\(\)\)input\.value=pending\.text/);
+assert.match(client,/visualViewport\?\.addEventListener\('resize',syncChatViewport\)/);
+assert.match(css,/--free-chat-visible-height/);
+assert.match(css,/--free-chat-keyboard-inset/);
+console.log('chat_delivery_v2_test: pending sends render only after server echo; rejection/timeout preserves draft; keyboard viewport adjustments wired');

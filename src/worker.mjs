@@ -2,10 +2,15 @@ import {backupAccountState} from './account-authority-backup.mjs';
 import {prepareRoomAuthority,roomEngine,publicRoomAuthority,handleRoomAuthorityMessage,tickRoomAuthority,RACE_RUNTIME_VERSION} from './room-race-authority.mjs';
 import {lockRoomWager,settleRoomWager,readRoomWager} from './room-wager-escrow.mjs';
 import {handleCrewRequest,crewIdentity,settleCrews,awardCrewRep} from './crews.mjs';
+import {handleClanWarRequest} from './clan-wars.mjs';
+import {abortClanWar} from './clan-wars.mjs';
+import {settleClanDistrictIncome} from './clan-district-income.mjs';
+import {handleClanSeasonRequest,settleClanCompetition} from './clan-seasons.mjs';
 import {ownerRequest,maintenanceGate,recordResult,settings,playerLimits} from './owner.mjs';
 import {handleAuthRequest,freeAccountIdentity,mutateTargetSave} from './auth.mjs';
 import {handleMarketRequest} from './market.mjs';
 import {handleAdminSystemRequest,activeMute,staffOnlineLevel} from './admin-system.mjs';
+import {cleanupExpiredBugAttachments} from './bug-reports.mjs';
 import {getProgression,awardProgression,PROGRESSION_REWARDS,levelFromTotalExp} from './progression.mjs';
 import {PROTOCOL_VERSION,generateRoomCode,normalizeRoomCode,validRoomCode,sanitizeNickname,validNickname,validSettings,normalizeSettings,validWager,validPlayerState,parseClientMessage,PLAYER_STATE_RATE_MS,RECONNECT_GRACE_MS,CONNECTION_HEARTBEAT_TIMEOUT_MS,CONNECTION_HEARTBEAT_SWEEP_MS,EMPTY_ROOM_TTL_MS,ROOM_TTL_MS} from './protocol.mjs';
 import {writeGameLog} from './logs.mjs';
@@ -98,14 +103,14 @@ const insideGarageZone=state=>insideRect(state,FREE_GARAGE.apron,34)||(Number(st
 const angleDelta=(a,b)=>{let d=(a-b)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return Math.abs(d);};
 
 export default {
-  async scheduled(event,env,ctx){ctx.waitUntil(settleCrews(env));},
-  async fetch(request,env){
+  async scheduled(event,env,ctx){ctx.waitUntil(Promise.all([settleCrews(env),settleClanDistrictIncome(env),settleClanCompetition(env),cleanupExpiredBugAttachments(env)]));},
+  async fetch(request,env,executionCtx){
     const url=new URL(request.url);
     const owner=await ownerRequest(request,env,url);if(owner)return owner;
-    const adminSystem=await handleAdminSystemRequest(request,env,url);if(adminSystem)return adminSystem;
+    const adminSystem=await handleAdminSystemRequest(request,env,url,executionCtx);if(adminSystem)return adminSystem;
     if(url.pathname==='/api/payments/yoomoney'){const payment=await handlePaymentRequest(request,env,url);if(payment)return payment;}
     if(url.pathname.startsWith('/api/')&&!['/api/auth/login','/api/auth/logout','/api/health','/api/payments/yoomoney'].includes(url.pathname)){const gate=await maintenanceGate(env,request);if(gate)return gate;}
-    if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION});
+    if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION,version:'2.0.0'});
     const paymentResponse=await handlePaymentRequest(request,env,url);if(paymentResponse)return paymentResponse;
     const mediaResponse=await handleMediaRequest(request,env,url);if(mediaResponse)return mediaResponse;
     const upgradeResponse=await handleUpgradeRequest(request,env,url);if(upgradeResponse)return upgradeResponse;
@@ -135,8 +140,10 @@ export default {
       if(fm[2]==='ws')return stub.fetch(new Request('https://room.internal/free/ws?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{headers:request.headers}));
       if(fm[2]==='leave'&&request.method==='POST')return stub.fetch(new Request('https://room.internal/free/leave?serverId='+encodeURIComponent(serverId)+'&playerId='+encodeURIComponent(url.searchParams.get('playerId')||'')+'&token='+encodeURIComponent(url.searchParams.get('token')||''),{method:'POST'}));
     }
+    const clanSeasonResponse=await handleClanSeasonRequest(request,env,url);if(clanSeasonResponse)return clanSeasonResponse;
+    const clanWarResponse=await handleClanWarRequest(request,env,url);if(clanWarResponse)return clanWarResponse;
     const crewResponse=await handleCrewRequest(request,env,url);if(crewResponse)return crewResponse;
-    const authResponse=await handleAuthRequest(request,env,url);if(authResponse)return authResponse;
+    const authResponse=await handleAuthRequest(request,env,url,executionCtx);if(authResponse)return authResponse;
     const marketResponse=await handleMarketRequest(request,env,url);if(marketResponse)return marketResponse;
     if(url.pathname==='/api/rooms/create'&&request.method==='POST'){
       let body;try{body=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
@@ -198,7 +205,7 @@ export class Room {
     if(disconnected.length)at=Math.min(at,...disconnected);
     if(this.room.raceAuthority&&['countdown','racing'].includes(this.room.status))at=Math.min(at,now()+1000);
     if(this.room.players.some(p=>p.connected))at=Math.min(at,now()+(this.room.mode==='freeroam'?FREE_HEARTBEAT_SWEEP_MS:CONNECTION_HEARTBEAT_SWEEP_MS));
-    if(!this.room.players.some(p=>p.connected))at=Math.min(at,this.room.emptySince?this.room.emptySince+EMPTY_ROOM_TTL_MS:now()+EMPTY_ROOM_TTL_MS);
+    if(!this.room.players.some(p=>p.connected))at=Math.min(at,this.room.emptySince?this.room.emptySince+EMPTY_ROOM_TTL_MS:this.room.mode==='clan_war'?this.room.createdAt+ROOM_TTL_MS:now()+EMPTY_ROOM_TTL_MS);
     await this.ctx.storage.setAlarm(Math.max(now()+1000,at));
   }
   markSocketSeen(ws,seenAt=now()){
@@ -706,15 +713,17 @@ export class Room {
       p.lastSeq=s.seq;p.lastStateAt=t;p.lastSampleTime=sampleTime;p.state={seq:s.seq,x:s.x,y:s.y,vx:s.vx,vy:s.vy,angle:s.angle,speed:s.speed,yawRate:Number.isFinite(s.yawRate)?Math.max(-20,Math.min(20,s.yawRate)):0,sampleTime,serverTime:t};await this.advanceFreeActivities(t);await this.trackOnlineActivity(p,previous,p.state);this.updateDriftMetrics(p,previous,p.state,t);this.updateKothMetrics(p,previous,p.state,t);this.updateMinigameMetrics(p,previous,p.state,t);this.broadcastFreeState(p,t,ws);await this.updateFreeDragFromState(p,previous,p.state,t);return;
     }
     if(m.type==='chat'){
-      const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180);if(!text||t-(p.lastChatAt||0)<700)return;
+      const t=now(),text=String(m.text||'').trim().replace(/\s+/g,' ').slice(0,180),clientMessageId=typeof m.clientMessageId==='string'&&/^[a-zA-Z0-9_-]{8,80}$/.test(m.clientMessageId)?m.clientMessageId:'';
+      if(!text){if(clientMessageId)this.send(ws,{type:'free_chat_rejected',v:PROTOCOL_VERSION,clientMessageId,reason:'EMPTY',serverTime:t});return;}
+      if(t-(p.lastChatAt||0)<700){if(clientMessageId)this.send(ws,{type:'free_chat_rejected',v:PROTOCOL_VERSION,clientMessageId,reason:'RATE_LIMIT',serverTime:t});return;}
       if(p.userId&&(!p.muteCheckedAt||t-p.muteCheckedAt>10000)){p.muteCheckedAt=t;p.activeMute=await activeMute(this.env,p.userId,t);}
-      if(p.activeMute&&Number(p.activeMute.expiresAt)>t){this.send(ws,{type:'free_chat_blocked',v:PROTOCOL_VERSION,reason:p.activeMute.reason,expiresAt:p.activeMute.expiresAt,serverTime:t});return;}
+      if(p.activeMute&&Number(p.activeMute.expiresAt)>t){this.send(ws,{type:'free_chat_rejected',v:PROTOCOL_VERSION,clientMessageId,reason:'MUTED',expiresAt:p.activeMute.expiresAt,serverTime:t});return;}
       p.activeMute=null;p.lastChatAt=t;const prefix=p.owner?'OWNER':this.logUsername(p).toLowerCase()==='mary'?'QUEEN':p.media?'MEDIA':Number(p.adminLevel)>0?`ADMIN ${Math.max(1,Math.min(8,Math.floor(Number(p.adminLevel))))}`:'';
       try{await writeGameLog(this.env,{category:'chat',eventType:'chat_message',actorUserId:p.userId||null,actorUsername:this.logUsername(p),actorRole:this.logRole(p),targetUserId:p.userId||null,targetUsername:this.logUsername(p),serverId:this.room.serverId||'free',source:'CHAT',subject:'Сообщение чата',message:text,relatedId:p.logSessionId||'',metadata:{prefix,playerId:p.id,level:p.level||0,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),deleted:false},createdAt:t});}catch(e){console.error('chat log',e);}
-      this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,media:!!p.media,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),level:p.level||0,text,serverTime:t});return;
+      this.broadcast({type:'free_chat',v:PROTOCOL_VERSION,playerId:p.id,name:p.name,owner:p.owner===true,media:!!p.media,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),level:p.level||0,text,...(clientMessageId?{clientMessageId}:{}),serverTime:t});return;
     }
     if(m.type==='record'){
-      const kind=m.kind,value=Math.floor(Number(m.value)||0);if(!['speed','drift'].includes(kind)||value<=0||value>(kind==='speed'?(p.speedLimit||650):100000000))return;
+      const kind=m.kind,value=Math.floor(Number(m.value)||0),speedRecordLimit=(p.speedLimit||650)*3.6/12;if(!['speed','drift'].includes(kind)||value<=0||value>(kind==='speed'?speedRecordLimit:100000000))return;
       if(value>(this.room.records?.[kind]||0)){this.room.records[kind]=value;await this.save();this.broadcast({type:'free_record',v:PROTOCOL_VERSION,kind,value,playerId:p.id,name:p.name,serverTime:now()});}return;
     }
     if(m.type==='activity_join'&&['drift_battle','koth','minigame','drag'].includes(m.activity)&&this.room.eventsDisabled&&!p.owner){this.error(ws,'EVENTS_DISABLED','Игровые активности временно отключены ROOT');return;}
@@ -750,7 +759,7 @@ export class Room {
   publicRoom(){
     const r=this.room,settlement=r.settlement?{raceId:r.settlement.raceId,authority:r.settlement.authority||'legacy',status:r.settlement.status,pot:r.settlement.pot||0,wager:r.settlement.wager||0,winnerId:r.settlement.winnerId||null,reason:r.settlement.reason||'',stakes:r.settlement.stakes||{}}:null;
     const mediaEvent=r.mode==='media_race'&&r.mediaEvent?{id:r.mediaEvent.id,code:r.mediaEvent.code,title:r.mediaEvent.title,gameKey:r.mediaEvent.gameKey,creatorUserId:r.mediaEvent.creatorUserId,organizerMode:r.mediaEvent.organizerMode,prize:Number(r.mediaEvent.prize)||0,status:r.mediaEvent.status||'WAITING',settings:r.mediaEvent.settings||{},result:r.mediaEvent.result||null}:null;
-    return {protocol:PROTOCOL_VERSION,mode:r.mode||'race',authority:publicRoomAuthority(this),mediaEvent,code:r.code,status:r.status,settings:r.settings,hostId:r.hostId,raceId:r.raceId||null,raceStartAt:r.raceStartAt||0,gridOrder:r.gridOrder||[],finishOrder:r.finishOrder||[],settlement,pot:settlement?.pot||0,players:r.players.map(p=>({id:p.id,userId:p.userId||null,crew:p.crew||null,name:p.name,media:!!p.media,spectator:!!p.spectator,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),ready:!!p.ready,connected:!!p.connected,host:p.id===r.hostId,liveryId:p.liveryId,effectId:p.effectId,colorId:p.colorId||'stock',vinylId:p.vinylId||'none',wagerConfirmed:!!p.wagerConfirmed,stake:p.stake||0,finishPlace:p.finishPlace||0,finishTime:p.finishTime||0,state:p.state?{laps:p.state.laps,progress:p.state.progress,finished:!!p.state.finished,driftScore:Math.max(0,Math.floor(Number(p.state.driftScore)||0))}:null}))};
+    return {protocol:PROTOCOL_VERSION,mode:r.mode||'race',authority:publicRoomAuthority(this),mediaEvent,clanMatch:r.mode==='clan_war'?{battleId:r.clanMatch.battleId,teamCrewIds:r.clanMatch.teamCrewIds,roundNumber:r.clanMatch.roundNumber,roundSettled:!!r.clanMatch.roundSettled,roundResult:r.clanMatch.roundResult||null,complete:!!r.clanMatch.complete}:null,code:r.code,status:r.status,settings:r.settings,hostId:r.hostId,raceId:r.raceId||null,raceStartAt:r.raceStartAt||0,gridOrder:r.gridOrder||[],finishOrder:r.finishOrder||[],settlement,pot:settlement?.pot||0,players:r.players.map(p=>({id:p.id,userId:p.userId||null,crew:p.crew||null,name:p.name,media:!!p.media,spectator:!!p.spectator,adminLevel:Math.max(0,Math.min(8,Math.floor(Number(p.adminLevel)||0))),ready:!!p.ready,connected:!!p.connected,host:p.id===r.hostId,liveryId:p.liveryId,effectId:p.effectId,colorId:p.colorId||'stock',vinylId:p.vinylId||'none',wagerConfirmed:!!p.wagerConfirmed,stake:p.stake||0,finishPlace:p.finishPlace||0,finishTime:p.finishTime||0,state:p.state?{laps:p.state.laps,progress:p.state.progress,finished:!!p.state.finished,driftScore:Math.max(0,Math.floor(Number(p.state.driftScore)||0))}:null}))};
   }
   send(ws,obj){try{ws.send(JSON.stringify(obj));}catch{}}
   broadcast(obj,except=null){const text=JSON.stringify(obj);for(const ws of this.ctx.getWebSockets()){if(ws===except)continue;try{ws.send(text);}catch{}}}
@@ -901,6 +910,32 @@ export class Room {
       p.connected=true;p.disconnectedUntil=0;this.room.emptySince=0;await this.startSessionLog(p);await this.save();this.send(server,{type:'free_hello',v:PROTOCOL_VERSION,playerId:p.id,serverTime:now(),room:this.publicFreeRoom()});this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicFreeRoom()},server);return new Response(null,{status:101,webSocket:client});
     }
 
+    if(url.pathname==='/clan/status'&&request.method==='GET'){
+      const battleId=url.searchParams.get('battleId')||'';
+      if(this.room?.mode!=='clan_war'||this.room.clanMatch?.battleId!==battleId)return json({error:'CLAN_ROOM_NOT_FOUND'},404);
+      return json({ok:true,connections:this.room.players.map(p=>({userId:p.userId,connected:!!p.connected,disconnectedUntil:Number(p.disconnectedUntil)||0})),roundNumber:Number(this.room.clanMatch.roundNumber)||1,roundSettled:!!this.room.clanMatch.roundSettled,complete:!!this.room.clanMatch.complete});
+    }
+
+    if(url.pathname==='/clan/create'&&request.method==='POST'){
+      let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
+      const battleId=String(b?.battleId||''),roomName=String(b?.roomName||''),teams=Array.isArray(b?.teams)?b.teams:[];
+      if(!/^[0-9a-f-]{36}$/i.test(battleId)||roomName!==`CLAN_WAR:${battleId}`||teams.length!==2)return json({error:'INVALID_CLAN_MATCH'},400);
+      const players=teams.flatMap(team=>(team.players||[]).map(player=>({userId:String(player.userId||''),name:sanitizeNickname(player.name),crewId:String(team.crewId||''),loadout:safeLoadout(player.loadout)})));
+      if(players.length!==6||new Set(players.map(p=>p.userId)).size!==6||teams.some(t=>(t.players||[]).length!==3)||players.some(p=>!p.userId||!p.crewId))return json({error:'INVALID_CLAN_ROSTER'},400);
+      if(this.room){if(this.room.mode==='clan_war'&&this.room.clanMatch?.battleId===battleId)return json({ok:true,replay:true,room:this.publicRoom()});return json({error:'ROOM_EXISTS'},409);}
+      const created=now(),settings=normalizeSettings({trackId:'apexCircuit',laps:3,maxPlayers:6,wager:0,collisions:false});
+      this.room={mode:'clan_war',clanMatch:{battleId,roomName,teamCrewIds:teams.map(t=>String(t.crewId)),roundNumber:1,roundSettled:false,roundResult:null,complete:false,reconnectGraceMs:60000},code:battleId.slice(0,6).toUpperCase(),createdAt:created,updatedAt:created,emptySince:0,status:'lobby',settings,hostId:null,raceId:null,raceStartAt:0,gridOrder:[],finishOrder:[],settlement:null,players:players.map(p=>({id:playerId(),userId:p.userId,crew:p.crewId,name:p.name||'RACER',token:token(),ready:false,connected:false,everConnected:false,disconnectedUntil:created+ROOM_TTL_MS,liveryId:p.loadout.liveryId,effectId:p.loadout.effectId,colorId:p.loadout.colorId,vinylId:p.loadout.vinylId,wagerConfirmed:true,stake:0,creditSnapshot:null,lastSeq:-1,lastStateAt:0,state:null,serverLaps:0,lastLapAt:0,finishPlace:0,finishTime:0}))};
+      this.room.hostId=this.room.players[0]?.id||null;await this.save();return json({ok:true,room:this.publicRoom()},201);
+    }
+    if(url.pathname==='/clan/session'&&request.method==='POST'){
+      if(this.room?.mode!=='clan_war')return json({error:'CLAN_ROOM_NOT_FOUND'},404);
+      let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
+      const userId=String(b?.userId||''),p=this.room.players.find(x=>x.userId===userId);
+      if(!p)return json({error:'ROSTER_MEMBERSHIP_REQUIRED'},403);
+      if(p.everConnected&&!p.connected&&p.disconnectedUntil<=now())return json({error:'RECONNECT_WINDOW_EXPIRED'},409);
+      return json({ok:true,battleId:this.room.clanMatch.battleId,playerId:p.id,sessionToken:p.token,room:this.publicRoom()});
+    }
+
     if(url.pathname==='/create'&&request.method==='POST'){
       if(this.room&&this.room.players.length&&now()-(this.room.updatedAt||0)<ROOM_TTL_MS)return json({error:'ROOM_EXISTS'},409);
       const b=await request.json(),created=now(),id=playerId(),sessionToken=token(),settings=normalizeSettings(b.settings);
@@ -909,6 +944,7 @@ export class Room {
     }
     if(url.pathname==='/join'&&request.method==='POST'){
       if(!this.room)return json({error:'ROOM_NOT_FOUND'},404);
+      if(this.room.mode==='clan_war')return json({error:'CLAN_ROOM_PRIVATE'},403);
       let b;try{b=await request.json();}catch{return json({error:'INVALID_REQUEST'},400);}
       if(!(b?.userId?validFreeName(b?.name):validNickname(b?.name)))return json({error:'INVALID_NAME'},400);
       if(this.room.status!=='lobby')return json({error:'RACE_ALREADY_STARTED'},409);
@@ -923,7 +959,7 @@ export class Room {
       if(!p)return json({error:'SESSION_INVALID'},401);
       const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.ctx.acceptWebSocket(server,['room']);server.serializeAttachment({playerId:p.id,lastSeenAt:now()});
       for(const old of this.ctx.getWebSockets()){if(old===server)continue;const a=old.deserializeAttachment?.();if(a?.playerId===p.id)try{old.close(4001,'replaced');}catch{}}
-      p.connected=true;p.disconnectedUntil=0;this.room.emptySince=0;await this.startSessionLog(p);await this.save();
+      p.connected=true;if(this.room.mode==='clan_war')p.everConnected=true;p.disconnectedUntil=0;this.room.emptySince=0;await this.startSessionLog(p);await this.save();
       this.send(server,{type:'hello',v:PROTOCOL_VERSION,playerId:p.id,serverTime:now(),room:this.publicRoom()});this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()},server);
       return new Response(null,{status:101,webSocket:client});
     }
@@ -973,6 +1009,7 @@ export class Room {
       if(p.id!==this.room.hostId)return this.error(ws,'HOST_ONLY','Только HOST может начать гонку');
       if(this.room.status!=='lobby')return;
       const mediaRace=this.room.mode==='media_race',live=this.room.players.filter(x=>x.connected&&!x.spectator),minPlayers=mediaRace?Math.max(2,Number(this.room.mediaEvent?.settings?.minPlayers)||2):2;if(live.length<minPlayers)return this.error(ws,'NEED_PLAYERS',`Нужно минимум ${minPlayers} игрока`);
+      if(this.room.mode==='clan_war'&&(live.length!==6||this.room.players.length!==6||new Set(live.map(x=>x.userId)).size!==6))return this.error(ws,'CLAN_ROSTER_INCOMPLETE','Для клановой гонки нужны все шесть закреплённых участников');
       if(live.some(x=>!x.ready))return this.error(ws,'NOT_READY','Все игроки должны быть готовы');
       let authority=null;
       if(this.env.DB){
@@ -980,6 +1017,7 @@ export class Room {
         try{authority=await prepareRoomAuthority(this,live);}catch(e){return this.error(ws,e.message,'Не удалось подтвердить автомобили участников');}
       }
       const wager=mediaRace?0:(this.room.settings.wager||0);if(wager>0&&live.some(x=>!x.wagerConfirmed||!x.userId))return this.error(ws,'WAGER_NOT_CONFIRMED','Все игроки должны подтвердить ставку и иметь достаточно CR');
+      if(this.room.mode==='clan_war'&&this.env.DB){const transition=await this.env.DB.prepare("UPDATE clan_war_challenges SET state='RUNNING',updated_at=? WHERE id=? AND state='READY'").bind(now(),this.room.clanMatch.battleId).run();if(!transition.meta?.changes)return this.error(ws,'CLAN_MATCH_STATE_CHANGED','Матч больше не готов к старту');}
       this.room.status='countdown';this.room.raceId=crypto.randomUUID();this.room.raceStartAt=now()+3500;this.room.gridOrder=live.map(x=>x.id);this.room.finishOrder=[];if(mediaRace){this.room.mediaEvent.status='STARTING';await markMediaEventRunning(this.env,this.room.mediaEvent.id);this.room.mediaEvent.status='RUNNING';}
       const stakes={};for(const x of this.room.players){x.finishPlace=0;x.finishTime=0;x.state=null;x.lastSeq=-1;x.lastStateAt=0;x.serverLaps=0;x.lastLapAt=this.room.raceStartAt;x.stake=this.room.gridOrder.includes(x.id)?wager:0;if(x.stake)stakes[x.id]=x.stake;}
       this.room.settlement={raceId:this.room.raceId,status:wager>0?'locked':'none',wager,pot:wager*live.length,winnerId:null,reason:'',stakes,createdAt:now()};
@@ -1022,10 +1060,16 @@ export class Room {
     if(m.type==='return_lobby'){
       if(this.room.mode==='media_race')return this.error(ws,'MEDIA_EVENT_COMPLETE','MEDIA гонка является одноразовым Event');
       if(p.id!==this.room.hostId)return this.error(ws,'HOST_ONLY','Только HOST может вернуть комнату в Lobby');
+      if(this.room.mode==='clan_war'){if(!this.room.clanMatch.roundSettled)return this.error(ws,'CLAN_ROUND_NOT_SETTLED','Дождитесь подтверждения результатов раунда');if(this.room.clanMatch.complete)return this.error(ws,'CLAN_MATCH_COMPLETE','Клановая война завершена');this.room.clanMatch.roundSettled=false;this.room.clanMatch.roundResult=null;this.resetRaceState();await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;}
       const racers=(this.room.gridOrder||[]).map(id=>this.room.players.find(x=>x.id===id)).filter(Boolean);if(racers.some(x=>!x.finishPlace))return this.error(ws,'RACE_NOT_FINISHED','Дождитесь финиша остальных игроков');
       this.resetRaceState({resetConfirmation:true});await this.save();this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()});return;
     }
     if(m.type==='leave'){
+      if(this.room.mode==='clan_war'){
+        await this.endSessionLog(p,'clan_match_leave');p.connected=false;p.disconnectReason='player_left';p.disconnectedUntil=now()+60000;
+        if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();
+        this.broadcast({type:'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.publicRoom()},ws);try{ws.close(4000,'clan_reconnect_grace');}catch{};return;
+      }
       const mediaRace=this.room.mode==='media_race',wagerCancelled=!mediaRace&&this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id);if(wagerCancelled)await this.refundActiveWager('PLAYER_LEFT');const creatorLeft=mediaRace&&p.userId===this.room.mediaEvent?.creatorUserId;
       await this.endSessionLog(p,mediaRace?'media_race_leave':'normal_exit');this.room.players=this.room.players.filter(x=>x.id!==p.id);if(creatorLeft&&['WAITING','STARTING'].includes(this.room.mediaEvent?.status||'')){await refundMediaEvent(this.env,this.room.mediaEvent.id,'ORGANIZER_LEFT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'ORGANIZER_LEFT'};}if(mediaRace&&this.room.mediaEvent?.status==='RUNNING'&&!this.room.players.some(x=>!x.spectator)){await refundMediaEvent(this.env,this.room.mediaEvent.id,'NO_RACERS_LEFT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'NO_RACERS_LEFT'};}if(this.room.hostId===p.id)this.room.hostId=mediaRace?(this.room.players.find(x=>x.userId===this.room.mediaEvent?.creatorUserId)?.id||null):(this.room.players.find(x=>x.connected)?.id||this.room.players[0]?.id||null);
       if(!this.room.players.length){if(mediaRace&&this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ALL_PLAYERS_LEFT');this.room=null;await this.ctx.storage.deleteAll();try{ws.close(1000,'leave');}catch{};return;}
@@ -1038,13 +1082,14 @@ export class Room {
     await this.load();if(!this.room)return;const a=ws.deserializeAttachment?.(),p=this.room.players.find(x=>x.id===a?.playerId);if(!p)return;
     const stillLive=this.ctx.getWebSockets().some(s=>s!==ws&&s.deserializeAttachment?.()?.playerId===p.id);if(stillLive)return;
     if(this.room.mode==='freeroam'){const active=this.freeDragForPlayer(p.id);if(!active){this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>id!==p.id);p.dragWager=0;}p.connected=false;}
-    p.connected=false;p.disconnectReason=p.disconnectReason||'connection_lost';p.disconnectedUntil=now()+(this.room.mode==='freeroam'?FREE_RECONNECT_GRACE_MS:RECONNECT_GRACE_MS);if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();this.broadcast({type:this.room.mode==='freeroam'?'free_room':'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.room.mode==='freeroam'?this.publicFreeRoom():this.publicRoom()});
+    p.connected=false;p.disconnectReason=p.disconnectReason||'connection_lost';p.disconnectedUntil=now()+(this.room.mode==='freeroam'?FREE_RECONNECT_GRACE_MS:this.room.mode==='clan_war'?60000:RECONNECT_GRACE_MS);if(!this.room.players.some(x=>x.connected))this.room.emptySince=now();await this.save();this.broadcast({type:this.room.mode==='freeroam'?'free_room':'room_state',v:PROTOCOL_VERSION,serverTime:now(),room:this.room.mode==='freeroam'?this.publicFreeRoom():this.publicRoom()});
   }
   async alarm(){await this.load();return this.serializeRoomEvent(()=>this.handleAlarm());}
   async handleAlarm(){
     await this.load();if(!this.room)return;await this.recoverInterruptedWager();const t=now(),expired=this.expireHeartbeatPlayers(t),removed=this.room.players.filter(p=>!p.connected&&p.disconnectedUntil&&p.disconnectedUntil<=t);
     if(this.room.mode==='freeroam'){await this.advanceFreeActivities(t);if(!this.room)return;if(removed.length){const ids=new Set(removed.map(p=>p.id));for(const player of removed)await this.endSessionLog(player,player.disconnectReason||'connection_lost');for(const player of removed){const active=this.freeDragForPlayer(player.id);if(active)await this.cancelFreeDrag(active,'CONNECTION_TIMEOUT',player.id,true);}for(const id of ids)this.handleActivityDeparture(id,true);this.room.players=this.room.players.filter(p=>!ids.has(p.id));this.room.dragQueue=(this.room.dragQueue||[]).filter(id=>!ids.has(id));}if(!this.room.players.length||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){for(const c of [...Object.values(this.room.dragChallenges||{})])await this.cancelFreeDrag(c,'ROOM_EXPIRED',null,false);if(this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}const rosterSync=removed.length||expired.length||t-(this.room.lastRosterBroadcastAt||0)>=10000;if(rosterSync)this.room.lastRosterBroadcastAt=t;await this.save();if(rosterSync)this.broadcast({type:'free_room',v:PROTOCOL_VERSION,serverTime:t,room:this.publicFreeRoom()});return;}
     if(this.room.raceAuthority&&['countdown','racing'].includes(this.room.status))await tickRoomAuthority(this,t,{force:true});
+    if(this.room.mode==='clan_war'&&removed.length&&!this.room.clanMatch.complete){const aborted=await abortClanWar(this.env,this.room.clanMatch.battleId,'PARTICIPANT_RECONNECT_TIMEOUT',t);this.room.clanMatch.complete=true;this.room.clanMatch.aborted=!!aborted.aborted;this.room.clanMatch.abortReason=aborted.aborted?'PARTICIPANT_RECONNECT_TIMEOUT':'';this.room.clanMatch.roundSettled=!!aborted.finished;}
     const removedLockedRacer=removed.some(p=>this.room.settlement?.status==='locked'&&Object.prototype.hasOwnProperty.call(this.room.settlement.stakes||{},p.id));if(removedLockedRacer)await this.refundActiveWager('CONNECTION_TIMEOUT');
     if(removed.length){for(const player of removed)await this.endSessionLog(player,player.disconnectReason||'connection_lost');const creatorExpired=this.room.mode==='media_race'&&removed.some(p=>p.userId===this.room.mediaEvent?.creatorUserId);this.room.players=this.room.players.filter(p=>!removed.includes(p));if(creatorExpired&&['WAITING','STARTING'].includes(this.room.mediaEvent?.status||'')){await refundMediaEvent(this.env,this.room.mediaEvent.id,'ORGANIZER_TIMEOUT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'ORGANIZER_TIMEOUT'};this.broadcast({type:'media_event_cancelled',v:PROTOCOL_VERSION,eventId:this.room.mediaEvent.id,reason:'ORGANIZER_TIMEOUT',serverTime:t});}if(!this.room.players.some(p=>p.id===this.room.hostId))this.room.hostId=this.room.mode==='media_race'?(this.room.players.find(p=>p.userId===this.room.mediaEvent?.creatorUserId)?.id||null):(this.room.players.find(p=>p.connected)?.id||this.room.players[0]?.id||null);if(this.room.mode==='media_race'&&this.room.mediaEvent?.status==='RUNNING'&&!this.room.players.some(p=>!p.spectator)){await refundMediaEvent(this.env,this.room.mediaEvent.id,'NO_RACERS_LEFT');this.room.mediaEvent.status='CANCELLED';this.room.mediaEvent.result={reason:'NO_RACERS_LEFT'};}}
     if(!this.room.players.length||t>=this.room.createdAt+ROOM_TTL_MS||(!this.room.players.some(p=>p.connected)&&this.room.emptySince&&t>=this.room.emptySince+EMPTY_ROOM_TTL_MS)){if(this.room?.settlement?.status==='locked')await this.refundActiveWager('ROOM_EXPIRED');if(this.room?.mode==='media_race'&&this.room.mediaEvent&&['WAITING','STARTING','RUNNING'].includes(this.room.mediaEvent.status||'WAITING'))await refundMediaEvent(this.env,this.room.mediaEvent.id,'ROOM_EXPIRED');this.room=null;await this.ctx.storage.deleteAll();return;}

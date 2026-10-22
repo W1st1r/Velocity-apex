@@ -4,6 +4,6 @@ for(const id of ['friendsBtn','friends','friendRequestsSection','friendOutgoingS
 for(const token of ['/api/free/servers','activity_join','activity_finish','free_chat','free_state','FREE_MAX_PLAYERS=50'])assert.ok(worker.includes(token),`worker missing ${token}`);
 for(const token of ['/api/friends/request','/api/friends/accept','/api/friends/decline','/api/friends/cancel','/api/friends/remove','friend_requests','user_presence','friendships'])assert.ok(auth.includes(token),`auth missing ${token}`);
 for(const token of ['CREATE TABLE IF NOT EXISTS friend_requests','idx_friend_requests_to','idx_friend_requests_from'])assert.ok(migration.includes(token),`migration missing ${token}`);
-for(const token of ['AIRPORT DRAG','SPEED TRAP','HARBOR DRIFT MEGAPARK','CAR MEET','MOUNTAIN PASS','R.RACE_PHYSICS','car.update(dt','const driftActive=handbrake>.05&&car.speed>28;','МЕТКА УДАЛЕНА'])assert.ok(free.includes(token),`free roam missing ${token}`);
+for(const token of ['AIRPORT DRAG','SPEED TRAP','HARBOR DRIFT MEGAPARK','CAR MEET','MOUNTAIN PASS','R.RACE_PHYSICS','car.update(dt','const driftActive=handbrake>.05&&R.kmhFromWorldSpeed(car.speed)>28;','МЕТКА УДАЛЕНА'])assert.ok(free.includes(token),`free roam missing ${token}`);
 assert.ok(friends.includes('/api/friends/request'));assert.ok(friends.includes('respond(requestId'));assert.ok(friends.includes('/api/friends/${action}')); assert.ok(html.includes('js/freeroam.js')&&html.includes('js/friends.js'));
 console.log('freeroam_social_smoke: OK');

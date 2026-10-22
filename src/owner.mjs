@@ -106,23 +106,27 @@ export async function ownerRequest(request,env,url){
   if(b.action==='grantAll'){await env.DB.prepare('INSERT INTO owner_grants VALUES (?,?) ON CONFLICT(car_id) DO UPDATE SET created_at=excluded.created_at').bind(carId,t).run();await audit(env,id,null,'grant_all',{carId});return json({ok:true});}
   if(b.action==='grant'){const d=await mutateTargetSave(env,String(b.userId||id),s=>{s.ownedLiveries=Array.from(new Set([...(s.ownedLiveries||['apexLime']),carId]));});if(d.error)return json(d,400);await audit(env,id,String(b.userId||id),'resource',{kind:'car',id:carId,action:'grant'});return json({ok:true});}
   const v=b.values;if(!v||typeof v!=='object')return json({error:'INVALID_VALUE'},400);const clean={};
-  const ranges={price:[0,999999999],maxSpeed:[1,100000],accel:[1,100000],brakePower:[1,100000],turnRate:[.01,100],drift:[.05,20]};
+  const ranges={price:[0,999999999],maxSpeed:[80,300],accel:[10,70],brakePower:[15,90],turnRate:[.01,100],drift:[.05,20]};
   for(const [k,[min,max]] of Object.entries(ranges))if(k in v){if(typeof v[k]!=='number'||!Number.isFinite(v[k])||v[k]<min||v[k]>max)return json({error:'INVALID_'+k,range:[min,max]},400);clean[k]=v[k];}
-  if(b.action==='personal'){const uid=String(b.userId||id);if(!await accountDetail(env,uid))return json({error:'USER_NOT_FOUND'},404);delete clean.price;await env.DB.prepare('INSERT INTO owner_tuning VALUES (?,?,?) ON CONFLICT(user_id,car_id) DO UPDATE SET value=excluded.value').bind(uid,carId,JSON.stringify(clean)).run();await audit(env,id,uid,'personal_tuning',{carId,...clean});return json({ok:true});}
+  if(b.action==='personal'){const uid=String(b.userId||id);if(!await accountDetail(env,uid))return json({error:'USER_NOT_FOUND'},404);delete clean.price;clean.physicsVersion=2;await env.DB.prepare('INSERT INTO owner_tuning VALUES (?,?,?) ON CONFLICT(user_id,car_id) DO UPDATE SET value=excluded.value').bind(uid,carId,JSON.stringify(clean)).run();await audit(env,id,uid,'personal_tuning',{carId,...clean});return json({ok:true});}
   if(b.action==='resetPersonal'){await env.DB.prepare('DELETE FROM owner_tuning WHERE user_id=? AND car_id=?').bind(String(b.userId||id),carId).run();await audit(env,id,String(b.userId||id),'personal_tuning_reset',{carId});return json({ok:true});}
   if(b.action!=='save')return json({error:'INVALID_ACTION'},400);
   if('category' in v){if(!['basic','sport','premium','rare','legendary','lux'].includes(v.category))return json({error:'INVALID_CATEGORY'},400);clean.category=v.category;}
   for(const k of ['enabled','unavailable','limited'])if(k in v){if(typeof v[k]!=='boolean')return json({error:'INVALID_VALUE'},400);clean[k]=v[k];}
   if(carId==='apexLime'&&(clean.enabled===false||clean.unavailable===true))return json({error:'SYSTEM_CAR_PROTECTED'},400);
   if(v.upgrades){clean.upgrades={};for(const k of ['speed','acceleration','brakes']){const u=v.upgrades[k];if(!u||!Number.isFinite(u.step)||u.step<0||u.step>10||!Number.isFinite(u.priceFactor)||u.priceFactor<0||u.priceFactor>100)return json({error:'INVALID_UPGRADES'},400);clean.upgrades[k]={step:u.step,priceFactor:u.priceFactor};}}
-  cfg.cars={...cfg.cars,[carId]:{...cfg.cars?.[carId],...clean}};await env.DB.prepare("INSERT INTO owner_settings VALUES ('config',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value").bind(JSON.stringify(cfg)).run();await audit(env,id,null,'car_settings',{carId,...clean});return json({ok:true});
+  clean.physicsVersion=2;cfg.cars={...cfg.cars,[carId]:{...cfg.cars?.[carId],...clean}};await env.DB.prepare("INSERT INTO owner_settings VALUES ('config',?) ON CONFLICT(id) DO UPDATE SET value=excluded.value").bind(JSON.stringify(cfg)).run();await audit(env,id,null,'car_settings',{carId,...clean});return json({ok:true});
  }
  return json({error:'NOT_FOUND'},404);
  }catch(e){console.error('owner',e);return json({error:'OWNER_SERVER_ERROR'},500);}
 }
 
 export async function playerLimits(env,p){
- if(!env.DB)return {speed:650,yaw:20};const cfg=await settings(env),c={...CARS[p.liveryId],...cfg.cars?.[p.liveryId]};
+ if(!env.DB)return {speed:650,yaw:20};const cfg=await settings(env),base=CARS[p.liveryId]||CARS.apexLime,override=cfg.cars?.[p.liveryId]||{},c={...base,...override};
  const row=p.userId?await env.DB.prepare('SELECT value FROM owner_tuning WHERE user_id=? AND car_id=?').bind(p.userId,p.liveryId).first():null;
- const personal=row?JSON.parse(row.value):{};return {speed:Math.max(650,(personal.maxSpeed??((c.maxSpeed||555)*(1+5*(c.upgrades?.speed?.step??.03))))*1.1),yaw:Math.max(20,(personal.turnRate??c.turnRate??2.4)*10)};
+ const personal=row?JSON.parse(row.value):{},category=['basic','sport','premium','rare','legendary','lux'].includes(c.category)?c.category:'basic';
+ const bands={basic:[140,175],sport:[180,210],premium:[200,230],rare:[220,255],legendary:[245,280],lux:[265,286]},legacy={basic:[300,335],sport:[350,385],premium:[400,430],rare:[445,475],legendary:[490,520],lux:[535,555]};
+ const authored=(value,version)=>{const n=Number(value);if(!Number.isFinite(n))return null;if(version>=2)return n;const [a,b]=legacy[category],[x,y]=bands[category];return Math.round(x+Math.max(0,Math.min(1,(n-a)/Math.max(1,b-a)))*(y-x));};
+ const maxKmh=Math.min(300,(authored(personal.maxSpeed,personal.physicsVersion)??(authored(override.maxSpeed,override.physicsVersion)??authored(base.maxSpeed,2)??bands[category][1]))*(1+5*Math.min(.01,Number(c.upgrades?.speed?.step)||.01)));
+ const worldSpeed=maxKmh*12/3.6;return {speed:Math.max(650,worldSpeed*1.1),yaw:Math.max(20,(personal.turnRate??c.turnRate??2.4)*10)};
 }

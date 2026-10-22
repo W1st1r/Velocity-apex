@@ -6,6 +6,7 @@ import {recordResult} from './owner.mjs';
 import {settleRoomWager} from './room-wager-escrow.mjs';
 import {settleMediaEvent} from './media.mjs';
 import {PROTOCOL_VERSION} from './protocol.mjs';
+import {awardClanInfluence,recordClanWarRound} from './clan-wars.mjs';
 export {RACE_RUNTIME_VERSION};
 export async function prepareRoomAuthority(room,live){
  if(live.some(p=>!p.userId)||new Set(live.map(p=>p.userId)).size!==live.length)throw Error('DUPLICATE_RACE_ACCOUNT');
@@ -28,6 +29,15 @@ export async function settleRoomWorld(room){
  const a=room.room.raceAuthority,e=roomEngine(room),world=e.world;
  for(const id of world.finishOrder){
   if(a.settledPlayers[id])continue;const identity=a.identities[id],p=room.room.players.find(p=>p.id===id),result=world.results[id];if(!identity?.userId||!result)throw Error('RACE_IDENTITY_MISSING');
+  // Clan orchestration is being introduced without economics/territory settlement.
+  // Preserve the server-confirmed finish in the DO, but do not run online rewards,
+  // wager settlement, profile progression, or ordinary online leaderboard writes.
+  if(room.room.mode==='clan_war'){
+   const confirmed={...result,credits:0,exp:0,clanMatchOnly:true};a.settledPlayers[id]=confirmed;
+   if(p){p.finishPlace=result.place;p.finishTime=result.timeMs;p.serverLaps=a.config.laps;p.state={...world.summary().cars.find(c=>c.id===id),finished:true,serverTime:Date.now()};}
+   room.room.finishOrder=world.finishOrder.filter(playerId=>a.settledPlayers[playerId]);await saveRoomWorld(room);
+   room.broadcast({type:'race_finish',v:PROTOCOL_VERSION,raceId:room.room.raceId,playerId:id,finishPlace:result.place,finishTime:result.timeMs,reward:null,room:room.publicRoom(),serverTime:Date.now()});continue;
+  }
   if(result.place===1&&room.room.settlement?.status==='locked'){
    const paid=await settleRoomWager(room.env.DB,{raceId:room.room.raceId,winnerUserId:identity.userId});if(!paid.ok)throw Error(paid.code);
    Object.assign(room.room.settlement,{status:'awarded',winnerId:id,awardedAt:Date.now()});
@@ -35,6 +45,7 @@ export async function settleRoomWorld(room){
   const driftCredits=a.config.mode==='drift'&&room.room.mode!=='media_race'?world.R.driftReward({bots:a.entrants.length-1,difficulty:'medium',laps:1,trackId:a.config.trackId},result.place,result.score,world.track.length):0;
   const reward=await awardProgression(room.env,identity.userId,{source:'online',eventId:room.room.raceId,exp:PROGRESSION_REWARDS.ONLINE_FINISH.exp,credits:driftCredits,meta:{place:result.place,timeMs:result.timeMs,score:result.score,authority:RACE_RUNTIME_VERSION}});
   if(!reward.ok)throw Error(reward.error||'REWARD_PENDING');
+  if(room.room.mode!=='media_race')await awardClanInfluence(room.env,identity.userId,result.place===1,room.room.raceId,Date.now());
   const recorded=await room.env.DB.prepare("SELECT exp,credits FROM progression_rewards WHERE user_id=? AND source='online' AND event_id=?").bind(identity.userId,room.room.raceId).first();
   await recordResult(room.env,room.room.raceId,identity.userId,'online',result.place===1,result.timeMs);
   if(result.place===1&&room.room.mode==='media_race'&&room.room.mediaEvent){
@@ -46,6 +57,13 @@ export async function settleRoomWorld(room){
   room.room.finishOrder=world.finishOrder.filter(id=>a.settledPlayers[id]);await saveRoomWorld(room);
   room.broadcast({type:'race_finish',v:PROTOCOL_VERSION,raceId:room.room.raceId,playerId:id,finishPlace:result.place,finishTime:result.timeMs,reward:confirmed,room:room.publicRoom(),serverTime:Date.now()});
  }
+  if(room.room.mode==='clan_war'&&!room.room.clanMatch.roundSettled&&Object.keys(a.settledPlayers).length===6){
+   const roundNumber=Number(room.room.clanMatch.roundNumber)||1;
+   const results=room.room.players.map(p=>{const r=a.settledPlayers[p.id];return{userId:p.userId,crewId:p.crew,place:Number(r?.place),timeMs:Number(r?.timeMs)};});
+   const result=await recordClanWarRound(room.env,room.room.clanMatch.battleId,roundNumber,results,Date.now());
+   room.room.clanMatch.roundSettled=true;room.room.clanMatch.roundResult=result;room.room.clanMatch.roundNumber=result.nextRound;room.room.clanMatch.complete=result.finished;
+   await room.save();room.broadcast({type:'clan_round_result',v:PROTOCOL_VERSION,raceId:room.room.raceId,result,room:room.publicRoom(),serverTime:Date.now()});
+  }
 }
 export async function tickRoomAuthority(room,serverNow,{force=false}={}){
  const e=roomEngine(room);if(!e)return;
