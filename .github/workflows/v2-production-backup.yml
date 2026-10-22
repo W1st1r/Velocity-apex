@@ -1,0 +1,89 @@
+name: V2 production backup and migration-copy gate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: velocity-apex-production-release
+  cancel-in-progress: false
+jobs:
+  backup:
+    if: github.repository == 'W1st1r/Velocity-apex' && github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      D1_BACKUP_ENCRYPTION_KEY: ${{ secrets.D1_BACKUP_ENCRYPTION_KEY }}
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6203eec6e0290b5251aef6a4316114037d33f059
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify candidate and production identity
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 6203eec6e0290b5251aef6a4316114037d33f059
+          git merge-base --is-ancestor 4deab4d47aefbe636e97855b99d1f2ef42283226 HEAD
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          assert.match(process.env.D1_BACKUP_ENCRYPTION_KEY||'',/^[0-9a-f]{64}$/i);
+          assert.ok(process.env.CLOUDFLARE_API_TOKEN);
+          assert.ok(process.env.CLOUDFLARE_ACCOUNT_ID);
+          const r=await fetch('https://api.cloudflare.com/client/v4/accounts/'+process.env.CLOUDFLARE_ACCOUNT_ID+'/workers/scripts/velocity-apex/settings',{headers:{authorization:'Bearer '+process.env.CLOUDFLARE_API_TOKEN}});
+          assert.ok(r.ok,'Cannot read production Worker settings');
+          const data=await r.json();assert.equal(data.success,true);
+          assert.ok(data.result.bindings.some(b=>b.name==='DB'&&b.type==='d1'&&b.id==='dee1721c-9730-4780-9185-7b23666333b2'),'Production DB binding mismatch');
+          console.log('Expected production Worker and D1 confirmed; no mutations');
+          NODE
+      - run: npm ci --no-audit --no-fund
+      - name: Preserve V77 source and previous Worker deployments
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v2-recovery"
+          git archive --format=tar.gz --output="$RUNNER_TEMP/v2-recovery/v77-source.tar.gz" fe9bbb0f23939892b99cece49f1fea9255f17f42
+          npx wrangler deployments list --json > "$RUNNER_TEMP/v2-recovery/worker-deployments.json"
+          npx wrangler d1 migrations list velocity-apex-db --remote > "$RUNNER_TEMP/v2-recovery/migrations-before.txt"
+          npx wrangler d1 time-travel info velocity-apex-db --json > "$RUNNER_TEMP/v2-recovery/d1-bookmark.json"
+      - name: Export, encrypt, restore and verify backup
+        run: |
+          set -euo pipefail
+          npx wrangler d1 export velocity-apex-db --remote --output="$RUNNER_TEMP/private-v77.sql"
+          node scripts/d1-release-safety.mjs encrypt "$RUNNER_TEMP/private-v77.sql" "$RUNNER_TEMP/v2-recovery/d1-before-v2.enc.json"
+          node scripts/d1-release-safety.mjs decrypt "$RUNNER_TEMP/v2-recovery/d1-before-v2.enc.json" "$RUNNER_TEMP/private-v77-restored.sql"
+          cmp "$RUNNER_TEMP/private-v77.sql" "$RUNNER_TEMP/private-v77-restored.sql"
+          node scripts/d1-release-safety.mjs snapshot "$RUNNER_TEMP/private-v77-restored.sql" "$RUNNER_TEMP/private-manifest.json" before
+          cd "$RUNNER_TEMP/v2-recovery"
+          sha256sum v77-source.tar.gz d1-before-v2.enc.json worker-deployments.json migrations-before.txt d1-bookmark.json > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v2-production-recovery-${{ github.run_id }}
+          path: ${{ runner.temp }}/v2-recovery/
+          retention-days: 90
+          if-no-files-found: error
+      - name: Verify all migrations on private restored SQLite copy
+        run: |
+          node --input-type=module <<'NODE'
+          import {verifyMigrationCopy} from './scripts/v2-staging-data.mjs';
+          import {writeFileSync} from 'node:fs';
+          const result=verifyMigrationCopy(process.env.RUNNER_TEMP+'/private-v77-restored.sql');
+          console.log(JSON.stringify(result));
+          writeFileSync(process.env.RUNNER_TEMP+'/migration-copy-result.json',JSON.stringify(result));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v2-production-migration-copy-${{ github.run_id }}
+          path: ${{ runner.temp }}/migration-copy-result.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Report verified backup gate
+        run: echo 'PASS — encrypted production D1 recovery export verified; V77 sources and Worker deployment IDs retained; migrations passed on private SQLite copy. No production migrations or deployment executed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove private SQL
+        if: always()
+        run: rm -f "$RUNNER_TEMP/private-v77.sql" "$RUNNER_TEMP/private-v77-restored.sql" "$RUNNER_TEMP/private-manifest.json"
