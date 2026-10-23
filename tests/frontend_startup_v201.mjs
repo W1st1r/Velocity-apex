@@ -47,11 +47,11 @@ async function checkAssets(page,responses){
   const checks=internal.map(url=>{const p=safePath(url),row=[...responses].reverse().find(r=>r.path===p.path&&r.build===p.build);return {...p,status:row?.status};});
   return checks;
 }
-function versionResponse(page){
-  return page.waitForResponse(response=>{try{const u=new URL(response.url());return u.origin===origin&&u.pathname==='/version.json';}catch{return false;}},{timeout:8000}).then(async response=>{
-    let body=null,error=null;try{body=await response.json();}catch(e){error=String(e);}
-    return {status:response.status(),version:body?.version,resourceVersion:body?.resourceVersion,channel:body?.channel,error};
-  });
+async function versionResponse(page,observedResponses,fromIndex=0){
+  const isVersionResponse=response=>{try{const u=new URL(response.url());return u.origin===origin&&u.pathname==='/version.json';}catch{return false;}};
+  const response=observedResponses.slice(fromIndex).find(isVersionResponse)||await page.waitForResponse(isVersionResponse,{timeout:8000});
+  let body=null,error=null;try{body=await response.json();}catch(e){error=String(e);}
+  return {status:response.status(),version:body?.version,resourceVersion:body?.resourceVersion,channel:body?.channel,error};
 }
 try{
   for(const [engine,numbers] of [[webkit,[13,14,15,17]],[chromium,[13]]]){
@@ -64,17 +64,17 @@ try{
           const {defaultBrowserType,...device}=devices[name];
           const context=await browser.newContext({...device,reducedMotion:'reduce'});
           if(process.env.STARTUP_BASE_URL)await context.route('**/api/**',route=>['GET','HEAD','OPTIONS'].includes(route.request().method())?route.continue():route.abort());
-          const page=await context.newPage(),diagnostics={responses:[],failedRequests:[],consoleErrors:[],pageErrors:[],manifest:null};
+          const page=await context.newPage(),diagnostics={responses:[],versionResponses:[],failedRequests:[],consoleErrors:[],pageErrors:[],manifest:null};
           const label=engine.name()+'-iphone-'+number+'-repeat-'+repeat;
           page.on('pageerror',error=>diagnostics.pageErrors.push(String(error)));
           page.on('console',msg=>{if(msg.type()==='error'&&diagnostics.consoleErrors.length<50)diagnostics.consoleErrors.push({text:msg.text().slice(0,500),location:msg.location()});});
-          page.on('response',response=>{try{const u=new URL(response.url());if(u.origin===origin)diagnostics.responses.push({path:u.pathname,build:u.searchParams.get('build')||undefined,status:response.status(),resourceType:response.request().resourceType(),fromServiceWorker:response.fromServiceWorker()});}catch{}});
+          page.on('response',response=>{try{const u=new URL(response.url());if(u.origin===origin){if(u.pathname==='/version.json')diagnostics.versionResponses.push(response);diagnostics.responses.push({path:u.pathname,build:u.searchParams.get('build')||undefined,status:response.status(),resourceType:response.request().resourceType(),fromServiceWorker:response.fromServiceWorker()});}}catch{}});
           page.on('requestfailed',request=>{try{const u=new URL(request.url());if(u.origin===origin){const f=request.failure();diagnostics.failedRequests.push({...safePath(request.url()),errorText:typeof f==='string'?f:(f?.errorText||null),resourceType:request.resourceType(),method:request.method()});}}catch{}});
           try{
-            const manifestPromise=versionResponse(page);
+            const versionResponseStart=diagnostics.versionResponses.length;
             const response=await page.goto(base+'/',{waitUntil:'load',timeout:30000});
             assert.equal(response?.status(),200,'index.html did not return HTTP 200');
-            diagnostics.manifest=await manifestPromise;
+            diagnostics.manifest=await versionResponse(page,diagnostics.versionResponses,versionResponseStart);
             assert.equal(diagnostics.manifest.status,200,'version.json status was not 200');
             assert.equal(diagnostics.manifest.version,expected,'version.json did not match the release bundle');
             assert.equal(diagnostics.manifest.resourceVersion,expected,'resourceVersion did not match the release bundle');
@@ -103,10 +103,10 @@ try{
             assert.deepEqual(diagnostics.pageErrors,[],'frontend runtime exception');
             assert.deepEqual(diagnostics.consoleErrors,[],'browser console error');
             await page.screenshot({path:path.join(artifacts,label+'.png')});
-            const reloadManifestPromise=versionResponse(page);
+            const reloadVersionResponseStart=diagnostics.versionResponses.length;
             const reload=await page.reload({waitUntil:'load',timeout:30000});
             assert.equal(reload?.status(),200,'reload did not return HTTP 200');
-            const reloadManifest=await reloadManifestPromise;
+            const reloadManifest=await versionResponse(page,diagnostics.versionResponses,reloadVersionResponseStart);
             assert.equal(reloadManifest.status,200,'version.json failed after reload');
             assert.equal(reloadManifest.version,expected,'version.json changed after reload');
             await page.waitForFunction(version=>document.documentElement.dataset.appVersion===version&&!!document.body&&!!document.querySelector('#app'),expected,{timeout:15000});
