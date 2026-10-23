@@ -96,12 +96,13 @@ async function simulate(){
 }
 async function exerciseSmoke(){
   let sessionActive=false;
+  const expectedVersion=JSON.parse(readFileSync(path.join(root,'public/version.json'),'utf8')).version;
   const server=createServer(async(req,res)=>{
     const route=new URL(req.url,'http://localhost').pathname,cookie=req.headers.cookie||'';
     const send=(status,body,headers={})=>{res.writeHead(status,{'content-type':'application/json',...headers});res.end(JSON.stringify(body));};
-    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="2.0.3">');return;}
-    if(route==='/version.json')return send(200,{version:'2.0.3',channel:'production'});
-    if(route==='/api/health')return send(200,{ok:true,protocol:77,version:'2.0.3'});
+    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="'+expectedVersion+'">');return;}
+    if(route==='/version.json')return send(200,{version:expectedVersion,channel:'production'});
+    if(route==='/api/health')return send(200,{ok:true,protocol:77,version:expectedVersion});
     if(route==='/api/auth/me'&&req.method==='GET')return send(200,sessionActive&&cookie.includes('va_session=release-smoke')?{authenticated:true,user:{username:'release-smoke'}}:{authenticated:false});
     if(route==='/api/friends'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,friends:[],incomingRequests:[],outgoingRequests:[]}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/account/save'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
@@ -144,10 +145,11 @@ function key(){const value=process.env.D1_BACKUP_ENCRYPTION_KEY||'';if(!/^[0-9a-
 function encrypt(input,output){const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key(),iv);const ciphertext=Buffer.concat([cipher.update(readFileSync(input)),cipher.final()]);writeFileSync(output,JSON.stringify({version:1,algorithm:'aes-256-gcm',iv:iv.toString('base64'),tag:cipher.getAuthTag().toString('base64'),ciphertext:ciphertext.toString('base64')}),{mode:0o600});}
 function decrypt(input,output){const envelope=JSON.parse(readFileSync(input,'utf8'));assert.equal(envelope.version,1);assert.equal(envelope.algorithm,'aes-256-gcm');const decipher=createDecipheriv('aes-256-gcm',key(),Buffer.from(envelope.iv,'base64'));decipher.setAuthTag(Buffer.from(envelope.tag,'base64'));writeFileSync(output,Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext,'base64')),decipher.final()]),{mode:0o600});}
 async function smoke(base){
+  const expectedVersion=JSON.parse(readFileSync(path.join(root,'public/version.json'),'utf8')).version;assert.match(expectedVersion,/^\d+\.\d+\.\d+$/,'checkout release version is invalid');
   const origin=String(base||'https://velocity-apex.maximmanzha20.workers.dev').replace(/\/$/,'');
-  const home=await fetch(origin+'/');assert.equal(home.status,200,'homepage unavailable');const html=await home.text();assert.ok(html.includes('name="velocity-apex-version" content="2.0.3"'),'deployed HTML does not identify V2.0.3');
-  const versionResponse=await fetch(origin+'/version.json',{cache:'no-store'});assert.equal(versionResponse.status,200);const releaseVersion=await versionResponse.json();assert.equal(releaseVersion.version,'2.0.3');assert.equal(releaseVersion.channel,'production');
-  const health=await fetch(origin+'/api/health');assert.equal(health.status,200,'health endpoint unavailable');const data=await health.json();assert.equal(data.ok,true,'health endpoint did not return ok');assert.equal(data.version,'2.0.3','Worker version mismatch');
+  const home=await fetch(origin+'/');assert.equal(home.status,200,'homepage unavailable');const html=await home.text();assert.ok(html.includes(`name="velocity-apex-version" content="${expectedVersion}"`),`deployed HTML does not identify V${expectedVersion}`);
+  const versionResponse=await fetch(origin+'/version.json',{cache:'no-store'});assert.equal(versionResponse.status,200);const versionManifest=await versionResponse.json();assert.equal(versionManifest.version,expectedVersion);assert.equal(versionManifest.channel,'production');
+  const health=await fetch(origin+'/api/health');assert.equal(health.status,200,'health endpoint unavailable');const data=await health.json();assert.equal(data.ok,true,'health endpoint did not return ok');assert.equal(data.version,expectedVersion,'Worker version mismatch');
   const save=await fetch(origin+'/api/account/save');assert.equal(save.status,401,'account save endpoint did not enforce authentication');
   const friendsAnonymous=await fetch(origin+'/api/friends');assert.equal(friendsAnonymous.status,401,'friends endpoint did not enforce authentication');
   const race=await fetch(origin+'/api/economy/races/start',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(race.status,401,'authoritative race start endpoint did not enforce authentication');
@@ -163,7 +165,7 @@ async function smoke(base){
     const logout=await fetch(origin+'/api/auth/logout',{method:'POST',headers:{origin,cookie,'content-type':'application/json'},body:'{}'});assert.equal(logout.status,200,'test session logout failed');
     const afterLogout=await fetch(origin+'/api/auth/me',{headers:{cookie}});assert.equal(afterLogout.status,200);assert.equal((await afterLogout.json()).authenticated,false,'session remained active after logout');
   }
-  console.log(`V2.0.3 smoke passed: ${origin}, version/health, login/profile/logout, garage inventory, authenticated friends, Ghost Racing read and unauthenticated auth gates`);
+  console.log(`V${expectedVersion} smoke passed: ${origin}, version/health, login/profile/logout, garage inventory, authenticated friends, Ghost Racing read and unauthenticated auth gates`);
 }
 const [mode,...args]=process.argv.slice(2);
 if(mode==='simulate')await simulate();
