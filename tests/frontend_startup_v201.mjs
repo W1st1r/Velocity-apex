@@ -68,7 +68,7 @@ try{
           page.on('pageerror',error=>diagnostics.pageErrors.push(String(error)));
           page.on('console',msg=>{if(msg.type()==='error'&&diagnostics.consoleErrors.length<50)diagnostics.consoleErrors.push({text:msg.text().slice(0,500),location:msg.location()});});
           page.on('response',response=>{try{const u=new URL(response.url());if(u.origin===origin)diagnostics.responses.push({path:u.pathname,build:u.searchParams.get('build')||undefined,status:response.status(),resourceType:response.request().resourceType(),fromServiceWorker:response.fromServiceWorker()});}catch{}});
-          page.on('requestfailed',request=>{try{const u=new URL(request.url());if(u.origin===origin){const f=request.failure();diagnostics.failedRequests.push({...safePath(request.url()),errorText:f?.errorText||null,resourceType:request.resourceType(),method:request.method()});}}catch{}});
+          page.on('requestfailed',request=>{try{const u=new URL(request.url());if(u.origin===origin){const f=request.failure();diagnostics.failedRequests.push({...safePath(request.url()),errorText:typeof f==='string'?f:(f?.errorText||null),resourceType:request.resourceType(),method:request.method()});}}catch{}});
           try{
             const manifestPromise=versionResponse(page);
             const response=await page.goto(base+'/',{waitUntil:'load',timeout:30000});
