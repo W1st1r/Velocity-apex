@@ -116,7 +116,7 @@ export default {
         if(!response.ok)throw new Error('APP_VERSION_UNAVAILABLE');
         const manifest=await response.json();
         const version=manifest?.version;
-        if(typeof version!=='string'||!/^(?:V\\d+(?:\\.\\d+)*|\\d+\\.\\d+\\.\\d+(?:-[a-z\\d.-]+)?)$/i.test(version))throw new Error('INVALID_APP_VERSION');
+        if(typeof version!=='string'||!/^(?:V\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:-[a-z\d.-]+)?)$/i.test(version))throw new Error('INVALID_APP_VERSION');
         return json({ok:true,protocol:PROTOCOL_VERSION,version});
       }catch{return json({ok:false,protocol:PROTOCOL_VERSION,error:'APP_VERSION_UNAVAILABLE'},503);}
     }
