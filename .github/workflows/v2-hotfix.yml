@@ -1,9 +1,9 @@
-name: Protected frontend hotfix 2.0.1
+name: Protected app-only release 2.0.2
 on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: Exact main SHA containing the reviewed startup hotfix
+        description: Exact main SHA containing the reviewed V2.0.2 release
         required: true
         type: string
 permissions:
@@ -21,30 +21,31 @@ jobs:
       options: --ipc=host
     env:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      STARTUP_ARTIFACTS: artifacts/startup-v202
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
       - run: npm ci --no-audit --no-fund
-      - name: Verify DOM preservation and actual WebKit/Chromium startup
+      - name: Verify release identity and actual WebKit/Chromium startup
         run: |
           node tests/ui_version_v2_test.mjs
           node tests/frontend_startup_v201.mjs
       - name: Verify Worker package without deployment
-        run: npx wrangler deploy --dry-run --outdir /tmp/v201-worker
+        run: npx wrangler deploy --dry-run --outdir /tmp/v202-worker
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hotfix-201-startup-${{ github.run_id }}
-          path: artifacts/startup-v201/
+          name: v202-startup-${{ github.run_id }}
+          path: artifacts/startup-v202/
           retention-days: 30
           if-no-files-found: warn
   release:
     needs: startup
     environment: production
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
       options: --ipc=host
@@ -59,27 +60,42 @@ jobs:
           ref: ${{ inputs.release_sha }}
           persist-credentials: false
       - run: npm ci --no-audit --no-fund
+      - name: Check required credentials without printing values
+        env:
+          V77_SMOKE_USERNAME: ${{ secrets.V77_SMOKE_USERNAME }}
+          V77_SMOKE_PASSWORD: ${{ secrets.V77_SMOKE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$V77_SMOKE_USERNAME"
+          test -n "$V77_SMOKE_PASSWORD"
       - name: Preserve previous Worker deployment metadata
-        run: npx wrangler deployments list --json > "$RUNNER_TEMP/worker-before-hotfix.json"
+        run: npx wrangler deployments list --json > "$RUNNER_TEMP/worker-before-v202.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: worker-before-hotfix-${{ github.run_id }}
-          path: ${{ runner.temp }}/worker-before-hotfix.json
+          name: worker-before-v202-${{ github.run_id }}
+          path: ${{ runner.temp }}/worker-before-v202.json
           retention-days: 30
           if-no-files-found: error
-      - name: Deploy application hotfix only (no D1 migration)
+      - name: Deploy application only — no D1 migrations
         run: npx wrangler deploy --config wrangler.jsonc
-      - name: Verify live login or menu in WebKit and Chromium
+      - name: Verify live login screen, assets and reload in WebKit/Chromium
         env:
           STARTUP_BASE_URL: https://velocity-apex.maximmanzha20.workers.dev
-          STARTUP_ARTIFACTS: artifacts/startup-live-v201
+          STARTUP_ARTIFACTS: artifacts/startup-live-v202
         run: node tests/frontend_startup_v201.mjs
+      - name: Verify production API, test-account garage and Ghost Racing read
+        env:
+          V77_SMOKE_USERNAME: ${{ secrets.V77_SMOKE_USERNAME }}
+          V77_SMOKE_PASSWORD: ${{ secrets.V77_SMOKE_PASSWORD }}
+        run: node scripts/d1-release-safety.mjs smoke https://velocity-apex.maximmanzha20.workers.dev
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: hotfix-201-live-${{ github.run_id }}
-          path: artifacts/startup-live-v201/
+          name: v202-production-smoke-${{ github.run_id }}
+          path: artifacts/startup-live-v202/
           retention-days: 30
           if-no-files-found: warn
-      - name: Record successful frontend recovery
-        run: echo '2.0.1 startup verified in WebKit iPhone 13/14/15/17 landscape and Chromium, including all linked CSS/JS, preserved DOM and reload. No D1 migrations executed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Record app-only release and smoke result
+        run: echo 'V2.0.2 app-only release smoke passed in WebKit iPhone 13/14/15/17 landscape and Chromium: version, login UI, assets, reload, authenticated profile/garage, Ghost Racing read and authority gate. No D1 migrations executed.' >> "$GITHUB_STEP_SUMMARY"

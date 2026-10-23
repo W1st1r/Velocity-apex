@@ -149,9 +149,14 @@ async function smoke(base){
   const login=await fetch(origin+'/api/auth/login',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({username,password})});assert.equal(login.status,200,'test account login failed');const loginBody=await login.json();assert.equal(loginBody.ok,true,'login response was not successful');assert.equal(String(loginBody.user?.username||'').toLowerCase(),String(username).toLowerCase(),'login returned an unexpected account');
   const cookies=login.headers.getSetCookie?.()||[login.headers.get('set-cookie')||''];const cookie=cookies[0].split(';',1)[0];assert.match(cookie,/^va_session=/,'login did not issue an authenticated session');
   try{
-    const loaded=await fetch(origin+'/api/account/save',{headers:{cookie}});assert.equal(loaded.status,200,'authenticated save load failed');const saveBody=await loaded.json();assert.equal(saveBody.ok,true,'save load response was not successful');assert.ok(saveBody.save&&typeof saveBody.save==='object','save payload missing');assert.ok(Number.isInteger(saveBody.revision)&&saveBody.revision>0,'save revision missing');
-  }finally{await fetch(origin+'/api/auth/logout',{method:'POST',headers:{origin,cookie,'content-type':'application/json'},body:'{}'});}
-  console.log(`V2.0.2 smoke passed: ${origin}, health protocol ${data.protocol}, authenticated login/save and unauthenticated access gates`);
+    const me=await fetch(origin+'/api/auth/me',{headers:{cookie}});assert.equal(me.status,200,'authenticated session profile failed');const meBody=await me.json();assert.equal(meBody.authenticated,true,'session was not authenticated');assert.equal(String(meBody.user?.username||'').toLowerCase(),String(username).toLowerCase(),'session profile returned an unexpected account');
+    const loaded=await fetch(origin+'/api/account/save',{headers:{cookie}});assert.equal(loaded.status,200,'authenticated save/garage load failed');const saveBody=await loaded.json();assert.equal(saveBody.ok,true,'save load response was not successful');assert.ok(saveBody.save&&typeof saveBody.save==='object','save payload missing');assert.ok(Array.isArray(saveBody.save.ownedLiveries),'garage inventory missing');assert.ok(Number.isInteger(saveBody.revision)&&saveBody.revision>0,'save revision missing');
+    const ghosts=await fetch(origin+'/api/economy/races/ghosts?trackId=apexCircuit&mode=normal',{headers:{cookie,accept:'application/json'}});assert.equal(ghosts.status,200,'authenticated Ghost Racing read failed');const ghostBody=await ghosts.json();assert.equal(ghostBody.ok,true,'Ghost Racing response was unsuccessful');assert.ok(Array.isArray(ghostBody.global)&&Array.isArray(ghostBody.friends),'Ghost Racing lists missing');
+  }finally{
+    const logout=await fetch(origin+'/api/auth/logout',{method:'POST',headers:{origin,cookie,'content-type':'application/json'},body:'{}'});assert.equal(logout.status,200,'test session logout failed');
+    const afterLogout=await fetch(origin+'/api/auth/me',{headers:{cookie}});assert.equal(afterLogout.status,200);assert.equal((await afterLogout.json()).authenticated,false,'session remained active after logout');
+  }
+  console.log(`V2.0.2 smoke passed: ${origin}, version/health, login/profile/logout, garage inventory, Ghost Racing read and unauthenticated write gates`);
 }
 const [mode,...args]=process.argv.slice(2);
 if(mode==='simulate')await simulate();
