@@ -27,6 +27,6 @@ for(const hz of [30,60,120]){smoke.clear();const c=car(100,.42);tick(smoke,hz,3,
 for(let n=0;n<12;n++){smoke.clear();const c=car(100,.42);tick(smoke,60,.8,c);assert(smoke.stats.active<=24);}
 const game=fs.readFileSync('public/js/game.js','utf8'),html=fs.readFileSync('public/index.html','utf8');
 assert.match(html,/js\/tire-smoke\.js[^\n]*build=2\.0\.4/,'smoke module is cache-versioned and loaded');
-assert.match(game,/tireSmoke\.update\(cars,dt\)/,'renderer advances the visual-only system');assert.match(game,/tireSmoke\.draw\(ctx\)/,'smoke renders in the world layer');
+assert.match(game,/tireSmoke\?\.update\(cars,dt\)/,'renderer advances the visual-only system');assert.match(game,/tireSmoke\?\.draw\(ctx\)/,'smoke renders in the world layer');
 assert.doesNotMatch(game,/spawnParticle\([^;]*['"]smoke['"]/,'legacy center smoke is removed from ordinary and drift paths');
 console.log('v204 tire smoke PASS: no ordinary smoke; rear tire emission; gradual sustained density; fade-out; bounded pool; physics isolation; 30/60/120 FPS');
