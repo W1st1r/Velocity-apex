@@ -26,7 +26,7 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
       - run: node tests/ui_version_v2_test.mjs
-      - run: node tests/tire_smoke_v204_test.mjs
+      - run: npm run test:v204
       - run: npm run test:d1-release
       - run: npx wrangler deploy --dry-run --outdir /tmp/v2-worker-build
   test:
