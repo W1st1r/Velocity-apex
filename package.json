@@ -28,11 +28,12 @@
     "test:v2:bug-ghosts": "node tests/v2_bug_ghost_unit_test.mjs && node tests/bug_reports_api_v2_test.mjs && node tests/ghost_authority_v2_test.mjs && node tests/v2_bug_ghost_ui_test.mjs && python3 tests/v2_bug_ghost_migration_test.py",
     "test:d1-release": "node scripts/d1-release-safety.mjs simulate",
     "version:stamp": "node scripts/stamp-app-version.mjs",
-    "test:v202": "node tests/apex_dynamic_v202_test.mjs && node tests/physics_edges_v202_test.mjs && node tests/controls_multitouch_v202_test.mjs && node tests/ghost_playback_v202_test.mjs && node tests/app_version_cache_v202_test.mjs"
+    "test:v202": "node tests/apex_dynamic_v202_test.mjs && node tests/physics_edges_v202_test.mjs && node tests/controls_multitouch_v202_test.mjs && node tests/ghost_playback_v202_test.mjs && node tests/app_version_cache_v202_test.mjs",
+    "test:v203": "node tests/apex_dynamic_v202_test.mjs && node tests/physics_edges_v202_test.mjs && node tests/physics_units_v2_test.mjs && node tests/player_bot_physics_isolation_v2_test.mjs && node tests/physics_smoke.js"
   },
   "devDependencies": {
     "playwright": "^1.62.1",
     "wrangler": "4.131.1"
   },
-  "version": "2.0.2"
+  "version": "2.0.3"
 }

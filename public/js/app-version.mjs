@@ -1,4 +1,4 @@
-const fallback='2.0.2';
+const fallback='2.0.3';
 const versionPattern=/^(?:V\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:-[a-z\d.-]+)?)$/i;
 
 function applyVersion(doc,version,resourceVersion=version,protocolVersion=1){

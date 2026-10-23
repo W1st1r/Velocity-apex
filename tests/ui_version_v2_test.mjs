@@ -7,9 +7,9 @@ const chat=fs.readFileSync(new URL('../public/js/freeroam.js',import.meta.url),'
 const css=fs.readFileSync(new URL('../public/css/ui-polish-v2.css',import.meta.url),'utf8');
 const manifest=JSON.parse(fs.readFileSync(new URL('../public/version.json',import.meta.url),'utf8'));
 const protocolSource=fs.readFileSync(new URL('../src/protocol.mjs',import.meta.url),'utf8');
-assert.equal(manifest.version,'2.0.2','release identifies V2.0.2');assert.equal(manifest.developmentVersion,'2.0.0-dev');assert.equal(manifest.channel,'production');
-assert.equal(manifest.resourceVersion,'2.0.2');assert.equal(manifest.protocolVersion,Number(protocolSource.match(/PROTOCOL_VERSION\s*=\s*(\d+)/)?.[1]));
-assert.match(html,/meta name="velocity-apex-version" content="2.0.2"/);assert.match(html,/data-app-version>2\.0\.2/);assert.match(html,/app-version\.mjs\?build=2\.0\.2/);
+assert.equal(manifest.version,'2.0.3','release identifies V2.0.3');assert.equal(manifest.developmentVersion,'2.0.0-dev');assert.equal(manifest.channel,'production');
+assert.equal(manifest.resourceVersion,'2.0.3');assert.equal(manifest.protocolVersion,Number(protocolSource.match(/PROTOCOL_VERSION\s*=\s*(\d+)/)?.[1]));
+assert.match(html,/meta name="velocity-apex-version" content="2.0.3"/);assert.match(html,/data-app-version>2\.0\.3/);assert.match(html,/app-version\.mjs\?build=2\.0\.3/);
 assert.ok([...html.matchAll(/(?:src|href)="((?:js|css)\/[^\"]+)"/g)].every(([,asset])=>new URL(asset,'https://local.test/').searchParams.get('build')===manifest.resourceVersion.toLowerCase()),'all linked JS/CSS assets share the same resource cache version');
 assert.doesNotMatch(html,/serviceWorker\.register/,'no unverified service worker cache is introduced');
 assert.match(chat,/className='free-chat-meta'/);assert.match(chat,/free-chat-id/);assert.match(chat,/row\.append\(meta,t\)/);
@@ -19,6 +19,6 @@ const {loadAppVersion}=await import(`data:text/javascript;base64,${Buffer.from(s
 const makeDoc=()=>{const meta={content:'V77'},label={textContent:'V77'},documentElement={dataset:{},children:['app'],set textContent(value){this.children=[];this.replacedText=value;}};return {title:'Velocity Apex · V77',querySelector:()=>meta,querySelectorAll:()=>documentElement.dataset.appVersion?[documentElement,label]:[label],documentElement,meta,label};};
 const dev=makeDoc();assert.equal(await loadAppVersion(async()=>({ok:true,json:async()=>({...manifest,channel:'development'})}),dev),'2.0.0-dev');assert.equal(dev.title,'Velocity Apex · 2.0.0-dev');assert.equal(dev.label.textContent,'2.0.0-dev');assert.equal(dev.documentElement.dataset.resourceVersion,manifest.resourceVersion);
 assert.deepEqual(dev.documentElement.children,['app'],'version rendering must preserve the application DOM');
-const prod=makeDoc();assert.equal(await loadAppVersion(async()=>({ok:true,json:async()=>({...manifest,channel:'production'})}),prod),'2.0.2');
-const fallback=makeDoc();assert.equal(await loadAppVersion(async()=>{throw Error('offline');},fallback),'2.0.2');
+const prod=makeDoc();assert.equal(await loadAppVersion(async()=>({ok:true,json:async()=>({...manifest,channel:'production'})}),prod),'2.0.3');
+const fallback=makeDoc();assert.equal(await loadAppVersion(async()=>{throw Error('offline');},fallback),'2.0.3');
 console.log('ui_version_v2_test: chat metadata, responsive treatment, dev version isolation, production fallback and offline fallback passed');

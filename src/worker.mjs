@@ -110,7 +110,7 @@ export default {
     const adminSystem=await handleAdminSystemRequest(request,env,url,executionCtx);if(adminSystem)return adminSystem;
     if(url.pathname==='/api/payments/yoomoney'){const payment=await handlePaymentRequest(request,env,url);if(payment)return payment;}
     if(url.pathname.startsWith('/api/')&&!['/api/auth/login','/api/auth/logout','/api/health','/api/payments/yoomoney'].includes(url.pathname)){const gate=await maintenanceGate(env,request);if(gate)return gate;}
-    if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION,version:'2.0.2'});
+    if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION,version:'2.0.3'});
     const paymentResponse=await handlePaymentRequest(request,env,url);if(paymentResponse)return paymentResponse;
     const mediaResponse=await handleMediaRequest(request,env,url);if(mediaResponse)return mediaResponse;
     const upgradeResponse=await handleUpgradeRequest(request,env,url);if(upgradeResponse)return upgradeResponse;

@@ -225,3 +225,11 @@ RELEASED at 21:07:59 MSK. Published source 77a46566cbdcd29d17ceae1cfeba1761be2dd
 ## V2.0.2 candidate — 2026-10-23 MSK
 
 Base main 62ef30e3edfacce6a612035e1bc87e1fcf4544b0; checkpoint/pre-v2.0.2-62ef30e3 retained. Branch feature/v2.0.2-apex-dynamic, draft PR #19. Shared metric player handling and smooth drift recovery, independent timed ghost renderer, mobile panel/market fixes and full-width clan sections implemented. Legacy AI trajectories/catalogue, economy, account/D1 state unchanged. Deduplicated regression 123 commands: 121 initially passed; two obsolete release/tier expectations corrected and both rechecks passed. Additional physics/ghost/multitouch/restore checks pass. Browser startup passes; 132 layout captures from WebKit/Chromium fixtures including clan map/tasks/roster. Physical iPhone and real authenticated UI flows remain outside these fixture checks. No merge, deploy or D1 migration. See V2_0_2_GAMEPLAY_REPORT.md for metrics, exact scope and evidence.
+
+## V2.0.3 physics restoration — 2026-10-23 UTC
+
+- Candidate branch `fix/v203-restore-normal-physics` is based on production V2.0.2 main `4d7207d255ea0161ceccca604b03714a64bf0b1c`; production remains unchanged.
+- Root cause: V2.0.2's new display performance conversion was also assigned to physical player properties and the V2 normal-driving formula branch. V2.0.3 restores `fe9bbb0` movement and upgrade values for ordinary driving while retaining current displayed metrics and the exact 2.0.2 drift profile/model.
+- Local comparison: Apex Lime/BMW M5 F90/Apollo EVO ordinary physics matches baseline; starter 0–60 improves 2.50→1.53 s, 80–0 braking 22.73→11.17 m, and the 80 km/h turn radius 40.56→18.28 m. Exact 36/36 drift trace hashes match 2.0.2.
+- `test:v203`, `test:v202`, race authority, local D1-release simulator, AI suite, full `npm test`, runtime consistency, UI version and `git diff --check` passed. See `V2_0_3_PHYSICS_REPORT.md` for all three vehicles and caveats.
+- Production D1 was not accessed or modified; no migration, merge, deployment or tag has occurred. D1 backup/restore workflow #3 succeeded earlier on 2026-10-23. WebKit/Chromium and physical iPhone checks remain pending PR/release CI evidence.

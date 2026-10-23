@@ -1,14 +1,14 @@
 {
   "app": "Velocity Apex",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "developmentVersion": "2.0.0-dev",
-  "resourceVersion": "2.0.2",
+  "resourceVersion": "2.0.3",
   "protocolVersion": 1,
   "channel": "production",
   "theme": "Race Control Blue",
-  "update": "Apex Dynamic, controlled drift, independent timed ghosts and panel polish",
-  "released": "2026-10-22",
-  "release": "Candidate: not deployed; owner approval required",
+  "update": "Restore original everyday driving physics while preserving Apex Drift 2.0",
+  "released": "2026-10-23",
+  "release": "Candidate: not deployed",
   "history": [
     {
       "version": "V77",
@@ -25,7 +25,12 @@
     },
     {
       "version": "2.0.2",
-      "status": "candidate"
+      "status": "released"
+    },
+    {
+      "version": "2.0.3",
+      "status": "candidate",
+      "summary": "Restore original normal driving physics and retain the 2.0.2 drift model"
     }
   ]
 }
