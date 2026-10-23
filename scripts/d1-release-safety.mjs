@@ -96,12 +96,13 @@ async function simulate(){
 }
 async function exerciseSmoke(){
   let sessionActive=false;
+  const expectedVersion=JSON.parse(readFileSync(path.join(root,'public/version.json'),'utf8')).version;
   const server=createServer(async(req,res)=>{
     const route=new URL(req.url,'http://localhost').pathname,cookie=req.headers.cookie||'';
     const send=(status,body,headers={})=>{res.writeHead(status,{'content-type':'application/json',...headers});res.end(JSON.stringify(body));};
-    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="2.0.3">');return;}
-    if(route==='/version.json')return send(200,{version:'2.0.3',channel:'production'});
-    if(route==='/api/health')return send(200,{ok:true,protocol:77,version:'2.0.3'});
+    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end(\`<meta name="velocity-apex-version" content="\${expectedVersion}">\`);return;}
+    if(route==='/version.json')return send(200,{version:expectedVersion,channel:'production'});
+    if(route==='/api/health')return send(200,{ok:true,protocol:77,version:expectedVersion});
     if(route==='/api/auth/me'&&req.method==='GET')return send(200,sessionActive&&cookie.includes('va_session=release-smoke')?{authenticated:true,user:{username:'release-smoke'}}:{authenticated:false});
     if(route==='/api/friends'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,friends:[],incomingRequests:[],outgoingRequests:[]}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/account/save'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
