@@ -103,6 +103,7 @@ async function exerciseSmoke(){
     if(route==='/version.json')return send(200,{version:'2.0.2',channel:'production'});
     if(route==='/api/health')return send(200,{ok:true,protocol:77,version:'2.0.2'});
     if(route==='/api/auth/me'&&req.method==='GET')return send(200,sessionActive&&cookie.includes('va_session=release-smoke')?{authenticated:true,user:{username:'release-smoke'}}:{authenticated:false});
+    if(route==='/api/friends'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,friends:[],incomingRequests:[],outgoingRequests:[]}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/account/save'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/economy/races/ghosts'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,own:null,global:[],friends:[]}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/economy/races/start')return send(401,{error:'AUTH_REQUIRED'});
@@ -148,6 +149,7 @@ async function smoke(base){
   const versionResponse=await fetch(origin+'/version.json',{cache:'no-store'});assert.equal(versionResponse.status,200);const releaseVersion=await versionResponse.json();assert.equal(releaseVersion.version,'2.0.2');assert.equal(releaseVersion.channel,'production');
   const health=await fetch(origin+'/api/health');assert.equal(health.status,200,'health endpoint unavailable');const data=await health.json();assert.equal(data.ok,true,'health endpoint did not return ok');assert.equal(data.version,'2.0.2','Worker version mismatch');
   const save=await fetch(origin+'/api/account/save');assert.equal(save.status,401,'account save endpoint did not enforce authentication');
+  const friendsAnonymous=await fetch(origin+'/api/friends');assert.equal(friendsAnonymous.status,401,'friends endpoint did not enforce authentication');
   const race=await fetch(origin+'/api/economy/races/start',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(race.status,401,'authoritative race start endpoint did not enforce authentication');
   const username=process.env.V77_SMOKE_USERNAME,password=process.env.V77_SMOKE_PASSWORD;assert.ok(username&&password,'release smoke test account secrets are required');
   const login=await fetch(origin+'/api/auth/login',{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({username,password})});assert.equal(login.status,200,'test account login failed');const loginBody=await login.json();assert.equal(loginBody.ok,true,'login response was not successful');assert.equal(String(loginBody.user?.username||'').toLowerCase(),String(username).toLowerCase(),'login returned an unexpected account');
@@ -155,12 +157,13 @@ async function smoke(base){
   try{
     const me=await fetch(origin+'/api/auth/me',{headers:{cookie}});assert.equal(me.status,200,'authenticated session profile failed');const meBody=await me.json();assert.equal(meBody.authenticated,true,'session was not authenticated');assert.equal(String(meBody.user?.username||'').toLowerCase(),String(username).toLowerCase(),'session profile returned an unexpected account');
     const loaded=await fetch(origin+'/api/account/save',{headers:{cookie}});assert.equal(loaded.status,200,'authenticated save/garage load failed');const saveBody=await loaded.json();assert.equal(saveBody.ok,true,'save load response was not successful');assert.ok(saveBody.save&&typeof saveBody.save==='object','save payload missing');assert.ok(Array.isArray(saveBody.save.ownedLiveries),'garage inventory missing');assert.ok(Number.isInteger(saveBody.revision)&&saveBody.revision>0,'save revision missing');
+    const friendsResponse=await fetch(origin+'/api/friends',{headers:{cookie,accept:'application/json'}});assert.equal(friendsResponse.status,200,'authenticated friends read failed');const friendsBody=await friendsResponse.json();assert.ok(Array.isArray(friendsBody.friends),'authenticated friends payload is invalid');
     const ghosts=await fetch(origin+'/api/economy/races/ghosts?trackId=apexCircuit&mode=normal',{headers:{cookie,accept:'application/json'}});assert.equal(ghosts.status,200,'authenticated Ghost Racing read failed');const ghostBody=await ghosts.json();assert.equal(ghostBody.ok,true,'Ghost Racing response was unsuccessful');assert.ok(Array.isArray(ghostBody.global)&&Array.isArray(ghostBody.friends),'Ghost Racing lists missing');
   }finally{
     const logout=await fetch(origin+'/api/auth/logout',{method:'POST',headers:{origin,cookie,'content-type':'application/json'},body:'{}'});assert.equal(logout.status,200,'test session logout failed');
     const afterLogout=await fetch(origin+'/api/auth/me',{headers:{cookie}});assert.equal(afterLogout.status,200);assert.equal((await afterLogout.json()).authenticated,false,'session remained active after logout');
   }
-  console.log(`V2.0.2 smoke passed: ${origin}, version/health, login/profile/logout, garage inventory, Ghost Racing read and unauthenticated write gates`);
+  console.log(`V2.0.2 smoke passed: ${origin}, version/health, login/profile/logout, garage inventory, authenticated friends, Ghost Racing read and unauthenticated auth gates`);
 }
 const [mode,...args]=process.argv.slice(2);
 if(mode==='simulate')await simulate();

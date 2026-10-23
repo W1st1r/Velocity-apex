@@ -17,8 +17,9 @@ if(!base){
   server=createServer((req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname;
     if(pathname.startsWith('/api/')){
-      res.writeHead(200,{'content-type':'application/json'});
-      res.end(JSON.stringify(pathname==='/api/auth/me'?{ok:true,authenticated:false}:pathname==='/api/health'?{ok:true,version:expected}:{ok:true,items:[],friends:[],reports:[],messages:[]}));return;
+      const protectedFriends=/^\/api\/friends(?:\/|$)/.test(pathname);
+      res.writeHead(protectedFriends?401:200,{'content-type':'application/json'});
+      res.end(JSON.stringify(protectedFriends?{ok:false,error:'AUTH_REQUIRED'}:pathname==='/api/auth/me'?{ok:true,authenticated:false}:pathname==='/api/health'?{ok:true,version:expected}:{ok:true,items:[],friends:[],reports:[],messages:[]}));return;
     }
     const file=path.resolve(root,'.'+decodeURIComponent(pathname==='/'?'/index.html':pathname));
     if(!file.startsWith(root+path.sep)||!existsSync(file)){res.writeHead(404);res.end();return;}
@@ -85,6 +86,8 @@ try{
             assert.equal(state.app,true,'application root missing');
             assert.equal(state.canvas,true,'game canvas missing');
             assert.equal(state.visible,true,'login/main menu not visible');
+            const guestFriendsRequests=[...diagnostics.responses,...diagnostics.failedRequests].filter(item=>/^\/api\/friends(?:\/|$)/.test(item.path));
+            assert.deepEqual(guestFriendsRequests,[],'unauthenticated startup requested the protected friends API');
             assert.equal(state.appVersion,expected,'app version marker mismatch');
             assert.ok(state.title.includes(expected),'document title version mismatch');
             assert.equal(state.ghostReplay,'function','GhostReplay implementation did not load');
@@ -111,6 +114,8 @@ try{
             const reloadState=await inspectPage(page);
             assert.equal(reloadState.appVersion,expected,'app version changed after reload');
             assert.equal(reloadState.visible,true,'login/main menu missing after reload');
+            const guestFriendsRequestsAfterReload=[...diagnostics.responses,...diagnostics.failedRequests].filter(item=>/^\/api\/friends(?:\/|$)/.test(item.path));
+            assert.deepEqual(guestFriendsRequestsAfterReload,[],'unauthenticated reload requested the protected friends API');
             assert.equal(reloadState.ghostReplay,'function','GhostReplay missing after reload');
             assert.deepEqual(diagnostics.pageErrors,[],'reload produced frontend runtime exception');
             assert.deepEqual(diagnostics.consoleErrors,[],'reload produced browser console error');
