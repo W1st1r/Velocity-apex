@@ -2,7 +2,7 @@
 
 ## Status
 
-**Candidate; release gate currently blocked.** Production is back on V2.0.2. The V2.0.3 app-only deployment was rolled back after its live browser gate found a mixed-version shell. The latest available production D1 backup/restore gate #3 had succeeded before this candidate. This candidate contains no D1 migration.
+**RELEASED — 2026-10-23 UTC.** Protected app-only release run #12 (`39991084623`) deployed main SHA `ee3a44a0174bad520ecb6670b619a901f0f1713d` and passed the live WebKit iPhone 13/14/15/17 landscape and Chromium smoke. The final gate verified startup/reload, profile, garage, Ghost Racing and authority checks; authenticated API smoke covered login/logout, `/api/auth/me`, garage read/write, `/api/friends` and Ghost Racing read. No D1 migration ran. The earlier mixed-shell failure and rollback are documented below as resolved history.
 
 ## Root cause and correction
 
@@ -71,4 +71,4 @@ Automated local browser binaries were unavailable during these local checks. The
 - Root cause: `/`, `/index.html` and `/version.json` were not in the Workers Assets `run_worker_first` list, so the Worker could not apply no-store response headers to the static app shell. During deployment propagation, one WebKit request received the old V2.0.2 shell while the release manifest was already V2.0.3. The current targeted fix routes only the shell and manifest through the Worker and applies no-store; regression coverage checks both routing and headers.
 - Release workflow is manual, exact-main-SHA gated and app-only; it performs no D1 migration.
 - Verified D1 backup/restore workflow #3 is the latest available pre-candidate backup evidence.
-- The cache-policy fix is local and still requires PR CI, merge, a fresh protected app-only attempt and successful live browser/API smoke before V2.0.3 can be accepted.
+- PR #28 merged the cache-policy fix; protected release #12 passed the repeat WebKit/Chromium and API gates, so the earlier mixed-shell issue is closed. The app-only deployment did not alter D1. Production `/version.json` was confirmed at 2.0.3; physical iPhone/PWA validation remains a user-side check.
