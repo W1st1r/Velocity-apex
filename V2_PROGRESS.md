@@ -233,3 +233,9 @@ Base main 62ef30e3edfacce6a612035e1bc87e1fcf4544b0; checkpoint/pre-v2.0.2-62ef30
 - Local comparison: Apex Lime/BMW M5 F90/Apollo EVO ordinary physics matches baseline; starter 0–60 improves 2.50→1.53 s, 80–0 braking 22.73→11.17 m, and the 80 km/h turn radius 40.56→18.28 m. Exact 36/36 drift trace hashes match 2.0.2.
 - `test:v203`, `test:v202`, race authority, local D1-release simulator, AI suite, full `npm test`, runtime consistency, UI version and `git diff --check` passed. See `V2_0_3_PHYSICS_REPORT.md` for all three vehicles and caveats.
 - Production D1 was not accessed or modified; no migration, merge, deployment or tag has occurred. D1 backup/restore workflow #3 succeeded earlier on 2026-10-23. WebKit/Chromium and physical iPhone checks remain pending PR/release CI evidence.
+
+### V2.0.3 production smoke and rollback — 2026-10-23 UTC
+
+- Protected release run #11 deployed `7e8b94dfe19fb427a012f93b0dd1ba686c20fb04`; WebKit/Chromium live smoke found one mixed-version startup on WebKit iPhone 14 (old V2.0.2 shell, 2.0.3 version manifest; no JS/console errors or failed requests). 15/16 profile repetitions passed; API step correctly did not run after the gate failed.
+- Protected rollback run #5 (`39989164459`) successfully restored Worker version `78de7942-3b99-400e-b207-9778ef809f6e`; production `version.json` and login shell were confirmed at 2.0.2. No D1 migration was run.
+- Static asset routing excluded `/`, `/index.html` and `/version.json` from `run_worker_first`, so Worker no-store headers did not govern the shell. A targeted cache-policy fix and regression test are prepared; PR and repeat release gates remain pending. Details: `V2_0_3_PHYSICS_REPORT.md`.

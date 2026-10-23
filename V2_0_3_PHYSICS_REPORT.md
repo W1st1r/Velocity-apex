@@ -2,7 +2,7 @@
 
 ## Status
 
-**Candidate; not deployed.** Production remains V2.0.2 at `4d7207d255ea0161ceccca604b03714a64bf0b1c`. No production Worker or D1 changes have been made. The recent D1 backup-and-restore workflow #3 completed successfully before this candidate; this change has no migration.
+**Candidate; release gate currently blocked.** Production is back on V2.0.2. The V2.0.3 app-only deployment was rolled back after its live browser gate found a mixed-version shell. The latest available production D1 backup/restore gate #3 had succeeded before this candidate. This candidate contains no D1 migration.
 
 ## Root cause and correction
 
@@ -66,7 +66,9 @@ Automated local browser binaries were unavailable during these local checks. The
 
 ## Release safety
 
-- Production version remains 2.0.2 pending PR checks and release approval workflow execution.
+- Protected app-only release run #11 (`39987928490`) deployed exact main SHA `7e8b94dfe19fb427a012f93b0dd1ba686c20fb04`; its live smoke failed once on WebKit iPhone 14 repeat 1. The diagnostic showed a visible, functioning V2.0.2 shell (`title` and app-version marker 2.0.2) while the release manifest was 2.0.3. There were no JavaScript errors or failed requests; 15 of 16 browser profiles/repeats passed. API smoke was skipped after the browser gate failed.
+- Protected rollback run #5 (`39989164459`) restored the verified V2.0.2 Worker version `78de7942-3b99-400e-b207-9778ef809f6e` successfully. Production `/version.json` and the login screen were then confirmed as V2.0.2. The rollback only changed the Worker; no D1 migration ran.
+- Root cause: `/`, `/index.html` and `/version.json` were not in the Workers Assets `run_worker_first` list, so the Worker could not apply no-store response headers to the static app shell. During deployment propagation, one WebKit request received the old V2.0.2 shell while the release manifest was already V2.0.3. The current targeted fix routes only the shell and manifest through the Worker and applies no-store; regression coverage checks both routing and headers.
 - Release workflow is manual, exact-main-SHA gated and app-only; it performs no D1 migration.
 - Verified D1 backup/restore workflow #3 is the latest available pre-candidate backup evidence.
-- No PR merge, production deployment, tag or D1 operation has been performed in this candidate report.
+- The cache-policy fix is local and still requires PR CI, merge, a fresh protected app-only attempt and successful live browser/API smoke before V2.0.3 can be accepted.
