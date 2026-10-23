@@ -110,7 +110,16 @@ export default {
     const adminSystem=await handleAdminSystemRequest(request,env,url,executionCtx);if(adminSystem)return adminSystem;
     if(url.pathname==='/api/payments/yoomoney'){const payment=await handlePaymentRequest(request,env,url);if(payment)return payment;}
     if(url.pathname.startsWith('/api/')&&!['/api/auth/login','/api/auth/logout','/api/health','/api/payments/yoomoney'].includes(url.pathname)){const gate=await maintenanceGate(env,request);if(gate)return gate;}
-    if(url.pathname==='/api/health')return json({ok:true,protocol:PROTOCOL_VERSION,version:'2.0.3'});
+    if(url.pathname==='/api/health'){
+      try{
+        const response=await env.ASSETS.fetch(new Request(new URL('/version.json',request.url),{headers:{accept:'application/json','cache-control':'no-cache'}}));
+        if(!response.ok)throw new Error('APP_VERSION_UNAVAILABLE');
+        const manifest=await response.json();
+        const version=manifest?.version;
+        if(typeof version!=='string'||!/^(?:V\d+(?:\.\d+)*|\d+\.\d+\.\d+(?:-[a-z\d.-]+)?)$/i.test(version))throw new Error('INVALID_APP_VERSION');
+        return json({ok:true,protocol:PROTOCOL_VERSION,version});
+      }catch{return json({ok:false,protocol:PROTOCOL_VERSION,error:'APP_VERSION_UNAVAILABLE'},503);}
+    }
     const paymentResponse=await handlePaymentRequest(request,env,url);if(paymentResponse)return paymentResponse;
     const mediaResponse=await handleMediaRequest(request,env,url);if(mediaResponse)return mediaResponse;
     const upgradeResponse=await handleUpgradeRequest(request,env,url);if(upgradeResponse)return upgradeResponse;
