@@ -100,7 +100,7 @@ async function exerciseSmoke(){
   const server=createServer(async(req,res)=>{
     const route=new URL(req.url,'http://localhost').pathname,cookie=req.headers.cookie||'';
     const send=(status,body,headers={})=>{res.writeHead(status,{'content-type':'application/json',...headers});res.end(JSON.stringify(body));};
-    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end(\`<meta name="velocity-apex-version" content="\${expectedVersion}">\`);return;}
+    if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="'+expectedVersion+'">');return;}
     if(route==='/version.json')return send(200,{version:expectedVersion,channel:'production'});
     if(route==='/api/health')return send(200,{ok:true,protocol:77,version:expectedVersion});
     if(route==='/api/auth/me'&&req.method==='GET')return send(200,sessionActive&&cookie.includes('va_session=release-smoke')?{authenticated:true,user:{username:'release-smoke'}}:{authenticated:false});
