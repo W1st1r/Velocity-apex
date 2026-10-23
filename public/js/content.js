@@ -539,8 +539,8 @@
     for(const key of ['maxSpeed','accel','brakePower'])if(has(overrides,key))overrides[key]=remapLegacy(category,key,overrides[key]);
     return [id,Object.freeze({...generated,...overrides})];
   })));
-  // Exact pre-2.0 catalogue units for AI opponents. Keep this parallel catalogue
-  // stable while player stats are authored in km/h.
+  // Exact pre-2.0 catalogue units for normal driving and AI. Keep this parallel
+  // profile stable while the current km/h values remain available to the UI/drift.
   R.LEGACY_CAR_PERFORMANCE=Object.freeze(Object.fromEntries(Object.entries(R.LIVERIES).map(([id,item])=>{
     const category=R.normalizeCarCategory(item.category),band=legacyBands[category]||legacyBands.basic;
     const prices=Object.values(R.LIVERIES).filter(c=>R.normalizeCarCategory(c.category)===category).map(c=>c.price||0);
@@ -573,7 +573,7 @@
     result.maxSpeed=Math.min(300,result.maxSpeed);
     return result;
   };
-  R.getLegacyCarPerformance=function(id,save){
+  R.getLegacyCarPerformance=function(id,save,personal=false){
     if(!has(R.LIVERIES,id))id='apexLime';
     const category=R.normalizeCarCategory(R.LIVERIES[id]?.category),owner=R.ownerCars?.[id]||{},base={...(R.LEGACY_CAR_PERFORMANCE[id]||R.LEGACY_CAR_PERFORMANCE.apexLime)};
     for(const key of ['maxSpeed','accel','brakePower'])if(Number.isFinite(Number(owner[key])))base[key]=owner.physicsVersion>=2?restoreLegacy(category,key,owner[key]):Number(owner[key]);
@@ -583,16 +583,23 @@
       const tune=owner.upgrades?.[key]||R.LIVERIES[id]?.upgrades?.[key]||{step:oldSteps[key]},step=Number.isFinite(Number(tune.step))?Number(tune.step):oldSteps[key];
       result[type.stat]=Math.round(base[type.stat]*(1+levels[key]*step));
     }
+    if(personal){
+      const tuning=R.ownerTuning?.[id]||{};
+      for(const key of ['maxSpeed','accel','brakePower'])if(Number.isFinite(Number(tuning[key])))result[key]=tuning.physicsVersion>=2?restoreLegacy(category,key,tuning[key]):Number(tuning[key]);
+      if(Number.isFinite(Number(tuning.turnRate)))result.turnRate=Number(tuning.turnRate);
+      if(Number.isFinite(Number(tuning.drift)))result.drift=Number(tuning.drift);
+    }
     return result;
   };
   R.applyCarPerformance=function(car,id,save){
     if(!R.carAvailable(id))id='apexLime';
-    const player=car.player!==false,stats=player?R.getCarPerformance(id,save,true):R.getLegacyCarPerformance(id,save);
-    car.physicsVersion=player?2:1;
-    car.maxSpeedKmh=stats.maxSpeed;car.accelKmhPerSecond=stats.accel;car.brakePowerKmhPerSecond=stats.brakePower;
-    car.maxSpeed=player?R.worldSpeedFromKmh(stats.maxSpeed):stats.maxSpeed;car.baseMaxSpeed=car.maxSpeed;
-    car.accel=player?R.worldAccelerationFromKmhPerSecond(stats.accel):stats.accel;car.brakePower=player?R.worldAccelerationFromKmhPerSecond(stats.brakePower):stats.brakePower;
-    car.turnRate=stats.turnRate;car.drift=stats.drift||1;
+    const player=car.player!==false,stats=player?R.getCarPerformance(id,save,true):R.getLegacyCarPerformance(id,save),normal=player?R.getLegacyCarPerformance(id,save,true):stats;
+    car.physicsVersion=player?2:1;car.ordinaryPhysicsVersion=1;
+    if(player)car.driftPerformance={maxSpeed:R.worldSpeedFromKmh(stats.maxSpeed),accel:R.worldAccelerationFromKmhPerSecond(stats.accel),brakePower:R.worldAccelerationFromKmhPerSecond(stats.brakePower),turnRate:stats.turnRate};
+    else car.driftPerformance=null;
+    car.maxSpeedKmh=player?stats.maxSpeed:R.kmhFromWorldSpeed(stats.maxSpeed);car.accelKmhPerSecond=player?stats.accel:R.kmhPerSecondFromWorldAcceleration(stats.accel);car.brakePowerKmhPerSecond=player?stats.brakePower:R.kmhPerSecondFromWorldAcceleration(stats.brakePower);
+    car.maxSpeed=normal.maxSpeed;car.baseMaxSpeed=car.maxSpeed;car.accel=normal.accel;car.brakePower=normal.brakePower;
+    car.turnRate=normal.turnRate;car.drift=stats.drift||1;
     return stats;
   };
   R.getUpgradeCost=function(id,key,level){

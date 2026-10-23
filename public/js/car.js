@@ -140,6 +140,7 @@
       this.color=opts.color||'#ff4057';this.accent=opts.accent||'#ffffff';
       this.x=0;this.y=0;this.vx=0;this.vy=0;this.angle=0;this.speed=0;this.yawRate=0;this.gripDisturbance=0;this._surfaceDrag=1;this.surface='asphalt';
       this.maxSpeed=opts.maxSpeed||PHYS.maxSpeed;this.baseMaxSpeed=this.maxSpeed;this.accel=opts.accel||PHYS.accel;this.brakePower=opts.brakePower||PHYS.brakePower;
+      this.ordinaryPhysicsVersion=opts.ordinaryPhysicsVersion??1;this.driftPerformance=null;this._driftingPhysics=false;this._normalSpeedCap=0;
       this.turnRate=opts.turnRate||PHYS.turnRate;this.radius=18;this.length=62;this.width=31;
       // Collision footprint follows the already-drawn car, including wings/tyres.
       // The drawing spans about x=-34..37 and y=-22..22, whose visual centre is +1.5px.
@@ -155,7 +156,7 @@
     place(track,progress,lane=0){
       const p=track.sampleAtProgress(progress,lane);this.x=p.x;this.y=p.y;this.angle=Math.atan2(p.ty,p.tx);
       this.vx=p.tx*2;this.vy=p.ty*2;this.speed=2;this.progress=((progress%1)+1)%1;this.prevProgress=this.progress;
-      this.trackIndex=p.index;this.gridPending=progress<0;this.steerInput=0;this.yawRate=0;this.driftBlend=0;this.handbrakeInput=0;this.gripDisturbance=0;this.laps=0;this.checkpoint=0;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.surface='asphalt';this.onRoad=true;this.collisionThisLap=false;this.offroadThisLap=false;
+      this.trackIndex=p.index;this.gridPending=progress<0;this.steerInput=0;this.yawRate=0;this.driftBlend=0;this.handbrakeInput=0;this._driftingPhysics=false;this._normalSpeedCap=0;this.gripDisturbance=0;this.laps=0;this.checkpoint=0;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.surface='asphalt';this.onRoad=true;this.collisionThisLap=false;this.offroadThisLap=false;
     }
 
     _lateralExtent(nx,ny){
@@ -180,19 +181,19 @@
 
     steeringAuthority(speed=this.speed,surfaceOrOnRoad=this.surface){
       const surface=this._surfaceType(surfaceOrOnRoad),speedRatio=clamp(speed/Math.max(1,this.maxSpeed),0,1.12);
-      const rolling=clamp(speed/(this.physicsVersion>=2?R.worldSpeedFromKmh(54):54),0,1),highSpeed=1-.17*Math.pow(clamp(speedRatio,0,1),1.45);
+      const rolling=clamp(speed/(this.ordinaryPhysicsVersion>=2?R.worldSpeedFromKmh(54):54),0,1),highSpeed=1-.17*Math.pow(clamp(speedRatio,0,1),1.45);
       const surfaceFactor=surface==='asphalt'?1:surface==='shoulder'?.94:.58;
       return this.turnRate*(.12+.88*rolling)*highSpeed*surfaceFactor;
     }
 
     lateralAccelerationLimit(speed=this.speed,surfaceOrOnRoad=this.surface,brake=0){
       const surface=this._surfaceType(surfaceOrOnRoad);
-      if(surface==='offroad')return (this.physicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(4.5):54)/Math.max(1,(this._surfaceDrag||1));
+      if(surface==='offroad')return (this.ordinaryPhysicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(4.5):54)/Math.max(1,(this._surfaceDrag||1));
       // Mechanical grip + speed-squared aero load. Shoulder/curb keeps most grip,
       // while true off-road remains deliberately costly for player and AI alike.
-      const speedKmh=R.kmhFromWorldSpeed(speed),base=this.physicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(10.5):166,downforce=this.physicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(.00010*speedKmh*speedKmh):.00205*speed*speed,brakeLoad=1-.20*clamp(brake,0,1);
+      const speedKmh=R.kmhFromWorldSpeed(speed),base=this.ordinaryPhysicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(10.5):166,downforce=this.ordinaryPhysicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(.00010*speedKmh*speedKmh):.00205*speed*speed,brakeLoad=1-.20*clamp(brake,0,1);
       const surfaceGrip=surface==='shoulder'?.92:1;
-      return (base+downforce)*(this.physicsVersion>=2?(1-.12*clamp(brake,0,1))*1.16:brakeLoad)*surfaceGrip;
+      return (base+downforce)*(this.ordinaryPhysicsVersion>=2?(1-.12*clamp(brake,0,1))*1.16:brakeLoad)*surfaceGrip;
     }
 
     markImpact(strength=.5){
@@ -284,15 +285,24 @@
       this._updateRaceProgress(after);return{nearest:after,impact};
     }
 
+    _updateDriftWithProfile(dt,input,track){
+      const profile=this.driftPerformance;
+      if(!profile)return this._updateDrift(dt,input,track);
+      const normal={maxSpeed:this.maxSpeed,accel:this.accel,brakePower:this.brakePower,turnRate:this.turnRate};
+      this.maxSpeed=profile.maxSpeed;this.accel=profile.accel;this.brakePower=profile.brakePower;this.turnRate=profile.turnRate;
+      try{return this._updateDrift(dt,input,track);}
+      finally{this.maxSpeed=normal.maxSpeed;this.accel=normal.accel;this.brakePower=normal.brakePower;this.turnRate=normal.turnRate;}
+    }
+
     update(dt,input,track){
       // Retain slip during a short, continuous grip recovery after releasing HB.
       if(this.physicsVersion>=2){
         const target=input?.drift?1:0;
         this.driftBlend=(this.driftBlend||0)+(target-(this.driftBlend||0))*(1-Math.exp(-dt*(target?9:6)));
-        if(target||this.driftBlend>.015)return this._updateDrift(dt,input,track);
-      }else if(input&&input.drift)return this._updateDrift(dt,input,track);
+        if(target||this.driftBlend>.015){this._driftingPhysics=true;return this._updateDriftWithProfile(dt,input,track);}
+      }else if(input&&input.drift){this._driftingPhysics=true;return this._updateDriftWithProfile(dt,input,track);}
       const requestedSteer=clamp(input.steer||0,-1,1);
-      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*(this.physicsVersion>=2?28:(this.player?22:26))));
+      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*(this.ordinaryPhysicsVersion>=2?28:(this.player?22:26))));
       this.effectTime+=dt;
       this.gripDisturbance=Math.max(0,(this.gripDisturbance||0)-dt*1.9);
       const steer=this.steerInput,throttle=clamp(input.throttle||0,0,1),brake=clamp(input.brake||0,0,1);
@@ -316,7 +326,7 @@
       const requestedYaw=steer*authority;
       const maxGripYaw=this.lateralAccelerationLimit(mag,this.surface,brake)/Math.max(42,mag);
       const targetYaw=clamp(requestedYaw,-maxGripYaw,maxGripYaw);
-      const yawResponse=(this.surface==='asphalt'?(25-4*clamp(speedRatio,0,1)):(this.surface==='shoulder'?20:11))*(this.physicsVersion>=2?1.15:1);
+      const yawResponse=(this.surface==='asphalt'?(25-4*clamp(speedRatio,0,1)):(this.surface==='shoulder'?20:11))*(this.ordinaryPhysicsVersion>=2?1.15:1);
       this.yawRate=(this.yawRate||0)+(targetYaw-(this.yawRate||0))*(1-Math.exp(-dt*yawResponse));
       if(Math.abs(steer)<.012)this.yawRate*=Math.exp(-dt*(this.surface==='asphalt'?20:(this.surface==='shoulder'?15:7)));
       this.angle=angleWrap(this.angle+this.yawRate*dt);
@@ -329,7 +339,7 @@
       // without changing steering into a hidden assist.
       const forwardRatio=clamp(Math.max(0,longitudinal)/Math.max(1,this.maxSpeed),0,1);
       const torqueCurve=Math.max(.50,1-.50*Math.pow(forwardRatio,1.35));
-      const traction=this.surface==='asphalt'?.84:(this.surface==='shoulder'?.76:(this.physicsVersion>=2?.34:.24)/Math.max(.7,track.theme.drag||1));
+      const traction=this.surface==='asphalt'?.84:(this.surface==='shoulder'?.76:(this.ordinaryPhysicsVersion>=2?.34:.24)/Math.max(.7,track.theme.drag||1));
       longitudinal+=this.accel*throttle*torqueCurve*traction*dt;
 
       if(brake>0){
@@ -338,9 +348,9 @@
       }
 
       const absLong=Math.abs(longitudinal),units=R.WORLD_UNITS_PER_METER,mps=absLong/units;
-      let dragDecel=this.physicsVersion>=2?units*(.35+.00050*mps*mps):2.25+.00031*absLong*absLong;
-      if(this.surface==='shoulder')dragDecel+=this.physicsVersion>=2?units*(.8+.00016*mps*mps):3.8+.00010*mag*mag;
-      else if(this.surface==='offroad')dragDecel+=this.physicsVersion>=2?units*(.8+.00070*mps*mps)*(track.theme.drag||1):(20+.00078*mag*mag)*(track.theme.drag||1);
+      let dragDecel=this.ordinaryPhysicsVersion>=2?units*(.35+.00050*mps*mps):2.25+.00031*absLong*absLong;
+      if(this.surface==='shoulder')dragDecel+=this.ordinaryPhysicsVersion>=2?units*(.8+.00016*mps*mps):3.8+.00010*mag*mag;
+      else if(this.surface==='offroad')dragDecel+=this.ordinaryPhysicsVersion>=2?units*(.8+.00070*mps*mps)*(track.theme.drag||1):(20+.00078*mag*mag)*(track.theme.drag||1);
       longitudinal=moveToward(longitudinal,0,dragDecel*dt);
 
       // High-grip tyre relaxation. On clean asphalt normal cornering converges to the
@@ -348,21 +358,26 @@
       // grass temporarily lowers that relaxation, so genuine disturbances can still slide.
       const steeringLoad=Math.abs(targetYaw)*Math.max(55,mag)/Math.max(1,this.lateralAccelerationLimit(mag,this.surface,0));
       let gripRate=this.surface==='asphalt'?(18+13*clamp(speedRatio,0,1)):(this.surface==='shoulder'?(12+10*clamp(speedRatio,0,1)):2.25/Math.max(.75,track.theme.drag||1));
-      if(this.physicsVersion>=2)gripRate*=1.16;
+      if(this.ordinaryPhysicsVersion>=2)gripRate*=1.16;
       gripRate*=1-.52*(this.gripDisturbance||0);
       if(brake>.55&&Math.abs(steer)>.35)gripRate*=.82;
       lateral*=Math.exp(-Math.max(.8,gripRate)*dt);
 
       // Scrub represents understeer/tyre load as lost speed rather than visible drift.
       const overload=Math.max(0,steeringLoad-.72);
-      const cornerScrub=(this.surface==='asphalt'?7.5:(this.surface==='shoulder'?8.4:4.5))*(steeringLoad*steeringLoad+overload*2.4)*(this.physicsVersion>=2?.72:1);
+      const cornerScrub=(this.surface==='asphalt'?7.5:(this.surface==='shoulder'?8.4:4.5))*(steeringLoad*steeringLoad+overload*2.4)*(this.ordinaryPhysicsVersion>=2?.72:1);
       longitudinal=moveToward(longitudinal,0,cornerScrub*dt);
 
       this.vx=hx*longitudinal+rx*lateral;
       this.vy=hy*longitudinal+ry*lateral;
       mag=Math.hypot(this.vx,this.vy);
 
-      if(mag>this.maxSpeed){const s=this.maxSpeed/mag;this.vx*=s;this.vy*=s;mag=this.maxSpeed;}
+      if(this._driftingPhysics){this._normalSpeedCap=Math.max(this.maxSpeed,mag);this._driftingPhysics=false;}
+      const releaseCap=this._normalSpeedCap>this.maxSpeed?this._normalSpeedCap:0;
+      if(releaseCap)this._normalSpeedCap=moveToward(this._normalSpeedCap,this.maxSpeed,Math.max(24,this.maxSpeed*.2)*dt);
+      else this._normalSpeedCap=0;
+      const speedCap=Math.max(this.maxSpeed,this._normalSpeedCap||0);
+      if(mag>speedCap){const s=speedCap/mag;this.vx*=s;this.vy*=s;mag=speedCap;}
 
       this.x+=this.vx*dt;this.y+=this.vy*dt;this.speed=mag;
 
