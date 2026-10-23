@@ -1,9 +1,9 @@
-name: Protected app-only release 2.0.3
+name: Protected app-only release 2.0.4
 on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: Exact main SHA containing the reviewed V2.0.3 release
+        description: Exact main SHA containing the reviewed V2.0.4 release
         required: true
         type: string
 permissions:
@@ -21,7 +21,7 @@ jobs:
       options: --ipc=host
     env:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
-      STARTUP_ARTIFACTS: artifacts/startup-v203
+      STARTUP_ARTIFACTS: artifacts/startup-v204
       STARTUP_REPEATS: '3'
     steps:
       - uses: actions/checkout@v4
@@ -31,15 +31,16 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Verify release identity and actual WebKit/Chromium startup
         run: |
+          node tests/tire_smoke_v204_test.mjs
           node tests/ui_version_v2_test.mjs
           node tests/frontend_startup_v201.mjs
       - name: Verify Worker package without deployment
-        run: npx wrangler deploy --dry-run --outdir /tmp/v203-worker
+        run: npx wrangler deploy --dry-run --outdir /tmp/v204-worker
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v203-startup-${{ github.run_id }}
-          path: artifacts/startup-v203/
+          name: v204-startup-${{ github.run_id }}
+          path: artifacts/startup-v204/
           retention-days: 30
           if-no-files-found: warn
   release:
@@ -73,11 +74,11 @@ jobs:
           test -n "$V77_SMOKE_USERNAME"
           test -n "$V77_SMOKE_PASSWORD"
       - name: Preserve previous Worker deployment metadata
-        run: npx wrangler deployments list --json > "$RUNNER_TEMP/worker-before-v203.json"
+        run: npx wrangler deployments list --json > "$RUNNER_TEMP/worker-before-v204.json"
       - uses: actions/upload-artifact@v4
         with:
-          name: worker-before-v203-${{ github.run_id }}
-          path: ${{ runner.temp }}/worker-before-v203.json
+          name: worker-before-v204-${{ github.run_id }}
+          path: ${{ runner.temp }}/worker-before-v204.json
           retention-days: 30
           if-no-files-found: error
       - name: Deploy application only — no D1 migrations
@@ -85,7 +86,7 @@ jobs:
       - name: Verify live login screen, assets and reload in WebKit/Chromium
         env:
           STARTUP_BASE_URL: https://velocity-apex.maximmanzha20.workers.dev
-          STARTUP_ARTIFACTS: artifacts/startup-live-v203
+          STARTUP_ARTIFACTS: artifacts/startup-live-v204
           STARTUP_REPEATS: '3'
         run: node tests/frontend_startup_v201.mjs
       - name: Verify production API, test-account garage and Ghost Racing read
@@ -96,10 +97,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: v203-production-smoke-${{ github.run_id }}
-          path: artifacts/startup-live-v203/
+          name: v204-production-smoke-${{ github.run_id }}
+          path: artifacts/startup-live-v204/
           retention-days: 30
           if-no-files-found: warn
       - name: Record app-only release and smoke result
         run: |
-          echo "V2.0.3 app-only release smoke passed in WebKit iPhone 13/14/15/17 landscape and Chromium; profile, garage, Ghost Racing and authority gate verified. No D1 migrations executed." >> "$GITHUB_STEP_SUMMARY"
+          echo "V2.0.4 app-only release smoke passed in WebKit iPhone 13/14/15/17 landscape and Chromium; profile, garage, Ghost Racing and authority gate verified. No D1 migrations executed." >> "$GITHUB_STEP_SUMMARY"
