@@ -1,14 +1,14 @@
 {
   "app": "Velocity Apex",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "developmentVersion": "2.0.0-dev",
-  "resourceVersion": "2.0.1",
+  "resourceVersion": "2.0.2",
   "protocolVersion": 1,
   "channel": "production",
   "theme": "Race Control Blue",
-  "update": "Fix startup DOM deletion caused by version rendering",
+  "update": "Apex Dynamic, controlled drift, independent timed ghosts and panel polish",
   "released": "2026-10-22",
-  "release": "Restore login and main menu after loading version metadata",
+  "release": "Candidate: not deployed; owner approval required",
   "history": [
     {
       "version": "V77",
@@ -22,6 +22,10 @@
       "version": "2.0.1",
       "status": "hotfix-candidate",
       "summary": "Preserve root application DOM during version rendering"
+    },
+    {
+      "version": "2.0.2",
+      "status": "candidate"
     }
   ]
 }

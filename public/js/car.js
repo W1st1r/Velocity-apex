@@ -155,7 +155,7 @@
     place(track,progress,lane=0){
       const p=track.sampleAtProgress(progress,lane);this.x=p.x;this.y=p.y;this.angle=Math.atan2(p.ty,p.tx);
       this.vx=p.tx*2;this.vy=p.ty*2;this.speed=2;this.progress=((progress%1)+1)%1;this.prevProgress=this.progress;
-      this.trackIndex=p.index;this.gridPending=progress<0;this.steerInput=0;this.yawRate=0;this.gripDisturbance=0;this.laps=0;this.checkpoint=0;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.surface='asphalt';this.onRoad=true;this.collisionThisLap=false;this.offroadThisLap=false;
+      this.trackIndex=p.index;this.gridPending=progress<0;this.steerInput=0;this.yawRate=0;this.driftBlend=0;this.handbrakeInput=0;this.gripDisturbance=0;this.laps=0;this.checkpoint=0;this.offroadTime=0;this.trueOffroadTime=0;this.controlledShoulderTime=0;this.surface='asphalt';this.onRoad=true;this.collisionThisLap=false;this.offroadThisLap=false;
     }
 
     _lateralExtent(nx,ny){
@@ -192,7 +192,7 @@
       // while true off-road remains deliberately costly for player and AI alike.
       const speedKmh=R.kmhFromWorldSpeed(speed),base=this.physicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(10.5):166,downforce=this.physicsVersion>=2?R.worldAccelerationFromMetersPerSecondSquared(.00010*speedKmh*speedKmh):.00205*speed*speed,brakeLoad=1-.20*clamp(brake,0,1);
       const surfaceGrip=surface==='shoulder'?.92:1;
-      return (base+downforce)*brakeLoad*surfaceGrip;
+      return (base+downforce)*(this.physicsVersion>=2?(1-.12*clamp(brake,0,1))*1.16:brakeLoad)*surfaceGrip;
     }
 
     markImpact(strength=.5){
@@ -201,7 +201,10 @@
 
     _updateDrift(dt,input,track){
       const requestedSteer=clamp(input.steer||0,-1,1),throttle=clamp(input.throttle||0,0,1),brake=clamp(input.brake||0,0,1),handbrake=clamp(input.handbrake||0,0,1);
-      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*15));
+      const dynamic=this.physicsVersion>=2;
+      this.handbrakeInput=dynamic?(this.handbrakeInput||0)+(handbrake-(this.handbrakeInput||0))*(1-Math.exp(-dt*12)):handbrake;
+      const hb=this.handbrakeInput,blend=dynamic?(this.driftBlend||0):1;
+      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*(dynamic?20:15)));
       this.effectTime+=dt;this.gripDisturbance=Math.max(0,(this.gripDisturbance||0)-dt*1.7);
       const steer=this.steerInput;this.steerVisual+=(steer-this.steerVisual)*Math.min(1,dt*12);this.throttleVisual=throttle;this.brakeVisual=Math.max(brake,handbrake*.42);
 
@@ -221,13 +224,13 @@
       // Drift steering deliberately has slower yaw response than the race tyre model.
       // Handbrake unlocks additional yaw only while the car is moving, while the
       // slip-angle self-align term prevents effortless 180-degree spins.
-      const rolling=clamp(mag/(this.physicsVersion>=2?R.worldSpeedFromKmh(62):62),0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55),driftIntent=clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
-      let requestedYaw=steer*this.turnRate*(.23+.50*rolling)*(1+.35*handbrake)*surfaceTurn;
+      const rolling=clamp(mag/(this.physicsVersion>=2?R.worldSpeedFromKmh(62):62),0,1),surfaceTurn=this.surface==='asphalt'?1:(this.surface==='shoulder'?.9:.55),driftIntent=dynamic?clamp(Math.abs(steer)*.50+throttle*.18+hb*.65,0,1):clamp(Math.abs(steer)*.62+throttle*.20+handbrake*.78,0,1);
+      let requestedYaw=steer*this.turnRate*(.23+.50*rolling)*(1+.35*hb)*surfaceTurn;
       // Gentle self-alignment keeps a long controllable slide; once the angle gets too
       // large the recovery rises sharply so a small steering input cannot cause a 180°.
       const alignRate=(handbrake>.05?.78:(2.25-.95*driftIntent))+(absSlip>.72?2.1:0)+(absSlip>.98?5.2:0);
       requestedYaw+=slip*alignRate;
-      const yawCap=(1.12+.37*rolling+.18*handbrake)*surfaceTurn;
+      const yawCap=(1.12+.37*rolling+.18*hb)*surfaceTurn*(dynamic?1.10:1);
       const targetYaw=clamp(requestedYaw,-yawCap,yawCap),yawResponse=handbrake>.05?8.2:9.2;
       this.yawRate=(this.yawRate||0)+(targetYaw-(this.yawRate||0))*(1-Math.exp(-dt*yawResponse));
       if(Math.abs(steer)<.02&&handbrake<.02)this.yawRate*=Math.exp(-dt*1.85);
@@ -252,6 +255,7 @@
       // throttle and handbrake can sustain it, but grip ramps up outside ~45 degrees
       // so the car naturally catches instead of feeling like it is on ice.
       let gripRate=this.surface==='asphalt'?(4.20-3.70*driftIntent):(this.surface==='shoulder'?4.55:1.65/Math.max(.75,track.theme.drag||1));
+      if(dynamic){gripRate=(4.6-3.5*driftIntent)+(1-throttle)*1.6;gripRate=gripRate*blend+(18+8*speedRatio)*(1-blend);}
       gripRate/=this.drift||1;gripRate*=1-.30*(this.gripDisturbance||0);
       const currentSlip=Math.abs(Math.atan2(lateral,Math.abs(longitudinal)+18)),beforeTyreSpeed=Math.hypot(longitudinal,lateral);
       if(currentSlip>.82)gripRate+=7.5*(currentSlip-.82)/.48;
@@ -281,9 +285,14 @@
     }
 
     update(dt,input,track){
-      if(input&&input.drift)return this._updateDrift(dt,input,track);
+      // Retain slip during a short, continuous grip recovery after releasing HB.
+      if(this.physicsVersion>=2){
+        const target=input?.drift?1:0;
+        this.driftBlend=(this.driftBlend||0)+(target-(this.driftBlend||0))*(1-Math.exp(-dt*(target?9:6)));
+        if(target||this.driftBlend>.015)return this._updateDrift(dt,input,track);
+      }else if(input&&input.drift)return this._updateDrift(dt,input,track);
       const requestedSteer=clamp(input.steer||0,-1,1);
-      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*(this.player?22:26)));
+      this.steerInput+=(requestedSteer-this.steerInput)*(1-Math.exp(-dt*(this.physicsVersion>=2?28:(this.player?22:26))));
       this.effectTime+=dt;
       this.gripDisturbance=Math.max(0,(this.gripDisturbance||0)-dt*1.9);
       const steer=this.steerInput,throttle=clamp(input.throttle||0,0,1),brake=clamp(input.brake||0,0,1);
@@ -307,7 +316,7 @@
       const requestedYaw=steer*authority;
       const maxGripYaw=this.lateralAccelerationLimit(mag,this.surface,brake)/Math.max(42,mag);
       const targetYaw=clamp(requestedYaw,-maxGripYaw,maxGripYaw);
-      const yawResponse=this.surface==='asphalt'?(25-4*clamp(speedRatio,0,1)):(this.surface==='shoulder'?20:11);
+      const yawResponse=(this.surface==='asphalt'?(25-4*clamp(speedRatio,0,1)):(this.surface==='shoulder'?20:11))*(this.physicsVersion>=2?1.15:1);
       this.yawRate=(this.yawRate||0)+(targetYaw-(this.yawRate||0))*(1-Math.exp(-dt*yawResponse));
       if(Math.abs(steer)<.012)this.yawRate*=Math.exp(-dt*(this.surface==='asphalt'?20:(this.surface==='shoulder'?15:7)));
       this.angle=angleWrap(this.angle+this.yawRate*dt);
@@ -339,13 +348,14 @@
       // grass temporarily lowers that relaxation, so genuine disturbances can still slide.
       const steeringLoad=Math.abs(targetYaw)*Math.max(55,mag)/Math.max(1,this.lateralAccelerationLimit(mag,this.surface,0));
       let gripRate=this.surface==='asphalt'?(18+13*clamp(speedRatio,0,1)):(this.surface==='shoulder'?(12+10*clamp(speedRatio,0,1)):2.25/Math.max(.75,track.theme.drag||1));
+      if(this.physicsVersion>=2)gripRate*=1.16;
       gripRate*=1-.52*(this.gripDisturbance||0);
       if(brake>.55&&Math.abs(steer)>.35)gripRate*=.82;
       lateral*=Math.exp(-Math.max(.8,gripRate)*dt);
 
       // Scrub represents understeer/tyre load as lost speed rather than visible drift.
       const overload=Math.max(0,steeringLoad-.72);
-      const cornerScrub=(this.surface==='asphalt'?7.5:(this.surface==='shoulder'?8.4:4.5))*(steeringLoad*steeringLoad+overload*2.4);
+      const cornerScrub=(this.surface==='asphalt'?7.5:(this.surface==='shoulder'?8.4:4.5))*(steeringLoad*steeringLoad+overload*2.4)*(this.physicsVersion>=2?.72:1);
       longitudinal=moveToward(longitudinal,0,cornerScrub*dt);
 
       this.vx=hx*longitudinal+rx*lateral;

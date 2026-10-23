@@ -1,0 +1,69 @@
+name: V2.0.2 gameplay QA (no deployment)
+on:
+  push:
+    branches: [feature/v2.0.2-apex-dynamic]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused:
+    if: "!contains(github.event.head_commit.message, '[ui qa]')"
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      BASELINE_DIR: ../baseline
+    defaults:
+      run:
+        working-directory: candidate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: 62ef30e3edfacce6a612035e1bc87e1fcf4544b0
+          path: baseline
+      - run: npm ci --no-audit --no-fund
+      - name: Check generated client/server simulation
+        run: node scripts/build-race-runtime.mjs --check
+      - name: Gameplay metrics, drift and independent replay
+        run: npm run test:v202
+      - name: Startup and reload in WebKit and Chromium
+        run: node tests/frontend_startup_v201.mjs
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v202-focused-${{ github.run_id }}
+          path: candidate/artifacts/
+  visual:
+    if: "contains(github.event.head_commit.message, '[ui qa]')"
+    runs-on: ubuntu-latest
+    container: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      BASELINE_DIR: ../baseline
+    defaults:
+      run:
+        working-directory: candidate
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: candidate
+      - uses: actions/checkout@v4
+        with:
+          ref: 62ef30e3edfacce6a612035e1bc87e1fcf4544b0
+          path: baseline
+      - run: npm ci --no-audit --no-fund
+      - name: Before and after panel layouts in eight mobile browser profiles
+        run: node tests/ui_polish_v202_mobile.mjs
+        env:
+          UI_SCREENS: clans
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v202-visual-${{ github.run_id }}
+          path: candidate/artifacts/

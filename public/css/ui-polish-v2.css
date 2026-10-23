@@ -60,3 +60,43 @@ body.modal-open{overflow:hidden;overscroll-behavior:none}
 @media(max-width:420px){.password-recovery-screen{padding-left:9px;padding-right:9px}.password-recovery-card{padding:17px;border-radius:16px}.account-email-form{padding:10px}}
 
 @media(prefers-reduced-motion:reduce){.overlay:not(.hidden){animation:none!important}.runtime-failure:not(.hidden){animation:none!important}.apex-speed-transition.running{display:none!important;animation:none!important}}
+
+/* 2.0.2: panel headers must not paint a different opaque rectangle over the panel.
+   Remove the old mobile sticky gradient/backdrop on these self-scrolling cards. */
+:is(.account-header,.promo-header,.friends-header,.free-servers-header,.admin-system-header,.root-console-header){
+  position:relative!important;top:auto!important;
+  background:transparent!important;background-image:none!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  box-shadow:none!important;isolation:auto;
+}
+:is(.account-header,.promo-header,.friends-header,.admin-system-header)>div{min-width:0}
+:is(.account-header,.promo-header,.friends-header,.admin-system-header) :is(h2,p,.eyebrow){max-width:100%;overflow-wrap:anywhere}
+.market-price-input{
+  background:#0a1b31!important;overflow:hidden;isolation:isolate;
+  grid-template-columns:minmax(0,1fr) minmax(42px,auto);
+}
+.overlay .market-price-input input{
+  background:transparent!important;background-image:none!important;
+  border:0!important;box-shadow:none!important;border-radius:0!important;
+  width:100%;min-width:0;font-size:16px;min-height:44px;
+  appearance:none;-webkit-appearance:none;outline:none!important;
+}
+.market-price-input input::-webkit-inner-spin-button,.market-price-input input::-webkit-outer-spin-button{appearance:none;-webkit-appearance:none;margin:0}
+.market-trade-form select{
+  appearance:none;-webkit-appearance:none;background-color:#0a1b31!important;
+  background-image:linear-gradient(45deg,transparent 50%,#a8d4f2 50%),linear-gradient(135deg,#a8d4f2 50%,transparent 50%);
+  background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;
+  background-size:5px 5px;background-repeat:no-repeat;padding-right:34px;
+}
+.market-price-input b{
+  display:flex;align-items:center;justify-content:center;align-self:stretch;
+  padding:0 12px;background:transparent;line-height:1;
+}
+.market-price-input:focus-within{outline:2px solid #76d7ff;outline-offset:2px}
+/* The hero contains the clan summary AND full sections; a single flex row
+   used to shrink the map, treasury and tasks beside the emblem. */
+#crewDialog .crew-hero{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}
+#crewDialog .crew-hero>.crew-card{grid-column:1/-1;min-width:0;width:100%}
+@media(orientation:landscape) and (max-height:500px){
+  .market-dialog-card{max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - 16px);overscroll-behavior:contain}
+}
