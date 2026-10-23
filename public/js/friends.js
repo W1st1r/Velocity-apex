@@ -6,7 +6,21 @@
   const outgoingSection=$('friendOutgoingSection'),outgoingList=$('friendOutgoingList'),outgoingCount=$('friendOutgoingCount');
   if(!root)return;
 
-  let friends=[],incomingRequests=[],outgoingRequests=[],busy=false;
+  let friends=[],incomingRequests=[],outgoingRequests=[],busy=false,accountAuthenticated=false;
+
+  function isAuthenticated(){
+    const account=window.VelocityAccount;
+    return !!(account?.ready&&account.authenticated);
+  }
+
+  function handleAccountChange(){
+    if(!window.VelocityAccount?.ready)return;
+    const authenticated=isAuthenticated();
+    if(authenticated===accountAuthenticated)return;
+    accountAuthenticated=authenticated;
+    if(authenticated){load(true);presence();}
+    else{friends=[];incomingRequests=[];outgoingRequests=[];render();}
+  }
 
   async function api(path,opts={}){
     const r=await fetch(path,{credentials:'same-origin',headers:{'content-type':'application/json',...(opts.headers||{})},...opts});
@@ -66,6 +80,11 @@
   }
 
   async function load(silent=false){
+    if(!isAuthenticated()){
+      friends=[];incomingRequests=[];outgoingRequests=[];render();
+      if(!silent)setMessage('Войдите в аккаунт, чтобы использовать друзей.',true);
+      return;
+    }
     try{
       const d=await api('/api/friends');
       friends=d.friends||[];incomingRequests=d.incomingRequests||[];outgoingRequests=d.outgoingRequests||[];
@@ -114,9 +133,11 @@
   $('friendUsername')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();invite();}});
   root.addEventListener('click',e=>{if(e.target===root)close();});
 
-  async function presence(){try{await api('/api/friends/presence',{method:'POST',body:'{}'});await load(true);}catch{}}
+  async function presence(){if(!isAuthenticated())return;try{await api('/api/friends/presence',{method:'POST',body:'{}'});await load(true);}catch{}}
+  window.addEventListener('velocity-account-changed',handleAccountChange);
+  window.addEventListener('velocity-account-entered',handleAccountChange);
   setInterval(presence,45000);
-  setTimeout(()=>{load(true);presence();},1500);
+  setTimeout(handleAccountChange,1500);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)presence();});
 
   window.VelocityFriends={open,close,load,get list(){return friends;},get requests(){return incomingRequests;}};
