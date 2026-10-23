@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import worker from '../src/worker.mjs';
+import {PROTOCOL_VERSION} from '../src/protocol.mjs';
 
 const manifestVersion='2.0.4';
 const assetRequests=[];
@@ -10,7 +11,7 @@ const assets={fetch:async request=>{
 }};
 const response=await worker.fetch(new Request('https://qa.velocity-apex.test/api/health'),{ASSETS:assets},{});
 assert.equal(response.status,200);
-assert.deepEqual(await response.json(),{ok:true,protocol:77,version:manifestVersion});
+assert.deepEqual(await response.json(),{ok:true,protocol:PROTOCOL_VERSION,version:manifestVersion});
 assert.equal(assetRequests.length,1);
 assert.equal(assetRequests[0].headers.get('cache-control'),'no-cache');
 
