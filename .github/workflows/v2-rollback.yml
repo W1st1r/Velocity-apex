@@ -1,9 +1,9 @@
-name: Protected rollback to V2.0.1
+name: Protected rollback to verified V2 versions
 on:
   workflow_dispatch:
     inputs:
       target_version_id:
-        description: Exact verified pre-V2.0.2 Worker version
+        description: Exact verified V2.0.1 or V2.0.2 Worker version
         required: true
         type: string
 permissions:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   rollback:
-    if: github.ref == 'refs/heads/main' && inputs.target_version_id == '361ab350-a0eb-4fd9-afd1-19c551233fdb'
+    if: github.ref == 'refs/heads/main' && (inputs.target_version_id == '361ab350-a0eb-4fd9-afd1-19c551233fdb' || inputs.target_version_id == '78de7942-3b99-400e-b207-9778ef809f6e')
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -35,8 +35,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$TARGET_VERSION_ID" = '361ab350-a0eb-4fd9-afd1-19c551233fdb'
+          case "$TARGET_VERSION_ID" in
+            361ab350-a0eb-4fd9-afd1-19c551233fdb) echo 'ROLLBACK_MESSAGE=Restore V2.0.1 after failed V2.0.2 production smoke' >> "$GITHUB_ENV" ;;
+            78de7942-3b99-400e-b207-9778ef809f6e) echo 'ROLLBACK_MESSAGE=Restore V2.0.2 after failed V2.0.3 production smoke' >> "$GITHUB_ENV" ;;
+            *) exit 1 ;;
+          esac
           test -n "$CLOUDFLARE_API_TOKEN"
           test -n "$CLOUDFLARE_ACCOUNT_ID"
       - name: Restore the previous Worker version only
-        run: npx wrangler rollback "$TARGET_VERSION_ID" --name velocity-apex --message "Restore 2.0.1 after failed 2.0.2 production smoke" --config wrangler.jsonc
+        run: npx wrangler rollback "$TARGET_VERSION_ID" --name velocity-apex --message "$ROLLBACK_MESSAGE" --config wrangler.jsonc
