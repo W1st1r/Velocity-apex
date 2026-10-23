@@ -8,7 +8,7 @@
   "theme": "Race Control Blue",
   "update": "Restore original everyday driving physics while preserving Apex Drift 2.0",
   "released": "2026-10-23",
-  "release": "Candidate: not deployed",
+  "release": "Released: 2026-10-23",
   "history": [
     {
       "version": "V77",
@@ -29,7 +29,7 @@
     },
     {
       "version": "2.0.3",
-      "status": "candidate",
+      "status": "released",
       "summary": "Restore original normal driving physics and retain the 2.0.2 drift model"
     }
   ]

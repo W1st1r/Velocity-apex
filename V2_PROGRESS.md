@@ -239,3 +239,12 @@ Base main 62ef30e3edfacce6a612035e1bc87e1fcf4544b0; checkpoint/pre-v2.0.2-62ef30
 - Protected release run #11 deployed `7e8b94dfe19fb427a012f93b0dd1ba686c20fb04`; WebKit/Chromium live smoke found one mixed-version startup on WebKit iPhone 14 (old V2.0.2 shell, 2.0.3 version manifest; no JS/console errors or failed requests). 15/16 profile repetitions passed; API step correctly did not run after the gate failed.
 - Protected rollback run #5 (`39989164459`) successfully restored Worker version `78de7942-3b99-400e-b207-9778ef809f6e`; production `version.json` and login shell were confirmed at 2.0.2. No D1 migration was run.
 - Static asset routing excluded `/`, `/index.html` and `/version.json` from `run_worker_first`, so Worker no-store headers did not govern the shell. A targeted cache-policy fix and regression test are prepared; PR and repeat release gates remain pending. Details: `V2_0_3_PHYSICS_REPORT.md`.
+
+## V2.0.3 production release — 2026-10-23 UTC
+
+- Protected app-only release #12 (GitHub Actions run `39991084623`) succeeded for main SHA `ee3a44a0174bad520ecb6670b619a901f0f1713d`. Production `/version.json` and the rendered app report 2.0.3.
+- WebKit iPhone 13/14/15/17 landscape and Chromium repeat smoke passed, including reload, profile, garage, Ghost Racing, authority and authenticated API checks. No JavaScript/resource startup failures were reported.
+- D1 backup/restore workflow #3 had succeeded before release. The release was app-only; no D1 migrations ran and production data was not modified.
+- Physics restoration matches `fe9bbb0` ordinary driving metrics for Apex Lime, BMW M5 F90 and Apollo EVO; 36/36 controlled drift traces match V2.0.2. Bot source and economy were unchanged.
+- Remaining user-side check: physical iPhone Safari/installed PWA. Browser device profiles are emulations, not physical-device verification.
+- Follow-up documentation change marks the already-deployed 2.0.3 manifest/report as released; it does not change game logic or database schema.
