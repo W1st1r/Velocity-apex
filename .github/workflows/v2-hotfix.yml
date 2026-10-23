@@ -22,6 +22,7 @@ jobs:
     env:
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       STARTUP_ARTIFACTS: artifacts/startup-v202
+      STARTUP_REPEATS: '3'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -85,6 +86,7 @@ jobs:
         env:
           STARTUP_BASE_URL: https://velocity-apex.maximmanzha20.workers.dev
           STARTUP_ARTIFACTS: artifacts/startup-live-v202
+          STARTUP_REPEATS: '3'
         run: node tests/frontend_startup_v201.mjs
       - name: Verify production API, test-account garage and Ghost Racing read
         env:
