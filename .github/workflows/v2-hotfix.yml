@@ -98,4 +98,5 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
       - name: Record app-only release and smoke result
-        run: echo 'V2.0.2 app-only release smoke passed in WebKit iPhone 13/14/15/17 landscape and Chromium: version, login UI, assets, reload, authenticated profile/garage, Ghost Racing read and authority gate. No D1 migrations executed.' >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "V2.0.2 app-only release smoke passed in WebKit iPhone 13/14/15/17 landscape and Chromium; profile, garage, Ghost Racing and authority gate verified. No D1 migrations executed." >> "$GITHUB_STEP_SUMMARY"
