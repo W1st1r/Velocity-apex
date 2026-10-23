@@ -95,19 +95,23 @@ async function simulate(){
   }finally{rmSync(dir,{recursive:true,force:true});}
 }
 async function exerciseSmoke(){
+  let sessionActive=false;
   const server=createServer(async(req,res)=>{
     const route=new URL(req.url,'http://localhost').pathname,cookie=req.headers.cookie||'';
     const send=(status,body,headers={})=>{res.writeHead(status,{'content-type':'application/json',...headers});res.end(JSON.stringify(body));};
     if(route==='/'&&req.method==='GET'){res.writeHead(200,{'content-type':'text/html'});res.end('<meta name="velocity-apex-version" content="2.0.2">');return;}
     if(route==='/version.json')return send(200,{version:'2.0.2',channel:'production'});
     if(route==='/api/health')return send(200,{ok:true,protocol:77,version:'2.0.2'});
-    if(route==='/api/account/save'&&req.method==='GET')return cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
+    if(route==='/api/auth/me'&&req.method==='GET')return send(200,sessionActive&&cookie.includes('va_session=release-smoke')?{authenticated:true,user:{username:'release-smoke'}}:{authenticated:false});
+    if(route==='/api/account/save'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,save:{credits:300,ownedLiveries:['apexLime']},revision:4}):send(401,{error:'AUTH_REQUIRED'});
+    if(route==='/api/economy/races/ghosts'&&req.method==='GET')return sessionActive&&cookie.includes('va_session=release-smoke')?send(200,{ok:true,own:null,global:[],friends:[]}):send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/economy/races/start')return send(401,{error:'AUTH_REQUIRED'});
     if(route==='/api/auth/login'&&req.method==='POST'){
       let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);
-      return input.username==='release-smoke'&&input.password==='test-secret'?send(200,{ok:true,user:{username:input.username}},{'set-cookie':'va_session=release-smoke; Path=/; HttpOnly'}):send(401,{error:'INVALID_CREDENTIALS'});
+      if(input.username==='release-smoke'&&input.password==='test-secret'){sessionActive=true;return send(200,{ok:true,user:{username:input.username}},{'set-cookie':'va_session=release-smoke; Path=/; HttpOnly'});}
+      return send(401,{error:'INVALID_CREDENTIALS'});
     }
-    if(route==='/api/auth/logout'&&req.method==='POST')return cookie.includes('va_session=release-smoke')?send(200,{ok:true}):send(401,{error:'AUTH_REQUIRED'});
+    if(route==='/api/auth/logout'&&req.method==='POST'&&sessionActive&&cookie.includes('va_session=release-smoke')){sessionActive=false;return send(200,{ok:true});}
     return send(404,{error:'NOT_FOUND'});
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
