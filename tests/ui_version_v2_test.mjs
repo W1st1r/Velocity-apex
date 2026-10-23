@@ -9,7 +9,7 @@ const manifest=JSON.parse(fs.readFileSync(new URL('../public/version.json',impor
 const protocolSource=fs.readFileSync(new URL('../src/protocol.mjs',import.meta.url),'utf8');
 assert.equal(manifest.version,'2.0.4','release identifies V2.0.4');assert.equal(manifest.developmentVersion,'2.0.0-dev');assert.equal(manifest.channel,'production');
 assert.equal(manifest.resourceVersion,'2.0.4');assert.equal(manifest.protocolVersion,Number(protocolSource.match(/PROTOCOL_VERSION\s*=\s*(\d+)/)?.[1]));
-assert.match(html,/meta name="velocity-apex-version" content="2.0.4"/);assert.match(html,/data-app-version>2\.0\.3/);assert.match(html,/app-version\.mjs\?build=2\.0\.3/);
+assert.match(html,/meta name="velocity-apex-version" content="2.0.4"/);assert.match(html,/data-app-version>2\.0\.4/);assert.match(html,/app-version\.mjs\?build=2\.0\.4/);
 assert.ok([...html.matchAll(/(?:src|href)="((?:js|css)\/[^\"]+)"/g)].every(([,asset])=>new URL(asset,'https://local.test/').searchParams.get('build')===manifest.resourceVersion.toLowerCase()),'all linked JS/CSS assets share the same resource cache version');
 assert.doesNotMatch(html,/serviceWorker\.register/,'no unverified service worker cache is introduced');
 assert.match(chat,/className='free-chat-meta'/);assert.match(chat,/free-chat-id/);assert.match(chat,/row\.append\(meta,t\)/);
