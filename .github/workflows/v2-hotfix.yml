@@ -64,6 +64,7 @@ jobs:
         env:
           V77_SMOKE_USERNAME: ${{ secrets.V77_SMOKE_USERNAME }}
           V77_SMOKE_PASSWORD: ${{ secrets.V77_SMOKE_PASSWORD }}
+        shell: bash
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_API_TOKEN"
