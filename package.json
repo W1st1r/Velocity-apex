@@ -29,7 +29,7 @@
     "test:d1-release": "node scripts/d1-release-safety.mjs simulate",
     "version:stamp": "node scripts/stamp-app-version.mjs",
     "test:v202": "node tests/apex_dynamic_v202_test.mjs && node tests/physics_edges_v202_test.mjs && node tests/controls_multitouch_v202_test.mjs && node tests/ghost_playback_v202_test.mjs && node tests/app_version_cache_v202_test.mjs",
-    "test:v203": "node tests/apex_dynamic_v202_test.mjs && node tests/physics_edges_v202_test.mjs && node tests/physics_units_v2_test.mjs && node tests/player_bot_physics_isolation_v2_test.mjs && node tests/physics_smoke.js"
+    "test:v203": "node tests/apex_dynamic_v202_test.mjs && node tests/physics_edges_v202_test.mjs && node tests/physics_units_v2_test.mjs && node tests/player_bot_physics_isolation_v2_test.mjs && node tests/physics_smoke.js && node tests/v203_asset_cache_policy_test.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1",

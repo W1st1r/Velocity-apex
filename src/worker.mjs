@@ -166,7 +166,7 @@ export default {
       if(m[2]==='ws')return stub.fetch(request);
     }
     const asset=await env.ASSETS.fetch(request);
-    if(url.pathname==='/version.json'&&request.method==='GET'){
+    if(['/', '/index.html', '/version.json'].includes(url.pathname)&&['GET','HEAD'].includes(request.method)){
       const headers=new Headers(asset.headers);headers.set('cache-control','no-store, no-cache, must-revalidate, max-age=0');
       return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers});
     }
