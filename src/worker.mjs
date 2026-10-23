@@ -165,7 +165,12 @@ export default {
       if(m[2]==='join'&&request.method==='POST'){const identity=await freeAccountIdentity(env,request);if(identity.response)return identity.response;if(!identity.user)return json({error:'AUTH_REQUIRED'},401);const body=await request.json();return stub.fetch(new Request('https://room.internal/join',{method:'POST',body:JSON.stringify({...body,name:identity.user?'@'+identity.user.username:body.name,userId:identity.user?.id||null,crew:await crewIdentity(env,identity.user?.id),owner:identity.owner===true,media:!!(await mediaRole(env,identity.user?.id)),adminLevel:identity.user?await staffOnlineLevel(env,identity.user.id):0})}));}
       if(m[2]==='ws')return stub.fetch(request);
     }
-    return env.ASSETS.fetch(request);
+    const asset=await env.ASSETS.fetch(request);
+    if(url.pathname==='/version.json'&&request.method==='GET'){
+      const headers=new Headers(asset.headers);headers.set('cache-control','no-store, no-cache, must-revalidate, max-age=0');
+      return new Response(asset.body,{status:asset.status,statusText:asset.statusText,headers});
+    }
+    return asset;
   }
 };
 
